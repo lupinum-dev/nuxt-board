@@ -143,6 +143,48 @@ function importJsonCanvas(): void {
   engine.importJSON(JSON.stringify(snapshot), 'replace')
 }
 
+// ━━ Image upload ━━
+const imageFileInput = ref<HTMLInputElement | null>(null)
+
+function triggerImageUpload(): void {
+  imageFileInput.value?.click()
+}
+
+function onImageFileSelected(event: Event): void {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const src = e.target?.result as string
+    const img = new Image()
+    img.onload = () => {
+      const maxSize = 480
+      const ratio = img.naturalWidth / img.naturalHeight
+      const width = ratio >= 1 ? maxSize : Math.round(maxSize * ratio)
+      const height = ratio >= 1 ? Math.round(maxSize / ratio) : maxSize
+
+      const camera = engine.getSnapshot().camera
+      const viewportEl = document.querySelector('.canvas-root') as HTMLElement | null
+      const vw = viewportEl?.clientWidth ?? 800
+      const vh = viewportEl?.clientHeight ?? 600
+      const worldX = (vw / 2 - camera.x) / camera.z - width / 2
+      const worldY = (vh / 2 - camera.y) / camera.z - height / 2
+      engine.createNode({
+        type: 'image',
+        x: Math.round(worldX),
+        y: Math.round(worldY),
+        width,
+        height,
+        data: { src, alt: file.name }
+      })
+    }
+    img.src = src
+  }
+  reader.readAsDataURL(file)
+  ;(event.target as HTMLInputElement).value = ''
+}
+
 // ━━ Lifecycle ━━
 onMounted(async () => {
   await seedScene(selectedScene.value)
@@ -195,6 +237,15 @@ onMounted(async () => {
       </template>
     </CanvasRoot>
 
+    <!-- Hidden file input for image upload -->
+    <input
+      ref="imageFileInput"
+      type="file"
+      accept="image/*"
+      class="sr-only"
+      @change="onImageFileSelected"
+    />
+
     <!-- Toolbar -->
     <PlaygroundToolbar
       v-model:selected-scene="selectedScene"
@@ -205,6 +256,7 @@ onMounted(async () => {
       v-model:show-panel="showPanel"
       @seed="seedScene(selectedScene)"
       @fit="engine.zoomToFit(40, true)"
+      @add-image="triggerImageUpload"
     />
 
     <!-- Settings panel -->

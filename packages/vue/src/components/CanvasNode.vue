@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from 'vue'
+import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import type { CanvasNode, ResizeHandle } from '@canvas/core'
 import { useCanvasEngine } from '../useCanvasEngine'
 import CanvasNodeHandle from './CanvasNodeHandle.vue'
@@ -8,12 +8,15 @@ const props = defineProps<{
   node: CanvasNode
   selected: boolean
   editing: boolean
+  /** Pass true when a real custom renderer or slot is provided by the parent. */
+  customRenderer?: boolean
 }>()
 
 const slots = useSlots()
 const { engine } = useCanvasEngine()
 const handles: ResizeHandle[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']
 const draft = ref(getTextContent(props.node))
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const style = computed(() => ({
   left: `${props.node.x}px`,
@@ -31,7 +34,11 @@ const slotProps = computed(() => ({
   commitText: (text: string) => engine.commitTextEdit(props.node.id, text)
 }))
 
-const hasCustomRenderer = computed(() => Boolean(slots.default))
+// Use the explicit prop when provided (e.g. from CanvasRoot); fall back to slot detection
+// for direct/standalone usage of CanvasNode.
+const hasCustomRenderer = computed(() =>
+  props.customRenderer !== undefined ? props.customRenderer : Boolean(slots.default)
+)
 
 watch(
   () => props.node,
@@ -44,7 +51,12 @@ watch(
 watch(
   () => props.editing,
   (editing) => {
-    if (!editing) {
+    if (editing) {
+      nextTick(() => {
+        textareaRef.value?.focus()
+        textareaRef.value?.select()
+      })
+    } else {
       draft.value = getTextContent(props.node)
     }
   }
@@ -75,9 +87,14 @@ function getTextContent(node: CanvasNode): string {
     :style="style"
     :data-node-id="node.id"
   >
-    <slot v-bind="slotProps">
+    <!-- Custom renderer / user-provided slot -->
+    <slot v-if="hasCustomRenderer" v-bind="slotProps" />
+
+    <!-- Built-in text display / editing (no custom renderer) -->
+    <template v-else>
       <textarea
-        v-if="editing && !hasCustomRenderer && node.type === 'text'"
+        v-if="editing && node.type === 'text'"
+        ref="textareaRef"
         v-model="draft"
         class="canvas-node__editor"
         data-editor="true"
@@ -94,7 +111,7 @@ function getTextContent(node: CanvasNode): string {
           {{ node.type }}
         </template>
       </div>
-    </slot>
+    </template>
 
     <template v-if="selected && !editing && !node.locked">
       <slot

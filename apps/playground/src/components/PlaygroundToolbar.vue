@@ -9,6 +9,7 @@ const showPanel = defineModel<boolean>('showPanel', { required: true })
 const emit = defineEmits<{
   seed: []
   fit: []
+  addImage: []
 }>()
 
 const btn = 'flex items-center justify-center h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
@@ -64,6 +65,17 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
 
     <button :class="[btn, btnOff]" @click="emit('fit')">Fit</button>
+
+    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+
+    <!-- Add image -->
+    <button :class="[sq, btnOff]" title="Add image" @click="emit('addImage')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1.5" y="3" width="13" height="10" rx="1.5" />
+        <circle cx="5.5" cy="6.5" r="1" />
+        <path d="M1.5 11l3.5-3.5 2.5 2.5 2-2 4 4" />
+      </svg>
+    </button>
 
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
 

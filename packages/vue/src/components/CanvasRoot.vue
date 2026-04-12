@@ -440,6 +440,12 @@ function resolveRenderer(node: CanvasNodeState): Component | null {
   return renderersRef.value[node.type] ?? props.fallbackRenderer
 }
 
+function hasCustomContentForNode(node: CanvasNodeState): boolean {
+  return Boolean(resolveRenderer(node)) ||
+    Boolean(slots[`node:${node.type}`]) ||
+    Boolean(slots['node'])
+}
+
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
@@ -490,6 +496,7 @@ onBeforeUnmount(() => {
           :node="node"
           :selected="selectionSet.has(node.id)"
           :editing="snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id"
+          :custom-renderer="hasCustomContentForNode(node)"
         >
           <template #default="slotProps">
             <slot :name="`node:${node.type}`" v-bind="slotProps">

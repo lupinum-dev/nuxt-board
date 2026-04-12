@@ -6,17 +6,33 @@ defineProps<{
   selected: boolean
 }>()
 
-function getAlt(node: CanvasNode): string {
-  return String((node.data as Record<string, unknown>).alt ?? 'Untitled asset')
+function getData(node: CanvasNode): { src?: string; alt?: string } {
+  return node.data as { src?: string; alt?: string }
 }
 </script>
 
 <template>
   <div
-    class="flex flex-col gap-2 size-full p-3.5 bg-stone-100 font-sans text-[13px] text-stone-600"
-    :class="{ 'ring-2 ring-teal-600': selected }"
+    class="relative size-full overflow-hidden rounded-[inherit]"
+    :class="{ 'ring-2 ring-teal-600 ring-inset': selected }"
   >
-    <strong class="font-semibold text-stone-900">Image</strong>
-    <span>{{ getAlt(node) }}</span>
+    <img
+      v-if="getData(node).src"
+      :src="getData(node).src"
+      :alt="getData(node).alt ?? 'Image'"
+      class="size-full object-cover"
+      draggable="false"
+    />
+    <div
+      v-else
+      class="flex flex-col items-center justify-center gap-2 size-full bg-stone-100 font-sans text-[13px] text-stone-400"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+      <span>{{ getData(node).alt ?? 'No image' }}</span>
+    </div>
   </div>
 </template>
