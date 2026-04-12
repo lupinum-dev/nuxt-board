@@ -12,13 +12,14 @@ defineProps<{
 
 <style scoped>
 .canvas-node-handle {
-  --_size: calc(10px / var(--canvas-zoom, 1));
+  --_size: calc(12px / var(--canvas-zoom, 1));
   --_half: calc(var(--_size) / 2);
   position: absolute;
   width: var(--_size);
   height: var(--_size);
-  border: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
+  border: calc(2px / var(--canvas-zoom, 1)) solid currentColor;
   background: #fff;
+  box-shadow: 0 0 0 calc(1px / var(--canvas-zoom, 1)) rgba(0, 0, 0, 0.2);
 }
 
 .is-n,

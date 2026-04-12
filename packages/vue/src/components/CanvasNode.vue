@@ -139,7 +139,7 @@ function getTextContent(node: CanvasNode): string {
 }
 
 .canvas-node.is-selected {
-  outline: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
+  outline: calc(3px / var(--canvas-zoom, 1)) solid currentColor;
 }
 
 .canvas-node.is-locked {
