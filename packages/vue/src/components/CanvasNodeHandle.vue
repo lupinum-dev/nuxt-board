@@ -12,44 +12,46 @@ defineProps<{
 
 <style scoped>
 .canvas-node-handle {
+  --_size: calc(10px / var(--canvas-zoom, 1));
+  --_half: calc(var(--_size) / 2);
   position: absolute;
-  width: 10px;
-  height: 10px;
-  border: 1px solid currentColor;
+  width: var(--_size);
+  height: var(--_size);
+  border: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
   background: #fff;
 }
 
 .is-n,
 .is-s {
-  left: calc(50% - 5px);
+  left: calc(50% - var(--_half));
 }
 
 .is-e,
 .is-w {
-  top: calc(50% - 5px);
+  top: calc(50% - var(--_half));
 }
 
 .is-n,
 .is-ne,
 .is-nw {
-  top: -5px;
+  top: calc(-1 * var(--_half));
 }
 
 .is-s,
 .is-se,
 .is-sw {
-  bottom: -5px;
+  bottom: calc(-1 * var(--_half));
 }
 
 .is-e,
 .is-ne,
 .is-se {
-  right: -5px;
+  right: calc(-1 * var(--_half));
 }
 
 .is-w,
 .is-nw,
 .is-sw {
-  left: -5px;
+  left: calc(-1 * var(--_half));
 }
 </style>

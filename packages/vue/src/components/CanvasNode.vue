@@ -132,14 +132,14 @@ function getTextContent(node: CanvasNode): string {
   position: absolute;
   box-sizing: border-box;
   overflow: visible;
-  border: 1px solid currentColor;
+  border: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
   color: #0f172a;
   background: #fff;
   contain: layout style;
 }
 
 .canvas-node.is-selected {
-  outline: 1px solid currentColor;
+  outline: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
 }
 
 .canvas-node.is-locked {
@@ -149,6 +149,7 @@ function getTextContent(node: CanvasNode): string {
 .canvas-node.is-group {
   background: transparent;
   border: none;
+  outline: none;
 }
 
 .canvas-node__content,
