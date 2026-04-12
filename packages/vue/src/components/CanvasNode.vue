@@ -118,7 +118,7 @@ function getTextContent(node: CanvasNode): string {
   border: 1px solid currentColor;
   color: #0f172a;
   background: #fff;
-  contain: layout style paint;
+  contain: layout style;
 }
 
 .canvas-node.is-selected {
