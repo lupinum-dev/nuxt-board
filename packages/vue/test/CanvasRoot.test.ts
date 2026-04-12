@@ -167,6 +167,44 @@ describe('CanvasRoot', () => {
     expect(root.attributes('data-grid-major')).not.toBe(majorBefore)
   })
 
+  it('supports hiding the raster grid with a prop', () => {
+    const engine = createCanvasEngine()
+    const wrapper = mount(CanvasRoot, {
+      props: { engine, grid: false },
+      attachTo: document.body
+    })
+
+    expect(wrapper.attributes('data-grid-visible')).toBe('false')
+    expect(wrapper.find('.canvas-root__grid').exists()).toBe(false)
+  })
+
+  it('applies grid prop overrides to engine settings', async () => {
+    const engine = createCanvasEngine()
+    const wrapper = mount(CanvasRoot, {
+      props: {
+        engine,
+        grid: {
+          size: 24,
+          majorEvery: 4,
+          snap: false,
+          minorOpacity: 0.2,
+          majorOpacity: 0.3,
+          fadeEdges: false
+        }
+      },
+      attachTo: document.body
+    })
+
+    await wrapper.vm.$nextTick()
+
+    expect(engine.getSnapshot().grid).toMatchObject({
+      size: 24,
+      majorEvery: 4,
+      snap: false
+    })
+    expect(wrapper.find('.canvas-root').attributes('data-grid-minor')).toBe('24px')
+  })
+
   it('suppresses drag transitions while editing text', async () => {
     const engine = createCanvasEngine()
     const node = engine.createNode({ x: 20, y: 20, text: 'Editable' })

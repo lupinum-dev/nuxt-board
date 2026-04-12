@@ -1,14 +1,12 @@
-import { type CanvasEngine, type CanvasEngineSnapshot, type ResizeHandle } from '@canvas/core';
-type __VLS_Props = {
-    engine?: CanvasEngine;
-    debug?: boolean;
-    cullMargin?: number;
-};
+import { type PropType } from 'vue';
+import { type CanvasGridSettings, type CanvasEngine, type CanvasEngineSnapshot, type ResizeHandle } from '@canvas/core';
+import { type CanvasGridOptions } from '../grid';
 declare var __VLS_4: {
     engine: CanvasEngine;
     snapshot: CanvasEngineSnapshot;
     debugState: {
         camera: import("@canvas/core").Camera;
+        grid: CanvasGridSettings;
         selection: string[];
         interaction: import("@canvas/core").InteractionState;
         visibleNodeCount: number;
@@ -39,6 +37,11 @@ declare var __VLS_4: {
                     y: number;
                     z: number;
                 };
+                grid: {
+                    size: number;
+                    majorEvery: number;
+                    snap: boolean;
+                };
                 nodes: {
                     id: import("@canvas/core").NodeId;
                     x: number;
@@ -62,7 +65,11 @@ declare var __VLS_4: {
                     mode: "dragging-node";
                     pointerId: number;
                     nodeId: import("@canvas/core").NodeId;
-                    lastScreenPoint: {
+                    startScreenPoint: {
+                        x: number;
+                        y: number;
+                    };
+                    startNodePosition: {
                         x: number;
                         y: number;
                     };
@@ -103,7 +110,11 @@ declare var __VLS_4: {
                 mode: "dragging-node";
                 pointerId: number;
                 nodeId: import("@canvas/core").NodeId;
-                lastScreenPoint: {
+                startScreenPoint: {
+                    x: number;
+                    y: number;
+                };
+                startNodePosition: {
                     x: number;
                     y: number;
                 };
@@ -144,10 +155,28 @@ declare var __VLS_4: {
 type __VLS_Slots = {} & {
     default?: (props: typeof __VLS_4) => any;
 };
-declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {
+declare const __VLS_component: import("vue").DefineComponent<import("vue").ExtractPropTypes<{
+    engine: {
+        type: PropType<CanvasEngine | undefined>;
+        default: undefined;
+    };
+    debug: {
+        type: BooleanConstructor;
+        default: boolean;
+    };
+    cullMargin: {
+        type: NumberConstructor;
+        default: number;
+    };
+    grid: {
+        type: PropType<boolean | CanvasGridOptions>;
+        default: boolean;
+    };
+}>, {
     engine: CanvasEngine;
     debugState: import("vue").ComputedRef<{
         camera: import("@canvas/core").Camera;
+        grid: CanvasGridSettings;
         selection: string[];
         interaction: import("@canvas/core").InteractionState;
         visibleNodeCount: number;
@@ -178,6 +207,11 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {
                     y: number;
                     z: number;
                 };
+                grid: {
+                    size: number;
+                    majorEvery: number;
+                    snap: boolean;
+                };
                 nodes: {
                     id: import("@canvas/core").NodeId;
                     x: number;
@@ -201,7 +235,11 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {
                     mode: "dragging-node";
                     pointerId: number;
                     nodeId: import("@canvas/core").NodeId;
-                    lastScreenPoint: {
+                    startScreenPoint: {
+                        x: number;
+                        y: number;
+                    };
+                    startNodePosition: {
                         x: number;
                         y: number;
                     };
@@ -242,7 +280,11 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {
                 mode: "dragging-node";
                 pointerId: number;
                 nodeId: import("@canvas/core").NodeId;
-                lastScreenPoint: {
+                startScreenPoint: {
+                    x: number;
+                    y: number;
+                };
+                startNodePosition: {
                     x: number;
                     y: number;
                 };
@@ -281,13 +323,31 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {
     }>;
 }, {}, {}, {}, import("vue").ComponentOptionsMixin, import("vue").ComponentOptionsMixin, {
     ready: (engine: CanvasEngine) => any;
-}, string, import("vue").PublicProps, Readonly<__VLS_Props> & Readonly<{
+}, string, import("vue").PublicProps, Readonly<import("vue").ExtractPropTypes<{
+    engine: {
+        type: PropType<CanvasEngine | undefined>;
+        default: undefined;
+    };
+    debug: {
+        type: BooleanConstructor;
+        default: boolean;
+    };
+    cullMargin: {
+        type: NumberConstructor;
+        default: number;
+    };
+    grid: {
+        type: PropType<boolean | CanvasGridOptions>;
+        default: boolean;
+    };
+}>> & Readonly<{
     onReady?: ((engine: CanvasEngine) => any) | undefined;
 }>, {
-    engine: CanvasEngine;
+    engine: CanvasEngine | undefined;
     cullMargin: number;
     debug: boolean;
-}, {}, {}, {}, string, import("vue").ComponentProvideOptions, false, {}, any>;
+    grid: boolean | CanvasGridOptions;
+}, {}, {}, {}, string, import("vue").ComponentProvideOptions, true, {}, any>;
 declare const _default: __VLS_WithSlots<typeof __VLS_component, __VLS_Slots>;
 export default _default;
 type __VLS_WithSlots<T, S> = T & {

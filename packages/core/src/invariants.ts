@@ -1,8 +1,12 @@
-import type { BoardState, CanvasEngineSnapshot, InvariantFailure } from './types'
+import type { BoardState, CanvasEngineSnapshot, CanvasGridSettings, InvariantFailure } from './types'
 
-export function createInvariantSnapshot(state: BoardState): CanvasEngineSnapshot {
+export function createInvariantSnapshot(
+  state: BoardState,
+  grid: CanvasGridSettings = { size: 0, majorEvery: 0, snap: false }
+): CanvasEngineSnapshot {
   return {
     camera: { ...state.camera },
+    grid,
     nodes: Array.from(state.nodes.values())
       .map((node) => ({ ...node }))
       .sort((a, b) => a.zIndex - b.zIndex),
@@ -25,7 +29,8 @@ function cloneInteraction(state: BoardState['interaction']): BoardState['interac
         mode: 'dragging-node',
         pointerId: state.pointerId,
         nodeId: state.nodeId,
-        lastScreenPoint: { ...state.lastScreenPoint }
+        startScreenPoint: { ...state.startScreenPoint },
+        startNodePosition: { ...state.startNodePosition }
       }
     case 'resizing-node':
       return {
@@ -39,9 +44,13 @@ function cloneInteraction(state: BoardState['interaction']): BoardState['interac
   }
 }
 
-export function validateState(state: BoardState, context: string): InvariantFailure[] {
+export function validateState(
+  state: BoardState,
+  context: string,
+  grid: CanvasGridSettings = { size: 0, majorEvery: 0, snap: false }
+): InvariantFailure[] {
   const failures: InvariantFailure[] = []
-  const snapshot = createInvariantSnapshot(state)
+  const snapshot = createInvariantSnapshot(state, grid)
 
   const push = (name: string, message: string) => {
     failures.push({ name, message, context, snapshot })
@@ -49,6 +58,14 @@ export function validateState(state: BoardState, context: string): InvariantFail
 
   if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
     push('camera.finite', 'Camera values must always be finite numbers.')
+  }
+
+  if (!Number.isFinite(grid.size) || grid.size <= 0) {
+    push('grid.size', 'Grid size must be a finite number greater than 0.')
+  }
+
+  if (!Number.isFinite(grid.majorEvery) || grid.majorEvery < 1) {
+    push('grid.majorEvery', 'Grid majorEvery must be a finite number greater than or equal to 1.')
   }
 
   const zIndexes = new Set<number>()

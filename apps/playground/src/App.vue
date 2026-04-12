@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { createCanvasEngine } from '@canvas/core'
 import { CanvasRoot } from '@canvas/vue'
 
@@ -10,6 +10,17 @@ const engine = createCanvasEngine({
 
 const benchmarkResult = ref('idle')
 const selectedScene = ref<100 | 500 | 1000>(100)
+const showGrid = ref(true)
+const snapToGrid = ref(true)
+const gridSize = ref<10 | 20 | 40>(10)
+const majorEvery = ref<4 | 5 | 8>(5)
+
+const gridOptions = computed(() => ({
+  visible: showGrid.value,
+  snap: snapToGrid.value,
+  size: gridSize.value,
+  majorEvery: majorEvery.value
+}))
 
 function seedScene(count: number): void {
   const snapshot = engine.getSnapshot()
@@ -82,6 +93,34 @@ onMounted(() => {
         </select>
       </label>
 
+      <label class="control">
+        <span>Grid size</span>
+        <select v-model="gridSize">
+          <option :value="10">10 px</option>
+          <option :value="20">20 px</option>
+          <option :value="40">40 px</option>
+        </select>
+      </label>
+
+      <label class="control">
+        <span>Major line every</span>
+        <select v-model="majorEvery">
+          <option :value="4">4 cells</option>
+          <option :value="5">5 cells</option>
+          <option :value="8">8 cells</option>
+        </select>
+      </label>
+
+      <label class="toggle">
+        <input v-model="showGrid" type="checkbox" />
+        <span>Show raster grid</span>
+      </label>
+
+      <label class="toggle">
+        <input v-model="snapToGrid" type="checkbox" />
+        <span>Snap cards to grid</span>
+      </label>
+
       <div class="button-row">
         <button type="button" @click="seedScene(selectedScene)">Seed Scene</button>
         <button type="button" @click="runBenchmark">Run Benchmark</button>
@@ -93,11 +132,12 @@ onMounted(() => {
         <li>Double-click a card to edit text.</li>
         <li>Left-drag the background or hold middle mouse anywhere to pan.</li>
         <li>Pinch or Ctrl/Cmd+wheel to zoom against the raster grid.</li>
+        <li>Cards now snap to the fixed world grid while creating, dragging, and resizing.</li>
       </ul>
     </aside>
 
     <section class="playground-canvas">
-      <CanvasRoot :engine="engine" debug>
+      <CanvasRoot :engine="engine" :grid="gridOptions" debug>
         <template #default="{ debugState }">
           <aside class="debug-overlay">
             <h2>Diagnostics</h2>
@@ -117,6 +157,10 @@ onMounted(() => {
               <div>
                 <dt>Visible</dt>
                 <dd>{{ debugState.visibleNodeCount }}</dd>
+              </div>
+              <div>
+                <dt>Grid</dt>
+                <dd>{{ debugState.grid.size }} / {{ debugState.grid.size * debugState.grid.majorEvery }} snap {{ debugState.grid.snap ? 'on' : 'off' }}</dd>
               </div>
               <div>
                 <dt>Renders</dt>
@@ -201,6 +245,13 @@ h1 {
 .control {
   display: grid;
   gap: 8px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
 }
 
 .control select,

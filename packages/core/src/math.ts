@@ -11,6 +11,24 @@ export function screenToWorld(screenPoint: Point, camera: Camera): Point {
   }
 }
 
+export function snapValue(value: number, step: number): number {
+  if (step <= 0) {
+    return value
+  }
+  return Math.round(value / step) * step
+}
+
+export function snapPoint(point: Point, step: number): Point {
+  return {
+    x: snapValue(point.x, step),
+    y: snapValue(point.y, step)
+  }
+}
+
+export function snapSize(value: number, step: number, min: number): number {
+  return Math.max(min, snapValue(value, step))
+}
+
 export function worldToScreen(worldPoint: Point, camera: Camera): Point {
   return {
     x: (worldPoint.x + camera.x) * camera.z,

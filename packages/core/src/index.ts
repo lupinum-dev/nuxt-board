@@ -1,6 +1,6 @@
 export { createCanvasEngine } from './engine'
-export { clamp, getVisibleBounds, screenToWorld, worldToScreen, zoomCameraAtScreenPoint } from './math'
-export { applyResizeDelta } from './resize'
+export { clamp, getVisibleBounds, screenToWorld, snapPoint, snapSize, snapValue, worldToScreen, zoomCameraAtScreenPoint } from './math'
+export { applyResizeDelta, snapResizedBounds } from './resize'
 export type {
   BoardState,
   Camera,
@@ -8,6 +8,7 @@ export type {
   CanvasEngine,
   CanvasEngineOptions,
   CanvasEngineSnapshot,
+  CanvasGridSettings,
   CanvasNode,
   InteractionMode,
   InteractionState,

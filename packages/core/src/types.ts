@@ -11,6 +11,12 @@ export interface Camera {
   z: number
 }
 
+export interface CanvasGridSettings {
+  size: number
+  majorEvery: number
+  snap: boolean
+}
+
 export interface CanvasNode {
   id: NodeId
   x: number
@@ -51,7 +57,8 @@ export interface DragInteractionState {
   mode: 'dragging-node'
   pointerId: number
   nodeId: NodeId
-  lastScreenPoint: Point
+  startScreenPoint: Point
+  startNodePosition: Pick<CanvasNode, 'x' | 'y'>
 }
 
 export interface ResizeInteractionState {
@@ -85,6 +92,7 @@ export interface BoardState {
 
 export interface CanvasEngineSnapshot {
   camera: Camera
+  grid: CanvasGridSettings
   nodes: CanvasNode[]
   selection: NodeId[]
   interaction: InteractionState
@@ -98,6 +106,9 @@ export interface CanvasEngineOptions {
   minNodeHeight?: number
   defaultNodeWidth?: number
   defaultNodeHeight?: number
+  gridSize?: number
+  majorGridEvery?: number
+  snapToGrid?: boolean
   traceLimit?: number
   diagnostics?: boolean
   strictInvariants?: boolean
@@ -157,6 +168,8 @@ export type CanvasDiagnosticsEvent =
 export interface CanvasEngine {
   getState(): Readonly<BoardState>
   getSnapshot(): CanvasEngineSnapshot
+  getGridSettings(): CanvasGridSettings
+  updateGridSettings(patch: Partial<CanvasGridSettings>): CanvasGridSettings
   subscribe(listener: (event: CanvasDiagnosticsEvent) => void): () => void
   exportTrace(): CanvasDiagnosticsEvent[]
   screenToWorld(screenPoint: Point): Point

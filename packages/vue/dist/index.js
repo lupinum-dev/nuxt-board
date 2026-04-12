@@ -1,301 +1,350 @@
-import { inject as ie, defineComponent as R, useTemplateRef as re, ref as x, computed as b, watch as D, nextTick as ce, onMounted as W, onUpdated as le, openBlock as y, createElementBlock as S, normalizeStyle as T, normalizeClass as N, withDirectives as se, withKeys as P, withModifiers as $, vModelText as de, toDisplayString as ue, Fragment as F, renderList as H, createElementVNode as B, createCommentVNode as me, createBlock as pe, unref as k, shallowRef as fe, provide as ge, onBeforeUnmount as ve, createVNode as xe, renderSlot as ye } from "vue";
-import { getVisibleBounds as he, createCanvasEngine as we } from "@canvas/core";
-const U = /* @__PURE__ */ Symbol("canvas-engine");
-function A() {
-  const i = ie(U);
-  if (!i)
+import { inject as de, defineComponent as M, useTemplateRef as ue, ref as x, computed as w, watch as j, nextTick as me, onMounted as L, onUpdated as pe, openBlock as g, createElementBlock as b, normalizeStyle as N, normalizeClass as D, withDirectives as ve, withKeys as O, withModifiers as P, vModelText as fe, toDisplayString as ge, Fragment as U, renderList as F, createElementVNode as H, createCommentVNode as W, createBlock as ye, unref as _, shallowRef as xe, provide as be, onBeforeUnmount as he, createVNode as we, renderSlot as Ee } from "vue";
+import { getVisibleBounds as Se, createCanvasEngine as Ce } from "@canvas/core";
+const q = /* @__PURE__ */ Symbol("canvas-engine"), C = {
+  visible: !0,
+  minorOpacity: 0.14,
+  majorOpacity: 0.18,
+  fadeEdges: !0
+};
+function J() {
+  const r = de(q);
+  if (!r)
     throw new Error("useCanvasEngine must be used under <CanvasRoot>.");
-  return i;
+  return r;
 }
-const Se = ["data-node-id"], Ce = ["onKeydown"], be = {
+const ze = ["data-node-id"], _e = ["onKeydown"], je = {
   key: 1,
   class: "canvas-node-card__content"
-}, _e = ["data-resize"], Ie = /* @__PURE__ */ R({
+}, Ie = ["data-resize"], ke = /* @__PURE__ */ M({
   __name: "CanvasNodeCard",
   props: {
     node: {},
     selected: { type: Boolean },
     editing: { type: Boolean }
   },
-  setup(i) {
-    const a = i, { engine: c, renderStats: p } = A(), f = re("textarea"), r = x(a.node.text), t = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], o = b(() => ({
-      left: `${a.node.x}px`,
-      top: `${a.node.y}px`,
-      width: `${a.node.width}px`,
-      height: `${a.node.height}px`,
-      zIndex: String(a.node.zIndex)
+  setup(r) {
+    const o = r, { engine: l, renderStats: d } = J(), f = ue("textarea"), s = x(o.node.text), n = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], a = w(() => ({
+      left: `${o.node.x}px`,
+      top: `${o.node.y}px`,
+      width: `${o.node.width}px`,
+      height: `${o.node.height}px`,
+      zIndex: String(o.node.zIndex)
     }));
-    D(
-      () => a.editing,
-      async (g) => {
-        if (!g) {
-          r.value = a.node.text;
+    j(
+      () => o.editing,
+      async (y) => {
+        if (!y) {
+          s.value = o.node.text;
           return;
         }
-        await ce(), f.value?.focus(), f.value?.select();
+        await me(), f.value?.focus(), f.value?.select();
       },
       { immediate: !0 }
-    ), D(
-      () => a.node.text,
-      (g) => {
-        a.editing || (r.value = g);
+    ), j(
+      () => o.node.text,
+      (y) => {
+        o.editing || (s.value = y);
       }
     );
-    function s() {
-      c.commitTextEdit(a.node.id, r.value);
+    function c() {
+      l.commitTextEdit(o.node.id, s.value);
     }
-    function u() {
-      r.value = a.node.text, c.endInteraction();
+    function m() {
+      s.value = o.node.text, l.endInteraction();
     }
-    return W(p.incrementRenderCount), le(p.incrementRenderCount), (g, h) => (y(), S("article", {
-      class: N(["canvas-node-card", { "is-selected": i.selected, "is-editing": i.editing }]),
-      style: T(o.value),
-      "data-node-id": i.node.id
+    return L(d.incrementRenderCount), pe(d.incrementRenderCount), (y, h) => (g(), b("article", {
+      class: D(["canvas-node-card", { "is-selected": r.selected, "is-editing": r.editing }]),
+      style: N(a.value),
+      "data-node-id": r.node.id
     }, [
-      i.editing ? se((y(), S("textarea", {
+      r.editing ? ve((g(), b("textarea", {
         key: 0,
         ref_key: "textarea",
         ref: f,
-        "onUpdate:modelValue": h[0] || (h[0] = (m) => r.value = m),
+        "onUpdate:modelValue": h[0] || (h[0] = (p) => s.value = p),
         class: "canvas-node-card__editor",
         "data-editor": "true",
-        onBlur: s,
+        onBlur: c,
         onKeydown: [
-          P($(s, ["meta", "prevent"]), ["enter"]),
-          P($(s, ["ctrl", "prevent"]), ["enter"]),
-          P($(u, ["prevent"]), ["esc"])
+          O(P(c, ["meta", "prevent"]), ["enter"]),
+          O(P(c, ["ctrl", "prevent"]), ["enter"]),
+          O(P(m, ["prevent"]), ["esc"])
         ]
-      }, null, 40, Ce)), [
-        [de, r.value]
-      ]) : (y(), S("div", be, ue(i.node.text || "Double-click to edit"), 1)),
-      i.selected && !i.editing ? (y(), S(F, { key: 2 }, H(t, (m) => B("div", {
-        key: m,
-        class: N(["canvas-node-card__handle", `is-${m}`]),
-        "data-resize": m
-      }, null, 10, _e)), 64)) : me("", !0)
-    ], 14, Se));
+      }, null, 40, _e)), [
+        [fe, s.value]
+      ]) : (g(), b("div", je, ge(r.node.text || "Double-click to edit"), 1)),
+      r.selected && !r.editing ? (g(), b(U, { key: 2 }, F(n, (p) => H("div", {
+        key: p,
+        class: D(["canvas-node-card__handle", `is-${p}`]),
+        "data-resize": p
+      }, null, 10, Ie)), 64)) : W("", !0)
+    ], 14, ze));
   }
-}), V = (i, a) => {
-  const c = i.__vccOpts || i;
-  for (const [p, f] of a)
-    c[p] = f;
-  return c;
-}, ke = /* @__PURE__ */ V(Ie, [["__scopeId", "data-v-d7d22ae7"]]), ze = /* @__PURE__ */ R({
+}), B = (r, o) => {
+  const l = r.__vccOpts || r;
+  for (const [d, f] of o)
+    l[d] = f;
+  return l;
+}, $e = /* @__PURE__ */ B(ke, [["__scopeId", "data-v-d7d22ae7"]]), Oe = /* @__PURE__ */ M({
   __name: "CanvasViewport",
   props: {
     cullMargin: { default: 200 }
   },
-  setup(i) {
-    const a = i, { snapshot: c, viewportSize: p, renderStats: f } = A(), r = b(() => ({
-      transform: `scale(${c.value.camera.z}) translate(${c.value.camera.x}px, ${c.value.camera.y}px)`
-    })), t = b(() => {
-      const o = he(p.value.x, p.value.y, c.value.camera);
-      return c.value.nodes.filter((s) => s.x + s.width > o.minX - a.cullMargin && s.x < o.maxX + a.cullMargin && s.y + s.height > o.minY - a.cullMargin && s.y < o.maxY + a.cullMargin);
+  setup(r) {
+    const o = r, { snapshot: l, viewportSize: d, renderStats: f } = J(), s = w(() => ({
+      transform: `scale(${l.value.camera.z}) translate(${l.value.camera.x}px, ${l.value.camera.y}px)`
+    })), n = w(() => {
+      const a = Se(d.value.x, d.value.y, l.value.camera);
+      return l.value.nodes.filter((c) => c.x + c.width > a.minX - o.cullMargin && c.x < a.maxX + o.cullMargin && c.y + c.height > a.minY - o.cullMargin && c.y < a.maxY + o.cullMargin);
     });
-    return D(
-      t,
-      (o) => {
-        f.setVisibleNodeCount(o.length);
+    return j(
+      n,
+      (a) => {
+        f.setVisibleNodeCount(a.length);
       },
       { immediate: !0 }
-    ), (o, s) => (y(), S("div", {
+    ), (a, c) => (g(), b("div", {
       class: "canvas-viewport",
-      style: T(r.value)
+      style: N(s.value)
     }, [
-      (y(!0), S(F, null, H(t.value, (u) => (y(), pe(ke, {
-        key: u.id,
-        node: u,
-        selected: k(c).selection.includes(u.id),
-        editing: k(c).interaction.mode === "editing-text" && k(c).interaction.nodeId === u.id
+      (g(!0), b(U, null, F(n.value, (m) => (g(), ye($e, {
+        key: m.id,
+        node: m,
+        selected: _(l).selection.includes(m.id),
+        editing: _(l).interaction.mode === "editing-text" && _(l).interaction.nodeId === m.id
       }, null, 8, ["node", "selected", "editing"]))), 128))
     ], 4));
   }
-}), Ee = /* @__PURE__ */ V(ze, [["__scopeId", "data-v-3a489015"]]), Me = ["data-grid-minor", "data-grid-major"], Pe = /* @__PURE__ */ R({
+}), Pe = /* @__PURE__ */ B(Oe, [["__scopeId", "data-v-3a489015"]]), De = ["data-grid-visible", "data-grid-minor", "data-grid-major"], Me = /* @__PURE__ */ M({
   __name: "CanvasRoot",
   props: {
-    engine: { default: void 0 },
-    debug: { type: Boolean, default: !1 },
-    cullMargin: { default: 200 }
+    engine: {
+      type: Object,
+      default: void 0
+    },
+    debug: {
+      type: Boolean,
+      default: !1
+    },
+    cullMargin: {
+      type: Number,
+      default: 200
+    },
+    grid: {
+      type: [Boolean, Object],
+      default: !0
+    }
   },
   emits: ["ready"],
-  setup(i, { expose: a, emit: c }) {
-    const p = i, f = c, r = x(null), t = p.engine ?? we(), o = fe(t.getSnapshot()), s = x({ x: 0, y: 0 }), u = x(0), g = x(0), h = x(null), m = x(null), z = x([]), Y = {
-      visibleNodeCount: u,
-      renderCount: g,
+  setup(r, { expose: o, emit: l }) {
+    const d = r, f = l, s = x(null), n = d.engine ?? Ce(), a = xe(n.getSnapshot()), c = x({ x: 0, y: 0 }), m = x(0), y = x(0), h = x(null), p = x(null), I = x([]), T = {
+      visibleNodeCount: m,
+      renderCount: y,
       lastPerformanceSample: h,
-      lastInvariantFailure: m,
+      lastInvariantFailure: p,
       incrementRenderCount() {
-        g.value += 1;
+        y.value += 1;
       },
       setVisibleNodeCount(e) {
-        u.value = e;
+        m.value = e;
       },
       consumeEvent(e) {
-        e.type === "performance:sample" && (h.value = e), e.type === "invariant:failed" && (m.value = e);
+        e.type === "performance:sample" && (h.value = e), e.type === "invariant:failed" && (p.value = e);
       }
     };
-    ge(U, {
-      engine: t,
-      snapshot: o,
-      viewportSize: s,
-      renderStats: Y
+    be(q, {
+      engine: n,
+      snapshot: a,
+      viewportSize: c,
+      renderStats: T
     });
-    const O = t.subscribe((e) => {
-      Y.consumeEvent(e), e.type === "state:changed" && (o.value = e.snapshot), z.value = [...z.value.slice(-19), e];
-    }), j = b(() => ({
-      camera: o.value.camera,
-      selection: o.value.selection,
-      interaction: o.value.interaction,
-      visibleNodeCount: u.value,
-      renderCount: g.value,
+    const Q = n.subscribe((e) => {
+      T.consumeEvent(e), e.type === "state:changed" && (a.value = e.snapshot), I.value = [...I.value.slice(-19), e];
+    }), R = w(() => ({
+      camera: a.value.camera,
+      grid: a.value.grid,
+      selection: a.value.selection,
+      interaction: a.value.interaction,
+      visibleNodeCount: m.value,
+      renderCount: y.value,
       lastPerformanceSample: h.value?.type === "performance:sample" ? h.value.sample : null,
-      lastInvariantFailure: m.value?.type === "invariant:failed" ? m.value.failure.message : null,
-      recentEvents: z.value
+      lastInvariantFailure: p.value?.type === "invariant:failed" ? p.value.failure.message : null,
+      recentEvents: I.value
     }));
-    function I(e, n) {
-      return (e % n + n) % n;
+    function z(e, t) {
+      return (e % t + t) % t;
     }
-    function q(e) {
-      const l = 32 / Math.max(e, 1e-4), d = Math.floor(Math.log10(l)), v = Math.pow(10, d), C = l / v;
-      let w = 1;
-      return C > 5 ? w = 10 : C > 2 ? w = 5 : C > 1 && (w = 2), w * v;
-    }
-    const E = b(() => {
-      const e = o.value.camera.z, n = q(e), l = n * 5, d = n * e, v = l * e, C = o.value.camera.x * e, w = o.value.camera.y * e;
+    function Z(e, t) {
+      if (e === !1)
+        return {
+          ...C,
+          visible: !1,
+          size: t.size,
+          majorEvery: t.majorEvery,
+          snap: t.snap
+        };
+      const i = e === !0 ? {} : e;
       return {
-        "--grid-minor-size": `${d}px`,
-        "--grid-major-size": `${v}px`,
-        "--grid-minor-x": `${I(C, d)}px`,
-        "--grid-minor-y": `${I(w, d)}px`,
-        "--grid-major-x": `${I(C, v)}px`,
-        "--grid-major-y": `${I(w, v)}px`
+        visible: i.visible ?? C.visible,
+        size: i.size ?? t.size,
+        majorEvery: i.majorEvery ?? t.majorEvery,
+        snap: i.snap ?? t.snap,
+        minorOpacity: i.minorOpacity ?? C.minorOpacity,
+        majorOpacity: i.majorOpacity ?? C.majorOpacity,
+        fadeEdges: i.fadeEdges ?? C.fadeEdges
       };
-    }), G = b(() => ({
-      "is-panning": o.value.interaction.mode === "panning"
+    }
+    const v = w(() => Z(d.grid, a.value.grid)), k = w(() => {
+      const e = a.value.camera.z, t = v.value.size, i = v.value.size * v.value.majorEvery, u = t * e, E = i * e, A = a.value.camera.x * e, K = a.value.camera.y * e, le = u < 6 ? 0 : u < 12 ? v.value.minorOpacity * 0.57 : v.value.minorOpacity, ce = E < 8 ? v.value.majorOpacity * 0.44 : v.value.majorOpacity;
+      return {
+        "--grid-minor-size": `${u}px`,
+        "--grid-major-size": `${E}px`,
+        "--grid-minor-x": `${z(A, u)}px`,
+        "--grid-minor-y": `${z(K, u)}px`,
+        "--grid-major-x": `${z(A, E)}px`,
+        "--grid-major-y": `${z(K, E)}px`,
+        "--grid-minor-color": `rgba(148, 163, 184, ${le})`,
+        "--grid-major-color": `rgba(71, 85, 105, ${ce})`,
+        "--grid-mask-image": v.value.fadeEdges ? "radial-gradient(circle at center, black 65%, transparent 100%)" : "none"
+      };
+    }), G = w(() => ({
+      "is-panning": a.value.interaction.mode === "panning"
     }));
-    function M() {
-      const e = r.value;
+    j(
+      () => d.grid,
+      (e) => {
+        if (e && typeof e == "object") {
+          const t = {};
+          e.size !== void 0 && (t.size = e.size), e.majorEvery !== void 0 && (t.majorEvery = e.majorEvery), e.snap !== void 0 && (t.snap = e.snap), Object.keys(t).length > 0 && n.updateGridSettings(t);
+        }
+      },
+      { immediate: !0, deep: !0 }
+    );
+    function $() {
+      const e = s.value;
       if (!e)
         return;
-      const n = e.getBoundingClientRect();
-      s.value = { x: n.width, y: n.height };
+      const t = e.getBoundingClientRect();
+      c.value = { x: t.width, y: t.height };
     }
-    function _(e, n) {
-      const l = r.value?.getBoundingClientRect();
+    function S(e, t) {
+      const i = s.value?.getBoundingClientRect();
       return {
-        x: e - (l?.left ?? 0),
-        y: n - (l?.top ?? 0)
+        x: e - (i?.left ?? 0),
+        y: t - (i?.top ?? 0)
       };
     }
-    function X(e) {
+    function V(e) {
       if (e instanceof HTMLElement)
         return e.closest("[data-node-id]")?.dataset.nodeId;
     }
-    function K(e) {
+    function Y(e) {
       if (e instanceof HTMLElement)
         return e.closest("[data-resize]")?.dataset.resize;
     }
-    function J(e) {
+    function ee(e) {
       return e instanceof HTMLElement && !!e.closest('[data-editor="true"]');
     }
-    function Q(e) {
-      if (J(e.target))
+    function te(e) {
+      if (ee(e.target))
         return;
       if (e.button === 1) {
-        e.preventDefault(), t.beginPan(e.pointerId, _(e.clientX, e.clientY)), r.value?.setPointerCapture(e.pointerId), r.value?.focus();
+        e.preventDefault(), n.beginPan(e.pointerId, S(e.clientX, e.clientY)), s.value?.setPointerCapture(e.pointerId), s.value?.focus();
         return;
       }
       if (e.button !== 0)
         return;
-      const n = _(e.clientX, e.clientY), l = X(e.target), d = K(e.target);
-      d && l ? t.beginResize(l, d, e.pointerId, n) : l ? t.beginNodeDrag(l, e.pointerId, n) : (t.clearSelection(), t.beginPan(e.pointerId, n)), r.value?.setPointerCapture(e.pointerId), r.value?.focus();
-    }
-    function Z(e) {
-      e.button === 1 && e.preventDefault();
-    }
-    function ee(e) {
-      e.button === 1 && e.preventDefault();
-    }
-    function te(e) {
-      t.updatePointer(e.pointerId, _(e.clientX, e.clientY));
-    }
-    function L(e) {
-      t.endInteraction(e.pointerId), r.value?.hasPointerCapture(e.pointerId) && r.value.releasePointerCapture(e.pointerId);
+      const t = S(e.clientX, e.clientY), i = V(e.target), u = Y(e.target);
+      u && i ? n.beginResize(i, u, e.pointerId, t) : i ? n.beginNodeDrag(i, e.pointerId, t) : (n.clearSelection(), n.beginPan(e.pointerId, t)), s.value?.setPointerCapture(e.pointerId), s.value?.focus();
     }
     function ne(e) {
-      e.preventDefault();
-      const n = _(e.clientX, e.clientY);
-      if (e.ctrlKey || e.metaKey) {
-        const l = Math.max(-10, Math.min(10, e.deltaY));
-        t.zoomAtScreenPoint(n, l);
-      } else
-        t.panByScreenDelta(e.deltaX, e.deltaY);
-    }
-    function oe(e) {
-      if (K(e.target))
-        return;
-      const n = X(e.target);
-      if (n) {
-        t.beginTextEdit(n);
-        return;
-      }
-      const l = _(e.clientX, e.clientY), d = t.screenToWorld(l), v = t.createNode({
-        x: d.x,
-        y: d.y,
-        text: "New card"
-      });
-      t.beginTextEdit(v.id);
+      e.button === 1 && e.preventDefault();
     }
     function ae(e) {
-      if (o.value.interaction.mode !== "editing-text") {
+      e.button === 1 && e.preventDefault();
+    }
+    function oe(e) {
+      n.updatePointer(e.pointerId, S(e.clientX, e.clientY));
+    }
+    function X(e) {
+      n.endInteraction(e.pointerId), s.value?.hasPointerCapture(e.pointerId) && s.value.releasePointerCapture(e.pointerId);
+    }
+    function ie(e) {
+      e.preventDefault();
+      const t = S(e.clientX, e.clientY);
+      if (e.ctrlKey || e.metaKey) {
+        const i = Math.max(-10, Math.min(10, e.deltaY));
+        n.zoomAtScreenPoint(t, i);
+      } else
+        n.panByScreenDelta(e.deltaX, e.deltaY);
+    }
+    function re(e) {
+      if (Y(e.target))
+        return;
+      const t = V(e.target);
+      if (t) {
+        n.beginTextEdit(t);
+        return;
+      }
+      const i = S(e.clientX, e.clientY), u = n.screenToWorld(i), E = n.createNode({
+        x: u.x,
+        y: u.y,
+        text: "New card"
+      });
+      n.beginTextEdit(E.id);
+    }
+    function se(e) {
+      if (a.value.interaction.mode !== "editing-text") {
         if (e.key === "Escape") {
-          t.clearSelection(), t.endInteraction();
+          n.clearSelection(), n.endInteraction();
           return;
         }
-        (e.key === "Backspace" || e.key === "Delete") && o.value.selection.length > 0 && (e.preventDefault(), t.deleteSelected());
+        (e.key === "Backspace" || e.key === "Delete") && a.value.selection.length > 0 && (e.preventDefault(), n.deleteSelected());
       }
     }
-    return W(() => {
-      M(), window.addEventListener("resize", M), f("ready", t);
-    }), ve(() => {
-      O(), window.removeEventListener("resize", M);
-    }), a({
-      engine: t,
-      debugState: j
-    }), (e, n) => (y(), S("div", {
+    return L(() => {
+      $(), window.addEventListener("resize", $), f("ready", n);
+    }), he(() => {
+      Q(), window.removeEventListener("resize", $);
+    }), o({
+      engine: n,
+      debugState: R
+    }), (e, t) => (g(), b("div", {
       ref_key: "root",
-      ref: r,
-      class: N(["canvas-root", G.value]),
-      "data-grid-minor": E.value["--grid-minor-size"],
-      "data-grid-major": E.value["--grid-major-size"],
+      ref: s,
+      class: D(["canvas-root", G.value]),
+      "data-grid-visible": v.value.visible ? "true" : "false",
+      "data-grid-minor": k.value["--grid-minor-size"],
+      "data-grid-major": k.value["--grid-major-size"],
       tabindex: "0",
-      onMousedown: Z,
-      onAuxclick: ee,
-      onPointerdown: Q,
-      onPointermove: te,
-      onPointerup: L,
-      onPointercancel: L,
-      onWheel: ne,
-      onDblclick: oe,
-      onKeydown: ae
+      onMousedown: ne,
+      onAuxclick: ae,
+      onPointerdown: te,
+      onPointermove: oe,
+      onPointerup: X,
+      onPointercancel: X,
+      onWheel: ie,
+      onDblclick: re,
+      onKeydown: se
     }, [
-      n[0] || (n[0] = B("div", { class: "canvas-root__backdrop" }, null, -1)),
-      B("div", {
+      t[0] || (t[0] = H("div", { class: "canvas-root__backdrop" }, null, -1)),
+      v.value.visible ? (g(), b("div", {
+        key: 0,
         class: "canvas-root__grid",
-        style: T(E.value)
-      }, null, 4),
-      xe(Ee, { "cull-margin": i.cullMargin }, null, 8, ["cull-margin"]),
-      ye(e.$slots, "default", {
-        engine: k(t),
-        snapshot: o.value,
-        debugState: j.value
+        style: N(k.value)
+      }, null, 4)) : W("", !0),
+      we(Pe, { "cull-margin": r.cullMargin }, null, 8, ["cull-margin"]),
+      Ee(e.$slots, "default", {
+        engine: _(n),
+        snapshot: a.value,
+        debugState: R.value
       }, void 0, !0)
-    ], 42, Me));
+    ], 42, De));
   }
-}), Ne = /* @__PURE__ */ V(Pe, [["__scopeId", "data-v-ad652b27"]]);
+}), Te = /* @__PURE__ */ B(Me, [["__scopeId", "data-v-e7c5684c"]]);
 export {
-  ke as CanvasNodeCard,
-  Ne as CanvasRoot,
-  Ee as CanvasViewport,
-  A as useCanvasEngine
+  $e as CanvasNodeCard,
+  Te as CanvasRoot,
+  Pe as CanvasViewport,
+  J as useCanvasEngine
 };

@@ -22,9 +22,7 @@ describe('canvas engine', () => {
     engine.endInteraction(1)
 
     const moved = engine.getSnapshot().nodes.find((entry) => entry.id === node.id)
-    const zoom = engine.getSnapshot().camera.z
-    expect(moved?.x).toBeCloseTo(10 + 50 / zoom)
-    expect(moved?.y).toBeCloseTo(20 + 25 / zoom)
+    expect(moved).toMatchObject({ x: 60, y: 40 })
   })
 
   it('resizes from north-west handles while preserving the opposite edge', () => {
@@ -67,6 +65,55 @@ describe('canvas engine', () => {
     const after = engine.worldToScreen({ x: node.x, y: node.y })
     expect(after.x - before.x).toBeCloseTo(60)
     expect(after.y - before.y).toBeCloseTo(35)
+  })
+
+  it('snaps created nodes and resized bounds to the fixed grid', () => {
+    const engine = createCanvasEngine({ gridSize: 10, majorGridEvery: 5 })
+    const created = engine.createNode({
+      x: 13,
+      y: 27,
+      width: 243,
+      height: 157
+    })
+
+    expect(created).toMatchObject({
+      x: 10,
+      y: 30,
+      width: 240,
+      height: 160
+    })
+
+    const resized = engine.resizeNode(created.id, 'se', 17, 19)
+    expect(resized).toMatchObject({
+      x: 10,
+      y: 30,
+      width: 260,
+      height: 180
+    })
+  })
+
+  it('updates grid settings at runtime', () => {
+    const engine = createCanvasEngine()
+    const next = engine.updateGridSettings({
+      size: 24.2,
+      majorEvery: 3.4,
+      snap: false
+    })
+
+    expect(next).toMatchObject({
+      size: 24,
+      majorEvery: 3,
+      snap: false
+    })
+    expect(engine.getSnapshot().grid).toMatchObject(next)
+
+    const node = engine.createNode({ x: 13, y: 13, width: 111, height: 111 })
+    expect(node).toMatchObject({
+      x: 13,
+      y: 13,
+      width: 111,
+      height: 111
+    })
   })
 
   it('throws on invalid selection when strict invariants are enabled', () => {

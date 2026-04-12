@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch, type PropType } from 'vue'
 import {
   createCanvasEngine,
+  type CanvasGridSettings,
   type CanvasDiagnosticsEvent,
   type CanvasEngine,
   type CanvasEngineSnapshot,
@@ -9,20 +10,31 @@ import {
   type ResizeHandle
 } from '@canvas/core'
 import { canvasEngineKey, type CanvasRenderStats } from '../context'
+import {
+  DEFAULT_CANVAS_GRID_OPTIONS,
+  type CanvasGridOptions,
+  type ResolvedCanvasGridOptions
+} from '../grid'
 import CanvasViewport from './CanvasViewport.vue'
 
-const props = withDefaults(
-  defineProps<{
-    engine?: CanvasEngine
-    debug?: boolean
-    cullMargin?: number
-  }>(),
-  {
-    engine: undefined,
-    debug: false,
-    cullMargin: 200
+const props = defineProps({
+  engine: {
+    type: Object as PropType<CanvasEngine | undefined>,
+    default: undefined
+  },
+  debug: {
+    type: Boolean,
+    default: false
+  },
+  cullMargin: {
+    type: Number,
+    default: 200
+  },
+  grid: {
+    type: [Boolean, Object] as PropType<boolean | CanvasGridOptions>,
+    default: true
   }
-)
+})
 
 const emit = defineEmits<{
   ready: [engine: CanvasEngine]
@@ -76,6 +88,7 @@ const unsubscribe = ownedEngine.subscribe((event) => {
 
 const debugState = computed(() => ({
   camera: snapshot.value.camera,
+  grid: snapshot.value.grid,
   selection: snapshot.value.selection,
   interaction: snapshot.value.interaction,
   visibleNodeCount: visibleNodeCount.value,
@@ -93,33 +106,47 @@ function modulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor
 }
 
-function getNiceWorldStep(zoom: number): number {
-  const targetScreenStep = 32
-  const roughWorldStep = targetScreenStep / Math.max(zoom, 0.0001)
-  const exponent = Math.floor(Math.log10(roughWorldStep))
-  const magnitude = Math.pow(10, exponent)
-  const fraction = roughWorldStep / magnitude
-
-  let niceFraction = 1
-  if (fraction > 5) {
-    niceFraction = 10
-  } else if (fraction > 2) {
-    niceFraction = 5
-  } else if (fraction > 1) {
-    niceFraction = 2
+function resolveGridOptions(
+  input: boolean | CanvasGridOptions,
+  engineGrid: CanvasGridSettings
+): ResolvedCanvasGridOptions {
+  if (input === false) {
+    return {
+      ...DEFAULT_CANVAS_GRID_OPTIONS,
+      visible: false,
+      size: engineGrid.size,
+      majorEvery: engineGrid.majorEvery,
+      snap: engineGrid.snap
+    }
   }
 
-  return niceFraction * magnitude
+  const overrides = input === true ? {} : input
+
+  return {
+    visible: overrides.visible ?? DEFAULT_CANVAS_GRID_OPTIONS.visible,
+    size: overrides.size ?? engineGrid.size,
+    majorEvery: overrides.majorEvery ?? engineGrid.majorEvery,
+    snap: overrides.snap ?? engineGrid.snap,
+    minorOpacity: overrides.minorOpacity ?? DEFAULT_CANVAS_GRID_OPTIONS.minorOpacity,
+    majorOpacity: overrides.majorOpacity ?? DEFAULT_CANVAS_GRID_OPTIONS.majorOpacity,
+    fadeEdges: overrides.fadeEdges ?? DEFAULT_CANVAS_GRID_OPTIONS.fadeEdges
+  }
 }
+
+const resolvedGrid = computed(() => resolveGridOptions(props.grid, snapshot.value.grid))
 
 const gridStyle = computed(() => {
   const zoom = snapshot.value.camera.z
-  const minorWorldStep = getNiceWorldStep(zoom)
-  const majorWorldStep = minorWorldStep * 5
+  const minorWorldStep = resolvedGrid.value.size
+  const majorWorldStep = resolvedGrid.value.size * resolvedGrid.value.majorEvery
   const minorScreenStep = minorWorldStep * zoom
   const majorScreenStep = majorWorldStep * zoom
   const cameraScreenX = snapshot.value.camera.x * zoom
   const cameraScreenY = snapshot.value.camera.y * zoom
+  const minorAlpha =
+    minorScreenStep < 6 ? 0 : minorScreenStep < 12 ? resolvedGrid.value.minorOpacity * 0.57 : resolvedGrid.value.minorOpacity
+  const majorAlpha =
+    majorScreenStep < 8 ? resolvedGrid.value.majorOpacity * 0.44 : resolvedGrid.value.majorOpacity
 
   return {
     '--grid-minor-size': `${minorScreenStep}px`,
@@ -127,13 +154,40 @@ const gridStyle = computed(() => {
     '--grid-minor-x': `${modulo(cameraScreenX, minorScreenStep)}px`,
     '--grid-minor-y': `${modulo(cameraScreenY, minorScreenStep)}px`,
     '--grid-major-x': `${modulo(cameraScreenX, majorScreenStep)}px`,
-    '--grid-major-y': `${modulo(cameraScreenY, majorScreenStep)}px`
+    '--grid-major-y': `${modulo(cameraScreenY, majorScreenStep)}px`,
+    '--grid-minor-color': `rgba(148, 163, 184, ${minorAlpha})`,
+    '--grid-major-color': `rgba(71, 85, 105, ${majorAlpha})`,
+    '--grid-mask-image': resolvedGrid.value.fadeEdges
+      ? 'radial-gradient(circle at center, black 65%, transparent 100%)'
+      : 'none'
   }
 })
 
 const rootClasses = computed(() => ({
   'is-panning': snapshot.value.interaction.mode === 'panning'
 }))
+
+watch(
+  () => props.grid,
+  (grid) => {
+    if (grid && typeof grid === 'object') {
+      const patch: Partial<CanvasGridSettings> = {}
+      if (grid.size !== undefined) {
+        patch.size = grid.size
+      }
+      if (grid.majorEvery !== undefined) {
+        patch.majorEvery = grid.majorEvery
+      }
+      if (grid.snap !== undefined) {
+        patch.snap = grid.snap
+      }
+      if (Object.keys(patch).length > 0) {
+        ownedEngine.updateGridSettings(patch)
+      }
+    }
+  },
+  { immediate: true, deep: true }
+)
 
 function updateViewportSize(): void {
   const element = root.value
@@ -300,6 +354,7 @@ defineExpose({
     ref="root"
     class="canvas-root"
     :class="rootClasses"
+    :data-grid-visible="resolvedGrid.visible ? 'true' : 'false'"
     :data-grid-minor="gridStyle['--grid-minor-size']"
     :data-grid-major="gridStyle['--grid-major-size']"
     tabindex="0"
@@ -314,7 +369,7 @@ defineExpose({
     @keydown="onKeyDown"
   >
     <div class="canvas-root__backdrop" />
-    <div class="canvas-root__grid" :style="gridStyle" />
+    <div v-if="resolvedGrid.visible" class="canvas-root__grid" :style="gridStyle" />
     <CanvasViewport :cull-margin="cullMargin" />
     <slot :engine="ownedEngine" :snapshot="snapshot" :debug-state="debugState" />
   </div>
@@ -354,10 +409,10 @@ defineExpose({
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
-    linear-gradient(to right, rgba(71, 85, 105, 0.16) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(71, 85, 105, 0.16) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-minor-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-minor-color) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-major-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px);
   background-size:
     var(--grid-minor-size) var(--grid-minor-size),
     var(--grid-minor-size) var(--grid-minor-size),
@@ -368,6 +423,6 @@ defineExpose({
     var(--grid-minor-x) var(--grid-minor-y),
     var(--grid-major-x) var(--grid-major-y),
     var(--grid-major-x) var(--grid-major-y);
-  mask-image: radial-gradient(circle at center, black 65%, transparent 100%);
+  mask-image: var(--grid-mask-image);
 }
 </style>

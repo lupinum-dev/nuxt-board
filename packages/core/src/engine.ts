@@ -1,5 +1,13 @@
-import { getVisibleBounds, screenToWorld, worldToScreen, zoomCameraAtScreenPoint } from './math'
-import { applyResizeDelta } from './resize'
+import {
+  getVisibleBounds,
+  screenToWorld,
+  snapPoint,
+  snapSize,
+  snapValue,
+  worldToScreen,
+  zoomCameraAtScreenPoint
+} from './math'
+import { applyResizeDelta, snapResizedBounds } from './resize'
 import { createInvariantSnapshot, validateState } from './invariants'
 import type {
   BoardState,
@@ -20,6 +28,9 @@ const DEFAULTS = {
   minNodeHeight: 50,
   defaultNodeWidth: 240,
   defaultNodeHeight: 160,
+  gridSize: 10,
+  majorGridEvery: 5,
+  snapToGrid: true,
   traceLimit: 300,
   diagnostics: true,
   strictInvariants: true
@@ -32,6 +43,9 @@ const DEFAULTS = {
     | 'minNodeHeight'
     | 'defaultNodeWidth'
     | 'defaultNodeHeight'
+    | 'gridSize'
+    | 'majorGridEvery'
+    | 'snapToGrid'
     | 'traceLimit'
     | 'diagnostics'
     | 'strictInvariants'
@@ -73,12 +87,34 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     }
   }
 
+  function getGridSettings() {
+    return {
+      size: config.gridSize,
+      majorEvery: config.majorGridEvery,
+      snap: config.snapToGrid
+    }
+  }
+
+  function normalizeGridPatch(patch: Partial<ReturnType<typeof getGridSettings>>) {
+    return {
+      size:
+        patch.size === undefined
+          ? undefined
+          : Math.max(1, Math.round(Number.isFinite(patch.size) ? patch.size : config.gridSize)),
+      majorEvery:
+        patch.majorEvery === undefined
+          ? undefined
+          : Math.max(1, Math.round(Number.isFinite(patch.majorEvery) ? patch.majorEvery : config.majorGridEvery)),
+      snap: patch.snap === undefined ? undefined : Boolean(patch.snap)
+    }
+  }
+
   function commit(command: string, fn: () => void, payload?: Record<string, unknown>): void {
     const started = performance.now()
     emit({ type: 'command:start', command, timestamp: Date.now(), payload })
     fn()
     runInvariants(command)
-    const snapshot = createInvariantSnapshot(state)
+    const snapshot = createInvariantSnapshot(state, getGridSettings())
     emit({
       type: 'state:changed',
       command,
@@ -95,7 +131,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   }
 
   function runInvariants(context: string): void {
-    const failures = validateState(state, context)
+    const failures = validateState(state, context, getGridSettings())
     for (const failure of failures) {
       emit({
         type: 'invariant:failed',
@@ -123,17 +159,34 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     emit({
       type: 'interaction:changed',
       timestamp: Date.now(),
-      interaction: createInvariantSnapshot(state).interaction
+      interaction: createInvariantSnapshot(state, getGridSettings()).interaction
     })
   }
 
   function normalizeNode(input: Partial<Omit<CanvasNode, 'id' | 'zIndex'>> & { id?: NodeId }): CanvasNode {
+    const position = config.snapToGrid
+      ? snapPoint(
+          {
+            x: input.x ?? 0,
+            y: input.y ?? 0
+          },
+          config.gridSize
+        )
+      : {
+          x: input.x ?? 0,
+          y: input.y ?? 0
+        }
+
     return {
       id: input.id ?? crypto.randomUUID(),
-      x: input.x ?? 0,
-      y: input.y ?? 0,
-      width: input.width ?? config.defaultNodeWidth,
-      height: input.height ?? config.defaultNodeHeight,
+      x: position.x,
+      y: position.y,
+      width: config.snapToGrid
+        ? snapSize(input.width ?? config.defaultNodeWidth, config.gridSize, config.minNodeWidth)
+        : input.width ?? config.defaultNodeWidth,
+      height: config.snapToGrid
+        ? snapSize(input.height ?? config.defaultNodeHeight, config.gridSize, config.minNodeHeight)
+        : input.height ?? config.defaultNodeHeight,
       text: input.text ?? '',
       zIndex: state.nextZIndex++
     }
@@ -144,7 +197,25 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return state
     },
     getSnapshot() {
-      return createInvariantSnapshot(state)
+      return createInvariantSnapshot(state, getGridSettings())
+    },
+    getGridSettings() {
+      return getGridSettings()
+    },
+    updateGridSettings(patch) {
+      const normalized = normalizeGridPatch(patch)
+      commit('updateGridSettings', () => {
+        if (normalized.size !== undefined) {
+          config.gridSize = normalized.size
+        }
+        if (normalized.majorEvery !== undefined) {
+          config.majorGridEvery = normalized.majorEvery
+        }
+        if (normalized.snap !== undefined) {
+          config.snapToGrid = normalized.snap
+        }
+      }, normalized)
+      return getGridSettings()
     },
     subscribe(listener) {
       listeners.add(listener)
@@ -190,25 +261,43 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     updateNode(nodeId, patch) {
       const node = assertNode(nodeId)
       commit('updateNode', () => {
-        Object.assign(node, patch)
+        const next = {
+          ...node,
+          ...patch
+        }
+        if (config.snapToGrid) {
+          next.x = snapValue(next.x, config.gridSize)
+          next.y = snapValue(next.y, config.gridSize)
+          next.width = snapSize(next.width, config.gridSize, config.minNodeWidth)
+          next.height = snapSize(next.height, config.gridSize, config.minNodeHeight)
+        }
+        Object.assign(node, next)
       }, { nodeId })
       return { ...node }
     },
     moveNode(nodeId, deltaWorldX, deltaWorldY) {
       const node = assertNode(nodeId)
       commit('moveNode', () => {
-        node.x += deltaWorldX
-        node.y += deltaWorldY
+        const nextX = node.x + deltaWorldX
+        const nextY = node.y + deltaWorldY
+        node.x = config.snapToGrid ? snapValue(nextX, config.gridSize) : nextX
+        node.y = config.snapToGrid ? snapValue(nextY, config.gridSize) : nextY
       }, { nodeId, deltaWorldX, deltaWorldY })
       return { ...node }
     },
     resizeNode(nodeId, handle, deltaWorldX, deltaWorldY) {
       const node = assertNode(nodeId)
       commit('resizeNode', () => {
-        const next = applyResizeDelta(node, handle, deltaWorldX, deltaWorldY, {
+        const raw = applyResizeDelta(node, handle, deltaWorldX, deltaWorldY, {
           minWidth: config.minNodeWidth,
           minHeight: config.minNodeHeight
         })
+        const next = config.snapToGrid
+          ? snapResizedBounds(raw, handle, config.gridSize, {
+              minWidth: config.minNodeWidth,
+              minHeight: config.minNodeHeight
+            })
+          : raw
         Object.assign(node, next)
       }, { nodeId, handle, deltaWorldX, deltaWorldY })
       return { ...node }
@@ -288,7 +377,11 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           mode: 'dragging-node',
           pointerId,
           nodeId,
-          lastScreenPoint: { ...screenPoint }
+          startScreenPoint: { ...screenPoint },
+          startNodePosition: {
+            x: state.nodes.get(nodeId)!.x,
+            y: state.nodes.get(nodeId)!.y
+          }
         })
       }, { nodeId, pointerId, screenPoint })
     },
@@ -335,11 +428,12 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       if (interaction.mode === 'dragging-node') {
         const node = assertNode(interaction.nodeId)
         commit('updatePointer:dragging-node', () => {
-          const deltaX = (screenPoint.x - interaction.lastScreenPoint.x) / state.camera.z
-          const deltaY = (screenPoint.y - interaction.lastScreenPoint.y) / state.camera.z
-          node.x += deltaX
-          node.y += deltaY
-          interaction.lastScreenPoint = { ...screenPoint }
+          const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
+          const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
+          const nextX = interaction.startNodePosition.x + deltaX
+          const nextY = interaction.startNodePosition.y + deltaY
+          node.x = config.snapToGrid ? snapValue(nextX, config.gridSize) : nextX
+          node.y = config.snapToGrid ? snapValue(nextY, config.gridSize) : nextY
         }, { pointerId, screenPoint, nodeId: interaction.nodeId })
         return
       }
@@ -352,7 +446,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           minWidth: config.minNodeWidth,
           minHeight: config.minNodeHeight
         })
-        Object.assign(node, next)
+        Object.assign(
+          node,
+          config.snapToGrid
+            ? snapResizedBounds(next, interaction.handle, config.gridSize, {
+                minWidth: config.minNodeWidth,
+                minHeight: config.minNodeHeight
+              })
+            : next
+        )
       }, { pointerId, screenPoint, nodeId: interaction.nodeId, handle: interaction.handle })
     },
     endInteraction(pointerId) {
