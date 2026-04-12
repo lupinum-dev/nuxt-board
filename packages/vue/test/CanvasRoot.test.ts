@@ -46,6 +46,7 @@ describe('CanvasRoot', () => {
     })
 
     await wrapper.find(`[data-node-id="${node.id}"]`).trigger('pointerdown', {
+      button: 0,
       pointerId: 1,
       clientX: 50,
       clientY: 50
@@ -56,6 +57,7 @@ describe('CanvasRoot', () => {
     })
 
     await wrapper.find(`[data-resize="se"]`).trigger('pointerdown', {
+      button: 0,
       pointerId: 2,
       clientX: 100,
       clientY: 100
@@ -64,6 +66,38 @@ describe('CanvasRoot', () => {
       mode: 'resizing-node',
       nodeId: node.id,
       handle: 'se'
+    })
+  })
+
+  it('uses middle mouse to pan even when starting on a node', async () => {
+    const engine = createCanvasEngine()
+    const node = engine.createNode({ x: 40, y: 40, text: 'Pan from here' })
+    const wrapper = mount(CanvasRoot, {
+      props: { engine },
+      attachTo: document.body
+    })
+
+    await wrapper.find(`[data-node-id="${node.id}"]`).trigger('pointerdown', {
+      button: 1,
+      pointerId: 7,
+      clientX: 60,
+      clientY: 60
+    })
+
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'panning',
+      pointerId: 7
+    })
+
+    await wrapper.trigger('pointermove', {
+      pointerId: 7,
+      clientX: 110,
+      clientY: 90
+    })
+
+    expect(engine.getSnapshot().camera).toMatchObject({
+      x: 50,
+      y: 30
     })
   })
 
@@ -113,6 +147,24 @@ describe('CanvasRoot', () => {
     engine.panByScreenDelta(5000, 5000)
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-node-id]')).toHaveLength(1)
+  })
+
+  it('updates raster grid sizing as zoom changes', async () => {
+    const engine = createCanvasEngine()
+    const wrapper = mount(CanvasRoot, {
+      props: { engine },
+      attachTo: document.body
+    })
+
+    const root = wrapper.find('.canvas-root')
+    const minorBefore = root.attributes('data-grid-minor')
+    const majorBefore = root.attributes('data-grid-major')
+
+    engine.zoomAtScreenPoint({ x: 200, y: 160 }, -12)
+    await wrapper.vm.$nextTick()
+
+    expect(root.attributes('data-grid-minor')).not.toBe(minorBefore)
+    expect(root.attributes('data-grid-major')).not.toBe(majorBefore)
   })
 
   it('suppresses drag transitions while editing text', async () => {

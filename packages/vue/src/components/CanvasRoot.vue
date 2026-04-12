@@ -89,6 +89,52 @@ const debugState = computed(() => ({
   recentEvents: lastEvents.value
 }))
 
+function modulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor
+}
+
+function getNiceWorldStep(zoom: number): number {
+  const targetScreenStep = 32
+  const roughWorldStep = targetScreenStep / Math.max(zoom, 0.0001)
+  const exponent = Math.floor(Math.log10(roughWorldStep))
+  const magnitude = Math.pow(10, exponent)
+  const fraction = roughWorldStep / magnitude
+
+  let niceFraction = 1
+  if (fraction > 5) {
+    niceFraction = 10
+  } else if (fraction > 2) {
+    niceFraction = 5
+  } else if (fraction > 1) {
+    niceFraction = 2
+  }
+
+  return niceFraction * magnitude
+}
+
+const gridStyle = computed(() => {
+  const zoom = snapshot.value.camera.z
+  const minorWorldStep = getNiceWorldStep(zoom)
+  const majorWorldStep = minorWorldStep * 5
+  const minorScreenStep = minorWorldStep * zoom
+  const majorScreenStep = majorWorldStep * zoom
+  const cameraScreenX = snapshot.value.camera.x * zoom
+  const cameraScreenY = snapshot.value.camera.y * zoom
+
+  return {
+    '--grid-minor-size': `${minorScreenStep}px`,
+    '--grid-major-size': `${majorScreenStep}px`,
+    '--grid-minor-x': `${modulo(cameraScreenX, minorScreenStep)}px`,
+    '--grid-minor-y': `${modulo(cameraScreenY, minorScreenStep)}px`,
+    '--grid-major-x': `${modulo(cameraScreenX, majorScreenStep)}px`,
+    '--grid-major-y': `${modulo(cameraScreenY, majorScreenStep)}px`
+  }
+})
+
+const rootClasses = computed(() => ({
+  'is-panning': snapshot.value.interaction.mode === 'panning'
+}))
+
 function updateViewportSize(): void {
   const element = root.value
   if (!element) {
@@ -129,6 +175,18 @@ function onPointerDown(event: PointerEvent): void {
     return
   }
 
+  if (event.button === 1) {
+    event.preventDefault()
+    ownedEngine.beginPan(event.pointerId, toLocalPoint(event.clientX, event.clientY))
+    root.value?.setPointerCapture(event.pointerId)
+    root.value?.focus()
+    return
+  }
+
+  if (event.button !== 0) {
+    return
+  }
+
   const point = toLocalPoint(event.clientX, event.clientY)
   const nodeId = findNodeId(event.target)
   const handle = findHandle(event.target)
@@ -144,6 +202,18 @@ function onPointerDown(event: PointerEvent): void {
 
   root.value?.setPointerCapture(event.pointerId)
   root.value?.focus()
+}
+
+function onMouseDown(event: MouseEvent): void {
+  if (event.button === 1) {
+    event.preventDefault()
+  }
+}
+
+function onAuxClick(event: MouseEvent): void {
+  if (event.button === 1) {
+    event.preventDefault()
+  }
 }
 
 function onPointerMove(event: PointerEvent): void {
@@ -229,7 +299,12 @@ defineExpose({
   <div
     ref="root"
     class="canvas-root"
+    :class="rootClasses"
+    :data-grid-minor="gridStyle['--grid-minor-size']"
+    :data-grid-major="gridStyle['--grid-major-size']"
     tabindex="0"
+    @mousedown="onMouseDown"
+    @auxclick="onAuxClick"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -239,6 +314,7 @@ defineExpose({
     @keydown="onKeyDown"
   >
     <div class="canvas-root__backdrop" />
+    <div class="canvas-root__grid" :style="gridStyle" />
     <CanvasViewport :cull-margin="cullMargin" />
     <slot :engine="ownedEngine" :snapshot="snapshot" :debug-state="debugState" />
   </div>
@@ -257,15 +333,41 @@ defineExpose({
     radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 32%),
     radial-gradient(circle at bottom right, rgba(250, 204, 21, 0.12), transparent 24%),
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  cursor: default;
+}
+
+.canvas-root.is-panning {
+  cursor: grabbing;
 }
 
 .canvas-root__backdrop {
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.58), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(191, 219, 254, 0.28), transparent 28%);
+  pointer-events: none;
+}
+
+.canvas-root__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background-image:
-    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+    linear-gradient(to right, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(to right, rgba(71, 85, 105, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(71, 85, 105, 0.16) 1px, transparent 1px);
+  background-size:
+    var(--grid-minor-size) var(--grid-minor-size),
+    var(--grid-minor-size) var(--grid-minor-size),
+    var(--grid-major-size) var(--grid-major-size),
+    var(--grid-major-size) var(--grid-major-size);
+  background-position:
+    var(--grid-minor-x) var(--grid-minor-y),
+    var(--grid-minor-x) var(--grid-minor-y),
+    var(--grid-major-x) var(--grid-major-y),
+    var(--grid-major-x) var(--grid-major-y);
+  mask-image: radial-gradient(circle at center, black 65%, transparent 100%);
 }
 </style>

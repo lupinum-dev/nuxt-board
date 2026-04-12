@@ -325,8 +325,8 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         commit('updatePointer:pan', () => {
           const deltaX = screenPoint.x - interaction.lastScreenPoint.x
           const deltaY = screenPoint.y - interaction.lastScreenPoint.y
-          state.camera.x -= deltaX / state.camera.z
-          state.camera.y -= deltaY / state.camera.z
+          state.camera.x += deltaX / state.camera.z
+          state.camera.y += deltaY / state.camera.z
           interaction.lastScreenPoint = { ...screenPoint }
         }, { pointerId, screenPoint })
         return

@@ -91,7 +91,8 @@ onMounted(() => {
       <ul class="notes">
         <li>Double-click empty space to create a card.</li>
         <li>Double-click a card to edit text.</li>
-        <li>Drag background to pan. Pinch or Ctrl/Cmd+wheel to zoom.</li>
+        <li>Left-drag the background or hold middle mouse anywhere to pan.</li>
+        <li>Pinch or Ctrl/Cmd+wheel to zoom against the raster grid.</li>
       </ul>
     </aside>
 

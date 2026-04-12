@@ -55,6 +55,20 @@ describe('canvas engine', () => {
     expect(snapshot.interaction.mode).toBe('idle')
   })
 
+  it('grab-panning moves the canvas with the pointer at screen speed', () => {
+    const engine = createCanvasEngine()
+    const node = engine.createNode({ x: 100, y: 80, width: 120, height: 90, text: 'Anchor' })
+    const before = engine.worldToScreen({ x: node.x, y: node.y })
+
+    engine.beginPan(1, { x: 200, y: 120 })
+    engine.updatePointer(1, { x: 260, y: 155 })
+    engine.endInteraction(1)
+
+    const after = engine.worldToScreen({ x: node.x, y: node.y })
+    expect(after.x - before.x).toBeCloseTo(60)
+    expect(after.y - before.y).toBeCloseTo(35)
+  })
+
   it('throws on invalid selection when strict invariants are enabled', () => {
     const engine = createCanvasEngine()
     expect(() => engine.select('missing-node')).toThrow(/Canvas invariant failed/)
