@@ -252,8 +252,12 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
       const unsubscribe = engine.on('command:after', (name) => {
         if (replaying || excluded.has(name)) {
           flushPending()
-          previousSnapshot = canonicalSnapshot(engine.getSnapshot())
-          previousExtras = captureExtras()
+          const current = engine.getSnapshot()
+          previousSnapshot = {
+            ...previousSnapshot,
+            camera: { ...current.camera },
+            interaction: { mode: 'idle' }
+          }
           return
         }
         queuePush(name)
@@ -270,7 +274,7 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
 
 function canonicalSnapshot(snapshot: BoardSnapshot): BoardSnapshot {
   return {
-    ...structuredClone(snapshot),
+    ...snapshot,
     interaction: { mode: 'idle' }
   }
 }

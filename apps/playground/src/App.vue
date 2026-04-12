@@ -111,19 +111,23 @@ async function seedScene(count: number): Promise<void> {
 async function runBenchmark(): Promise<void> {
   benchmarkResult.value = 'running'
   const samples: number[] = []
+  const jsSamples: number[] = []
   const start = performance.now()
 
   for (let step = 0; step < 60; step += 1) {
     const t0 = performance.now()
     engine.panBy(step % 2 === 0 ? 18 : -12, 10)
     engine.zoomAt({ x: 480, y: 320 }, step % 2 === 0 ? -0.55 : 0.4)
+    const tJs = performance.now()
+    jsSamples.push(tJs - t0)
     await new Promise((resolve) => requestAnimationFrame(resolve))
     samples.push(performance.now() - t0)
   }
 
   const total = performance.now() - start
   const avg = samples.reduce((s, v) => s + v, 0) / samples.length
-  benchmarkResult.value = `total ${total.toFixed(1)}ms | avg ${avg.toFixed(2)}ms | max ${Math.max(...samples).toFixed(2)}ms`
+  const jsAvg = jsSamples.reduce((s, v) => s + v, 0) / jsSamples.length
+  benchmarkResult.value = `total ${total.toFixed(1)}ms | avg ${avg.toFixed(2)}ms | max ${Math.max(...samples).toFixed(2)}ms | js ${jsAvg.toFixed(2)}ms`
 }
 
 // ━━ JSON Canvas ━━

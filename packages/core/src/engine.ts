@@ -12,7 +12,7 @@ import {
   worldToScreen,
   zoomCameraAtScreenPoint
 } from './math'
-import { createSnapshot, validateState } from './invariants'
+import { cloneInteraction, createSnapshot, validateState } from './invariants'
 import { applyResizeDelta, snapResizedBounds } from './resize'
 import type {
   BoardSnapshot,
@@ -68,6 +68,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   const clipboard: CanvasNode[] = []
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
+  let cachedNodeArray: CanvasNode[] | null = null
 
   const state: BoardState = {
     camera,
@@ -133,25 +134,45 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     return { ...viewportSize }
   }
 
-  function getSnapshot(): BoardSnapshot {
-    return createSnapshot(state, grid)
+  function invalidateNodeCache(): void {
+    cachedNodeArray = null
   }
 
-  function runCommand<T>(name: string, args: unknown[], fn: () => T): T {
+  function getSnapshot(): BoardSnapshot {
+    if (!cachedNodeArray) {
+      cachedNodeArray = Array.from(state.nodes.values())
+        .map((node) => ({ ...node, data: structuredClone(node.data) }))
+        .sort((a, b) => a.zIndex - b.zIndex)
+    }
+    return {
+      camera: { ...state.camera },
+      grid: { ...grid },
+      nodes: cachedNodeArray,
+      selection: Array.from(state.selection.values()),
+      interaction: cloneInteraction(state.interaction),
+      nextZIndex: state.nextZIndex
+    }
+  }
+
+  function runCommand<T>(name: string, args: unknown[], fn: () => T, skipValidation = false): T {
     const started = performance.now()
     emit('command:before', name, args)
     const result = fn()
-    validate(name)
+    if (!skipValidation) {
+      validate(name)
+    }
     emit('command:after', name, args, performance.now() - started)
     return result
   }
 
-  async function runAsyncCommand<T>(name: string, args: unknown[], fn: () => Promise<T>): Promise<T> {
+  async function runAsyncCommand<T>(name: string, args: unknown[], fn: () => Promise<T>, skipValidation = false): Promise<T> {
     const started = performance.now()
     emit('command:before', name, args)
     try {
       const result = await fn()
-      validate(name)
+      if (!skipValidation) {
+        validate(name)
+      }
       emit('command:after', name, args, performance.now() - started)
       return result
     } catch (error) {
@@ -290,6 +311,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
 
   function replaceNode(node: CanvasNode, next: CanvasNode): void {
     state.nodes.set(node.id, next)
+    invalidateNodeCache()
   }
 
   function duplicateNode(node: CanvasNode, offset: Point): CanvasNode {
@@ -310,6 +332,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     const prev = cloneNode(node)
     const next = { ...node, zIndex: state.nextZIndex++ }
     state.nodes.set(id, next)
+    invalidateNodeCache()
     emit('node:updated', cloneNode(next), prev)
   }
 
@@ -412,6 +435,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       state.selection = new Set(snapshot.selection.filter((id) => state.nodes.has(id)))
       state.interaction = { mode: 'idle' }
       state.nextZIndex = snapshot.nextZIndex
+      invalidateNodeCache()
       setCamera({ ...snapshot.camera })
       grid.size = snapshot.grid.size
       grid.majorEvery = snapshot.grid.majorEvery
@@ -425,6 +449,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       const id = state.nodes.has(node.id) ? crypto.randomUUID() : node.id
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
     }
+    invalidateNodeCache()
   }
 
   const engine: CanvasPluginContext = {
@@ -501,7 +526,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           y: state.camera.y - dy / state.camera.z,
           z: state.camera.z
         })
-      })
+      }, true)
     },
     panTo(worldPoint, animated = false) {
       const target = { x: -worldPoint.x, y: -worldPoint.y, z: state.camera.z }
@@ -511,12 +536,12 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         } else {
           setCamera(target)
         }
-      })
+      }, true)
     },
     zoomAt(screenPoint, delta) {
       runCommand('zoomAt', [screenPoint, delta], () => {
         setCamera(zoomCameraAtScreenPoint(screenPoint, delta, state.camera, zoom.min, zoom.max))
-      })
+      }, true)
     },
     zoomTo(level, animated = false) {
       const clamped = clamp(level, zoom.min, zoom.max)
@@ -536,7 +561,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         } else {
           setCamera(target)
         }
-      })
+      }, true)
     },
     zoomToFit(padding = 40, animated = false) {
       return runAsyncCommand('zoomToFit', [padding, animated], async () => {
@@ -549,7 +574,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         } else {
           setCamera(target)
         }
-      })
+      }, true)
     },
     zoomToNodes(ids, padding = 40, animated = false) {
       return runAsyncCommand('zoomToNodes', [ids, padding, animated], async () => {
@@ -562,15 +587,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         } else {
           setCamera(target)
         }
-      })
+      }, true)
     },
     createNode<T extends Record<string, unknown> = Record<string, unknown>>(input: NodeInput<T>) {
       return runCommand('createNode', [input], () => {
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
+        invalidateNodeCache()
         setSelection([node.id])
-        emit('node:created', cloneNode(node))
-        return cloneNode(node)
+        const cloned = cloneNode(node)
+        emit('node:created', cloned)
+        return cloned
       })
     },
     updateNode<T extends Record<string, unknown> = Record<string, unknown>>(id: NodeId, patch: NodePatch<T>) {
@@ -578,14 +605,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         const current = assertNode(id) as CanvasNode<T>
         const next = applyNodePatch(current, patch)
         replaceNode(current, next)
-        emit('node:updated', cloneNode(next), cloneNode(current))
-        return cloneNode(next)
+        const clonedNext = cloneNode(next)
+        const clonedCurrent = cloneNode(current)
+        emit('node:updated', clonedNext, clonedCurrent)
+        return clonedNext
       })
     },
     deleteNode(id) {
       runCommand('deleteNode', [id], () => {
         const node = assertNode(id)
         state.nodes.delete(id)
+        invalidateNodeCache()
         cleanupSelection()
         if (state.interaction.mode !== 'idle') {
           setInteraction({ mode: 'idle' })
@@ -599,16 +629,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         if (node.locked) {
           return cloneNode(node)
         }
-        const prev = cloneNode(node)
         const next = {
           ...node,
           x: grid.snap ? snapValue(node.x + dx, grid.size) : node.x + dx,
           y: grid.snap ? snapValue(node.y + dy, grid.size) : node.y + dy
         }
         replaceNode(node, next)
-        emit('node:moved', cloneNode(next), { x: next.x - prev.x, y: next.y - prev.y })
-        emit('node:updated', cloneNode(next), prev)
-        return cloneNode(next)
+        const cloned = cloneNode(next)
+        const prev = cloneNode(node)
+        emit('node:moved', cloned, { x: next.x - node.x, y: next.y - node.y })
+        emit('node:updated', cloned, prev)
+        return cloned
       })
     },
     resizeNode(id, handle, dx, dy) {
@@ -617,7 +648,6 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         if (node.locked) {
           return cloneNode(node)
         }
-        const prev = cloneNode(node)
         const raw = applyResizeDelta(node, handle, dx, dy, {
           minWidth: nodeConstraints.minWidth,
           minHeight: nodeConstraints.minHeight
@@ -630,14 +660,16 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           : raw
         const next = { ...node, ...nextBounds }
         replaceNode(node, next)
-        emit('node:resized', cloneNode(next), {
-          x: prev.x,
-          y: prev.y,
-          width: prev.width,
-          height: prev.height
+        const cloned = cloneNode(next)
+        const prev = cloneNode(node)
+        emit('node:resized', cloned, {
+          x: node.x,
+          y: node.y,
+          width: node.width,
+          height: node.height
         })
-        emit('node:updated', cloneNode(next), prev)
-        return cloneNode(next)
+        emit('node:updated', cloned, prev)
+        return cloned
       })
     },
     bringToFront(id) {
@@ -687,6 +719,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           state.nodes.set(node.id, node)
           emit('node:created', cloneNode(node))
         }
+        invalidateNodeCache()
         setSelection(created.map((node) => node.id))
         return created.map(cloneNode)
       })
@@ -707,6 +740,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           state.nodes.set(node.id, node)
           emit('node:created', cloneNode(node))
         }
+        invalidateNodeCache()
         setSelection(created.map((node) => node.id))
         return created.map(cloneNode)
       })
@@ -749,6 +783,9 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         for (const node of deleting) {
           state.nodes.delete(node.id)
           emit('node:deleted', node.id, cloneNode(node))
+        }
+        if (deleting.length > 0) {
+          invalidateNodeCache()
         }
         setSelection([])
         setInteraction({ mode: 'idle' })
@@ -870,7 +907,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             z: state.camera.z
           })
           interaction.lastScreenPoint = { ...screenPoint }
-        })
+        }, true)
         return
       }
 
@@ -889,7 +926,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             replaceNode(node, next)
             emit('node:moved', cloneNode(next), { x: next.x - origin.x, y: next.y - origin.y })
           }
-        })
+        }, true)
         return
       }
 
@@ -909,7 +946,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
               })
             : raw
           replaceNode(node, { ...node, ...nextBounds })
-        })
+        }, true)
         return
       }
 

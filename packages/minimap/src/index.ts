@@ -18,17 +18,18 @@ export function useMinimap(
   panToMinimapPoint: (point: Point) => Promise<void>
 } {
   const snapshot = shallowRef(engine.getSnapshot())
-  const refresh = () => {
-    snapshot.value = engine.getSnapshot()
+  let snapshotDirty = false
+  const scheduleRefresh = () => {
+    if (!snapshotDirty) {
+      snapshotDirty = true
+      queueMicrotask(() => {
+        snapshot.value = engine.getSnapshot()
+        snapshotDirty = false
+      })
+    }
   }
   const unsubscribes = [
-    engine.on('camera:change', refresh),
-    engine.on('node:created', refresh),
-    engine.on('node:updated', refresh),
-    engine.on('node:deleted', refresh),
-    engine.on('selection:change', refresh),
-    engine.on('interaction:update', refresh),
-    engine.on('interaction:end', refresh)
+    engine.on('command:after', scheduleRefresh)
   ]
   onScopeDispose(() => {
     for (const unsubscribe of unsubscribes) {

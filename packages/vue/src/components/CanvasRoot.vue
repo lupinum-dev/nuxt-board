@@ -85,21 +85,58 @@ provide(canvasEngineKey, {
   toLocalPoint
 })
 
-const selectionSet = computed(() => new Set(snapshot.value.selection))
+let prevSelectionIds: string[] = []
+let prevSelectionSet = new Set<string>()
+const selectionSet = computed(() => {
+  const ids = snapshot.value.selection
+  if (ids.length === prevSelectionIds.length && ids.every((id, i) => id === prevSelectionIds[i])) {
+    return prevSelectionSet
+  }
+  prevSelectionIds = ids
+  prevSelectionSet = new Set(ids)
+  return prevSelectionSet
+})
 
-const visibleNodes = computed(() => {
+type NodeLod = 'full' | 'simple' | 'hidden'
+type LodNode = CanvasNodeState & { lod: NodeLod }
+
+function getNodeLod(node: CanvasNodeState, zoom: number, selected: boolean): NodeLod {
+  if (selected) {
+    return 'full'
+  }
+  const screenSize = Math.max(node.width, node.height) * zoom
+  if (screenSize < 8) {
+    return 'hidden'
+  }
+  if (screenSize < 60) {
+    return 'simple'
+  }
+  return 'full'
+}
+
+const visibleNodes = computed<LodNode[]>(() => {
   const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
-  return snapshot.value.nodes.filter((node) => {
+  const zoom = snapshot.value.camera.z
+  const sel = selectionSet.value
+  const result: LodNode[] = []
+  for (const node of snapshot.value.nodes) {
     if (!node.visible) {
-      return false
+      continue
     }
-    return (
-      node.x + node.width > bounds.minX - props.cullMargin &&
-      node.x < bounds.maxX + props.cullMargin &&
-      node.y + node.height > bounds.minY - props.cullMargin &&
-      node.y < bounds.maxY + props.cullMargin
-    )
-  })
+    if (
+      node.x + node.width <= bounds.minX - props.cullMargin ||
+      node.x >= bounds.maxX + props.cullMargin ||
+      node.y + node.height <= bounds.minY - props.cullMargin ||
+      node.y >= bounds.maxY + props.cullMargin
+    ) {
+      continue
+    }
+    const lod = getNodeLod(node, zoom, sel.has(node.id))
+    if (lod !== 'hidden') {
+      result.push({ ...node, lod })
+    }
+  }
+  return result
 })
 
 const debugState = computed(() => ({
@@ -446,25 +483,33 @@ onBeforeUnmount(() => {
     <CanvasGrid />
     <CanvasViewport>
       <slot name="viewport" :engine="engine" :snapshot="snapshot" />
-      <CanvasNode
-        v-for="node in visibleNodes"
-        :key="node.id"
-        v-memo="[node.x, node.y, node.width, node.height, node.zIndex, selectionSet.has(node.id), snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id]"
-        :node="node"
-        :selected="selectionSet.has(node.id)"
-        :editing="snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id"
-      >
-        <template #default="slotProps">
-          <slot :name="`node:${node.type}`" v-bind="slotProps">
-            <slot name="node" v-bind="slotProps">
-              <component v-if="resolveRenderer(node)" :is="resolveRenderer(node)" v-bind="slotProps" />
+      <template v-for="node in visibleNodes" :key="node.id">
+        <CanvasNode
+          v-if="node.lod === 'full'"
+          v-memo="[node.x, node.y, node.width, node.height, node.zIndex, node.lod, selectionSet.has(node.id), snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id]"
+          :node="node"
+          :selected="selectionSet.has(node.id)"
+          :editing="snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id"
+        >
+          <template #default="slotProps">
+            <slot :name="`node:${node.type}`" v-bind="slotProps">
+              <slot name="node" v-bind="slotProps">
+                <component v-if="resolveRenderer(node)" :is="resolveRenderer(node)" v-bind="slotProps" />
+              </slot>
             </slot>
-          </slot>
-        </template>
-        <template #handle="slotProps">
-          <slot name="handle" v-bind="slotProps" />
-        </template>
-      </CanvasNode>
+          </template>
+          <template #handle="slotProps">
+            <slot name="handle" v-bind="slotProps" />
+          </template>
+        </CanvasNode>
+        <div
+          v-else
+          v-memo="[node.x, node.y, node.width, node.height, node.zIndex, node.lod]"
+          class="canvas-node-simple"
+          :data-node-id="node.id"
+          :style="{ left: node.x + 'px', top: node.y + 'px', width: node.width + 'px', height: node.height + 'px', zIndex: node.zIndex }"
+        />
+      </template>
     </CanvasViewport>
     <CanvasBoxSelect>
       <template #default="slotProps">
@@ -485,5 +530,13 @@ onBeforeUnmount(() => {
   user-select: none;
   background: #fff;
   color: #0f172a;
+}
+
+.canvas-node-simple {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #fff;
+  contain: strict;
 }
 </style>

@@ -69,10 +69,11 @@ function cloneData<T>(data: T): T {
 
 export function validateState(state: BoardState, grid: GridSettings, context: string): InvariantFailure[] {
   const failures: InvariantFailure[] = []
-  const snapshot = createSnapshot(state, grid)
+  let snapshot: BoardSnapshot | null = null
+  const lazySnapshot = () => snapshot ?? (snapshot = createSnapshot(state, grid))
 
   const push = (name: string, message: string) => {
-    failures.push({ name, message, context, snapshot })
+    failures.push({ name, message, context, snapshot: lazySnapshot() })
   }
 
   if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
