@@ -231,16 +231,11 @@ function onImageFileSelected(event: Event): void {
       const width = ratio >= 1 ? maxSize : Math.round(maxSize * ratio)
       const height = ratio >= 1 ? Math.round(maxSize / ratio) : maxSize
 
-      const camera = engine.getSnapshot().camera
-      const viewportEl = document.querySelector('.canvas-root') as HTMLElement | null
-      const vw = viewportEl?.clientWidth ?? 800
-      const vh = viewportEl?.clientHeight ?? 600
-      const worldX = (vw / 2 - camera.x) / camera.z - width / 2
-      const worldY = (vh / 2 - camera.y) / camera.z - height / 2
+      const { x, y } = worldCenterForViewportBox(width, height)
       engine.createNode({
         type: 'image',
-        x: Math.round(worldX),
-        y: Math.round(worldY),
+        x,
+        y,
         width,
         height,
         data: { src, alt: file.name }
