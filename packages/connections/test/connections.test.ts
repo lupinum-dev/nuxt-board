@@ -20,6 +20,49 @@ describe('connections plugin', () => {
     expect(engine.getEdges?.()).toHaveLength(0)
   })
 
+  it('removes edges when deleting a group that still has child nodes', () => {
+    const engine = createCanvasEngine({
+      plugins: [connectionPlugin()],
+      grid: { snap: false }
+    })
+    const group = engine.createNode({
+      type: 'group',
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 300,
+      select: false
+    })
+    const inner = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 80,
+      height: 60,
+      parentId: group.id,
+      select: false,
+      data: { content: 'inner' }
+    })
+    const outer = engine.createNode({
+      type: 'text',
+      x: 400,
+      y: 40,
+      width: 80,
+      height: 60,
+      select: false,
+      data: { content: 'outer' }
+    })
+    engine.syncGroupZOrder(group.id)
+    engine.createEdge?.({ from: inner.id, to: outer.id, data: {} })
+    expect(engine.getEdges?.()).toHaveLength(1)
+
+    engine.select([group.id])
+    engine.deleteSelected()
+
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getEdges?.()).toHaveLength(0)
+  })
+
   it('routes straight and bezier paths', () => {
     expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'straight')).toBe('M 0 0 L 100 50')
     expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'bezier')).toContain('C')

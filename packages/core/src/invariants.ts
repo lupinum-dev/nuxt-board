@@ -4,7 +4,8 @@ import type {
   CanvasNode,
   GridSettings,
   InvariantFailure,
-  InteractionState
+  InteractionState,
+  NodeId
 } from './types'
 
 export function cloneInteraction(interaction: InteractionState): InteractionState {
@@ -92,6 +93,7 @@ export function validateState(state: BoardState, grid: GridSettings, context: st
   const zIndexes = new Set<number>()
   for (const node of state.nodes.values()) {
     validateNode(node, push)
+    validateNodeParent(node, state, push)
     if (zIndexes.has(node.zIndex)) {
       push('node.zIndex.unique', `Node ${node.id} shares a z-index with another node.`)
     }
@@ -135,5 +137,40 @@ function validateNode(node: CanvasNode, push: (name: string, message: string) =>
   }
   if (!node.type) {
     push('node.type', `Node ${node.id} must have a type.`)
+  }
+}
+
+function validateNodeParent(node: CanvasNode, state: BoardState, push: (name: string, message: string) => void): void {
+  if (node.parentId === undefined) {
+    return
+  }
+  if (node.parentId === node.id) {
+    push('node.parentId', `Node ${node.id} cannot be its own parent.`)
+    return
+  }
+  const parent = state.nodes.get(node.parentId)
+  if (!parent) {
+    push('node.parentId', `Node ${node.id} references missing parent ${node.parentId}.`)
+    return
+  }
+  if (parent.type !== 'group') {
+    push('node.parentId', `Node ${node.id} parent must be type "group", got "${parent.type}".`)
+  }
+  let walk: CanvasNode | undefined = parent
+  const seen = new Set<NodeId>()
+  while (walk) {
+    if (seen.has(walk.id)) {
+      push('node.parentId', `Cycle detected in parent chain for node ${node.id}.`)
+      return
+    }
+    seen.add(walk.id)
+    if (walk.id === node.id) {
+      push('node.parentId', `Node ${node.id} would create a cycle in the parent chain.`)
+      return
+    }
+    if (!walk.parentId) {
+      break
+    }
+    walk = state.nodes.get(walk.parentId)
   }
 }

@@ -6,6 +6,7 @@ import { historyPlugin } from '@canvas/history'
 import { CanvasMinimap } from '@canvas/minimap'
 import { jsonCanvasSerializer } from '@canvas/serializer'
 import { CanvasRoot, type CanvasRendererRegistry } from '@canvas/vue'
+import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
 import ImageNodeRenderer from './components/ImageNodeRenderer.vue'
 import PlaygroundToolbar from './components/PlaygroundToolbar.vue'
 import PlaygroundPanel from './components/PlaygroundPanel.vue'
@@ -41,7 +42,8 @@ const showMinimap = ref(true)
 
 // ━━ Renderers ━━
 const renderers: CanvasRendererRegistry = {
-  image: ImageNodeRenderer
+  image: ImageNodeRenderer,
+  group: GroupNodeRenderer
 }
 
 const gridOptions = computed(() => ({
@@ -141,6 +143,71 @@ function importJsonCanvas(): void {
   const doc = jsonCanvasSerializer.parse(exportedJson.value)
   const snapshot = jsonCanvasSerializer.toSnapshot(doc)
   engine.importJSON(JSON.stringify(snapshot), 'replace')
+}
+
+const GROUP_PAD = 36
+const DEFAULT_GROUP_W = 400
+const DEFAULT_GROUP_H = 300
+
+function worldCenterForViewportBox(width: number, height: number): { x: number; y: number } {
+  const vp = engine.getViewportSize()
+  const center = engine.screenToWorld({ x: vp.x / 2, y: vp.y / 2 })
+  return {
+    x: Math.round(center.x - width / 2),
+    y: Math.round(center.y - height / 2)
+  }
+}
+
+function wrapSelectionInGroup(): void {
+  const sel = engine.getSelection()
+  const snap = engine.getSnapshot()
+
+  if (sel.length === 0) {
+    const { x, y } = worldCenterForViewportBox(DEFAULT_GROUP_W, DEFAULT_GROUP_H)
+    const group = engine.createNode({
+      type: 'group',
+      x,
+      y,
+      width: DEFAULT_GROUP_W,
+      height: DEFAULT_GROUP_H,
+      select: false
+    })
+    engine.sendToBack(group.id)
+    engine.select([group.id])
+    return
+  }
+
+  const nodes = snap.nodes.filter((n) => sel.includes(n.id))
+  if (nodes.length === 0) {
+    return
+  }
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const n of nodes) {
+    minX = Math.min(minX, n.x)
+    minY = Math.min(minY, n.y)
+    maxX = Math.max(maxX, n.x + n.width)
+    maxY = Math.max(maxY, n.y + n.height)
+  }
+  const group = engine.createNode({
+    type: 'group',
+    x: minX - GROUP_PAD,
+    y: minY - GROUP_PAD,
+    width: maxX - minX + GROUP_PAD * 2,
+    height: maxY - minY + GROUP_PAD * 2,
+    select: false
+  })
+  engine.sendToBack(group.id)
+  for (const n of nodes) {
+    if (n.id === group.id) {
+      continue
+    }
+    engine.updateNode(n.id, { parentId: group.id })
+  }
+  engine.syncGroupZOrder(group.id)
+  engine.select([group.id, ...sel.filter((id) => id !== group.id)])
 }
 
 // ━━ Image upload ━━
@@ -257,6 +324,7 @@ onMounted(async () => {
       @seed="seedScene(selectedScene)"
       @fit="engine.zoomToFit(40, true)"
       @add-image="triggerImageUpload"
+      @wrap-group="wrapSelectionInGroup"
     />
 
     <!-- Settings panel -->

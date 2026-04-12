@@ -1,5 +1,16 @@
 export { createCanvasEngine } from './engine'
 export {
+  addDescendants,
+  collectSubtreeIds,
+  collectUniformTranslationTargets,
+  expandGroupDragSeeds,
+  findContainingGroup,
+  getBoundsFromNode,
+  groupArea,
+  isStrictDescendantOf,
+  sortIdsByZIndex
+} from './hierarchy'
+export {
   boundsContain,
   boundsIntersect,
   clamp,

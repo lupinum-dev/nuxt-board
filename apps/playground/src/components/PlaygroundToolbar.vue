@@ -10,6 +10,7 @@ const emit = defineEmits<{
   seed: []
   fit: []
   addImage: []
+  wrapGroup: []
 }>()
 
 const btn = 'flex items-center justify-center h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
@@ -65,6 +66,15 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
 
     <button :class="[btn, btnOff]" @click="emit('fit')">Fit</button>
+
+    <button
+      type="button"
+      :class="[btn, btnOff]"
+      title="Wrap selected nodes in a group (or add an empty group in view if nothing is selected)"
+      @click="emit('wrapGroup')"
+    >
+      Group
+    </button>
 
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
 

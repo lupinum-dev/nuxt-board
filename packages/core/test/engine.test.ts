@@ -200,4 +200,285 @@ describe('canvas engine', () => {
 
     expect(second).toHaveBeenCalledTimes(1)
   })
+
+  describe('groups', () => {
+    it('moves all descendants when dragging a group', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 400,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 40,
+        y: 50,
+        width: 100,
+        height: 80,
+        parentId: group.id,
+        select: false,
+        data: { content: 'in' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([group.id])
+      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 30, y: 20 })
+      engine.endInteraction(1)
+      const snap = engine.getSnapshot()
+      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({ x: 30, y: 20 })
+      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({ x: 70, y: 70 })
+    })
+
+    it('keeps every descendant z-index above the group after bringToFront / drag bump', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 300,
+        height: 300,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 20,
+        y: 20,
+        width: 80,
+        height: 60,
+        parentId: group.id,
+        select: false,
+        data: { content: 'c' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.bringToFront(group.id)
+      const snap = engine.getSnapshot()
+      const gz = snap.nodes.find((n) => n.id === group.id)!.zIndex
+      const cz = snap.nodes.find((n) => n.id === child.id)!.zIndex
+      expect(cz).toBeGreaterThan(gz)
+    })
+
+    it('does not move the group when dragging a child alone', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 400,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 120,
+        y: 130,
+        width: 80,
+        height: 60,
+        parentId: group.id,
+        select: false,
+        data: { content: 'c' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([child.id])
+      engine.beginNodeDrag(child.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 10, y: 5 })
+      engine.endInteraction(1)
+      const snap = engine.getSnapshot()
+      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({ x: 100, y: 100 })
+      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({ x: 130, y: 135 })
+    })
+
+    it('nudges a group and its children exactly once via translateSelectedNodes', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 300,
+        height: 300,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 20,
+        y: 30,
+        width: 60,
+        height: 50,
+        parentId: group.id,
+        select: false,
+        data: { content: 'x' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([group.id, child.id])
+      engine.translateSelectedNodes(10, 0)
+      const snap = engine.getSnapshot()
+      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({ x: 10, y: 0 })
+      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({ x: 30, y: 30 })
+    })
+
+    it('reparents when a node center moves into a group and clears parent when moving out', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+        select: false
+      })
+      const loose = engine.createNode({
+        type: 'text',
+        x: 300,
+        y: 80,
+        width: 40,
+        height: 40,
+        select: false,
+        data: { content: 'free' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([loose.id])
+      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: -200, y: 0 })
+      engine.endInteraction(1)
+      expect(engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId).toBe(group.id)
+
+      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 250, y: 0 })
+      engine.endInteraction(1)
+      expect(engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId).toBeUndefined()
+    })
+
+    it('picks the smallest containing group when nested', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const outer = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 400,
+        select: false
+      })
+      const inner = engine.createNode({
+        type: 'group',
+        x: 50,
+        y: 50,
+        width: 120,
+        height: 120,
+        parentId: outer.id,
+        select: false
+      })
+      const card = engine.createNode({
+        type: 'text',
+        x: 80,
+        y: 80,
+        width: 30,
+        height: 30,
+        select: false,
+        data: { content: 'n' }
+      })
+      engine.syncGroupZOrder(outer.id)
+      engine.select([card.id])
+      engine.beginNodeDrag(card.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 0, y: 0 })
+      engine.endInteraction(1)
+      expect(engine.getSnapshot().nodes.find((n) => n.id === card.id)?.parentId).toBe(inner.id)
+    })
+
+    it('deleteSelected removes a group and all descendants and emits node:deleted for each', () => {
+      const engine = createCanvasEngine()
+      const deleted: string[] = []
+      engine.on('node:deleted', (id) => {
+        deleted.push(id)
+      })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 20,
+        y: 20,
+        width: 80,
+        height: 60,
+        parentId: group.id,
+        select: false,
+        data: { content: 'c' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([group.id])
+      engine.deleteSelected()
+      expect(engine.getSnapshot().nodes).toHaveLength(0)
+      expect(deleted.sort()).toEqual([child.id, group.id].sort())
+    })
+
+    it('sendToBack on a group keeps descendants above the group', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      engine.createNode({ type: 'text', x: 500, y: 0, width: 80, height: 60, select: false, data: { content: 'other' } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 300,
+        height: 300,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 20,
+        y: 20,
+        width: 80,
+        height: 60,
+        parentId: group.id,
+        select: false,
+        data: { content: 'c' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.sendToBack(group.id)
+      const snap = engine.getSnapshot()
+      const gz = snap.nodes.find((n) => n.id === group.id)!.zIndex
+      const cz = snap.nodes.find((n) => n.id === child.id)!.zIndex
+      expect(cz).toBeGreaterThan(gz)
+    })
+
+    it('copy and paste preserve parentId within the pasted forest', () => {
+      const engine = createCanvasEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+        select: false
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 30,
+        y: 40,
+        width: 60,
+        height: 50,
+        parentId: group.id,
+        select: false,
+        data: { content: 'p' }
+      })
+      engine.syncGroupZOrder(group.id)
+      engine.select([group.id])
+      engine.copySelected()
+      engine.pasteClipboard({ x: 300, y: 0 })
+      const snap = engine.getSnapshot()
+      const pastedChild = snap.nodes.find(
+        (n) => n.id !== child.id && n.type === 'text' && (n.data as { content?: string }).content === 'p'
+      )
+      const pastedGroup = snap.nodes.find(
+        (n) => n.id !== group.id && n.type === 'group' && pastedChild && n.id === pastedChild.parentId
+      )
+      expect(pastedGroup).toBeDefined()
+      expect(pastedChild?.parentId).toBe(pastedGroup?.id)
+    })
+  })
 })

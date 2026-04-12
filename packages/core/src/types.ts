@@ -59,6 +59,8 @@ export interface CanvasNode<T extends Record<string, unknown> = Record<string, u
   zIndex: number
   locked: boolean
   visible: boolean
+  /** When set, this node is logically contained in the group `parentId` (flat map; not DOM nesting). */
+  parentId?: NodeId
 }
 
 export interface NodeInput<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -71,6 +73,9 @@ export interface NodeInput<T extends Record<string, unknown> = Record<string, un
   data?: T
   locked?: boolean
   visible?: boolean
+  parentId?: NodeId
+  /** When false, selection is unchanged (default true). */
+  select?: boolean
 }
 
 export type NodePatch<T extends Record<string, unknown> = Record<string, unknown>> = Partial<
@@ -240,6 +245,8 @@ export interface CanvasEngine {
   updateNode<T extends Record<string, unknown> = Record<string, unknown>>(id: NodeId, patch: NodePatch<T>): CanvasNode<T>
   deleteNode(id: NodeId): void
   moveNode(id: NodeId, dx: number, dy: number): CanvasNode
+  /** Arrow-key style nudge for current selection; one history command; respects group subtrees. */
+  translateSelectedNodes(dx: number, dy: number): void
   resizeNode(id: NodeId, handle: ResizeHandle, dx: number, dy: number): CanvasNode
   bringToFront(id: NodeId): void
   sendToBack(id: NodeId): void
@@ -261,6 +268,10 @@ export interface CanvasEngine {
   commitTextEdit(id: NodeId, text?: string): CanvasNode
   updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean }): void
   endInteraction(pointerId?: number): void
+  /** Node ids that receive the same delta for keyboard nudge / coordinated moves (includes group subtrees). */
+  getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
+  /** Ensure every descendant of `groupId` has zIndex greater than its ancestor chain (after reparent/wrap). */
+  syncGroupZOrder(groupId: NodeId): void
   exportJSON(): string
   importJSON(json: string, mode?: 'replace' | 'merge'): void
 }

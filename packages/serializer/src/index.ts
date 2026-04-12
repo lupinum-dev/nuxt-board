@@ -24,6 +24,7 @@ export interface JsonCanvasDocument {
         zIndex?: number
         locked?: boolean
         visible?: boolean
+        parentId?: string
       }
     >
     edges?: Array<Record<string, unknown>>
@@ -128,7 +129,8 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
                 {
                   zIndex: node.zIndex,
                   locked: node.locked,
-                  visible: node.visible
+                  visible: node.visible,
+                  ...(node.parentId !== undefined ? { parentId: node.parentId } : {})
                 }
               ])
             ),
@@ -158,7 +160,8 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
             ...node,
             zIndex: meta?.zIndex ?? node.zIndex,
             locked: meta?.locked ?? node.locked,
-            visible: meta?.visible ?? node.visible
+            visible: meta?.visible ?? node.visible,
+            parentId: meta?.parentId ?? node.parentId
           }
         }),
         selection: [],

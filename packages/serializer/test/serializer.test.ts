@@ -83,4 +83,33 @@ describe('json canvas serializer', () => {
       zIndex: engine.getSnapshot().nodes.find((node) => node.id === first.id)?.zIndex
     })
   })
+
+  it('round-trips parentId and group nodes', () => {
+    const engine = createCanvasEngine({ grid: { snap: false } })
+    const group = engine.createNode({
+      type: 'group',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 200,
+      select: false
+    })
+    engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 60,
+      parentId: group.id,
+      select: false,
+      data: { content: 'in group' }
+    })
+    engine.syncGroupZOrder(group.id)
+
+    const json = jsonCanvasSerializer.export(engine.getSnapshot())
+    const snapshot = jsonCanvasSerializer.toSnapshot(jsonCanvasSerializer.parse(json))
+    const child = snapshot.nodes.find((n) => n.type === 'text')
+    expect(child?.parentId).toBe(group.id)
+    expect(snapshot.nodes.some((n) => n.type === 'group' && n.id === group.id)).toBe(true)
+  })
 })

@@ -12,6 +12,14 @@ import {
   worldToScreen,
   zoomCameraAtScreenPoint
 } from './math'
+import {
+  collectSubtreeIds,
+  collectUniformTranslationTargets,
+  expandGroupDragSeeds,
+  findContainingGroup,
+  getBoundsFromNode,
+  sortIdsByZIndex
+} from './hierarchy'
 import { cloneInteraction, createSnapshot, validateState } from './invariants'
 import { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
 import { collectOtherNodeEdges, collectOtherNodeEdgesExcluding, snapBoundsToEdges, snapPositionToEdges } from './snap'
@@ -242,21 +250,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     return node
   }
 
-  function getNodeBounds(node: Pick<CanvasNode, 'x' | 'y' | 'width' | 'height'>): Bounds {
-    return {
-      minX: node.x,
-      minY: node.y,
-      maxX: node.x + node.width,
-      maxY: node.y + node.height
-    }
-  }
-
   function normalizeExistingNode(node: CanvasNode): CanvasNode {
+    const parentId =
+      typeof node.parentId === 'string' && node.parentId.length > 0 ? node.parentId : undefined
     return {
       ...node,
       data: structuredClone(node.data),
       locked: Boolean(node.locked),
-      visible: node.visible !== false
+      visible: node.visible !== false,
+      parentId
     }
   }
 
@@ -273,22 +275,29 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       ? snapSize(input.height ?? nodeConstraints.defaultHeight, grid.size, nodeConstraints.minHeight)
       : input.height ?? nodeConstraints.defaultHeight
 
+    const t = input.type ?? 'text'
+    const defaultData =
+      t === 'text'
+        ? ({ content: '' } as unknown as T)
+        : t === 'group'
+          ? ({ title: 'Untitled group', accent: '#0d9488' } as unknown as T)
+          : ({} as T)
+
+    const parentId =
+      typeof input.parentId === 'string' && input.parentId.length > 0 ? input.parentId : undefined
+
     return {
       id: input.id ?? crypto.randomUUID(),
-      type: input.type ?? 'text',
+      type: t,
       x: snappedPoint.x,
       y: snappedPoint.y,
       width,
       height,
-      data: structuredClone(
-        input.data ??
-          ((input.type ?? 'text') === 'text'
-            ? ({ content: '' } as unknown as T)
-            : ({} as T))
-      ),
+      data: structuredClone(input.data ?? defaultData),
       zIndex: state.nextZIndex++,
       locked: Boolean(input.locked),
-      visible: input.visible !== false
+      visible: input.visible !== false,
+      parentId
     }
   }
 
@@ -299,6 +308,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     const next: CanvasNode<T> = {
       ...node,
       ...patch,
+      parentId: 'parentId' in patch ? patch.parentId : node.parentId,
       data: patch.data === undefined ? cloneNode(node).data : structuredClone(patch.data),
       visible: patch.visible ?? node.visible,
       locked: patch.locked ?? node.locked
@@ -317,16 +327,6 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     invalidateNodeCache()
   }
 
-  function duplicateNode(node: CanvasNode, offset: Point): CanvasNode {
-    return {
-      ...cloneNode(node),
-      id: crypto.randomUUID(),
-      x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
-      y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
-      zIndex: state.nextZIndex++
-    }
-  }
-
   function bumpNodeToFront(id: NodeId): void {
     const node = state.nodes.get(id)
     if (!node) {
@@ -337,6 +337,129 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     state.nodes.set(id, next)
     invalidateNodeCache()
     emit('node:updated', cloneNode(next), prev)
+    restackGroupDescendantsAbove(id)
+  }
+
+  /** After raising a group's z-index, every descendant must stay strictly above it (Obsidian-style frame behind cards). */
+  function restackGroupDescendantsAbove(groupId: NodeId): void {
+    const g = state.nodes.get(groupId)
+    if (!g || g.type !== 'group') {
+      return
+    }
+    for (const child of getDirectChildren(groupId)) {
+      fixSubtreeZOrderAfter(g, child.id)
+    }
+  }
+
+  function getDirectChildren(parentId: NodeId): CanvasNode[] {
+    return [...state.nodes.values()].filter((n) => n.parentId === parentId)
+  }
+
+  function collectSubtreeIdSet(rootId: NodeId, into: Set<NodeId>): void {
+    collectSubtreeIds(rootId, state.nodes, into)
+  }
+
+  function forestIdsFromSeeds(seedIds: Iterable<NodeId>): Set<NodeId> {
+    const out = new Set<NodeId>()
+    for (const id of seedIds) {
+      if (state.nodes.has(id)) {
+        collectSubtreeIdSet(id, out)
+      }
+    }
+    return out
+  }
+
+  function deletionOrderPostOrder(ids: Set<NodeId>): NodeId[] {
+    const memo = new Map<NodeId, number>()
+    function depthOf(id: NodeId): number {
+      const hit = memo.get(id)
+      if (hit !== undefined) {
+        return hit
+      }
+      const n = state.nodes.get(id)
+      if (!n?.parentId || !ids.has(n.parentId)) {
+        memo.set(id, 0)
+        return 0
+      }
+      const d = depthOf(n.parentId) + 1
+      memo.set(id, d)
+      return d
+    }
+    return [...ids].sort((a, b) => depthOf(b) - depthOf(a))
+  }
+
+  function fixSubtreeZOrderAfter(parent: CanvasNode | null, nodeId: NodeId): void {
+    const node = state.nodes.get(nodeId)
+    if (!node) {
+      return
+    }
+    let cur = node
+    if (parent && cur.zIndex <= parent.zIndex) {
+      cur = { ...cur, zIndex: state.nextZIndex++ }
+      replaceNode(node, cur)
+    }
+    const anchor = state.nodes.get(nodeId)!
+    for (const child of getDirectChildren(nodeId)) {
+      fixSubtreeZOrderAfter(anchor, child.id)
+    }
+  }
+
+  function reparentAfterDrag(movedIds: NodeId[]): void {
+    const ordered = sortIdsByZIndex(movedIds, state.nodes)
+    for (const id of ordered) {
+      const n = state.nodes.get(id)
+      if (!n) {
+        continue
+      }
+      const nextParent = findContainingGroup(n, state.nodes)
+      const prevParent = n.parentId
+      if (nextParent === prevParent) {
+        continue
+      }
+      const prev = cloneNode(n)
+      const next = { ...n, parentId: nextParent }
+      replaceNode(n, next)
+      const placed = state.nodes.get(id)!
+      emit('node:updated', cloneNode(placed), prev)
+      const pNode = nextParent ? assertNode(nextParent) : null
+      fixSubtreeZOrderAfter(pNode, id)
+    }
+  }
+
+  function getCopyClosureNodes(): CanvasNode[] {
+    const selected = getSelectionNodes()
+    const ids = expandGroupDragSeeds(
+      selected.map((n) => n.id),
+      state.nodes
+    )
+    return [...ids]
+      .map((nid) => state.nodes.get(nid))
+      .filter((node): node is CanvasNode => Boolean(node))
+      .sort((a, b) => a.zIndex - b.zIndex)
+  }
+
+  function duplicateForest(nodes: CanvasNode[], offset: Point): CanvasNode[] {
+    const sorted = [...nodes].sort((a, b) => a.zIndex - b.zIndex)
+    const idMap = new Map<NodeId, NodeId>()
+    for (const n of sorted) {
+      idMap.set(n.id, crypto.randomUUID())
+    }
+    const created: CanvasNode[] = []
+    for (const n of sorted) {
+      const newId = idMap.get(n.id)!
+      const mappedParent =
+        n.parentId && idMap.has(n.parentId) ? (idMap.get(n.parentId) as NodeId) : undefined
+      const dup: CanvasNode = {
+        ...cloneNode(n),
+        id: newId,
+        parentId: mappedParent,
+        x: grid.snap ? snapValue(n.x + offset.x, grid.size) : n.x + offset.x,
+        y: grid.snap ? snapValue(n.y + offset.y, grid.size) : n.y + offset.y,
+        zIndex: state.nextZIndex++
+      }
+      created.push(dup)
+    }
+    return created
   }
 
   function getSelectionNodes(): CanvasNode[] {
@@ -405,14 +528,14 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return null
     }
     const bounds = source.reduce<Bounds>((acc, node) => {
-      const current = getNodeBounds(node)
+      const current = getBoundsFromNode(node)
       return {
         minX: Math.min(acc.minX, current.minX),
         minY: Math.min(acc.minY, current.minY),
         maxX: Math.max(acc.maxX, current.maxX),
         maxY: Math.max(acc.maxY, current.maxY)
       }
-    }, getNodeBounds(source[0]!))
+    }, getBoundsFromNode(source[0]!))
 
     const width = Math.max(1, bounds.maxX - bounds.minX)
     const height = Math.max(1, bounds.maxY - bounds.minY)
@@ -512,7 +635,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       let best: CanvasNode | null = null
       let bestZ = -Infinity
       for (const node of state.nodes.values()) {
-        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getNodeBounds(node))) {
+        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getBoundsFromNode(node))) {
           best = node
           bestZ = node.zIndex
         }
@@ -520,7 +643,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return best
     },
     getNodesInBounds(bounds) {
-      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getNodeBounds(node), bounds))
+      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getBoundsFromNode(node), bounds))
     },
     panBy(dx, dy) {
       runCommand('panBy', [dx, dy], () => {
@@ -597,7 +720,9 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
         invalidateNodeCache()
-        setSelection([node.id])
+        if (input.select !== false) {
+          setSelection([node.id])
+        }
         const cloned = cloneNode(node)
         emit('node:created', cloned)
         return cloned
@@ -616,14 +741,23 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     deleteNode(id) {
       runCommand('deleteNode', [id], () => {
-        const node = assertNode(id)
-        state.nodes.delete(id)
+        assertNode(id)
+        const toDel = new Set<NodeId>()
+        collectSubtreeIdSet(id, toDel)
+        const order = deletionOrderPostOrder(toDel)
+        for (const delId of order) {
+          const prevNode = state.nodes.get(delId)
+          if (!prevNode) {
+            continue
+          }
+          state.nodes.delete(delId)
+          emit('node:deleted', delId, cloneNode(prevNode))
+        }
         invalidateNodeCache()
         cleanupSelection()
         if (state.interaction.mode !== 'idle') {
           setInteraction({ mode: 'idle' })
         }
-        emit('node:deleted', id, cloneNode(node))
       })
     },
     moveNode(id, dx, dy) {
@@ -632,17 +766,48 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         if (node.locked) {
           return cloneNode(node)
         }
-        const next = {
-          ...node,
-          x: grid.snap ? snapValue(node.x + dx, grid.size) : node.x + dx,
-          y: grid.snap ? snapValue(node.y + dy, grid.size) : node.y + dy
+        const targets = collectUniformTranslationTargets([id], state.nodes)
+        for (const tid of targets) {
+          const n = assertNode(tid)
+          const prev = cloneNode(n)
+          const next = {
+            ...n,
+            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
+            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+          }
+          replaceNode(n, next)
+          const moved = cloneNode(next)
+          emit('node:moved', moved, { x: next.x - prev.x, y: next.y - prev.y })
+          emit('node:updated', moved, prev)
         }
-        replaceNode(node, next)
-        const cloned = cloneNode(next)
-        const prev = cloneNode(node)
-        emit('node:moved', cloned, { x: next.x - node.x, y: next.y - node.y })
-        emit('node:updated', cloned, prev)
-        return cloned
+        reparentAfterDrag(targets)
+        return cloneNode(assertNode(id))
+      })
+    },
+    translateSelectedNodes(dx, dy) {
+      runCommand('translateSelectedNodes', [dx, dy], () => {
+        const seeds = Array.from(state.selection.values()).filter((sid) => {
+          const n = state.nodes.get(sid)
+          return n && !n.locked
+        })
+        if (seeds.length === 0) {
+          return
+        }
+        const targets = collectUniformTranslationTargets(seeds, state.nodes)
+        for (const tid of targets) {
+          const n = assertNode(tid)
+          const prev = cloneNode(n)
+          const next = {
+            ...n,
+            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
+            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+          }
+          replaceNode(n, next)
+          const cloned = cloneNode(next)
+          emit('node:moved', cloned, { x: next.x - prev.x, y: next.y - prev.y })
+          emit('node:updated', cloned, prev)
+        }
+        reparentAfterDrag(targets)
       })
     },
     resizeNode(id, handle, dx, dy) {
@@ -682,6 +847,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         const next = { ...node, zIndex: state.nextZIndex++ }
         replaceNode(node, next)
         emit('node:updated', cloneNode(next), prev)
+        restackGroupDescendantsAbove(id)
       })
     },
     sendToBack(id) {
@@ -692,6 +858,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         const next = { ...node, zIndex: minZ - 1 }
         replaceNode(node, next)
         emit('node:updated', cloneNode(next), prev)
+        restackGroupDescendantsAbove(id)
       })
     },
     lockNode(id) {
@@ -714,10 +881,12 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     duplicateNodes(ids, offset = { x: grid.size, y: grid.size }) {
       return runCommand('duplicateNodes', [ids, offset], () => {
-        const created = ids
-          .map((id) => state.nodes.get(id))
+        const forest = forestIdsFromSeeds(ids)
+        const source = [...forest]
+          .map((nid) => state.nodes.get(nid))
           .filter((node): node is CanvasNode => Boolean(node))
-          .map((node) => duplicateNode(node, offset))
+          .sort((a, b) => a.zIndex - b.zIndex)
+        const created = duplicateForest(source, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
           emit('node:created', cloneNode(node))
@@ -730,7 +899,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     copySelected() {
       return runCommand('copySelected', [], () => {
         clipboard.length = 0
-        for (const node of getSelectionNodes()) {
+        for (const node of getCopyClosureNodes()) {
           clipboard.push(cloneNode(node))
         }
         return clipboard.map(cloneNode)
@@ -738,7 +907,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
       return runCommand('pasteClipboard', [offset], () => {
-        const created = clipboard.map((node) => duplicateNode(node, offset))
+        const created = duplicateForest(clipboard, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
           emit('node:created', cloneNode(node))
@@ -782,12 +951,21 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     deleteSelected() {
       runCommand('deleteSelected', [], () => {
-        const deleting = getSelectionNodes().filter((node) => !node.locked)
-        for (const node of deleting) {
-          state.nodes.delete(node.id)
-          emit('node:deleted', node.id, cloneNode(node))
+        const deletingRoots = getSelectionNodes().filter((node) => !node.locked)
+        const toDel = new Set<NodeId>()
+        for (const n of deletingRoots) {
+          collectSubtreeIdSet(n.id, toDel)
         }
-        if (deleting.length > 0) {
+        const order = deletionOrderPostOrder(toDel)
+        for (const delId of order) {
+          const prevNode = state.nodes.get(delId)
+          if (!prevNode) {
+            continue
+          }
+          state.nodes.delete(delId)
+          emit('node:deleted', delId, cloneNode(prevNode))
+        }
+        if (toDel.size > 0) {
           invalidateNodeCache()
         }
         setSelection([])
@@ -812,7 +990,10 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         if (node.locked) {
           return
         }
-        const nodeIds = state.selection.has(id) ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id) : [id]
+        const initialSelection = state.selection.has(id)
+          ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id)
+          : [id]
+        const nodeIds = collectUniformTranslationTargets(initialSelection, state.nodes)
         if (!state.selection.has(id)) {
           setSelection([id])
         }
@@ -1010,8 +1191,21 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         return
       }
       runCommand('endInteraction', [pointerId], () => {
+        const prevInteraction = state.interaction
         state.snapGuides = []
+        if (prevInteraction.mode === 'dragging-nodes') {
+          reparentAfterDrag(prevInteraction.nodeIds)
+        }
         setInteraction({ mode: 'idle' })
+      })
+    },
+    getUniformTranslationTargets(seedIds) {
+      return collectUniformTranslationTargets(seedIds, state.nodes)
+    },
+    syncGroupZOrder(groupId) {
+      runCommand('syncGroupZOrder', [groupId], () => {
+        assertNode(groupId)
+        restackGroupDescendantsAbove(groupId)
       })
     },
     exportJSON() {

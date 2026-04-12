@@ -425,9 +425,7 @@ function onKeyDown(event: KeyboardEvent): void {
           : event.key === 'ArrowUp'
             ? { x: 0, y: -step }
             : { x: 0, y: step }
-    for (const nodeId of selection) {
-      engine.moveNode(nodeId, delta.x, delta.y)
-    }
+    engine.translateSelectedNodes(delta.x, delta.y)
   }
 }
 
