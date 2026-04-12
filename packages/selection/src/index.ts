@@ -1,0 +1,41 @@
+import type { Bounds, CanvasEngine, CanvasNode, CanvasPlugin, NodeId } from '@canvas/core'
+
+export function selectionPlugin(): CanvasPlugin {
+  return {
+    name: 'selection',
+    install() {
+      return undefined
+    }
+  }
+}
+
+export function getSelectionNodes(engine: CanvasEngine): CanvasNode[] {
+  const selected = new Set(engine.getSelection())
+  return engine.getSnapshot().nodes.filter((node) => selected.has(node.id))
+}
+
+export function getSelectionBounds(engine: CanvasEngine): Bounds | null {
+  const nodes = getSelectionNodes(engine)
+  if (nodes.length === 0) {
+    return null
+  }
+  return {
+    minX: Math.min(...nodes.map((node) => node.x)),
+    minY: Math.min(...nodes.map((node) => node.y)),
+    maxX: Math.max(...nodes.map((node) => node.x + node.width)),
+    maxY: Math.max(...nodes.map((node) => node.y + node.height))
+  }
+}
+
+export function toggleIds(current: NodeId[], ids: NodeId[]): NodeId[] {
+  const next = new Set(current)
+  for (const id of ids) {
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+  }
+  return Array.from(next)
+}
+

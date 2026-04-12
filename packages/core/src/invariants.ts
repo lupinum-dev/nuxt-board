@@ -1,14 +1,61 @@
-import type { BoardState, CanvasEngineSnapshot, CanvasGridSettings, InvariantFailure } from './types'
+import type {
+  BoardSnapshot,
+  BoardState,
+  CanvasNode,
+  GridSettings,
+  InvariantFailure,
+  InteractionState
+} from './types'
 
-export function createInvariantSnapshot(
-  state: BoardState,
-  grid: CanvasGridSettings = { size: 0, majorEvery: 0, snap: false }
-): CanvasEngineSnapshot {
+export function cloneInteraction(interaction: InteractionState): InteractionState {
+  switch (interaction.mode) {
+    case 'idle':
+      return { mode: 'idle' }
+    case 'editing-text':
+      return { mode: 'editing-text', nodeId: interaction.nodeId }
+    case 'panning':
+      return {
+        mode: 'panning',
+        pointerId: interaction.pointerId,
+        lastScreenPoint: { ...interaction.lastScreenPoint }
+      }
+    case 'dragging-nodes':
+      return {
+        mode: 'dragging-nodes',
+        pointerId: interaction.pointerId,
+        nodeIds: [...interaction.nodeIds],
+        startScreenPoint: { ...interaction.startScreenPoint },
+        startNodePositions: Object.fromEntries(
+          Object.entries(interaction.startNodePositions).map(([key, value]) => [key, { ...value }])
+        )
+      }
+    case 'resizing-node':
+      return {
+        mode: 'resizing-node',
+        pointerId: interaction.pointerId,
+        nodeId: interaction.nodeId,
+        handle: interaction.handle,
+        startScreenPoint: { ...interaction.startScreenPoint },
+        startNodeBounds: { ...interaction.startNodeBounds }
+      }
+    case 'box-select':
+      return {
+        mode: 'box-select',
+        pointerId: interaction.pointerId,
+        startScreenPoint: { ...interaction.startScreenPoint },
+        currentScreenPoint: { ...interaction.currentScreenPoint },
+        startWorldPoint: { ...interaction.startWorldPoint },
+        currentWorldPoint: { ...interaction.currentWorldPoint }
+      }
+  }
+}
+
+export function createSnapshot(state: BoardState, grid: GridSettings): BoardSnapshot {
   return {
     camera: { ...state.camera },
-    grid,
+    grid: { ...grid },
     nodes: Array.from(state.nodes.values())
-      .map((node) => ({ ...node }))
+      .map((node) => ({ ...node, data: cloneData(node.data) }))
       .sort((a, b) => a.zIndex - b.zIndex),
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
@@ -16,70 +63,34 @@ export function createInvariantSnapshot(
   }
 }
 
-function cloneInteraction(state: BoardState['interaction']): BoardState['interaction'] {
-  switch (state.mode) {
-    case 'idle':
-      return { mode: 'idle' }
-    case 'editing-text':
-      return { mode: 'editing-text', nodeId: state.nodeId }
-    case 'panning':
-      return { mode: 'panning', pointerId: state.pointerId, lastScreenPoint: { ...state.lastScreenPoint } }
-    case 'dragging-node':
-      return {
-        mode: 'dragging-node',
-        pointerId: state.pointerId,
-        nodeId: state.nodeId,
-        startScreenPoint: { ...state.startScreenPoint },
-        startNodePosition: { ...state.startNodePosition }
-      }
-    case 'resizing-node':
-      return {
-        mode: 'resizing-node',
-        pointerId: state.pointerId,
-        nodeId: state.nodeId,
-        handle: state.handle,
-        startScreenPoint: { ...state.startScreenPoint },
-        startNodeBounds: { ...state.startNodeBounds }
-      }
-  }
+function cloneData<T>(data: T): T {
+  return structuredClone(data)
 }
 
-export function validateState(
-  state: BoardState,
-  context: string,
-  grid: CanvasGridSettings = { size: 0, majorEvery: 0, snap: false }
-): InvariantFailure[] {
+export function validateState(state: BoardState, grid: GridSettings, context: string): InvariantFailure[] {
   const failures: InvariantFailure[] = []
-  const snapshot = createInvariantSnapshot(state, grid)
+  const snapshot = createSnapshot(state, grid)
 
   const push = (name: string, message: string) => {
     failures.push({ name, message, context, snapshot })
   }
 
   if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
-    push('camera.finite', 'Camera values must always be finite numbers.')
+    push('camera.finite', 'Camera values must be finite numbers.')
   }
 
-  if (!Number.isFinite(grid.size) || grid.size <= 0) {
+  if (grid.size <= 0 || !Number.isFinite(grid.size)) {
     push('grid.size', 'Grid size must be a finite number greater than 0.')
   }
-
-  if (!Number.isFinite(grid.majorEvery) || grid.majorEvery < 1) {
+  if (grid.majorEvery < 1 || !Number.isFinite(grid.majorEvery)) {
     push('grid.majorEvery', 'Grid majorEvery must be a finite number greater than or equal to 1.')
   }
 
   const zIndexes = new Set<number>()
   for (const node of state.nodes.values()) {
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.width) || !Number.isFinite(node.height)) {
-      push('node.finite', `Node ${node.id} contains non-finite geometry.`)
-    }
-
-    if (node.width < 1 || node.height < 1) {
-      push('node.size', `Node ${node.id} must have positive width and height.`)
-    }
-
+    validateNode(node, push)
     if (zIndexes.has(node.zIndex)) {
-      push('node.zindex.unique', `Node ${node.id} shares a z-index with another node.`)
+      push('node.zIndex.unique', `Node ${node.id} shares a z-index with another node.`)
     }
     zIndexes.add(node.zIndex)
   }
@@ -90,18 +101,36 @@ export function validateState(
     }
   }
 
-  if (state.nextZIndex <= state.nodes.size) {
-    const maxZ = Math.max(0, ...Array.from(state.nodes.values(), (node) => node.zIndex))
-    if (state.nextZIndex <= maxZ) {
-      push('node.zindex.monotonic', 'nextZIndex must stay above every current node z-index.')
-    }
+  if (state.interaction.mode === 'editing-text' && !state.nodes.has(state.interaction.nodeId)) {
+    push('interaction.node', `Editing node ${state.interaction.nodeId} does not exist.`)
   }
-
-  if (state.interaction.mode === 'dragging-node' || state.interaction.mode === 'resizing-node' || state.interaction.mode === 'editing-text') {
-    if (!state.nodes.has(state.interaction.nodeId)) {
-      push('interaction.node', `Active interaction references missing node ${state.interaction.nodeId}.`)
+  if (state.interaction.mode === 'resizing-node' && !state.nodes.has(state.interaction.nodeId)) {
+    push('interaction.node', `Resizing node ${state.interaction.nodeId} does not exist.`)
+  }
+  if (state.interaction.mode === 'dragging-nodes') {
+    for (const id of state.interaction.nodeIds) {
+      if (!state.nodes.has(id)) {
+        push('interaction.node', `Dragging node ${id} does not exist.`)
+      }
     }
   }
 
   return failures
+}
+
+function validateNode(node: CanvasNode, push: (name: string, message: string) => void): void {
+  if (
+    !Number.isFinite(node.x) ||
+    !Number.isFinite(node.y) ||
+    !Number.isFinite(node.width) ||
+    !Number.isFinite(node.height)
+  ) {
+    push('node.finite', `Node ${node.id} contains non-finite geometry.`)
+  }
+  if (node.width <= 0 || node.height <= 0) {
+    push('node.size', `Node ${node.id} must have positive width and height.`)
+  }
+  if (!node.type) {
+    push('node.type', `Node ${node.id} must have a type.`)
+  }
 }

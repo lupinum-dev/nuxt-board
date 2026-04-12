@@ -1,21 +1,16 @@
-import type { InjectionKey, Ref, ShallowRef } from 'vue'
-import type { CanvasDiagnosticsEvent, CanvasEngine, CanvasEngineSnapshot, Point } from '@canvas/core'
-
-export interface CanvasRenderStats {
-  visibleNodeCount: Ref<number>
-  renderCount: Ref<number>
-  lastPerformanceSample: Ref<CanvasDiagnosticsEvent | null>
-  lastInvariantFailure: Ref<CanvasDiagnosticsEvent | null>
-  incrementRenderCount: () => void
-  setVisibleNodeCount: (count: number) => void
-  consumeEvent: (event: CanvasDiagnosticsEvent) => void
-}
+import type { BoardSnapshot, CanvasEngine, Point } from '@canvas/core'
+import type { ComputedRef, InjectionKey, Ref, ShallowRef } from 'vue'
+import type { CanvasRendererRegistry, ResolvedCanvasGridOptions } from './grid'
 
 export interface CanvasEngineContext {
   engine: CanvasEngine
-  snapshot: ShallowRef<CanvasEngineSnapshot>
+  snapshot: ShallowRef<BoardSnapshot>
+  rootElement: Ref<HTMLElement | null>
   viewportSize: Ref<Point>
-  renderStats: CanvasRenderStats
+  renderers: Ref<CanvasRendererRegistry>
+  resolvedGrid: ComputedRef<ResolvedCanvasGridOptions>
+  renderCount: Ref<number>
+  toLocalPoint: (clientX: number, clientY: number) => Point
 }
 
 export const canvasEngineKey: InjectionKey<CanvasEngineContext> = Symbol('canvas-engine')

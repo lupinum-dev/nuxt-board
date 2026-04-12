@@ -1,30 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref, shallowRef, watch, type PropType } from 'vue'
-import {
-  createCanvasEngine,
-  type CanvasGridSettings,
-  type CanvasDiagnosticsEvent,
-  type CanvasEngine,
-  type CanvasEngineSnapshot,
-  type Point,
-  type ResizeHandle
-} from '@canvas/core'
-import { canvasEngineKey, type CanvasRenderStats } from '../context'
-import {
-  DEFAULT_CANVAS_GRID_OPTIONS,
-  type CanvasGridOptions,
-  type ResolvedCanvasGridOptions
-} from '../grid'
+import { computed, markRaw, onBeforeUnmount, onMounted, provide, ref, shallowRef, useSlots, watch, type Component, type PropType } from 'vue'
+import type { BoardSnapshot, CanvasEngine, CanvasNode as CanvasNodeState, GridSettings, Point, ResizeHandle } from '@canvas/core'
+import { createCanvasEngine } from '@canvas/core'
+import { canvasEngineKey } from '../context'
+import { DEFAULT_CANVAS_GRID_OPTIONS, type CanvasGridOptions, type CanvasRendererRegistry, type ResolvedCanvasGridOptions } from '../grid'
+import CanvasBoxSelect from './CanvasBoxSelect.vue'
+import CanvasGrid from './CanvasGrid.vue'
+import CanvasNode from './CanvasNode.vue'
 import CanvasViewport from './CanvasViewport.vue'
 
 const props = defineProps({
   engine: {
     type: Object as PropType<CanvasEngine | undefined>,
     default: undefined
-  },
-  debug: {
-    type: Boolean,
-    default: false
   },
   cullMargin: {
     type: Number,
@@ -33,6 +21,14 @@ const props = defineProps({
   grid: {
     type: [Boolean, Object] as PropType<boolean | CanvasGridOptions>,
     default: true
+  },
+  renderers: {
+    type: Object as PropType<CanvasRendererRegistry>,
+    default: () => ({})
+  },
+  fallbackRenderer: {
+    type: Object as PropType<Component | null>,
+    default: null
   }
 })
 
@@ -40,75 +36,18 @@ const emit = defineEmits<{
   ready: [engine: CanvasEngine]
 }>()
 
-const root = ref<HTMLElement | null>(null)
-const ownedEngine = props.engine ?? createCanvasEngine()
-const snapshot = shallowRef<CanvasEngineSnapshot>(ownedEngine.getSnapshot())
+const rootElement = ref<HTMLElement | null>(null)
 const viewportSize = ref<Point>({ x: 0, y: 0 })
-const visibleNodeCount = ref(0)
 const renderCount = ref(0)
-const lastPerformanceSample = ref<CanvasDiagnosticsEvent | null>(null)
-const lastInvariantFailure = ref<CanvasDiagnosticsEvent | null>(null)
-const lastEvents = ref<CanvasDiagnosticsEvent[]>([])
-
-const renderStats: CanvasRenderStats = {
-  visibleNodeCount,
-  renderCount,
-  lastPerformanceSample,
-  lastInvariantFailure,
-  incrementRenderCount() {
-    renderCount.value += 1
-  },
-  setVisibleNodeCount(count) {
-    visibleNodeCount.value = count
-  },
-  consumeEvent(event) {
-    if (event.type === 'performance:sample') {
-      lastPerformanceSample.value = event
-    }
-    if (event.type === 'invariant:failed') {
-      lastInvariantFailure.value = event
-    }
-  }
-}
-
-provide(canvasEngineKey, {
-  engine: ownedEngine,
-  snapshot,
-  viewportSize,
-  renderStats
-})
-
-const unsubscribe = ownedEngine.subscribe((event) => {
-  renderStats.consumeEvent(event)
-  if (event.type === 'state:changed') {
-    snapshot.value = event.snapshot
-  }
-  lastEvents.value = [...lastEvents.value.slice(-19), event]
-})
-
-const debugState = computed(() => ({
-  camera: snapshot.value.camera,
-  grid: snapshot.value.grid,
-  selection: snapshot.value.selection,
-  interaction: snapshot.value.interaction,
-  visibleNodeCount: visibleNodeCount.value,
-  renderCount: renderCount.value,
-  lastPerformanceSample: lastPerformanceSample.value?.type === 'performance:sample'
-    ? lastPerformanceSample.value.sample
-    : null,
-  lastInvariantFailure: lastInvariantFailure.value?.type === 'invariant:failed'
-    ? lastInvariantFailure.value.failure.message
-    : null,
-  recentEvents: lastEvents.value
-}))
-
-function modulo(value: number, divisor: number): number {
-  return ((value % divisor) + divisor) % divisor
-}
+const engine = props.engine ?? createCanvasEngine()
+const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
+const renderersRef = shallowRef<CanvasRendererRegistry>(props.renderers)
+const slots = useSlots()
+const spacePressed = ref(false)
 
 function resolveGridOptions(
   input: boolean | CanvasGridOptions,
-  engineGrid: CanvasGridSettings
+  engineGrid: GridSettings
 ): ResolvedCanvasGridOptions {
   if (input === false) {
     return {
@@ -116,7 +55,8 @@ function resolveGridOptions(
       visible: false,
       size: engineGrid.size,
       majorEvery: engineGrid.majorEvery,
-      snap: engineGrid.snap
+      snap: engineGrid.snap,
+      pattern: engineGrid.pattern
     }
   }
 
@@ -127,6 +67,7 @@ function resolveGridOptions(
     size: overrides.size ?? engineGrid.size,
     majorEvery: overrides.majorEvery ?? engineGrid.majorEvery,
     snap: overrides.snap ?? engineGrid.snap,
+    pattern: overrides.pattern ?? engineGrid.pattern,
     minorOpacity: overrides.minorOpacity ?? DEFAULT_CANVAS_GRID_OPTIONS.minorOpacity,
     majorOpacity: overrides.majorOpacity ?? DEFAULT_CANVAS_GRID_OPTIONS.majorOpacity,
     fadeEdges: overrides.fadeEdges ?? DEFAULT_CANVAS_GRID_OPTIONS.fadeEdges
@@ -135,54 +76,90 @@ function resolveGridOptions(
 
 const resolvedGrid = computed(() => resolveGridOptions(props.grid, snapshot.value.grid))
 
-const gridStyle = computed(() => {
-  const zoom = snapshot.value.camera.z
-  const minorWorldStep = resolvedGrid.value.size
-  const majorWorldStep = resolvedGrid.value.size * resolvedGrid.value.majorEvery
-  const minorScreenStep = minorWorldStep * zoom
-  const majorScreenStep = majorWorldStep * zoom
-  const cameraScreenX = snapshot.value.camera.x * zoom
-  const cameraScreenY = snapshot.value.camera.y * zoom
-  const minorAlpha =
-    minorScreenStep < 6 ? 0 : minorScreenStep < 12 ? resolvedGrid.value.minorOpacity * 0.57 : resolvedGrid.value.minorOpacity
-  const majorAlpha =
-    majorScreenStep < 8 ? resolvedGrid.value.majorOpacity * 0.44 : resolvedGrid.value.majorOpacity
-
-  return {
-    '--grid-minor-size': `${minorScreenStep}px`,
-    '--grid-major-size': `${majorScreenStep}px`,
-    '--grid-minor-x': `${modulo(cameraScreenX, minorScreenStep)}px`,
-    '--grid-minor-y': `${modulo(cameraScreenY, minorScreenStep)}px`,
-    '--grid-major-x': `${modulo(cameraScreenX, majorScreenStep)}px`,
-    '--grid-major-y': `${modulo(cameraScreenY, majorScreenStep)}px`,
-    '--grid-minor-color': `rgba(148, 163, 184, ${minorAlpha})`,
-    '--grid-major-color': `rgba(71, 85, 105, ${majorAlpha})`,
-    '--grid-mask-image': resolvedGrid.value.fadeEdges
-      ? 'radial-gradient(circle at center, black 65%, transparent 100%)'
-      : 'none'
-  }
+provide(canvasEngineKey, {
+  engine,
+  snapshot,
+  rootElement,
+  viewportSize,
+  renderers: renderersRef,
+  resolvedGrid,
+  renderCount,
+  toLocalPoint
 })
 
-const rootClasses = computed(() => ({
-  'is-panning': snapshot.value.interaction.mode === 'panning'
+const visibleNodes = computed(() => {
+  const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
+  return snapshot.value.nodes.filter((node) => {
+    if (!node.visible) {
+      return false
+    }
+    return (
+      node.x + node.width > bounds.minX - props.cullMargin &&
+      node.x < bounds.maxX + props.cullMargin &&
+      node.y + node.height > bounds.minY - props.cullMargin &&
+      node.y < bounds.maxY + props.cullMargin
+    )
+  })
+})
+
+const debugState = computed(() => ({
+  snapshot: snapshot.value,
+  camera: snapshot.value.camera,
+  grid: snapshot.value.grid,
+  selection: snapshot.value.selection,
+  interaction: snapshot.value.interaction,
+  visibleNodeCount: visibleNodes.value.length,
+  renderCount: renderCount.value,
+  trace: engine.exportTrace().slice(-20)
 }))
+
+function refreshSnapshot(): void {
+  snapshot.value = engine.getSnapshot()
+}
+
+const unsubscribes = [
+  engine.on('camera:change', refreshSnapshot),
+  engine.on('node:created', refreshSnapshot),
+  engine.on('node:updated', refreshSnapshot),
+  engine.on('node:deleted', refreshSnapshot),
+  engine.on('node:moved', refreshSnapshot),
+  engine.on('node:resized', refreshSnapshot),
+  engine.on('selection:change', refreshSnapshot),
+  engine.on('interaction:start', refreshSnapshot),
+  engine.on('interaction:update', refreshSnapshot),
+  engine.on('interaction:end', refreshSnapshot),
+  engine.on('command:after', refreshSnapshot)
+]
+
+watch(
+  () => props.renderers,
+  (value) => {
+    renderersRef.value = Object.fromEntries(
+      Object.entries(value).map(([key, component]) => [key, markRaw(component)])
+    )
+  },
+  { immediate: true, deep: true }
+)
 
 watch(
   () => props.grid,
-  (grid) => {
-    if (grid && typeof grid === 'object') {
-      const patch: Partial<CanvasGridSettings> = {}
-      if (grid.size !== undefined) {
-        patch.size = grid.size
+  (value) => {
+    if (value && typeof value === 'object') {
+      const patch: Partial<GridSettings> = {}
+      if (value.size !== undefined) {
+        patch.size = value.size
       }
-      if (grid.majorEvery !== undefined) {
-        patch.majorEvery = grid.majorEvery
+      if (value.majorEvery !== undefined) {
+        patch.majorEvery = value.majorEvery
       }
-      if (grid.snap !== undefined) {
-        patch.snap = grid.snap
+      if (value.snap !== undefined) {
+        patch.snap = value.snap
+      }
+      if (value.pattern !== undefined) {
+        patch.pattern = value.pattern
       }
       if (Object.keys(patch).length > 0) {
-        ownedEngine.updateGridSettings(patch)
+        engine.updateGridSettings(patch)
       }
     }
   },
@@ -190,16 +167,16 @@ watch(
 )
 
 function updateViewportSize(): void {
-  const element = root.value
-  if (!element) {
-    return
+  const rect = rootElement.value?.getBoundingClientRect()
+  viewportSize.value = {
+    x: rect?.width ?? 0,
+    y: rect?.height ?? 0
   }
-  const rect = element.getBoundingClientRect()
-  viewportSize.value = { x: rect.width, y: rect.height }
+  engine.setViewportSize(viewportSize.value)
 }
 
 function toLocalPoint(clientX: number, clientY: number): Point {
-  const rect = root.value?.getBoundingClientRect()
+  const rect = rootElement.value?.getBoundingClientRect()
   return {
     x: clientX - (rect?.left ?? 0),
     y: clientY - (rect?.top ?? 0)
@@ -207,77 +184,66 @@ function toLocalPoint(clientX: number, clientY: number): Point {
 }
 
 function findNodeId(target: EventTarget | null): string | undefined {
-  if (!(target instanceof HTMLElement)) {
-    return undefined
-  }
-  return target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId
+  return target instanceof HTMLElement ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId : undefined
 }
 
-function findHandle(target: EventTarget | null): string | undefined {
-  if (!(target instanceof HTMLElement)) {
-    return undefined
-  }
-  return target.closest<HTMLElement>('[data-resize]')?.dataset.resize
+function findHandle(target: EventTarget | null): ResizeHandle | undefined {
+  return target instanceof HTMLElement ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as ResizeHandle | undefined) : undefined
 }
 
 function isEditorTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest('[data-editor="true"]'))
 }
 
+function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 'resize' | 'box-select', nodeId?: string, handle?: ResizeHandle): void {
+  const point = toLocalPoint(event.clientX, event.clientY)
+  if (kind === 'pan') {
+    engine.beginPan(event.pointerId, point)
+  } else if (kind === 'drag' && nodeId) {
+    engine.beginNodeDrag(nodeId, event.pointerId, point)
+  } else if (kind === 'resize' && nodeId && handle) {
+    engine.beginResize(nodeId, handle, event.pointerId, point)
+  } else {
+    engine.beginBoxSelect(event.pointerId, point)
+  }
+  rootElement.value?.setPointerCapture(event.pointerId)
+  rootElement.value?.focus()
+}
+
 function onPointerDown(event: PointerEvent): void {
   if (isEditorTarget(event.target)) {
     return
   }
-
-  if (event.button === 1) {
+  if (event.button === 1 || spacePressed.value) {
     event.preventDefault()
-    ownedEngine.beginPan(event.pointerId, toLocalPoint(event.clientX, event.clientY))
-    root.value?.setPointerCapture(event.pointerId)
-    root.value?.focus()
+    startPointerInteraction(event, 'pan')
     return
   }
-
   if (event.button !== 0) {
     return
   }
 
-  const point = toLocalPoint(event.clientX, event.clientY)
   const nodeId = findNodeId(event.target)
   const handle = findHandle(event.target)
-
   if (handle && nodeId) {
-    ownedEngine.beginResize(nodeId, handle as ResizeHandle, event.pointerId, point)
-  } else if (nodeId) {
-    ownedEngine.beginNodeDrag(nodeId, event.pointerId, point)
-  } else {
-    ownedEngine.clearSelection()
-    ownedEngine.beginPan(event.pointerId, point)
+    startPointerInteraction(event, 'resize', nodeId, handle)
+    return
   }
-
-  root.value?.setPointerCapture(event.pointerId)
-  root.value?.focus()
-}
-
-function onMouseDown(event: MouseEvent): void {
-  if (event.button === 1) {
-    event.preventDefault()
+  if (nodeId) {
+    startPointerInteraction(event, 'drag', nodeId)
+    return
   }
-}
-
-function onAuxClick(event: MouseEvent): void {
-  if (event.button === 1) {
-    event.preventDefault()
-  }
+  startPointerInteraction(event, 'box-select')
 }
 
 function onPointerMove(event: PointerEvent): void {
-  ownedEngine.updatePointer(event.pointerId, toLocalPoint(event.clientX, event.clientY))
+  engine.updatePointer(event.pointerId, toLocalPoint(event.clientX, event.clientY))
 }
 
 function onPointerUp(event: PointerEvent): void {
-  ownedEngine.endInteraction(event.pointerId)
-  if (root.value?.hasPointerCapture(event.pointerId)) {
-    root.value.releasePointerCapture(event.pointerId)
+  engine.endInteraction(event.pointerId)
+  if (rootElement.value?.hasPointerCapture(event.pointerId)) {
+    rootElement.value.releasePointerCapture(event.pointerId)
   }
 }
 
@@ -285,81 +251,159 @@ function onWheel(event: WheelEvent): void {
   event.preventDefault()
   const point = toLocalPoint(event.clientX, event.clientY)
   if (event.ctrlKey || event.metaKey) {
-    const delta = Math.max(-10, Math.min(10, event.deltaY))
-    ownedEngine.zoomAtScreenPoint(point, delta)
+    engine.zoomAt(point, Math.max(-10, Math.min(10, event.deltaY)))
   } else {
-    ownedEngine.panByScreenDelta(event.deltaX, event.deltaY)
+    engine.panBy(event.deltaX, event.deltaY)
   }
 }
 
 function onDoubleClick(event: MouseEvent): void {
-  if (findHandle(event.target)) {
+  if (isEditorTarget(event.target) || findHandle(event.target)) {
     return
   }
-
   const nodeId = findNodeId(event.target)
   if (nodeId) {
-    ownedEngine.beginTextEdit(nodeId)
+    engine.beginTextEdit(nodeId)
     return
   }
-
   const point = toLocalPoint(event.clientX, event.clientY)
-  const world = ownedEngine.screenToWorld(point)
-  const node = ownedEngine.createNode({
+  const world = engine.screenToWorld(point)
+  const node = engine.createNode({
+    type: 'text',
     x: world.x,
     y: world.y,
-    text: 'New card'
+    data: { content: 'New node' }
   })
-  ownedEngine.beginTextEdit(node.id)
+  engine.beginTextEdit(node.id)
+}
+
+function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
+  const target = event.target
+  return (
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (snapshot.value.interaction.mode === 'editing-text') {
+  if (event.code === 'Space' && !shouldIgnoreHotkeys(event)) {
+    event.preventDefault()
+    spacePressed.value = true
+  }
+  if (shouldIgnoreHotkeys(event)) {
     return
   }
 
+  const mod = event.metaKey || event.ctrlKey
+  const selection = engine.getSelection()
   if (event.key === 'Escape') {
-    ownedEngine.clearSelection()
-    ownedEngine.endInteraction()
+    engine.clearSelection()
+    engine.endInteraction()
     return
   }
-
-  if (event.key === 'Backspace' || event.key === 'Delete') {
-    if (snapshot.value.selection.length > 0) {
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (selection.length > 0) {
       event.preventDefault()
-      ownedEngine.deleteSelected()
+      engine.deleteSelected()
+    }
+    return
+  }
+  if (event.key === 'Enter' && selection.length === 1) {
+    engine.beginTextEdit(selection[0]!)
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'a') {
+    event.preventDefault()
+    engine.selectAll()
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'd' && selection.length > 0) {
+    event.preventDefault()
+    engine.duplicateNodes(selection)
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'c' && selection.length > 0) {
+    event.preventDefault()
+    engine.copySelected()
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'v') {
+    event.preventDefault()
+    engine.pasteClipboard()
+    return
+  }
+  if (mod && event.key === '0') {
+    event.preventDefault()
+    void engine.zoomTo(1, true)
+    return
+  }
+  if (mod && event.key === '1') {
+    event.preventDefault()
+    void engine.zoomToFit(40, true)
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'z') {
+    const target = event.shiftKey ? (engine as CanvasEngine & { redo?: () => void }).redo : (engine as CanvasEngine & { undo?: () => void }).undo
+    if (target) {
+      event.preventDefault()
+      target.call(engine)
+    }
+    return
+  }
+  if (mod && event.key.toLowerCase() === 'y') {
+    const redo = (engine as CanvasEngine & { redo?: () => void }).redo
+    if (redo) {
+      event.preventDefault()
+      redo.call(engine)
+    }
+    return
+  }
+  if (selection.length > 0 && event.key.startsWith('Arrow')) {
+    event.preventDefault()
+    const step = event.shiftKey ? snapshot.value.grid.size * snapshot.value.grid.majorEvery : snapshot.value.grid.size
+    const delta =
+      event.key === 'ArrowLeft'
+        ? { x: -step, y: 0 }
+        : event.key === 'ArrowRight'
+          ? { x: step, y: 0 }
+          : event.key === 'ArrowUp'
+            ? { x: 0, y: -step }
+            : { x: 0, y: step }
+    for (const nodeId of selection) {
+      engine.moveNode(nodeId, delta.x, delta.y)
     }
   }
+}
+
+function onKeyUp(event: KeyboardEvent): void {
+  if (event.code === 'Space') {
+    spacePressed.value = false
+  }
+}
+
+function resolveRenderer(node: CanvasNodeState): Component | null {
+  return renderersRef.value[node.type] ?? props.fallbackRenderer
 }
 
 onMounted(() => {
   updateViewportSize()
   window.addEventListener('resize', updateViewportSize)
-  emit('ready', ownedEngine)
+  emit('ready', engine)
 })
 
 onBeforeUnmount(() => {
-  unsubscribe()
+  for (const unsubscribe of unsubscribes) {
+    unsubscribe()
+  }
   window.removeEventListener('resize', updateViewportSize)
-})
-
-defineExpose({
-  engine: ownedEngine,
-  debugState
 })
 </script>
 
 <template>
   <div
-    ref="root"
+    ref="rootElement"
     class="canvas-root"
-    :class="rootClasses"
-    :data-grid-visible="resolvedGrid.visible ? 'true' : 'false'"
-    :data-grid-minor="gridStyle['--grid-minor-size']"
-    :data-grid-major="gridStyle['--grid-major-size']"
     tabindex="0"
-    @mousedown="onMouseDown"
-    @auxclick="onAuxClick"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -367,11 +411,36 @@ defineExpose({
     @wheel="onWheel"
     @dblclick="onDoubleClick"
     @keydown="onKeyDown"
+    @keyup="onKeyUp"
   >
-    <div class="canvas-root__backdrop" />
-    <div v-if="resolvedGrid.visible" class="canvas-root__grid" :style="gridStyle" />
-    <CanvasViewport :cull-margin="cullMargin" />
-    <slot :engine="ownedEngine" :snapshot="snapshot" :debug-state="debugState" />
+    <CanvasGrid />
+    <CanvasViewport>
+      <slot name="viewport" :engine="engine" :snapshot="snapshot" />
+      <CanvasNode
+        v-for="node in visibleNodes"
+        :key="node.id"
+        :node="node"
+        :selected="snapshot.selection.includes(node.id)"
+        :editing="snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id"
+      >
+        <template #default="slotProps">
+          <slot :name="`node:${node.type}`" v-bind="slotProps">
+            <slot name="node" v-bind="slotProps">
+              <component v-if="resolveRenderer(node)" :is="resolveRenderer(node)" v-bind="slotProps" />
+            </slot>
+          </slot>
+        </template>
+        <template #handle="slotProps">
+          <slot name="handle" v-bind="slotProps" />
+        </template>
+      </CanvasNode>
+    </CanvasViewport>
+    <CanvasBoxSelect>
+      <template #default="slotProps">
+        <slot name="box-select" v-bind="slotProps" />
+      </template>
+    </CanvasBoxSelect>
+    <slot :engine="engine" :snapshot="snapshot" :debug-state="debugState" />
   </div>
 </template>
 
@@ -383,46 +452,7 @@ defineExpose({
   overflow: hidden;
   touch-action: none;
   user-select: none;
-  overscroll-behavior: none;
-  background:
-    radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(250, 204, 21, 0.12), transparent 24%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  cursor: default;
-}
-
-.canvas-root.is-panning {
-  cursor: grabbing;
-}
-
-.canvas-root__backdrop {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.58), transparent 36%),
-    radial-gradient(circle at bottom right, rgba(191, 219, 254, 0.28), transparent 28%);
-  pointer-events: none;
-}
-
-.canvas-root__grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, var(--grid-minor-color) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-minor-color) 1px, transparent 1px),
-    linear-gradient(to right, var(--grid-major-color) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px);
-  background-size:
-    var(--grid-minor-size) var(--grid-minor-size),
-    var(--grid-minor-size) var(--grid-minor-size),
-    var(--grid-major-size) var(--grid-major-size),
-    var(--grid-major-size) var(--grid-major-size);
-  background-position:
-    var(--grid-minor-x) var(--grid-minor-y),
-    var(--grid-minor-x) var(--grid-minor-y),
-    var(--grid-major-x) var(--grid-major-y),
-    var(--grid-major-x) var(--grid-major-y);
-  mask-image: var(--grid-mask-image);
+  background: #fff;
+  color: #0f172a;
 }
 </style>

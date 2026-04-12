@@ -1,4 +1,4 @@
 export { createCanvasEngine } from './engine';
-export { clamp, getVisibleBounds, screenToWorld, snapPoint, snapSize, snapValue, worldToScreen, zoomCameraAtScreenPoint } from './math';
+export { boundsContain, boundsIntersect, clamp, getBoundsFromPoints, getVisibleBounds, lerp, lerpCamera, pointInBounds, screenToWorld, snapBounds, snapPoint, snapSize, snapValue, worldToScreen, zoomCameraAtScreenPoint } from './math';
 export { applyResizeDelta, snapResizedBounds } from './resize';
-export type { BoardState, Camera, CanvasDiagnosticsEvent, CanvasEngine, CanvasEngineOptions, CanvasEngineSnapshot, CanvasGridSettings, CanvasNode, InteractionMode, InteractionState, InvariantFailure, NodeId, Point, ResizeHandle, VisibleBounds } from './types';
+export type { BoardSnapshot, BoardState, Bounds, Camera, CanvasEngine, CanvasEngineOptions, CanvasEventMap, CanvasNode, CanvasPlugin, EdgeId, GridPattern, GridSettings, InteractionMode, InteractionState, InvariantFailure, InvariantMode, NodeConstraints, NodeId, NodeInput, NodePatch, PluginCleanup, Point, ResizeHandle, SelectionMode, TraceEntry, Unsubscribe, ZoomSettings } from './types';

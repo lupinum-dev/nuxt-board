@@ -15,7 +15,12 @@
     "baseUrl": ".",
     "paths": {
       "@canvas/core": ["packages/core/src/index.ts"],
-      "@canvas/vue": ["packages/vue/src/index.ts"]
+      "@canvas/vue": ["packages/vue/src/index.ts"],
+      "@canvas/history": ["packages/history/src/index.ts"],
+      "@canvas/selection": ["packages/selection/src/index.ts"],
+      "@canvas/connections": ["packages/connections/src/index.ts"],
+      "@canvas/minimap": ["packages/minimap/src/index.ts"],
+      "@canvas/serializer": ["packages/serializer/src/index.ts"]
     }
   },
   "include": [

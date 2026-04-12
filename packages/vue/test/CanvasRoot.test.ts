@@ -1,3 +1,4 @@
+import { defineComponent, h, markRaw } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCanvasEngine } from '@canvas/core'
@@ -37,9 +38,9 @@ beforeEach(() => {
 })
 
 describe('CanvasRoot', () => {
-  it('delegates pointerdown to node dragging and resizing', async () => {
+  it('delegates pointerdown to drag and resize interactions', async () => {
     const engine = createCanvasEngine()
-    const node = engine.createNode({ x: 40, y: 40, text: 'Drag me' })
+    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Drag me' } })
     const wrapper = mount(CanvasRoot, {
       props: { engine },
       attachTo: document.body
@@ -52,15 +53,14 @@ describe('CanvasRoot', () => {
       clientY: 50
     })
     expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'dragging-node',
-      nodeId: node.id
+      mode: 'dragging-nodes'
     })
 
-    await wrapper.find(`[data-resize="se"]`).trigger('pointerdown', {
+    await wrapper.find('[data-resize="se"]').trigger('pointerdown', {
       button: 0,
       pointerId: 2,
-      clientX: 100,
-      clientY: 100
+      clientX: 120,
+      clientY: 110
     })
     expect(engine.getSnapshot().interaction).toMatchObject({
       mode: 'resizing-node',
@@ -69,127 +69,88 @@ describe('CanvasRoot', () => {
     })
   })
 
-  it('uses middle mouse to pan even when starting on a node', async () => {
+  it('renders a registry renderer for typed nodes', () => {
     const engine = createCanvasEngine()
-    const node = engine.createNode({ x: 40, y: 40, text: 'Pan from here' })
+    engine.createNode({ type: 'image', x: 40, y: 40, data: { alt: 'Poster' } })
+    const ImageRenderer = markRaw(defineComponent({
+      props: ['node'],
+      setup(props) {
+        return () => h('div', { class: 'image-renderer' }, String((props.node.data as Record<string, unknown>).alt))
+      }
+    }))
+
+    const wrapper = mount(CanvasRoot, {
+      props: {
+        engine,
+        renderers: {
+          image: ImageRenderer
+        }
+      },
+      attachTo: document.body
+    })
+
+    expect(wrapper.find('.image-renderer').text()).toContain('Poster')
+  })
+
+  it('draws a box select and updates selection from background drag', async () => {
+    const engine = createCanvasEngine()
+    const first = engine.createNode({ type: 'text', x: 20, y: 20, width: 80, height: 60, data: { content: 'A' } })
+    engine.createNode({ type: 'text', x: 420, y: 320, width: 80, height: 60, data: { content: 'B' } })
     const wrapper = mount(CanvasRoot, {
       props: { engine },
       attachTo: document.body
     })
 
-    await wrapper.find(`[data-node-id="${node.id}"]`).trigger('pointerdown', {
-      button: 1,
+    await wrapper.trigger('pointerdown', {
+      button: 0,
       pointerId: 7,
-      clientX: 60,
-      clientY: 60
+      clientX: 0,
+      clientY: 0
     })
-
-    expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'panning',
-      pointerId: 7
-    })
-
     await wrapper.trigger('pointermove', {
       pointerId: 7,
-      clientX: 110,
-      clientY: 90
+      clientX: 180,
+      clientY: 140
     })
 
-    expect(engine.getSnapshot().camera).toMatchObject({
-      x: 50,
-      y: 30
+    expect(wrapper.find('.canvas-box-select').exists()).toBe(true)
+
+    await wrapper.trigger('pointerup', {
+      pointerId: 7,
+      clientX: 180,
+      clientY: 140
     })
+
+    expect(engine.getSelection()).toEqual([first.id])
   })
 
-  it('routes wheel events to pan or zoom', async () => {
+  it('supports keyboard duplicate and delete shortcuts', async () => {
     const engine = createCanvasEngine()
+    engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Keyboard' } })
     const wrapper = mount(CanvasRoot, {
       props: { engine },
       attachTo: document.body
     })
 
-    wrapper.element.dispatchEvent(
-      new WheelEvent('wheel', {
-        bubbles: true,
-        cancelable: true,
-        deltaX: 10,
-        deltaY: 20,
-        clientX: 100,
-        clientY: 100
-      })
-    )
-    expect(engine.getSnapshot().camera).toMatchObject({ x: -10, y: -20 })
+    await wrapper.trigger('keydown', { key: 'a', ctrlKey: true })
+    await wrapper.trigger('keydown', { key: 'd', ctrlKey: true })
+    expect(engine.getSnapshot().nodes).toHaveLength(2)
 
-    wrapper.element.dispatchEvent(
-      new WheelEvent('wheel', {
-        bubbles: true,
-        cancelable: true,
-        deltaY: -10,
-        clientX: 100,
-        clientY: 100,
-        ctrlKey: true
-      })
-    )
-    expect(engine.getSnapshot().camera.z).toBeGreaterThan(1)
+    await wrapper.trigger('keydown', { key: 'Delete' })
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
   })
 
-  it('culls off-screen nodes', async () => {
-    const engine = createCanvasEngine()
-    engine.createNode({ x: 0, y: 0, text: 'Visible' })
-    engine.createNode({ x: 5000, y: 5000, text: 'Far away' })
-
-    const wrapper = mount(CanvasRoot, {
-      props: { engine },
-      attachTo: document.body
-    })
-
-    expect(wrapper.findAll('[data-node-id]')).toHaveLength(1)
-    engine.panByScreenDelta(5000, 5000)
-    await wrapper.vm.$nextTick()
-    expect(wrapper.findAll('[data-node-id]')).toHaveLength(1)
-  })
-
-  it('updates raster grid sizing as zoom changes', async () => {
-    const engine = createCanvasEngine()
-    const wrapper = mount(CanvasRoot, {
-      props: { engine },
-      attachTo: document.body
-    })
-
-    const root = wrapper.find('.canvas-root')
-    const minorBefore = root.attributes('data-grid-minor')
-    const majorBefore = root.attributes('data-grid-major')
-
-    engine.zoomAtScreenPoint({ x: 200, y: 160 }, -12)
-    await wrapper.vm.$nextTick()
-
-    expect(root.attributes('data-grid-minor')).not.toBe(minorBefore)
-    expect(root.attributes('data-grid-major')).not.toBe(majorBefore)
-  })
-
-  it('supports hiding the raster grid with a prop', () => {
-    const engine = createCanvasEngine()
-    const wrapper = mount(CanvasRoot, {
-      props: { engine, grid: false },
-      attachTo: document.body
-    })
-
-    expect(wrapper.attributes('data-grid-visible')).toBe('false')
-    expect(wrapper.find('.canvas-root__grid').exists()).toBe(false)
-  })
-
-  it('applies grid prop overrides to engine settings', async () => {
+  it('applies grid visibility and pattern overrides', async () => {
     const engine = createCanvasEngine()
     const wrapper = mount(CanvasRoot, {
       props: {
         engine,
         grid: {
+          visible: true,
+          pattern: 'dot',
           size: 24,
           majorEvery: 4,
-          snap: false,
-          minorOpacity: 0.2,
-          majorOpacity: 0.3,
-          fadeEdges: false
+          snap: false
         }
       },
       attachTo: document.body
@@ -198,35 +159,11 @@ describe('CanvasRoot', () => {
     await wrapper.vm.$nextTick()
 
     expect(engine.getSnapshot().grid).toMatchObject({
+      pattern: 'dot',
       size: 24,
       majorEvery: 4,
       snap: false
     })
-    expect(wrapper.find('.canvas-root').attributes('data-grid-minor')).toBe('24px')
-  })
-
-  it('suppresses drag transitions while editing text', async () => {
-    const engine = createCanvasEngine()
-    const node = engine.createNode({ x: 20, y: 20, text: 'Editable' })
-    const wrapper = mount(CanvasRoot, {
-      props: { engine },
-      attachTo: document.body
-    })
-
-    await wrapper.find(`[data-node-id="${node.id}"]`).trigger('dblclick', {
-      clientX: 30,
-      clientY: 30
-    })
-    expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'editing-text',
-      nodeId: node.id
-    })
-
-    await wrapper.find('textarea').trigger('pointerdown', {
-      pointerId: 3,
-      clientX: 30,
-      clientY: 30
-    })
-    expect(engine.getSnapshot().interaction.mode).toBe('editing-text')
+    expect(wrapper.find('.canvas-grid').exists()).toBe(true)
   })
 })

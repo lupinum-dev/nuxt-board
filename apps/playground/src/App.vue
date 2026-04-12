@@ -1,47 +1,134 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { createCanvasEngine } from '@canvas/core'
-import { CanvasRoot } from '@canvas/vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { createCanvasEngine, type CanvasNode } from '@canvas/core'
+import { connectionPlugin, CanvasConnectionLayer, type CanvasEdge } from '@canvas/connections'
+import { historyPlugin } from '@canvas/history'
+import { CanvasMinimap } from '@canvas/minimap'
+import { jsonCanvasSerializer } from '@canvas/serializer'
+import { CanvasRoot, type CanvasRendererRegistry } from '@canvas/vue'
+
+type PlaygroundApi = {
+  engine: ReturnType<typeof createCanvasEngine>
+  seedScene: (count: number) => Promise<void>
+  runBenchmark: () => Promise<void>
+  exportJsonCanvas: () => string
+  importJsonCanvas: () => void
+}
 
 const engine = createCanvasEngine({
-  diagnostics: true,
-  traceLimit: 500
+  diagnostics: { traceLimit: 500 },
+  grid: {
+    size: 20,
+    majorEvery: 5,
+    snap: true,
+    pattern: 'line'
+  },
+  plugins: [historyPlugin(), connectionPlugin()]
 })
 
-const benchmarkResult = ref('idle')
-const selectedScene = ref<100 | 500 | 1000>(100)
+const selectedScene = ref<25 | 100 | 500>(25)
 const showGrid = ref(true)
 const snapToGrid = ref(true)
-const gridSize = ref<10 | 20 | 40>(10)
-const majorEvery = ref<4 | 5 | 8>(5)
+const gridPattern = ref<'line' | 'dot' | 'cross' | 'none'>('line')
+const gridSize = ref<10 | 20 | 40>(20)
+const benchmarkResult = ref('idle')
+const exportedJson = ref('')
+
+const imageRenderer = defineComponent({
+  name: 'ImageNodeRenderer',
+  props: {
+    node: {
+      type: Object as () => CanvasNode,
+      required: true
+    },
+    selected: {
+      type: Boolean,
+      required: true
+    }
+  },
+  setup(props) {
+    return () =>
+      h(
+        'div',
+        {
+          class: ['playground-image-node', props.selected && 'is-selected']
+        },
+        [
+          h('strong', 'Image'),
+          h('span', String((props.node.data as Record<string, unknown>).alt ?? 'Untitled asset'))
+        ]
+      )
+  }
+})
+
+const renderers: CanvasRendererRegistry = {
+  image: imageRenderer
+}
 
 const gridOptions = computed(() => ({
   visible: showGrid.value,
   snap: snapToGrid.value,
   size: gridSize.value,
-  majorEvery: majorEvery.value
+  majorEvery: 5,
+  pattern: gridPattern.value
 }))
 
-function seedScene(count: number): void {
-  const snapshot = engine.getSnapshot()
-  if (snapshot.nodes.length > 0) {
-    engine.select(snapshot.nodes.map((node) => node.id))
+function getConnections() {
+  return engine as typeof engine & {
+    createEdge?: (input: Omit<CanvasEdge, 'id' | 'zIndex'> & { id?: string }) => CanvasEdge
+    getEdges?: () => CanvasEdge[]
+  }
+}
+
+function clearBoard(): void {
+  const ids = engine.getSnapshot().nodes.map((node) => node.id)
+  if (ids.length > 0) {
+    engine.select(ids)
     engine.deleteSelected()
   }
+}
 
+async function seedScene(count: number): Promise<void> {
+  clearBoard()
   const columns = Math.ceil(Math.sqrt(count))
+  const created: CanvasNode[] = []
+
   for (let index = 0; index < count; index += 1) {
     const column = index % columns
     const row = Math.floor(index / columns)
-    engine.createNode({
-      x: column * 320,
-      y: row * 220,
-      width: 260,
-      height: 160,
-      text: `Card ${index + 1}\nGrid ${column}, ${row}`
-    })
+    created.push(
+      engine.createNode({
+        type: 'text',
+        x: column * 320,
+        y: row * 220,
+        width: 240,
+        height: 140,
+        data: {
+          content: `Node ${index + 1}\n${column}:${row}`
+        }
+      })
+    )
   }
+
+  engine.createNode({
+    type: 'image',
+    x: -360,
+    y: 120,
+    width: 280,
+    height: 180,
+    data: {
+      alt: 'Reference tile'
+    }
+  })
+
+  const connections = getConnections()
+  if (connections.createEdge && created.length >= 3) {
+    connections.createEdge({ from: created[0]!.id, to: created[1]!.id, data: { label: 'A' } })
+    connections.createEdge({ from: created[1]!.id, to: created[2]!.id, data: { label: 'B' } })
+  }
+
   engine.clearSelection()
+  await engine.zoomToFit(80, false)
 }
 
 async function runBenchmark(): Promise<void> {
@@ -49,26 +136,43 @@ async function runBenchmark(): Promise<void> {
   const samples: number[] = []
   const start = performance.now()
 
-  for (let step = 0; step < 80; step += 1) {
+  for (let step = 0; step < 60; step += 1) {
     const frameStart = performance.now()
-    engine.panByScreenDelta(step % 2 === 0 ? 18 : -14, 12)
-    engine.zoomAtScreenPoint({ x: 480, y: 320 }, step % 2 === 0 ? 0.4 : -0.32)
+    engine.panBy(step % 2 === 0 ? 18 : -12, 10)
+    engine.zoomAt({ x: 480, y: 320 }, step % 2 === 0 ? -0.55 : 0.4)
     await new Promise((resolve) => requestAnimationFrame(resolve))
     samples.push(performance.now() - frameStart)
   }
 
   const total = performance.now() - start
-  const maxFrame = Math.max(...samples)
-  const averageFrame = samples.reduce((sum, sample) => sum + sample, 0) / samples.length
-  benchmarkResult.value = `total ${total.toFixed(1)}ms, avg ${averageFrame.toFixed(2)}ms, max ${maxFrame.toFixed(2)}ms`
+  const average = samples.reduce((sum, sample) => sum + sample, 0) / samples.length
+  benchmarkResult.value = `total ${total.toFixed(1)}ms | avg ${average.toFixed(2)}ms | max ${Math.max(...samples).toFixed(2)}ms`
 }
 
-onMounted(() => {
-  seedScene(selectedScene.value)
-  ;(window as Window & { __canvasPlayground?: Record<string, unknown> }).__canvasPlayground = {
+function exportJsonCanvas(): string {
+  exportedJson.value = jsonCanvasSerializer.export(engine.getSnapshot(), {
+    edges: getConnections().getEdges?.() ?? []
+  })
+  return exportedJson.value
+}
+
+function importJsonCanvas(): void {
+  if (!exportedJson.value) {
+    return
+  }
+  const document = jsonCanvasSerializer.parse(exportedJson.value)
+  const snapshot = jsonCanvasSerializer.toSnapshot(document)
+  engine.importJSON(JSON.stringify(snapshot), 'replace')
+}
+
+onMounted(async () => {
+  await seedScene(selectedScene.value)
+  ;(window as Window & { __canvasPlayground?: PlaygroundApi }).__canvasPlayground = {
     engine,
     seedScene,
-    runBenchmark
+    runBenchmark,
+    exportJsonCanvas,
+    importJsonCanvas
   }
 })
 </script>
@@ -77,19 +181,19 @@ onMounted(() => {
   <main class="playground-shell">
     <aside class="playground-panel">
       <div>
-        <p class="eyebrow">Canvas Library</p>
-        <h1>Infinite Board Playground</h1>
+        <p class="eyebrow">@canvas</p>
+        <h1>Primitive Playground</h1>
         <p class="lede">
-          The playground exercises the public engine and Vue adapter directly. Use the controls below or interact with the board.
+          Headless engine, Vue primitives, plugins, diagnostics, and benchmark scaffolding in one surface.
         </p>
       </div>
 
       <label class="control">
         <span>Scene size</span>
         <select v-model="selectedScene">
-          <option :value="100">100 cards</option>
-          <option :value="500">500 cards</option>
-          <option :value="1000">1000 cards</option>
+          <option :value="25">25 nodes</option>
+          <option :value="100">100 nodes</option>
+          <option :value="500">500 nodes</option>
         </select>
       </label>
 
@@ -103,48 +207,57 @@ onMounted(() => {
       </label>
 
       <label class="control">
-        <span>Major line every</span>
-        <select v-model="majorEvery">
-          <option :value="4">4 cells</option>
-          <option :value="5">5 cells</option>
-          <option :value="8">8 cells</option>
+        <span>Grid pattern</span>
+        <select v-model="gridPattern">
+          <option value="line">Line</option>
+          <option value="dot">Dot</option>
+          <option value="cross">Cross</option>
+          <option value="none">None</option>
         </select>
       </label>
 
       <label class="toggle">
         <input v-model="showGrid" type="checkbox" />
-        <span>Show raster grid</span>
+        <span>Show grid</span>
       </label>
 
       <label class="toggle">
         <input v-model="snapToGrid" type="checkbox" />
-        <span>Snap cards to grid</span>
+        <span>Snap to grid</span>
       </label>
 
       <div class="button-row">
-        <button type="button" @click="seedScene(selectedScene)">Seed Scene</button>
-        <button type="button" @click="runBenchmark">Run Benchmark</button>
+        <button type="button" @click="seedScene(selectedScene)">Seed scene</button>
+        <button type="button" @click="runBenchmark">Run benchmark</button>
+        <button type="button" @click="exportJsonCanvas">Export JSON Canvas</button>
+        <button type="button" @click="importJsonCanvas">Import JSON Canvas</button>
       </div>
 
-      <p class="benchmark">Benchmark: {{ benchmarkResult }}</p>
-      <ul class="notes">
-        <li>Double-click empty space to create a card.</li>
-        <li>Double-click a card to edit text.</li>
-        <li>Left-drag the background or hold middle mouse anywhere to pan.</li>
-        <li>Pinch or Ctrl/Cmd+wheel to zoom against the raster grid.</li>
-        <li>Cards now snap to the fixed world grid while creating, dragging, and resizing.</li>
-      </ul>
+      <p class="benchmark">{{ benchmarkResult }}</p>
+      <p class="notes">
+        Double-click creates a text node. Drag on empty space box-selects. Space+drag or middle-mouse pans. Ctrl/Cmd+A, D, C, V, Z work. The minimap and edge layer are live plugin consumers.
+      </p>
     </aside>
 
     <section class="playground-canvas">
-      <CanvasRoot :engine="engine" :grid="gridOptions" debug>
+      <CanvasRoot :engine="engine" :grid="gridOptions" :renderers="renderers">
+        <template #viewport>
+          <CanvasConnectionLayer />
+        </template>
+
         <template #default="{ debugState }">
           <aside class="debug-overlay">
             <h2>Diagnostics</h2>
             <dl>
               <div>
                 <dt>Camera</dt>
-                <dd>{{ debugState.camera.x.toFixed(1) }}, {{ debugState.camera.y.toFixed(1) }}, {{ debugState.camera.z.toFixed(2) }}</dd>
+                <dd data-testid="camera-value">
+                  {{ debugState.camera.x.toFixed(1) }}, {{ debugState.camera.y.toFixed(1) }}, {{ debugState.camera.z.toFixed(2) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Nodes</dt>
+                <dd data-testid="node-count">{{ debugState.snapshot.nodes.length }}</dd>
               </div>
               <div>
                 <dt>Selection</dt>
@@ -159,32 +272,14 @@ onMounted(() => {
                 <dd>{{ debugState.visibleNodeCount }}</dd>
               </div>
               <div>
-                <dt>Grid</dt>
-                <dd>{{ debugState.grid.size }} / {{ debugState.grid.size * debugState.grid.majorEvery }} snap {{ debugState.grid.snap ? 'on' : 'off' }}</dd>
-              </div>
-              <div>
-                <dt>Renders</dt>
-                <dd>{{ debugState.renderCount }}</dd>
-              </div>
-              <div>
-                <dt>Last Sample</dt>
-                <dd>
-                  <template v-if="debugState.lastPerformanceSample">
-                    {{ debugState.lastPerformanceSample.command }} {{ debugState.lastPerformanceSample.durationMs.toFixed(2) }}ms
-                  </template>
-                  <template v-else>none</template>
-                </dd>
-              </div>
-              <div>
-                <dt>Invariant</dt>
-                <dd>{{ debugState.lastInvariantFailure ?? 'ok' }}</dd>
+                <dt>Trace</dt>
+                <dd>{{ debugState.trace.at(-1)?.event ?? 'none' }}</dd>
               </div>
             </dl>
-            <details>
-              <summary>Recent events</summary>
-              <pre>{{ JSON.stringify(debugState.recentEvents, null, 2) }}</pre>
-            </details>
+            <pre class="debug-json">{{ exportedJson.slice(0, 220) }}</pre>
           </aside>
+
+          <CanvasMinimap class="playground-minimap" :width="220" :height="150" />
         </template>
       </CanvasRoot>
     </section>
@@ -194,8 +289,8 @@ onMounted(() => {
 <style scoped>
 :global(body) {
   margin: 0;
-  color: #0f172a;
   background: #e2e8f0;
+  color: #0f172a;
   font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
 }
 
@@ -205,145 +300,129 @@ onMounted(() => {
 
 .playground-shell {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+  grid-template-columns: 320px 1fr;
   min-height: 100vh;
 }
 
 .playground-panel {
   display: grid;
-  gap: 24px;
-  padding: 32px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.86)),
-    linear-gradient(135deg, rgba(14, 165, 233, 0.1), transparent 42%);
-  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  gap: 20px;
+  padding: 24px;
+  border-right: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.84);
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #0369a1;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-h1 {
+h1,
+h2,
+p,
+dl,
+pre {
   margin: 0;
-  font-size: 40px;
-  line-height: 0.95;
+}
+
+h1 {
+  font-size: 36px;
+  line-height: 0.98;
 }
 
 .lede,
+.notes,
 .benchmark,
-.notes {
-  margin: 0;
+.debug-json {
+  line-height: 1.5;
   color: #334155;
-  line-height: 1.55;
 }
 
 .control {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #334155;
+  gap: 8px;
 }
 
 .control select,
 .button-row button {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.84);
-  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: white;
+  padding: 10px 12px;
   font: inherit;
 }
 
-.control select {
-  padding: 12px 14px;
-}
-
 .button-row {
-  display: flex;
-  gap: 12px;
-}
-
-.button-row button {
-  padding: 12px 14px;
-  cursor: pointer;
-}
-
-.notes {
-  padding-left: 18px;
+  display: grid;
+  gap: 8px;
 }
 
 .playground-canvas {
   position: relative;
+  min-width: 0;
   min-height: 100vh;
+}
+
+.playground-canvas :deep(.canvas-root) {
+  position: absolute;
+  inset: 0;
+}
+
+.playground-canvas :deep(.canvas-connection-layer) {
+  color: #475569;
+}
+
+.playground-canvas :deep(.playground-image-node) {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 14px;
+  background: #f8fafc;
 }
 
 .debug-overlay {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  width: min(360px, calc(100% - 40px));
-  max-height: calc(100% - 40px);
+  top: 16px;
+  left: 16px;
+  width: 280px;
+  display: grid;
+  gap: 12px;
   padding: 16px;
-  overflow: auto;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
-  pointer-events: none;
-}
-
-.debug-overlay h2,
-.debug-overlay summary {
-  margin: 0 0 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .debug-overlay dl {
   display: grid;
-  gap: 10px;
-  margin: 0 0 16px;
+  gap: 8px;
 }
 
 .debug-overlay dl div {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.debug-overlay dt {
-  color: #0369a1;
+.debug-json {
+  min-height: 72px;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.debug-overlay dd {
-  margin: 0;
-  color: #0f172a;
-}
-
-.debug-overlay pre {
-  margin: 12px 0 0;
   white-space: pre-wrap;
-  font-size: 12px;
 }
 
-@media (max-width: 960px) {
-  .playground-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .playground-canvas {
-    min-height: 70vh;
-  }
+.playground-minimap {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.12);
 }
 </style>

@@ -2,10 +2,53 @@
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
-function screenToWorld(screenPoint, camera) {
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+function lerpCamera(from, to, t) {
   return {
-    x: screenPoint.x / camera.z - camera.x,
-    y: screenPoint.y / camera.z - camera.y
+    x: lerp(from.x, to.x, t),
+    y: lerp(from.y, to.y, t),
+    z: lerp(from.z, to.z, t)
+  };
+}
+function screenToWorld(point, camera) {
+  return {
+    x: point.x / camera.z - camera.x,
+    y: point.y / camera.z - camera.y
+  };
+}
+function worldToScreen(point, camera) {
+  return {
+    x: (point.x + camera.x) * camera.z,
+    y: (point.y + camera.y) * camera.z
+  };
+}
+function getVisibleBounds(width, height, camera) {
+  const topLeft = screenToWorld({ x: 0, y: 0 }, camera);
+  const bottomRight = screenToWorld({ x: width, y: height }, camera);
+  return {
+    minX: topLeft.x,
+    minY: topLeft.y,
+    maxX: bottomRight.x,
+    maxY: bottomRight.y
+  };
+}
+function pointInBounds(point, bounds) {
+  return point.x >= bounds.minX && point.x <= bounds.maxX && point.y >= bounds.minY && point.y <= bounds.maxY;
+}
+function boundsIntersect(a, b) {
+  return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+}
+function boundsContain(outer, inner) {
+  return inner.minX >= outer.minX && inner.maxX <= outer.maxX && inner.minY >= outer.minY && inner.maxY <= outer.maxY;
+}
+function getBoundsFromPoints(a, b) {
+  return {
+    minX: Math.min(a.x, b.x),
+    minY: Math.min(a.y, b.y),
+    maxX: Math.max(a.x, b.x),
+    maxY: Math.max(a.y, b.y)
   };
 }
 function snapValue(value, step) {
@@ -20,27 +63,19 @@ function snapPoint(point, step) {
     y: snapValue(point.y, step)
   };
 }
+function snapBounds(bounds, step) {
+  return {
+    minX: snapValue(bounds.minX, step),
+    minY: snapValue(bounds.minY, step),
+    maxX: snapValue(bounds.maxX, step),
+    maxY: snapValue(bounds.maxY, step)
+  };
+}
 function snapSize(value, step, min) {
   return Math.max(min, snapValue(value, step));
 }
-function worldToScreen(worldPoint, camera) {
-  return {
-    x: (worldPoint.x + camera.x) * camera.z,
-    y: (worldPoint.y + camera.y) * camera.z
-  };
-}
-function getVisibleBounds(viewportWidth, viewportHeight, camera) {
-  const topLeft = screenToWorld({ x: 0, y: 0 }, camera);
-  const bottomRight = screenToWorld({ x: viewportWidth, y: viewportHeight }, camera);
-  return {
-    minX: topLeft.x,
-    minY: topLeft.y,
-    maxX: bottomRight.x,
-    maxY: bottomRight.y
-  };
-}
-function zoomCameraAtScreenPoint(screenPoint, delta, camera, minZoom, maxZoom) {
-  const nextZoom = clamp(camera.z * Math.pow(2, -delta * 0.01), minZoom, maxZoom);
+function zoomCameraAtScreenPoint(screenPoint, delta, camera, min, max) {
+  const nextZoom = clamp(camera.z * Math.pow(2, -delta * 0.01), min, max);
   const before = screenToWorld(screenPoint, camera);
   const after = {
     x: screenPoint.x / nextZoom - camera.x,
@@ -51,6 +86,117 @@ function zoomCameraAtScreenPoint(screenPoint, delta, camera, minZoom, maxZoom) {
     y: camera.y + (after.y - before.y),
     z: nextZoom
   };
+}
+
+// src/invariants.ts
+function cloneInteraction(interaction) {
+  switch (interaction.mode) {
+    case "idle":
+      return { mode: "idle" };
+    case "editing-text":
+      return { mode: "editing-text", nodeId: interaction.nodeId };
+    case "panning":
+      return {
+        mode: "panning",
+        pointerId: interaction.pointerId,
+        lastScreenPoint: { ...interaction.lastScreenPoint }
+      };
+    case "dragging-nodes":
+      return {
+        mode: "dragging-nodes",
+        pointerId: interaction.pointerId,
+        nodeIds: [...interaction.nodeIds],
+        startScreenPoint: { ...interaction.startScreenPoint },
+        startNodePositions: Object.fromEntries(
+          Object.entries(interaction.startNodePositions).map(([key, value]) => [key, { ...value }])
+        )
+      };
+    case "resizing-node":
+      return {
+        mode: "resizing-node",
+        pointerId: interaction.pointerId,
+        nodeId: interaction.nodeId,
+        handle: interaction.handle,
+        startScreenPoint: { ...interaction.startScreenPoint },
+        startNodeBounds: { ...interaction.startNodeBounds }
+      };
+    case "box-select":
+      return {
+        mode: "box-select",
+        pointerId: interaction.pointerId,
+        startScreenPoint: { ...interaction.startScreenPoint },
+        currentScreenPoint: { ...interaction.currentScreenPoint },
+        startWorldPoint: { ...interaction.startWorldPoint },
+        currentWorldPoint: { ...interaction.currentWorldPoint }
+      };
+  }
+}
+function createSnapshot(state, grid) {
+  return {
+    camera: { ...state.camera },
+    grid: { ...grid },
+    nodes: Array.from(state.nodes.values()).map((node) => ({ ...node, data: cloneData(node.data) })).sort((a, b) => a.zIndex - b.zIndex),
+    selection: Array.from(state.selection.values()),
+    interaction: cloneInteraction(state.interaction),
+    nextZIndex: state.nextZIndex
+  };
+}
+function cloneData(data) {
+  return structuredClone(data);
+}
+function validateState(state, grid, context) {
+  const failures = [];
+  const snapshot = createSnapshot(state, grid);
+  const push = (name, message) => {
+    failures.push({ name, message, context, snapshot });
+  };
+  if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
+    push("camera.finite", "Camera values must be finite numbers.");
+  }
+  if (grid.size <= 0 || !Number.isFinite(grid.size)) {
+    push("grid.size", "Grid size must be a finite number greater than 0.");
+  }
+  if (grid.majorEvery < 1 || !Number.isFinite(grid.majorEvery)) {
+    push("grid.majorEvery", "Grid majorEvery must be a finite number greater than or equal to 1.");
+  }
+  const zIndexes = /* @__PURE__ */ new Set();
+  for (const node of state.nodes.values()) {
+    validateNode(node, push);
+    if (zIndexes.has(node.zIndex)) {
+      push("node.zIndex.unique", `Node ${node.id} shares a z-index with another node.`);
+    }
+    zIndexes.add(node.zIndex);
+  }
+  for (const id of state.selection.values()) {
+    if (!state.nodes.has(id)) {
+      push("selection.exists", `Selected node ${id} does not exist.`);
+    }
+  }
+  if (state.interaction.mode === "editing-text" && !state.nodes.has(state.interaction.nodeId)) {
+    push("interaction.node", `Editing node ${state.interaction.nodeId} does not exist.`);
+  }
+  if (state.interaction.mode === "resizing-node" && !state.nodes.has(state.interaction.nodeId)) {
+    push("interaction.node", `Resizing node ${state.interaction.nodeId} does not exist.`);
+  }
+  if (state.interaction.mode === "dragging-nodes") {
+    for (const id of state.interaction.nodeIds) {
+      if (!state.nodes.has(id)) {
+        push("interaction.node", `Dragging node ${id} does not exist.`);
+      }
+    }
+  }
+  return failures;
+}
+function validateNode(node, push) {
+  if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.width) || !Number.isFinite(node.height)) {
+    push("node.finite", `Node ${node.id} contains non-finite geometry.`);
+  }
+  if (node.width <= 0 || node.height <= 0) {
+    push("node.size", `Node ${node.id} must have positive width and height.`);
+  }
+  if (!node.type) {
+    push("node.type", `Node ${node.id} must have a type.`);
+  }
 }
 
 // src/resize.ts
@@ -82,360 +228,617 @@ function snapResizedBounds(bounds, handle, gridSize, constraints) {
   const bottom = bounds.y + bounds.height;
   if (handle.includes("e")) {
     width = snapSize(width, gridSize, constraints.minWidth);
+  } else {
+    x = snapValue(x, gridSize);
   }
   if (handle.includes("s")) {
     height = snapSize(height, gridSize, constraints.minHeight);
+  } else {
+    y = snapValue(y, gridSize);
   }
   if (handle.includes("w")) {
     width = snapSize(width, gridSize, constraints.minWidth);
-    x = right - width;
-    x = snapValue(x, gridSize);
+    x = snapValue(right - width, gridSize);
     width = Math.max(constraints.minWidth, right - x);
-  } else {
-    x = snapValue(x, gridSize);
   }
   if (handle.includes("n")) {
     height = snapSize(height, gridSize, constraints.minHeight);
-    y = bottom - height;
-    y = snapValue(y, gridSize);
+    y = snapValue(bottom - height, gridSize);
     height = Math.max(constraints.minHeight, bottom - y);
-  } else {
-    y = snapValue(y, gridSize);
   }
   return { x, y, width, height };
 }
 
-// src/invariants.ts
-function createInvariantSnapshot(state, grid = { size: 0, majorEvery: 0, snap: false }) {
-  return {
-    camera: { ...state.camera },
-    grid,
-    nodes: Array.from(state.nodes.values()).map((node) => ({ ...node })).sort((a, b) => a.zIndex - b.zIndex),
-    selection: Array.from(state.selection.values()),
-    interaction: cloneInteraction(state.interaction),
-    nextZIndex: state.nextZIndex
-  };
-}
-function cloneInteraction(state) {
-  switch (state.mode) {
-    case "idle":
-      return { mode: "idle" };
-    case "editing-text":
-      return { mode: "editing-text", nodeId: state.nodeId };
-    case "panning":
-      return { mode: "panning", pointerId: state.pointerId, lastScreenPoint: { ...state.lastScreenPoint } };
-    case "dragging-node":
-      return {
-        mode: "dragging-node",
-        pointerId: state.pointerId,
-        nodeId: state.nodeId,
-        startScreenPoint: { ...state.startScreenPoint },
-        startNodePosition: { ...state.startNodePosition }
-      };
-    case "resizing-node":
-      return {
-        mode: "resizing-node",
-        pointerId: state.pointerId,
-        nodeId: state.nodeId,
-        handle: state.handle,
-        startScreenPoint: { ...state.startScreenPoint },
-        startNodeBounds: { ...state.startNodeBounds }
-      };
-  }
-}
-function validateState(state, context, grid = { size: 0, majorEvery: 0, snap: false }) {
-  const failures = [];
-  const snapshot = createInvariantSnapshot(state, grid);
-  const push = (name, message) => {
-    failures.push({ name, message, context, snapshot });
-  };
-  if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
-    push("camera.finite", "Camera values must always be finite numbers.");
-  }
-  if (!Number.isFinite(grid.size) || grid.size <= 0) {
-    push("grid.size", "Grid size must be a finite number greater than 0.");
-  }
-  if (!Number.isFinite(grid.majorEvery) || grid.majorEvery < 1) {
-    push("grid.majorEvery", "Grid majorEvery must be a finite number greater than or equal to 1.");
-  }
-  const zIndexes = /* @__PURE__ */ new Set();
-  for (const node of state.nodes.values()) {
-    if (!Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.width) || !Number.isFinite(node.height)) {
-      push("node.finite", `Node ${node.id} contains non-finite geometry.`);
-    }
-    if (node.width < 1 || node.height < 1) {
-      push("node.size", `Node ${node.id} must have positive width and height.`);
-    }
-    if (zIndexes.has(node.zIndex)) {
-      push("node.zindex.unique", `Node ${node.id} shares a z-index with another node.`);
-    }
-    zIndexes.add(node.zIndex);
-  }
-  for (const id of state.selection.values()) {
-    if (!state.nodes.has(id)) {
-      push("selection.exists", `Selected node ${id} does not exist.`);
-    }
-  }
-  if (state.nextZIndex <= state.nodes.size) {
-    const maxZ = Math.max(0, ...Array.from(state.nodes.values(), (node) => node.zIndex));
-    if (state.nextZIndex <= maxZ) {
-      push("node.zindex.monotonic", "nextZIndex must stay above every current node z-index.");
-    }
-  }
-  if (state.interaction.mode === "dragging-node" || state.interaction.mode === "resizing-node" || state.interaction.mode === "editing-text") {
-    if (!state.nodes.has(state.interaction.nodeId)) {
-      push("interaction.node", `Active interaction references missing node ${state.interaction.nodeId}.`);
-    }
-  }
-  return failures;
-}
-
 // src/engine.ts
-var DEFAULTS = {
-  minZoom: 0.1,
-  maxZoom: 5,
-  minNodeWidth: 50,
-  minNodeHeight: 50,
-  defaultNodeWidth: 240,
-  defaultNodeHeight: 160,
-  gridSize: 10,
-  majorGridEvery: 5,
-  snapToGrid: true,
-  traceLimit: 300,
-  diagnostics: true,
-  strictInvariants: true
+var DEFAULT_CAMERA = { x: 0, y: 0, z: 1 };
+var DEFAULT_ZOOM = { min: 0.1, max: 8 };
+var DEFAULT_GRID = { size: 10, majorEvery: 5, snap: true, pattern: "line" };
+var DEFAULT_NODE_CONSTRAINTS = {
+  minWidth: 50,
+  minHeight: 50,
+  defaultWidth: 240,
+  defaultHeight: 160
 };
+var DEFAULT_VIEWPORT_SIZE = { x: 1280, y: 720 };
 function createCanvasEngine(options = {}) {
-  const config = { ...DEFAULTS, ...options };
-  const listeners = /* @__PURE__ */ new Set();
+  const camera = { ...DEFAULT_CAMERA, ...options.camera };
+  const zoom = { ...DEFAULT_ZOOM, ...options.zoom };
+  const grid = { ...DEFAULT_GRID, ...options.grid };
+  const nodeConstraints = { ...DEFAULT_NODE_CONSTRAINTS, ...options.nodes };
+  const invariantMode = options.invariants ?? "strict";
+  const diagnosticsEnabled = options.diagnostics !== false;
+  const traceLimit = typeof options.diagnostics === "object" && options.diagnostics.traceLimit ? options.diagnostics.traceLimit : 500;
+  const listeners = /* @__PURE__ */ new Map();
   const trace = [];
+  const pluginCleanups = /* @__PURE__ */ new Map();
+  const clipboard = [];
+  let viewportSize = { ...DEFAULT_VIEWPORT_SIZE };
+  let animationToken = 0;
   const state = {
-    camera: {
-      x: options.initialCamera?.x ?? 0,
-      y: options.initialCamera?.y ?? 0,
-      z: options.initialCamera?.z ?? 1
-    },
+    camera,
     nodes: /* @__PURE__ */ new Map(),
     selection: /* @__PURE__ */ new Set(),
     interaction: { mode: "idle" },
     nextZIndex: 1
   };
   for (const node of options.initialNodes ?? []) {
-    state.nodes.set(node.id, { ...node });
-    state.nextZIndex = Math.max(state.nextZIndex, node.zIndex + 1);
+    const normalized = normalizeExistingNode(node);
+    state.nodes.set(normalized.id, normalized);
+    state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1);
   }
-  function emit(event) {
-    if (config.diagnostics) {
-      trace.push(event);
-      if (trace.length > config.traceLimit) {
+  function cloneNode(node) {
+    return {
+      ...node,
+      data: structuredClone(node.data)
+    };
+  }
+  function emit(event, ...args) {
+    if (diagnosticsEnabled) {
+      trace.push({ event, timestamp: Date.now(), args });
+      if (trace.length > traceLimit) {
         trace.shift();
       }
     }
-    for (const listener of listeners) {
-      listener(event);
+    for (const handler of listeners.get(event) ?? []) {
+      ;
+      handler(...args);
     }
+  }
+  function on(event, handler) {
+    const set = listeners.get(event) ?? /* @__PURE__ */ new Set();
+    set.add(handler);
+    listeners.set(event, set);
+    return () => off(event, handler);
+  }
+  function once(event, handler) {
+    const unsubscribe = on(event, ((...args) => {
+      unsubscribe();
+      handler(...args);
+    }));
+    return unsubscribe;
+  }
+  function off(event, handler) {
+    listeners.get(event)?.delete(handler);
   }
   function getGridSettings() {
-    return {
-      size: config.gridSize,
-      majorEvery: config.majorGridEvery,
-      snap: config.snapToGrid
-    };
+    return { ...grid };
   }
-  function normalizeGridPatch(patch) {
-    return {
-      size: patch.size === void 0 ? void 0 : Math.max(1, Math.round(Number.isFinite(patch.size) ? patch.size : config.gridSize)),
-      majorEvery: patch.majorEvery === void 0 ? void 0 : Math.max(1, Math.round(Number.isFinite(patch.majorEvery) ? patch.majorEvery : config.majorGridEvery)),
-      snap: patch.snap === void 0 ? void 0 : Boolean(patch.snap)
-    };
+  function getViewportSize() {
+    return { ...viewportSize };
   }
-  function commit(command, fn, payload) {
+  function getSnapshot() {
+    return createSnapshot(state, grid);
+  }
+  function runCommand(name, args, fn) {
     const started = performance.now();
-    emit({ type: "command:start", command, timestamp: Date.now(), payload });
-    fn();
-    runInvariants(command);
-    const snapshot = createInvariantSnapshot(state, getGridSettings());
-    emit({
-      type: "state:changed",
-      command,
-      timestamp: Date.now(),
-      snapshot
-    });
-    emit({ type: "command:end", command, timestamp: Date.now(), payload });
-    const sample = {
-      command,
-      durationMs: performance.now() - started,
-      timestamp: Date.now()
-    };
-    emit({ type: "performance:sample", timestamp: sample.timestamp, sample });
+    emit("command:before", name, args);
+    const result = fn();
+    validate(name);
+    emit("command:after", name, args, performance.now() - started);
+    return result;
   }
-  function runInvariants(context) {
-    const failures = validateState(state, context, getGridSettings());
-    for (const failure of failures) {
-      emit({
-        type: "invariant:failed",
-        timestamp: Date.now(),
-        failure
-      });
-      options.onInvariantFailure?.(failure);
+  async function runAsyncCommand(name, args, fn) {
+    const started = performance.now();
+    emit("command:before", name, args);
+    const result = await fn();
+    validate(name);
+    emit("command:after", name, args, performance.now() - started);
+    return result;
+  }
+  function validate(context) {
+    if (invariantMode === "off") {
+      return;
     }
-    if (failures.length > 0 && config.strictInvariants) {
+    const failures = validateState(state, grid, context);
+    for (const failure of failures) {
+      emit("invariant:failed", failure);
+    }
+    if (failures.length > 0 && invariantMode === "strict") {
       throw new Error(`Canvas invariant failed in ${context}: ${failures[0]?.message}`);
     }
   }
-  function assertNode(nodeId) {
-    const node = state.nodes.get(nodeId);
+  function setCamera(next) {
+    const prev = { ...state.camera };
+    if (prev.x === next.x && prev.y === next.y && prev.z === next.z) {
+      return;
+    }
+    state.camera = next;
+    emit("camera:change", { ...next }, prev);
+  }
+  function setSelection(nextSelection) {
+    const prev = Array.from(state.selection.values());
+    const next = Array.from(nextSelection);
+    if (sameArray(prev, next)) {
+      return;
+    }
+    state.selection = new Set(next);
+    emit("selection:change", next, prev);
+  }
+  function setInteraction(next) {
+    const prev = state.interaction;
+    state.interaction = next;
+    if (prev.mode === "idle" && next.mode !== "idle") {
+      emit("interaction:start", next);
+      return;
+    }
+    if (prev.mode !== "idle" && next.mode === "idle") {
+      emit("interaction:end", prev);
+      return;
+    }
+    if (prev.mode !== "idle" && next.mode !== "idle") {
+      emit("interaction:update", next);
+    }
+  }
+  function assertNode(id) {
+    const node = state.nodes.get(id);
     if (!node) {
-      throw new Error(`Node "${nodeId}" does not exist.`);
+      throw new Error(`Node "${id}" does not exist.`);
     }
     return node;
   }
-  function setInteraction(next) {
-    state.interaction = next;
-    emit({
-      type: "interaction:changed",
-      timestamp: Date.now(),
-      interaction: createInvariantSnapshot(state, getGridSettings()).interaction
-    });
+  function getNodeBounds(node) {
+    return {
+      minX: node.x,
+      minY: node.y,
+      maxX: node.x + node.width,
+      maxY: node.y + node.height
+    };
+  }
+  function normalizeExistingNode(node) {
+    return {
+      ...node,
+      data: structuredClone(node.data),
+      locked: Boolean(node.locked),
+      visible: node.visible !== false
+    };
   }
   function normalizeNode(input) {
-    const position = config.snapToGrid ? snapPoint(
-      {
-        x: input.x ?? 0,
-        y: input.y ?? 0
-      },
-      config.gridSize
-    ) : {
+    const rawPoint = {
       x: input.x ?? 0,
       y: input.y ?? 0
     };
+    const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint;
+    const width = grid.snap ? snapSize(input.width ?? nodeConstraints.defaultWidth, grid.size, nodeConstraints.minWidth) : input.width ?? nodeConstraints.defaultWidth;
+    const height = grid.snap ? snapSize(input.height ?? nodeConstraints.defaultHeight, grid.size, nodeConstraints.minHeight) : input.height ?? nodeConstraints.defaultHeight;
     return {
       id: input.id ?? crypto.randomUUID(),
-      x: position.x,
-      y: position.y,
-      width: config.snapToGrid ? snapSize(input.width ?? config.defaultNodeWidth, config.gridSize, config.minNodeWidth) : input.width ?? config.defaultNodeWidth,
-      height: config.snapToGrid ? snapSize(input.height ?? config.defaultNodeHeight, config.gridSize, config.minNodeHeight) : input.height ?? config.defaultNodeHeight,
-      text: input.text ?? "",
+      type: input.type ?? "text",
+      x: snappedPoint.x,
+      y: snappedPoint.y,
+      width,
+      height,
+      data: structuredClone(
+        input.data ?? ((input.type ?? "text") === "text" ? { content: "" } : {})
+      ),
+      zIndex: state.nextZIndex++,
+      locked: Boolean(input.locked),
+      visible: input.visible !== false
+    };
+  }
+  function applyNodePatch(node, patch) {
+    const next = {
+      ...node,
+      ...patch,
+      data: patch.data === void 0 ? cloneNode(node).data : structuredClone(patch.data),
+      visible: patch.visible ?? node.visible,
+      locked: patch.locked ?? node.locked
+    };
+    if (grid.snap) {
+      next.x = snapValue(next.x, grid.size);
+      next.y = snapValue(next.y, grid.size);
+      next.width = snapSize(next.width, grid.size, nodeConstraints.minWidth);
+      next.height = snapSize(next.height, grid.size, nodeConstraints.minHeight);
+    }
+    return next;
+  }
+  function replaceNode(node, next) {
+    state.nodes.set(node.id, next);
+  }
+  function duplicateNode(node, offset) {
+    return {
+      ...cloneNode(node),
+      id: crypto.randomUUID(),
+      x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
+      y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
       zIndex: state.nextZIndex++
     };
+  }
+  function getSelectionNodes() {
+    return Array.from(state.selection.values()).map((id) => state.nodes.get(id)).filter((node) => Boolean(node));
+  }
+  function cleanupSelection() {
+    const next = Array.from(state.selection.values()).filter((id) => state.nodes.has(id));
+    setSelection(next);
+  }
+  function getAnimationFrameDriver() {
+    const raf = globalThis.requestAnimationFrame?.bind(globalThis);
+    const caf = globalThis.cancelAnimationFrame?.bind(globalThis);
+    if (typeof raf === "function" && typeof caf === "function") {
+      return { raf, caf };
+    }
+    return {
+      raf: (cb) => globalThis.setTimeout(() => cb(Date.now()), 16),
+      caf: (handle) => globalThis.clearTimeout(handle)
+    };
+  }
+  async function animateCamera(target) {
+    animationToken += 1;
+    const token = animationToken;
+    const start = { ...state.camera };
+    const started = performance.now();
+    const duration = 280;
+    const { raf } = getAnimationFrameDriver();
+    await new Promise((resolve) => {
+      const tick = () => {
+        if (token !== animationToken) {
+          resolve();
+          return;
+        }
+        const elapsed = performance.now() - started;
+        const t = clamp(elapsed / duration, 0, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setCamera(lerpCamera(start, target, eased));
+        if (t < 1) {
+          raf(tick);
+        } else {
+          resolve();
+        }
+      };
+      raf(tick);
+    });
+  }
+  function computeFitCamera(ids, padding = 40) {
+    const source = ids ? ids.map((id) => state.nodes.get(id)).filter((node) => Boolean(node && node.visible)) : Array.from(state.nodes.values()).filter((node) => node.visible);
+    if (source.length === 0) {
+      return null;
+    }
+    const bounds = source.reduce((acc, node) => {
+      const current = getNodeBounds(node);
+      return {
+        minX: Math.min(acc.minX, current.minX),
+        minY: Math.min(acc.minY, current.minY),
+        maxX: Math.max(acc.maxX, current.maxX),
+        maxY: Math.max(acc.maxY, current.maxY)
+      };
+    }, getNodeBounds(source[0]));
+    const width = Math.max(1, bounds.maxX - bounds.minX);
+    const height = Math.max(1, bounds.maxY - bounds.minY);
+    const zoomLevel = clamp(
+      Math.min((viewportSize.x - padding * 2) / width, (viewportSize.y - padding * 2) / height),
+      zoom.min,
+      zoom.max
+    );
+    const center = {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2
+    };
+    return {
+      x: viewportSize.x / (2 * zoomLevel) - center.x,
+      y: viewportSize.y / (2 * zoomLevel) - center.y,
+      z: zoomLevel
+    };
+  }
+  function restoreSnapshot(snapshot, mode) {
+    if (mode === "replace") {
+      state.nodes = new Map(snapshot.nodes.map((node) => [node.id, normalizeExistingNode(node)]));
+      state.selection = new Set(snapshot.selection.filter((id) => state.nodes.has(id)));
+      state.interaction = { mode: "idle" };
+      state.nextZIndex = snapshot.nextZIndex;
+      setCamera({ ...snapshot.camera });
+      grid.size = snapshot.grid.size;
+      grid.majorEvery = snapshot.grid.majorEvery;
+      grid.snap = snapshot.grid.snap;
+      grid.pattern = snapshot.grid.pattern;
+      return;
+    }
+    for (const rawNode of snapshot.nodes) {
+      const node = normalizeExistingNode(rawNode);
+      const id = state.nodes.has(node.id) ? crypto.randomUUID() : node.id;
+      state.nodes.set(id, { ...node, id });
+      state.nextZIndex = Math.max(state.nextZIndex, node.zIndex + 1);
+    }
   }
   const engine = {
     getState() {
       return state;
     },
-    getSnapshot() {
-      return createInvariantSnapshot(state, getGridSettings());
-    },
-    getGridSettings() {
-      return getGridSettings();
-    },
+    getSnapshot,
+    getGridSettings,
+    getViewportSize,
     updateGridSettings(patch) {
-      const normalized = normalizeGridPatch(patch);
-      commit("updateGridSettings", () => {
-        if (normalized.size !== void 0) {
-          config.gridSize = normalized.size;
+      return runCommand("updateGridSettings", [patch], () => {
+        if (patch.size !== void 0) {
+          grid.size = Math.max(1, Math.round(patch.size));
         }
-        if (normalized.majorEvery !== void 0) {
-          config.majorGridEvery = normalized.majorEvery;
+        if (patch.majorEvery !== void 0) {
+          grid.majorEvery = Math.max(1, Math.round(patch.majorEvery));
         }
-        if (normalized.snap !== void 0) {
-          config.snapToGrid = normalized.snap;
+        if (patch.snap !== void 0) {
+          grid.snap = patch.snap;
         }
-      }, normalized);
-      return getGridSettings();
+        if (patch.pattern !== void 0) {
+          grid.pattern = patch.pattern;
+        }
+        return getGridSettings();
+      });
     },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+    setViewportSize(size) {
+      viewportSize = {
+        x: Math.max(1, size.x),
+        y: Math.max(1, size.y)
+      };
     },
+    emit,
+    on,
+    once,
+    off,
     exportTrace() {
       return trace.slice();
     },
-    screenToWorld(screenPoint) {
-      return screenToWorld(screenPoint, state.camera);
+    use(plugin) {
+      if (pluginCleanups.has(plugin.name)) {
+        return;
+      }
+      const cleanup = plugin.install(engine);
+      pluginCleanups.set(plugin.name, cleanup ?? (() => void 0));
     },
-    worldToScreen(worldPoint) {
-      return worldToScreen(worldPoint, state.camera);
+    screenToWorld(point) {
+      return screenToWorld(point, state.camera);
     },
-    getVisibleBounds(viewportWidth, viewportHeight) {
-      return getVisibleBounds(viewportWidth, viewportHeight, state.camera);
+    worldToScreen(point) {
+      return worldToScreen(point, state.camera);
     },
-    panByScreenDelta(deltaX, deltaY) {
-      commit("panByScreenDelta", () => {
-        state.camera.x -= deltaX / state.camera.z;
-        state.camera.y -= deltaY / state.camera.z;
-      }, { deltaX, deltaY });
+    getVisibleBounds(width, height) {
+      return getVisibleBounds(width, height, state.camera);
     },
-    zoomAtScreenPoint(screenPoint, delta) {
-      commit("zoomAtScreenPoint", () => {
-        state.camera = zoomCameraAtScreenPoint(
-          screenPoint,
-          delta,
-          state.camera,
-          config.minZoom,
-          config.maxZoom
-        );
-      }, { screenPoint, delta });
+    getNodeAt(worldPoint) {
+      const ordered = Array.from(state.nodes.values()).filter((node) => node.visible).sort((a, b) => b.zIndex - a.zIndex);
+      return ordered.find((node) => pointInBounds(worldPoint, getNodeBounds(node))) ?? null;
+    },
+    getNodesInBounds(bounds) {
+      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getNodeBounds(node), bounds));
+    },
+    panBy(dx, dy) {
+      runCommand("panBy", [dx, dy], () => {
+        setCamera({
+          x: state.camera.x - dx / state.camera.z,
+          y: state.camera.y - dy / state.camera.z,
+          z: state.camera.z
+        });
+      });
+    },
+    panTo(worldPoint, animated = false) {
+      const target = { x: -worldPoint.x, y: -worldPoint.y, z: state.camera.z };
+      return runAsyncCommand("panTo", [worldPoint, animated], async () => {
+        if (animated) {
+          await animateCamera(target);
+        } else {
+          setCamera(target);
+        }
+      });
+    },
+    zoomAt(screenPoint, delta) {
+      runCommand("zoomAt", [screenPoint, delta], () => {
+        setCamera(zoomCameraAtScreenPoint(screenPoint, delta, state.camera, zoom.min, zoom.max));
+      });
+    },
+    zoomTo(level, animated = false) {
+      const clamped = clamp(level, zoom.min, zoom.max);
+      const viewportCenter = {
+        x: viewportSize.x / 2,
+        y: viewportSize.y / 2
+      };
+      const centerWorld = screenToWorld(viewportCenter, state.camera);
+      const target = {
+        x: viewportCenter.x / clamped - centerWorld.x,
+        y: viewportCenter.y / clamped - centerWorld.y,
+        z: clamped
+      };
+      return runAsyncCommand("zoomTo", [level, animated], async () => {
+        if (animated) {
+          await animateCamera(target);
+        } else {
+          setCamera(target);
+        }
+      });
+    },
+    zoomToFit(padding = 40, animated = false) {
+      return runAsyncCommand("zoomToFit", [padding, animated], async () => {
+        const target = computeFitCamera(null, padding);
+        if (!target) {
+          return;
+        }
+        if (animated) {
+          await animateCamera(target);
+        } else {
+          setCamera(target);
+        }
+      });
+    },
+    zoomToNodes(ids, padding = 40, animated = false) {
+      return runAsyncCommand("zoomToNodes", [ids, padding, animated], async () => {
+        const target = computeFitCamera(ids, padding);
+        if (!target) {
+          return;
+        }
+        if (animated) {
+          await animateCamera(target);
+        } else {
+          setCamera(target);
+        }
+      });
     },
     createNode(input) {
-      const node = normalizeNode(input);
-      commit("createNode", () => {
+      return runCommand("createNode", [input], () => {
+        const node = normalizeNode(input);
         state.nodes.set(node.id, node);
-        state.selection = /* @__PURE__ */ new Set([node.id]);
-      }, { nodeId: node.id });
-      return { ...node };
+        setSelection([node.id]);
+        emit("node:created", cloneNode(node));
+        return cloneNode(node);
+      });
     },
-    updateNode(nodeId, patch) {
-      const node = assertNode(nodeId);
-      commit("updateNode", () => {
+    updateNode(id, patch) {
+      return runCommand("updateNode", [id, patch], () => {
+        const current = assertNode(id);
+        const next = applyNodePatch(current, patch);
+        replaceNode(current, next);
+        emit("node:updated", cloneNode(next), cloneNode(current));
+        return cloneNode(next);
+      });
+    },
+    deleteNode(id) {
+      runCommand("deleteNode", [id], () => {
+        const node = assertNode(id);
+        state.nodes.delete(id);
+        cleanupSelection();
+        if (state.interaction.mode !== "idle") {
+          setInteraction({ mode: "idle" });
+        }
+        emit("node:deleted", id, cloneNode(node));
+      });
+    },
+    moveNode(id, dx, dy) {
+      return runCommand("moveNode", [id, dx, dy], () => {
+        const node = assertNode(id);
+        if (node.locked) {
+          return cloneNode(node);
+        }
+        const prev = cloneNode(node);
         const next = {
           ...node,
-          ...patch
+          x: grid.snap ? snapValue(node.x + dx, grid.size) : node.x + dx,
+          y: grid.snap ? snapValue(node.y + dy, grid.size) : node.y + dy
         };
-        if (config.snapToGrid) {
-          next.x = snapValue(next.x, config.gridSize);
-          next.y = snapValue(next.y, config.gridSize);
-          next.width = snapSize(next.width, config.gridSize, config.minNodeWidth);
-          next.height = snapSize(next.height, config.gridSize, config.minNodeHeight);
+        replaceNode(node, next);
+        emit("node:moved", cloneNode(next), { x: next.x - prev.x, y: next.y - prev.y });
+        emit("node:updated", cloneNode(next), prev);
+        return cloneNode(next);
+      });
+    },
+    resizeNode(id, handle, dx, dy) {
+      return runCommand("resizeNode", [id, handle, dx, dy], () => {
+        const node = assertNode(id);
+        if (node.locked) {
+          return cloneNode(node);
         }
-        Object.assign(node, next);
-      }, { nodeId });
-      return { ...node };
-    },
-    moveNode(nodeId, deltaWorldX, deltaWorldY) {
-      const node = assertNode(nodeId);
-      commit("moveNode", () => {
-        const nextX = node.x + deltaWorldX;
-        const nextY = node.y + deltaWorldY;
-        node.x = config.snapToGrid ? snapValue(nextX, config.gridSize) : nextX;
-        node.y = config.snapToGrid ? snapValue(nextY, config.gridSize) : nextY;
-      }, { nodeId, deltaWorldX, deltaWorldY });
-      return { ...node };
-    },
-    resizeNode(nodeId, handle, deltaWorldX, deltaWorldY) {
-      const node = assertNode(nodeId);
-      commit("resizeNode", () => {
-        const raw = applyResizeDelta(node, handle, deltaWorldX, deltaWorldY, {
-          minWidth: config.minNodeWidth,
-          minHeight: config.minNodeHeight
+        const prev = cloneNode(node);
+        const raw = applyResizeDelta(node, handle, dx, dy, {
+          minWidth: nodeConstraints.minWidth,
+          minHeight: nodeConstraints.minHeight
         });
-        const next = config.snapToGrid ? snapResizedBounds(raw, handle, config.gridSize, {
-          minWidth: config.minNodeWidth,
-          minHeight: config.minNodeHeight
+        const nextBounds = grid.snap ? snapResizedBounds(raw, handle, grid.size, {
+          minWidth: nodeConstraints.minWidth,
+          minHeight: nodeConstraints.minHeight
         }) : raw;
-        Object.assign(node, next);
-      }, { nodeId, handle, deltaWorldX, deltaWorldY });
-      return { ...node };
+        const next = { ...node, ...nextBounds };
+        replaceNode(node, next);
+        emit("node:resized", cloneNode(next), {
+          x: prev.x,
+          y: prev.y,
+          width: prev.width,
+          height: prev.height
+        });
+        emit("node:updated", cloneNode(next), prev);
+        return cloneNode(next);
+      });
     },
-    select(nodeIds, mode = "replace") {
-      const ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
-      commit("select", () => {
+    bringToFront(id) {
+      runCommand("bringToFront", [id], () => {
+        const node = assertNode(id);
+        const prev = cloneNode(node);
+        const next = { ...node, zIndex: state.nextZIndex++ };
+        replaceNode(node, next);
+        emit("node:updated", cloneNode(next), prev);
+      });
+    },
+    sendToBack(id) {
+      runCommand("sendToBack", [id], () => {
+        const node = assertNode(id);
+        const prev = cloneNode(node);
+        const minZ = Math.min(...Array.from(state.nodes.values(), (entry) => entry.zIndex));
+        const next = { ...node, zIndex: minZ - 1 };
+        replaceNode(node, next);
+        emit("node:updated", cloneNode(next), prev);
+      });
+    },
+    lockNode(id) {
+      runCommand("lockNode", [id], () => {
+        const node = assertNode(id);
+        const prev = cloneNode(node);
+        const next = { ...node, locked: true };
+        replaceNode(node, next);
+        emit("node:updated", cloneNode(next), prev);
+      });
+    },
+    unlockNode(id) {
+      runCommand("unlockNode", [id], () => {
+        const node = assertNode(id);
+        const prev = cloneNode(node);
+        const next = { ...node, locked: false };
+        replaceNode(node, next);
+        emit("node:updated", cloneNode(next), prev);
+      });
+    },
+    duplicateNodes(ids, offset = { x: grid.size, y: grid.size }) {
+      return runCommand("duplicateNodes", [ids, offset], () => {
+        const created = ids.map((id) => state.nodes.get(id)).filter((node) => Boolean(node)).map((node) => duplicateNode(node, offset));
+        for (const node of created) {
+          state.nodes.set(node.id, node);
+          emit("node:created", cloneNode(node));
+        }
+        setSelection(created.map((node) => node.id));
+        return created.map(cloneNode);
+      });
+    },
+    copySelected() {
+      return runCommand("copySelected", [], () => {
+        clipboard.length = 0;
+        for (const node of getSelectionNodes()) {
+          clipboard.push(cloneNode(node));
+        }
+        return clipboard.map(cloneNode);
+      });
+    },
+    pasteClipboard(offset = { x: grid.size, y: grid.size }) {
+      return runCommand("pasteClipboard", [offset], () => {
+        const created = clipboard.map((node) => duplicateNode(node, offset));
+        for (const node of created) {
+          state.nodes.set(node.id, node);
+          emit("node:created", cloneNode(node));
+        }
+        setSelection(created.map((node) => node.id));
+        return created.map(cloneNode);
+      });
+    },
+    select(ids, mode = "replace") {
+      runCommand("select", [ids, mode], () => {
+        const resolved = Array.isArray(ids) ? ids : [ids];
         if (mode === "replace") {
-          state.selection = new Set(ids);
+          setSelection(resolved);
           return;
         }
         const next = new Set(state.selection);
-        for (const id of ids) {
+        for (const id of resolved) {
           if (mode === "toggle") {
             if (next.has(id)) {
               next.delete(id);
@@ -446,78 +849,79 @@ function createCanvasEngine(options = {}) {
             next.add(id);
           }
         }
-        state.selection = next;
-      }, { ids, mode });
+        setSelection(next);
+      });
+    },
+    selectAll() {
+      runCommand("selectAll", [], () => {
+        setSelection(Array.from(state.nodes.values()).filter((node) => node.visible).map((node) => node.id));
+      });
     },
     clearSelection() {
-      commit("clearSelection", () => {
-        state.selection = /* @__PURE__ */ new Set();
+      runCommand("clearSelection", [], () => {
+        setSelection([]);
       });
     },
     deleteSelected() {
-      commit("deleteSelected", () => {
-        for (const id of state.selection.values()) {
-          state.nodes.delete(id);
+      runCommand("deleteSelected", [], () => {
+        const deleting = getSelectionNodes().filter((node) => !node.locked);
+        for (const node of deleting) {
+          state.nodes.delete(node.id);
+          emit("node:deleted", node.id, cloneNode(node));
         }
-        state.selection = /* @__PURE__ */ new Set();
-        if (state.interaction.mode !== "idle") {
-          setInteraction({ mode: "idle" });
-        }
+        setSelection([]);
+        setInteraction({ mode: "idle" });
       });
     },
-    bringToFront(nodeId) {
-      const node = assertNode(nodeId);
-      commit("bringToFront", () => {
-        node.zIndex = state.nextZIndex++;
-      }, { nodeId });
-      return { ...node };
-    },
-    beginTextEdit(nodeId) {
-      assertNode(nodeId);
-      commit("beginTextEdit", () => {
-        state.selection = /* @__PURE__ */ new Set([nodeId]);
-        setInteraction({ mode: "editing-text", nodeId });
-      }, { nodeId });
-    },
-    commitTextEdit(nodeId, text) {
-      const node = assertNode(nodeId);
-      commit("commitTextEdit", () => {
-        node.text = text;
-        setInteraction({ mode: "idle" });
-      }, { nodeId });
-      return { ...node };
+    getSelection() {
+      return Array.from(state.selection.values());
     },
     beginPan(pointerId, screenPoint) {
-      commit("beginPan", () => {
-        setInteraction({ mode: "panning", pointerId, lastScreenPoint: { ...screenPoint } });
-      }, { pointerId, screenPoint });
-    },
-    beginNodeDrag(nodeId, pointerId, screenPoint) {
-      assertNode(nodeId);
-      commit("beginNodeDrag", () => {
-        state.selection = /* @__PURE__ */ new Set([nodeId]);
-        engine.bringToFront(nodeId);
+      runCommand("beginPan", [pointerId, screenPoint], () => {
         setInteraction({
-          mode: "dragging-node",
+          mode: "panning",
           pointerId,
-          nodeId,
-          startScreenPoint: { ...screenPoint },
-          startNodePosition: {
-            x: state.nodes.get(nodeId).x,
-            y: state.nodes.get(nodeId).y
-          }
+          lastScreenPoint: { ...screenPoint }
         });
-      }, { nodeId, pointerId, screenPoint });
+      });
     },
-    beginResize(nodeId, handle, pointerId, screenPoint) {
-      const node = assertNode(nodeId);
-      commit("beginResize", () => {
-        state.selection = /* @__PURE__ */ new Set([nodeId]);
-        engine.bringToFront(nodeId);
+    beginNodeDrag(id, pointerId, screenPoint) {
+      runCommand("beginNodeDrag", [id, pointerId, screenPoint], () => {
+        const node = assertNode(id);
+        if (node.locked) {
+          return;
+        }
+        const nodeIds = state.selection.has(id) ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id) : [id];
+        if (!state.selection.has(id)) {
+          setSelection([id]);
+        }
+        const startNodePositions = Object.fromEntries(
+          nodeIds.map((nodeId) => {
+            const current = assertNode(nodeId);
+            return [nodeId, { x: current.x, y: current.y }];
+          })
+        );
+        setInteraction({
+          mode: "dragging-nodes",
+          pointerId,
+          nodeIds,
+          startScreenPoint: { ...screenPoint },
+          startNodePositions
+        });
+        engine.bringToFront(id);
+      });
+    },
+    beginResize(id, handle, pointerId, screenPoint) {
+      runCommand("beginResize", [id, handle, pointerId, screenPoint], () => {
+        const node = assertNode(id);
+        if (node.locked) {
+          return;
+        }
+        setSelection([id]);
         setInteraction({
           mode: "resizing-node",
           pointerId,
-          nodeId,
+          nodeId: id,
           handle,
           startScreenPoint: { ...screenPoint },
           startNodeBounds: {
@@ -527,77 +931,153 @@ function createCanvasEngine(options = {}) {
             height: node.height
           }
         });
-      }, { nodeId, handle, pointerId, screenPoint });
+        engine.bringToFront(id);
+      });
+    },
+    beginBoxSelect(pointerId, screenPoint) {
+      runCommand("beginBoxSelect", [pointerId, screenPoint], () => {
+        const worldPoint = engine.screenToWorld(screenPoint);
+        setSelection([]);
+        setInteraction({
+          mode: "box-select",
+          pointerId,
+          startScreenPoint: { ...screenPoint },
+          currentScreenPoint: { ...screenPoint },
+          startWorldPoint: worldPoint,
+          currentWorldPoint: worldPoint
+        });
+      });
+    },
+    beginTextEdit(id) {
+      runCommand("beginTextEdit", [id], () => {
+        assertNode(id);
+        setSelection([id]);
+        setInteraction({ mode: "editing-text", nodeId: id });
+      });
+    },
+    commitTextEdit(id, text) {
+      return runCommand("commitTextEdit", [id, text], () => {
+        const node = assertNode(id);
+        const prev = cloneNode(node);
+        const data = typeof node.data === "object" && node.data !== null ? structuredClone(node.data) : {};
+        data.content = text;
+        const next = { ...node, data };
+        replaceNode(node, next);
+        setInteraction({ mode: "idle" });
+        emit("node:updated", cloneNode(next), prev);
+        return cloneNode(next);
+      });
     },
     updatePointer(pointerId, screenPoint) {
       const interaction = state.interaction;
-      if (interaction.mode === "idle" || interaction.mode === "editing-text") {
-        return;
-      }
-      if (interaction.pointerId !== pointerId) {
+      if (interaction.mode === "idle" || interaction.mode === "editing-text" || interaction.pointerId !== pointerId) {
         return;
       }
       if (interaction.mode === "panning") {
-        commit("updatePointer:pan", () => {
+        runCommand("updatePointer", [pointerId, screenPoint], () => {
           const deltaX = screenPoint.x - interaction.lastScreenPoint.x;
           const deltaY = screenPoint.y - interaction.lastScreenPoint.y;
-          state.camera.x += deltaX / state.camera.z;
-          state.camera.y += deltaY / state.camera.z;
+          setCamera({
+            x: state.camera.x + deltaX / state.camera.z,
+            y: state.camera.y + deltaY / state.camera.z,
+            z: state.camera.z
+          });
           interaction.lastScreenPoint = { ...screenPoint };
-        }, { pointerId, screenPoint });
+        });
         return;
       }
-      if (interaction.mode === "dragging-node") {
-        const node2 = assertNode(interaction.nodeId);
-        commit("updatePointer:dragging-node", () => {
+      if (interaction.mode === "dragging-nodes") {
+        runCommand("updatePointer", [pointerId, screenPoint], () => {
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z;
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z;
-          const nextX = interaction.startNodePosition.x + deltaX;
-          const nextY = interaction.startNodePosition.y + deltaY;
-          node2.x = config.snapToGrid ? snapValue(nextX, config.gridSize) : nextX;
-          node2.y = config.snapToGrid ? snapValue(nextY, config.gridSize) : nextY;
-        }, { pointerId, screenPoint, nodeId: interaction.nodeId });
+          for (const nodeId of interaction.nodeIds) {
+            const node = assertNode(nodeId);
+            const origin = interaction.startNodePositions[nodeId];
+            const next = {
+              ...node,
+              x: grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX,
+              y: grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+            };
+            replaceNode(node, next);
+            emit("node:moved", cloneNode(next), { x: next.x - origin.x, y: next.y - origin.y });
+          }
+        });
         return;
       }
-      const node = assertNode(interaction.nodeId);
-      commit("updatePointer:resizing-node", () => {
-        const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z;
-        const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z;
-        const next = applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, {
-          minWidth: config.minNodeWidth,
-          minHeight: config.minNodeHeight
+      if (interaction.mode === "resizing-node") {
+        runCommand("updatePointer", [pointerId, screenPoint], () => {
+          const node = assertNode(interaction.nodeId);
+          const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z;
+          const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z;
+          const raw = applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, {
+            minWidth: nodeConstraints.minWidth,
+            minHeight: nodeConstraints.minHeight
+          });
+          const nextBounds = grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, {
+            minWidth: nodeConstraints.minWidth,
+            minHeight: nodeConstraints.minHeight
+          }) : raw;
+          replaceNode(node, { ...node, ...nextBounds });
         });
-        Object.assign(
-          node,
-          config.snapToGrid ? snapResizedBounds(next, interaction.handle, config.gridSize, {
-            minWidth: config.minNodeWidth,
-            minHeight: config.minNodeHeight
-          }) : next
-        );
-      }, { pointerId, screenPoint, nodeId: interaction.nodeId, handle: interaction.handle });
+        return;
+      }
+      runCommand("updatePointer", [pointerId, screenPoint], () => {
+        const currentWorldPoint = engine.screenToWorld(screenPoint);
+        interaction.currentScreenPoint = { ...screenPoint };
+        interaction.currentWorldPoint = currentWorldPoint;
+        const bounds = getBoundsFromPoints(interaction.startWorldPoint, currentWorldPoint);
+        const matches = engine.getNodesInBounds(bounds).filter((node) => node.visible).map((node) => node.id);
+        setSelection(matches);
+      });
     },
     endInteraction(pointerId) {
       const interaction = state.interaction;
       if (interaction.mode === "idle") {
         return;
       }
-      if ("pointerId" in interaction && pointerId !== void 0 && pointerId !== interaction.pointerId) {
+      if ("pointerId" in interaction && pointerId !== void 0 && interaction.pointerId !== pointerId) {
         return;
       }
-      commit("endInteraction", () => {
+      runCommand("endInteraction", [pointerId], () => {
         setInteraction({ mode: "idle" });
-      }, { pointerId });
+      });
+    },
+    exportJSON() {
+      return JSON.stringify(getSnapshot());
+    },
+    importJSON(json, mode = "replace") {
+      runCommand("importJSON", [mode], () => {
+        const parsed = JSON.parse(json);
+        restoreSnapshot(parsed, mode);
+      });
     }
   };
-  runInvariants("createCanvasEngine");
+  for (const plugin of options.plugins ?? []) {
+    engine.use(plugin);
+  }
+  validate("createCanvasEngine");
+  emit("ready");
   return engine;
+}
+function sameArray(a, b) {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
 }
 export {
   applyResizeDelta,
+  boundsContain,
+  boundsIntersect,
   clamp,
   createCanvasEngine,
+  getBoundsFromPoints,
   getVisibleBounds,
+  lerp,
+  lerpCamera,
+  pointInBounds,
   screenToWorld,
+  snapBounds,
   snapPoint,
   snapResizedBounds,
   snapSize,

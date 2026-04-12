@@ -18,18 +18,15 @@ export function applyResizeDelta(
   if (handle.includes('e')) {
     width = Math.max(constraints.minWidth, node.width + deltaX)
   }
-
   if (handle.includes('s')) {
     height = Math.max(constraints.minHeight, node.height + deltaY)
   }
-
   if (handle.includes('w')) {
     const nextWidth = Math.max(constraints.minWidth, node.width - deltaX)
     const consumed = node.width - nextWidth
     width = nextWidth
     x = node.x + consumed
   }
-
   if (handle.includes('n')) {
     const nextHeight = Math.max(constraints.minHeight, node.height - deltaY)
     const consumed = node.height - nextHeight
@@ -52,28 +49,26 @@ export function snapResizedBounds(
 
   if (handle.includes('e')) {
     width = snapSize(width, gridSize, constraints.minWidth)
+  } else {
+    x = snapValue(x, gridSize)
   }
 
   if (handle.includes('s')) {
     height = snapSize(height, gridSize, constraints.minHeight)
+  } else {
+    y = snapValue(y, gridSize)
   }
 
   if (handle.includes('w')) {
     width = snapSize(width, gridSize, constraints.minWidth)
-    x = right - width
-    x = snapValue(x, gridSize)
+    x = snapValue(right - width, gridSize)
     width = Math.max(constraints.minWidth, right - x)
-  } else {
-    x = snapValue(x, gridSize)
   }
 
   if (handle.includes('n')) {
     height = snapSize(height, gridSize, constraints.minHeight)
-    y = bottom - height
-    y = snapValue(y, gridSize)
+    y = snapValue(bottom - height, gridSize)
     height = Math.max(constraints.minHeight, bottom - y)
-  } else {
-    y = snapValue(y, gridSize)
   }
 
   return { x, y, width, height }

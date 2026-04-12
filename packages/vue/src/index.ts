@@ -1,5 +1,23 @@
 export { default as CanvasRoot } from './components/CanvasRoot.vue'
 export { default as CanvasViewport } from './components/CanvasViewport.vue'
-export { default as CanvasNodeCard } from './components/CanvasNodeCard.vue'
-export type { CanvasGridOptions, ResolvedCanvasGridOptions } from './grid'
-export { useCanvasEngine } from './useCanvasEngine'
+export { default as CanvasNode } from './components/CanvasNode.vue'
+export { default as CanvasNodeHandle } from './components/CanvasNodeHandle.vue'
+export { default as CanvasGrid } from './components/CanvasGrid.vue'
+export { default as CanvasBoxSelect } from './components/CanvasBoxSelect.vue'
+export type {
+  CanvasGridOptions,
+  CanvasRendererRegistry,
+  ResolvedCanvasGridOptions
+} from './grid'
+export {
+  useCanvasEngine,
+  useCamera,
+  useNodes,
+  useSelection,
+  useInteraction,
+  useVisibleBounds,
+  useVisibleNodes,
+  useGridStyle,
+  useNode,
+  useBoxSelectBounds
+} from './useCanvasEngine'
