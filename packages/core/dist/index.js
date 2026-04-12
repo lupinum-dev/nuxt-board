@@ -88,6 +88,112 @@ function zoomCameraAtScreenPoint(screenPoint, delta, camera, min, max) {
   };
 }
 
+// src/hierarchy.ts
+function getBoundsFromNode(node) {
+  return {
+    minX: node.x,
+    minY: node.y,
+    maxX: node.x + node.width,
+    maxY: node.y + node.height
+  };
+}
+function groupArea(node) {
+  return node.width * node.height;
+}
+function addDescendants(rootId, nodes, out) {
+  for (const n of nodes.values()) {
+    if (n.parentId === rootId && !out.has(n.id)) {
+      out.add(n.id);
+      if (n.type === "group") {
+        addDescendants(n.id, nodes, out);
+      }
+    }
+  }
+}
+function expandGroupDragSeeds(seedIds, nodes) {
+  const out = /* @__PURE__ */ new Set();
+  for (const id of seedIds) {
+    out.add(id);
+    const n = nodes.get(id);
+    if (n?.type === "group") {
+      addDescendants(id, nodes, out);
+    }
+  }
+  return out;
+}
+function collectSubtreeIds(rootId, nodes, into) {
+  into.add(rootId);
+  for (const n of nodes.values()) {
+    if (n.parentId === rootId) {
+      collectSubtreeIds(n.id, nodes, into);
+    }
+  }
+}
+function collectUniformTranslationTargets(seedIds, nodes) {
+  const expanded = expandGroupDragSeeds(seedIds, nodes);
+  const roots = [];
+  for (const id of expanded) {
+    const n = nodes.get(id);
+    if (!n) {
+      continue;
+    }
+    if (!n.parentId || !expanded.has(n.parentId)) {
+      roots.push(id);
+    }
+  }
+  const out = /* @__PURE__ */ new Set();
+  for (const r of roots) {
+    collectSubtreeIds(r, nodes, out);
+  }
+  return [...out];
+}
+function isStrictDescendantOf(maybeDescendant, ancestorId, nodes) {
+  let walk = nodes.get(maybeDescendant)?.parentId;
+  const seen = /* @__PURE__ */ new Set();
+  while (walk) {
+    if (seen.has(walk)) {
+      return false;
+    }
+    seen.add(walk);
+    if (walk === ancestorId) {
+      return true;
+    }
+    walk = nodes.get(walk)?.parentId;
+  }
+  return false;
+}
+function findContainingGroup(node, nodes) {
+  const center = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+  const candidates = [];
+  for (const g of nodes.values()) {
+    if (g.type !== "group" || !g.visible) {
+      continue;
+    }
+    if (g.id === node.id) {
+      continue;
+    }
+    if (isStrictDescendantOf(g.id, node.id, nodes)) {
+      continue;
+    }
+    if (!pointInBounds(center, getBoundsFromNode(g))) {
+      continue;
+    }
+    candidates.push(g);
+  }
+  if (candidates.length === 0) {
+    return void 0;
+  }
+  candidates.sort((a, b) => groupArea(a) - groupArea(b));
+  return candidates[0].id;
+}
+function sortIdsByZIndex(ids, nodes) {
+  return [...ids].sort((a, b) => {
+    const za = nodes.get(a)?.zIndex ?? 0;
+    const zb = nodes.get(b)?.zIndex ?? 0;
+    return za - zb;
+  });
+}
+
 // src/invariants.ts
 function cloneInteraction(interaction) {
   switch (interaction.mode) {
@@ -165,6 +271,7 @@ function validateState(state, grid, context) {
   const zIndexes = /* @__PURE__ */ new Set();
   for (const node of state.nodes.values()) {
     validateNode(node, push);
+    validateNodeParent(node, state, push);
     if (zIndexes.has(node.zIndex)) {
       push("node.zIndex.unique", `Node ${node.id} shares a z-index with another node.`);
     }
@@ -199,6 +306,40 @@ function validateNode(node, push) {
   }
   if (!node.type) {
     push("node.type", `Node ${node.id} must have a type.`);
+  }
+}
+function validateNodeParent(node, state, push) {
+  if (node.parentId === void 0) {
+    return;
+  }
+  if (node.parentId === node.id) {
+    push("node.parentId", `Node ${node.id} cannot be its own parent.`);
+    return;
+  }
+  const parent = state.nodes.get(node.parentId);
+  if (!parent) {
+    push("node.parentId", `Node ${node.id} references missing parent ${node.parentId}.`);
+    return;
+  }
+  if (parent.type !== "group") {
+    push("node.parentId", `Node ${node.id} parent must be type "group", got "${parent.type}".`);
+  }
+  let walk = parent;
+  const seen = /* @__PURE__ */ new Set();
+  while (walk) {
+    if (seen.has(walk.id)) {
+      push("node.parentId", `Cycle detected in parent chain for node ${node.id}.`);
+      return;
+    }
+    seen.add(walk.id);
+    if (walk.id === node.id) {
+      push("node.parentId", `Node ${node.id} would create a cycle in the parent chain.`);
+      return;
+    }
+    if (!walk.parentId) {
+      break;
+    }
+    walk = state.nodes.get(walk.parentId);
   }
 }
 
@@ -625,20 +766,14 @@ function createCanvasEngine(options = {}) {
     }
     return node;
   }
-  function getNodeBounds(node) {
-    return {
-      minX: node.x,
-      minY: node.y,
-      maxX: node.x + node.width,
-      maxY: node.y + node.height
-    };
-  }
   function normalizeExistingNode(node) {
+    const parentId = typeof node.parentId === "string" && node.parentId.length > 0 ? node.parentId : void 0;
     return {
       ...node,
       data: structuredClone(node.data),
       locked: Boolean(node.locked),
-      visible: node.visible !== false
+      visible: node.visible !== false,
+      parentId
     };
   }
   function normalizeNode(input) {
@@ -649,25 +784,28 @@ function createCanvasEngine(options = {}) {
     const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint;
     const width = grid.snap ? snapSize(input.width ?? nodeConstraints.defaultWidth, grid.size, nodeConstraints.minWidth) : input.width ?? nodeConstraints.defaultWidth;
     const height = grid.snap ? snapSize(input.height ?? nodeConstraints.defaultHeight, grid.size, nodeConstraints.minHeight) : input.height ?? nodeConstraints.defaultHeight;
+    const t = input.type ?? "text";
+    const defaultData = t === "text" ? { content: "" } : t === "group" ? { title: "Untitled group", accent: "#0d9488" } : {};
+    const parentId = typeof input.parentId === "string" && input.parentId.length > 0 ? input.parentId : void 0;
     return {
       id: input.id ?? crypto.randomUUID(),
-      type: input.type ?? "text",
+      type: t,
       x: snappedPoint.x,
       y: snappedPoint.y,
       width,
       height,
-      data: structuredClone(
-        input.data ?? ((input.type ?? "text") === "text" ? { content: "" } : {})
-      ),
+      data: structuredClone(input.data ?? defaultData),
       zIndex: state.nextZIndex++,
       locked: Boolean(input.locked),
-      visible: input.visible !== false
+      visible: input.visible !== false,
+      parentId
     };
   }
   function applyNodePatch(node, patch) {
     const next = {
       ...node,
       ...patch,
+      parentId: "parentId" in patch ? patch.parentId : node.parentId,
       data: patch.data === void 0 ? cloneNode(node).data : structuredClone(patch.data),
       visible: patch.visible ?? node.visible,
       locked: patch.locked ?? node.locked
@@ -684,15 +822,6 @@ function createCanvasEngine(options = {}) {
     state.nodes.set(node.id, next);
     invalidateNodeCache();
   }
-  function duplicateNode(node, offset) {
-    return {
-      ...cloneNode(node),
-      id: crypto.randomUUID(),
-      x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
-      y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
-      zIndex: state.nextZIndex++
-    };
-  }
   function bumpNodeToFront(id) {
     const node = state.nodes.get(id);
     if (!node) {
@@ -703,6 +832,115 @@ function createCanvasEngine(options = {}) {
     state.nodes.set(id, next);
     invalidateNodeCache();
     emit("node:updated", cloneNode(next), prev);
+    restackGroupDescendantsAbove(id);
+  }
+  function restackGroupDescendantsAbove(groupId) {
+    const g = state.nodes.get(groupId);
+    if (!g || g.type !== "group") {
+      return;
+    }
+    for (const child of getDirectChildren(groupId)) {
+      fixSubtreeZOrderAfter(g, child.id);
+    }
+  }
+  function getDirectChildren(parentId) {
+    return [...state.nodes.values()].filter((n) => n.parentId === parentId);
+  }
+  function collectSubtreeIdSet(rootId, into) {
+    collectSubtreeIds(rootId, state.nodes, into);
+  }
+  function forestIdsFromSeeds(seedIds) {
+    const out = /* @__PURE__ */ new Set();
+    for (const id of seedIds) {
+      if (state.nodes.has(id)) {
+        collectSubtreeIdSet(id, out);
+      }
+    }
+    return out;
+  }
+  function deletionOrderPostOrder(ids) {
+    const memo = /* @__PURE__ */ new Map();
+    function depthOf(id) {
+      const hit = memo.get(id);
+      if (hit !== void 0) {
+        return hit;
+      }
+      const n = state.nodes.get(id);
+      if (!n?.parentId || !ids.has(n.parentId)) {
+        memo.set(id, 0);
+        return 0;
+      }
+      const d = depthOf(n.parentId) + 1;
+      memo.set(id, d);
+      return d;
+    }
+    return [...ids].sort((a, b) => depthOf(b) - depthOf(a));
+  }
+  function fixSubtreeZOrderAfter(parent, nodeId) {
+    const node = state.nodes.get(nodeId);
+    if (!node) {
+      return;
+    }
+    let cur = node;
+    if (parent && cur.zIndex <= parent.zIndex) {
+      cur = { ...cur, zIndex: state.nextZIndex++ };
+      replaceNode(node, cur);
+    }
+    const anchor = state.nodes.get(nodeId);
+    for (const child of getDirectChildren(nodeId)) {
+      fixSubtreeZOrderAfter(anchor, child.id);
+    }
+  }
+  function reparentAfterDrag(movedIds) {
+    const ordered = sortIdsByZIndex(movedIds, state.nodes);
+    for (const id of ordered) {
+      const n = state.nodes.get(id);
+      if (!n) {
+        continue;
+      }
+      const nextParent = findContainingGroup(n, state.nodes);
+      const prevParent = n.parentId;
+      if (nextParent === prevParent) {
+        continue;
+      }
+      const prev = cloneNode(n);
+      const next = { ...n, parentId: nextParent };
+      replaceNode(n, next);
+      const placed = state.nodes.get(id);
+      emit("node:updated", cloneNode(placed), prev);
+      const pNode = nextParent ? assertNode(nextParent) : null;
+      fixSubtreeZOrderAfter(pNode, id);
+    }
+  }
+  function getCopyClosureNodes() {
+    const selected = getSelectionNodes();
+    const ids = expandGroupDragSeeds(
+      selected.map((n) => n.id),
+      state.nodes
+    );
+    return [...ids].map((nid) => state.nodes.get(nid)).filter((node) => Boolean(node)).sort((a, b) => a.zIndex - b.zIndex);
+  }
+  function duplicateForest(nodes, offset) {
+    const sorted = [...nodes].sort((a, b) => a.zIndex - b.zIndex);
+    const idMap = /* @__PURE__ */ new Map();
+    for (const n of sorted) {
+      idMap.set(n.id, crypto.randomUUID());
+    }
+    const created = [];
+    for (const n of sorted) {
+      const newId = idMap.get(n.id);
+      const mappedParent = n.parentId && idMap.has(n.parentId) ? idMap.get(n.parentId) : void 0;
+      const dup = {
+        ...cloneNode(n),
+        id: newId,
+        parentId: mappedParent,
+        x: grid.snap ? snapValue(n.x + offset.x, grid.size) : n.x + offset.x,
+        y: grid.snap ? snapValue(n.y + offset.y, grid.size) : n.y + offset.y,
+        zIndex: state.nextZIndex++
+      };
+      created.push(dup);
+    }
+    return created;
   }
   function getSelectionNodes() {
     return Array.from(state.selection.values()).map((id) => state.nodes.get(id)).filter((node) => Boolean(node));
@@ -760,14 +998,14 @@ function createCanvasEngine(options = {}) {
       return null;
     }
     const bounds = source.reduce((acc, node) => {
-      const current = getNodeBounds(node);
+      const current = getBoundsFromNode(node);
       return {
         minX: Math.min(acc.minX, current.minX),
         minY: Math.min(acc.minY, current.minY),
         maxX: Math.max(acc.maxX, current.maxX),
         maxY: Math.max(acc.maxY, current.maxY)
       };
-    }, getNodeBounds(source[0]));
+    }, getBoundsFromNode(source[0]));
     const width = Math.max(1, bounds.maxX - bounds.minX);
     const height = Math.max(1, bounds.maxY - bounds.minY);
     const zoomLevel = clamp(
@@ -863,7 +1101,7 @@ function createCanvasEngine(options = {}) {
       let best = null;
       let bestZ = -Infinity;
       for (const node of state.nodes.values()) {
-        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getNodeBounds(node))) {
+        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getBoundsFromNode(node))) {
           best = node;
           bestZ = node.zIndex;
         }
@@ -871,7 +1109,7 @@ function createCanvasEngine(options = {}) {
       return best;
     },
     getNodesInBounds(bounds) {
-      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getNodeBounds(node), bounds));
+      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getBoundsFromNode(node), bounds));
     },
     panBy(dx, dy) {
       runCommand("panBy", [dx, dy], () => {
@@ -948,7 +1186,9 @@ function createCanvasEngine(options = {}) {
         const node = normalizeNode(input);
         state.nodes.set(node.id, node);
         invalidateNodeCache();
-        setSelection([node.id]);
+        if (input.select !== false) {
+          setSelection([node.id]);
+        }
         const cloned = cloneNode(node);
         emit("node:created", cloned);
         return cloned;
@@ -967,14 +1207,23 @@ function createCanvasEngine(options = {}) {
     },
     deleteNode(id) {
       runCommand("deleteNode", [id], () => {
-        const node = assertNode(id);
-        state.nodes.delete(id);
+        assertNode(id);
+        const toDel = /* @__PURE__ */ new Set();
+        collectSubtreeIdSet(id, toDel);
+        const order = deletionOrderPostOrder(toDel);
+        for (const delId of order) {
+          const prevNode = state.nodes.get(delId);
+          if (!prevNode) {
+            continue;
+          }
+          state.nodes.delete(delId);
+          emit("node:deleted", delId, cloneNode(prevNode));
+        }
         invalidateNodeCache();
         cleanupSelection();
         if (state.interaction.mode !== "idle") {
           setInteraction({ mode: "idle" });
         }
-        emit("node:deleted", id, cloneNode(node));
       });
     },
     moveNode(id, dx, dy) {
@@ -983,17 +1232,48 @@ function createCanvasEngine(options = {}) {
         if (node.locked) {
           return cloneNode(node);
         }
-        const next = {
-          ...node,
-          x: grid.snap ? snapValue(node.x + dx, grid.size) : node.x + dx,
-          y: grid.snap ? snapValue(node.y + dy, grid.size) : node.y + dy
-        };
-        replaceNode(node, next);
-        const cloned = cloneNode(next);
-        const prev = cloneNode(node);
-        emit("node:moved", cloned, { x: next.x - node.x, y: next.y - node.y });
-        emit("node:updated", cloned, prev);
-        return cloned;
+        const targets = collectUniformTranslationTargets([id], state.nodes);
+        for (const tid of targets) {
+          const n = assertNode(tid);
+          const prev = cloneNode(n);
+          const next = {
+            ...n,
+            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
+            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+          };
+          replaceNode(n, next);
+          const moved = cloneNode(next);
+          emit("node:moved", moved, { x: next.x - prev.x, y: next.y - prev.y });
+          emit("node:updated", moved, prev);
+        }
+        reparentAfterDrag(targets);
+        return cloneNode(assertNode(id));
+      });
+    },
+    translateSelectedNodes(dx, dy) {
+      runCommand("translateSelectedNodes", [dx, dy], () => {
+        const seeds = Array.from(state.selection.values()).filter((sid) => {
+          const n = state.nodes.get(sid);
+          return n && !n.locked;
+        });
+        if (seeds.length === 0) {
+          return;
+        }
+        const targets = collectUniformTranslationTargets(seeds, state.nodes);
+        for (const tid of targets) {
+          const n = assertNode(tid);
+          const prev = cloneNode(n);
+          const next = {
+            ...n,
+            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
+            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+          };
+          replaceNode(n, next);
+          const cloned = cloneNode(next);
+          emit("node:moved", cloned, { x: next.x - prev.x, y: next.y - prev.y });
+          emit("node:updated", cloned, prev);
+        }
+        reparentAfterDrag(targets);
       });
     },
     resizeNode(id, handle, dx, dy) {
@@ -1031,6 +1311,7 @@ function createCanvasEngine(options = {}) {
         const next = { ...node, zIndex: state.nextZIndex++ };
         replaceNode(node, next);
         emit("node:updated", cloneNode(next), prev);
+        restackGroupDescendantsAbove(id);
       });
     },
     sendToBack(id) {
@@ -1041,6 +1322,7 @@ function createCanvasEngine(options = {}) {
         const next = { ...node, zIndex: minZ - 1 };
         replaceNode(node, next);
         emit("node:updated", cloneNode(next), prev);
+        restackGroupDescendantsAbove(id);
       });
     },
     lockNode(id) {
@@ -1063,7 +1345,9 @@ function createCanvasEngine(options = {}) {
     },
     duplicateNodes(ids, offset = { x: grid.size, y: grid.size }) {
       return runCommand("duplicateNodes", [ids, offset], () => {
-        const created = ids.map((id) => state.nodes.get(id)).filter((node) => Boolean(node)).map((node) => duplicateNode(node, offset));
+        const forest = forestIdsFromSeeds(ids);
+        const source = [...forest].map((nid) => state.nodes.get(nid)).filter((node) => Boolean(node)).sort((a, b) => a.zIndex - b.zIndex);
+        const created = duplicateForest(source, offset);
         for (const node of created) {
           state.nodes.set(node.id, node);
           emit("node:created", cloneNode(node));
@@ -1076,7 +1360,7 @@ function createCanvasEngine(options = {}) {
     copySelected() {
       return runCommand("copySelected", [], () => {
         clipboard.length = 0;
-        for (const node of getSelectionNodes()) {
+        for (const node of getCopyClosureNodes()) {
           clipboard.push(cloneNode(node));
         }
         return clipboard.map(cloneNode);
@@ -1084,7 +1368,7 @@ function createCanvasEngine(options = {}) {
     },
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
       return runCommand("pasteClipboard", [offset], () => {
-        const created = clipboard.map((node) => duplicateNode(node, offset));
+        const created = duplicateForest(clipboard, offset);
         for (const node of created) {
           state.nodes.set(node.id, node);
           emit("node:created", cloneNode(node));
@@ -1128,12 +1412,21 @@ function createCanvasEngine(options = {}) {
     },
     deleteSelected() {
       runCommand("deleteSelected", [], () => {
-        const deleting = getSelectionNodes().filter((node) => !node.locked);
-        for (const node of deleting) {
-          state.nodes.delete(node.id);
-          emit("node:deleted", node.id, cloneNode(node));
+        const deletingRoots = getSelectionNodes().filter((node) => !node.locked);
+        const toDel = /* @__PURE__ */ new Set();
+        for (const n of deletingRoots) {
+          collectSubtreeIdSet(n.id, toDel);
         }
-        if (deleting.length > 0) {
+        const order = deletionOrderPostOrder(toDel);
+        for (const delId of order) {
+          const prevNode = state.nodes.get(delId);
+          if (!prevNode) {
+            continue;
+          }
+          state.nodes.delete(delId);
+          emit("node:deleted", delId, cloneNode(prevNode));
+        }
+        if (toDel.size > 0) {
           invalidateNodeCache();
         }
         setSelection([]);
@@ -1158,7 +1451,8 @@ function createCanvasEngine(options = {}) {
         if (node.locked) {
           return;
         }
-        const nodeIds = state.selection.has(id) ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id) : [id];
+        const initialSelection = state.selection.has(id) ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id) : [id];
+        const nodeIds = collectUniformTranslationTargets(initialSelection, state.nodes);
         if (!state.selection.has(id)) {
           setSelection([id]);
         }
@@ -1335,8 +1629,21 @@ function createCanvasEngine(options = {}) {
         return;
       }
       runCommand("endInteraction", [pointerId], () => {
+        const prevInteraction = state.interaction;
         state.snapGuides = [];
+        if (prevInteraction.mode === "dragging-nodes") {
+          reparentAfterDrag(prevInteraction.nodeIds);
+        }
         setInteraction({ mode: "idle" });
+      });
+    },
+    getUniformTranslationTargets(seedIds) {
+      return collectUniformTranslationTargets(seedIds, state.nodes);
+    },
+    syncGroupZOrder(groupId) {
+      runCommand("syncGroupZOrder", [groupId], () => {
+        assertNode(groupId);
+        restackGroupDescendantsAbove(groupId);
       });
     },
     exportJSON() {
@@ -1371,15 +1678,23 @@ function sameArray(a, b) {
   return a.every((value, index) => value === b[index]);
 }
 export {
+  addDescendants,
   applyResizeDelta,
   applyResizeDeltaLocked,
   boundsContain,
   boundsIntersect,
   clamp,
   collectNodeEdges,
+  collectSubtreeIds,
+  collectUniformTranslationTargets,
   createCanvasEngine,
+  expandGroupDragSeeds,
+  findContainingGroup,
+  getBoundsFromNode,
   getBoundsFromPoints,
   getVisibleBounds,
+  groupArea,
+  isStrictDescendantOf,
   lerp,
   lerpCamera,
   pointInBounds,
@@ -1392,6 +1707,7 @@ export {
   snapResizedBoundsLocked,
   snapSize,
   snapValue,
+  sortIdsByZIndex,
   worldToScreen,
   zoomCameraAtScreenPoint
 };

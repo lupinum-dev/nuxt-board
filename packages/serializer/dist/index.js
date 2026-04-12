@@ -59,7 +59,8 @@ function createJsonCanvasSerializer() {
                 {
                   zIndex: node.zIndex,
                   locked: node.locked,
-                  visible: node.visible
+                  visible: node.visible,
+                  ...node.parentId !== void 0 ? { parentId: node.parentId } : {}
                 }
               ])
             ),
@@ -89,7 +90,8 @@ function createJsonCanvasSerializer() {
             ...node,
             zIndex: meta?.zIndex ?? node.zIndex,
             locked: meta?.locked ?? node.locked,
-            visible: meta?.visible ?? node.visible
+            visible: meta?.visible ?? node.visible,
+            parentId: meta?.parentId ?? node.parentId
           };
         }),
         selection: [],

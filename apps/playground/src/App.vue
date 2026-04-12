@@ -384,6 +384,11 @@ onMounted(async () => {
   color: var(--color-stone-400);
 }
 
+:deep(.canvas-node-simple) {
+  border-color: rgba(28, 25, 23, 0.10);
+  border-radius: 6px;
+}
+
 :deep(.canvas-node-handle) {
   background: white;
   border: 1.5px solid var(--color-teal-600);

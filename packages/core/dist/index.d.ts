@@ -1,4 +1,5 @@
 export { createCanvasEngine } from './engine';
+export { addDescendants, collectSubtreeIds, collectUniformTranslationTargets, expandGroupDragSeeds, findContainingGroup, getBoundsFromNode, groupArea, isStrictDescendantOf, sortIdsByZIndex } from './hierarchy';
 export { boundsContain, boundsIntersect, clamp, getBoundsFromPoints, getVisibleBounds, lerp, lerpCamera, pointInBounds, screenToWorld, snapBounds, snapPoint, snapSize, snapValue, worldToScreen, zoomCameraAtScreenPoint } from './math';
 export { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize';
 export { collectNodeEdges, snapBoundsToEdges, snapPositionToEdges } from './snap';

@@ -109,11 +109,12 @@ function getNodeLod(node: CanvasNodeState, zoom: number, selected: boolean): Nod
   if (screenSize < 8) {
     return 'hidden'
   }
-  if (screenSize < 60) {
+  if (screenSize < 120) {
     return 'simple'
   }
   return 'full'
 }
+
 
 const visibleNodes = computed<LodNode[]>(() => {
   const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
@@ -556,8 +557,25 @@ onBeforeUnmount(() => {
 .canvas-node-simple {
   position: absolute;
   box-sizing: border-box;
-  border: 1px solid rgba(15, 23, 42, 0.15);
+  border: calc(1px / var(--canvas-zoom, 1)) solid rgba(15, 23, 42, 0.15);
   background: #fff;
-  contain: strict;
+  overflow: hidden;
+  contain: layout style paint;
+}
+
+.canvas-node-simple::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  left: 20%;
+  right: 20%;
+  height: 50%;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.07) 0px,
+    rgba(15, 23, 42, 0.07) 2px,
+    transparent 2px,
+    transparent 6px
+  );
 }
 </style>
