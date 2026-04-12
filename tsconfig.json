@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@canvas/core": ["packages/core/src/index.ts"],
+      "@canvas/vue": ["packages/vue/src/index.ts"]
+    }
+  },
+  "include": [
+    "**/*.d.ts",
+    "packages/**/*.ts",
+    "packages/**/*.vue",
+    "apps/**/*.ts",
+    "apps/**/*.vue",
+    "tests/**/*.ts"
+  ]
+}
