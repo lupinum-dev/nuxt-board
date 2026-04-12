@@ -229,6 +229,20 @@ function isEditorTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest('[data-editor="true"]'))
 }
 
+function findNodeIdAtPoint(screenPoint: Point): string | undefined {
+  const world = engine.screenToWorld(screenPoint)
+  const nodes = engine.getSnapshot().nodes
+  return [...nodes]
+    .sort((a, b) => b.zIndex - a.zIndex)
+    .find(
+      (n) =>
+        world.x >= n.x &&
+        world.x <= n.x + n.width &&
+        world.y >= n.y &&
+        world.y <= n.y + n.height
+    )?.id
+}
+
 function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 'resize' | 'box-select', nodeId?: string, handle?: ResizeHandle): void {
   const point = toLocalPoint(event.clientX, event.clientY)
   if (kind === 'pan') {
@@ -317,13 +331,13 @@ function onDoubleClick(event: MouseEvent): void {
   if (isEditorTarget(event.target) || findHandle(event.target)) {
     return
   }
-  const nodeId = findNodeId(event.target)
+  const screenPoint = toLocalPoint(event.clientX, event.clientY)
+  const nodeId = findNodeId(event.target) ?? findNodeIdAtPoint(screenPoint)
   if (nodeId) {
     engine.beginTextEdit(nodeId)
     return
   }
-  const point = toLocalPoint(event.clientX, event.clientY)
-  const world = engine.screenToWorld(point)
+  const world = engine.screenToWorld(screenPoint)
   const node = engine.createNode({
     type: 'text',
     x: world.x,
