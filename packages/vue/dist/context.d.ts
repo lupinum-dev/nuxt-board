@@ -8,7 +8,6 @@ export interface CanvasEngineContext {
     viewportSize: Ref<Point>;
     renderers: Ref<CanvasRendererRegistry>;
     resolvedGrid: ComputedRef<ResolvedCanvasGridOptions>;
-    renderCount: Ref<number>;
     toLocalPoint: (clientX: number, clientY: number) => Point;
 }
 export declare const canvasEngineKey: InjectionKey<CanvasEngineContext>;

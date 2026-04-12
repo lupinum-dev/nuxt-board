@@ -3,6 +3,8 @@ type __VLS_Props = {
     node: CanvasNode;
     selected: boolean;
     editing: boolean;
+    /** Pass true when a real custom renderer or slot is provided by the parent. */
+    customRenderer?: boolean;
 };
 declare var __VLS_1: {
     node: CanvasNode<Record<string, unknown>>;

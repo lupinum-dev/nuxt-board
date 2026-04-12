@@ -1,5 +1,12 @@
 export type NodeId = string;
 export type EdgeId = string;
+export type SnapAxis = 'x' | 'y';
+export interface SnapGuide {
+    axis: SnapAxis;
+    position: number;
+    from: number;
+    to: number;
+}
 export interface Point {
     x: number;
     y: number;
@@ -55,7 +62,7 @@ export interface NodeInput<T extends Record<string, unknown> = Record<string, un
     locked?: boolean;
     visible?: boolean;
 }
-export type NodePatch<T extends Record<string, unknown> = Record<string, unknown>> = Partial<Omit<CanvasNode<T>, 'id' | 'zIndex'>>;
+export type NodePatch<T extends Record<string, unknown> = Record<string, unknown>> = Partial<Omit<CanvasNode<T>, 'id' | 'type' | 'zIndex'>>;
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
 export type SelectionMode = 'replace' | 'append' | 'toggle';
 export type InteractionMode = 'idle' | 'panning' | 'dragging-nodes' | 'resizing-node' | 'box-select' | 'editing-text';
@@ -81,6 +88,8 @@ export interface ResizeInteractionState {
     handle: ResizeHandle;
     startScreenPoint: Point;
     startNodeBounds: Pick<CanvasNode, 'x' | 'y' | 'width' | 'height'>;
+    /** width / height at the start of the resize, used for aspect-ratio locking. */
+    aspectRatio: number;
 }
 export interface BoxSelectInteractionState {
     mode: 'box-select';
@@ -100,6 +109,7 @@ export interface BoardState {
     nodes: Map<NodeId, CanvasNode>;
     selection: Set<NodeId>;
     interaction: InteractionState;
+    snapGuides: SnapGuide[];
     nextZIndex: number;
 }
 export interface BoardSnapshot {
@@ -108,6 +118,7 @@ export interface BoardSnapshot {
     nodes: CanvasNode[];
     selection: NodeId[];
     interaction: InteractionState;
+    snapGuides: SnapGuide[];
     nextZIndex: number;
 }
 export type InvariantMode = 'strict' | 'warn' | 'off';
@@ -134,9 +145,12 @@ export interface TraceEntry {
     timestamp: number;
     args: unknown[];
 }
+export interface CanvasPluginContext extends CanvasEngine {
+    emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void;
+}
 export interface CanvasPlugin {
     name: string;
-    install(engine: CanvasEngine, options?: Record<string, unknown>): void | PluginCleanup;
+    install(engine: CanvasPluginContext, options?: Record<string, unknown>): void | PluginCleanup;
 }
 export type PluginCleanup = () => void;
 export type Unsubscribe = () => void;
@@ -164,7 +178,6 @@ export interface CanvasEngine {
     getViewportSize(): Point;
     updateGridSettings(patch: Partial<GridSettings>): GridSettings;
     setViewportSize(size: Point): void;
-    emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void;
     on<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe;
     once<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe;
     off<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): void;
@@ -203,8 +216,10 @@ export interface CanvasEngine {
     beginResize(id: NodeId, handle: ResizeHandle, pointerId: number, screenPoint: Point): void;
     beginBoxSelect(pointerId: number, screenPoint: Point): void;
     beginTextEdit(id: NodeId): void;
-    commitTextEdit(id: NodeId, text: string): CanvasNode;
-    updatePointer(pointerId: number, screenPoint: Point): void;
+    commitTextEdit(id: NodeId, text?: string): CanvasNode;
+    updatePointer(pointerId: number, screenPoint: Point, modifiers?: {
+        shift?: boolean;
+    }): void;
     endInteraction(pointerId?: number): void;
     exportJSON(): string;
     importJSON(json: string, mode?: 'replace' | 'merge'): void;

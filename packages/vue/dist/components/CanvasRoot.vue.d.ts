@@ -20,9 +20,9 @@ declare var __VLS_7: {
     key: ResizeHandle;
     node: CanvasNodeState<Record<string, unknown>>;
     handle: ResizeHandle;
-}, __VLS_27: {
+}, __VLS_30: {
     bounds: import("@canvas/core").Bounds;
-}, __VLS_29: {
+}, __VLS_32: {
     engine: CanvasEngine;
     snapshot: BoardSnapshot;
     debugState: {
@@ -32,7 +32,6 @@ declare var __VLS_7: {
         selection: string[];
         interaction: import("@canvas/core").InteractionState;
         visibleNodeCount: number;
-        renderCount: number;
         trace: import("@canvas/core").TraceEntry[];
     };
 };
@@ -45,9 +44,9 @@ type __VLS_Slots = {} & {
 } & {
     handle?: (props: typeof __VLS_22) => any;
 } & {
-    'box-select'?: (props: typeof __VLS_27) => any;
+    'box-select'?: (props: typeof __VLS_30) => any;
 } & {
-    default?: (props: typeof __VLS_29) => any;
+    default?: (props: typeof __VLS_32) => any;
 };
 declare const __VLS_component: import("vue").DefineComponent<import("vue").ExtractPropTypes<{
     engine: {

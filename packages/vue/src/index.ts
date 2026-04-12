@@ -4,6 +4,7 @@ export { default as CanvasNode } from './components/CanvasNode.vue'
 export { default as CanvasNodeHandle } from './components/CanvasNodeHandle.vue'
 export { default as CanvasGrid } from './components/CanvasGrid.vue'
 export { default as CanvasBoxSelect } from './components/CanvasBoxSelect.vue'
+export { default as CanvasSnapGuides } from './components/CanvasSnapGuides.vue'
 export type {
   CanvasGridOptions,
   CanvasRendererRegistry,

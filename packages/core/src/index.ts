@@ -16,7 +16,8 @@ export {
   worldToScreen,
   zoomCameraAtScreenPoint
 } from './math'
-export { applyResizeDelta, snapResizedBounds } from './resize'
+export { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
+export { collectNodeEdges, snapBoundsToEdges, snapPositionToEdges } from './snap'
 export type {
   BoardSnapshot,
   BoardState,
@@ -43,7 +44,10 @@ export type {
   Point,
   ResizeHandle,
   SelectionMode,
+  SnapAxis,
+  SnapGuide,
   TraceEntry,
   Unsubscribe,
   ZoomSettings
 } from './types'
+export type { SnapResult, DragSnapResult } from './snap'

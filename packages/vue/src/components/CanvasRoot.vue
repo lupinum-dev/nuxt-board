@@ -7,6 +7,7 @@ import { DEFAULT_CANVAS_GRID_OPTIONS, type CanvasGridOptions, type CanvasRendere
 import CanvasBoxSelect from './CanvasBoxSelect.vue'
 import CanvasGrid from './CanvasGrid.vue'
 import CanvasNode from './CanvasNode.vue'
+import CanvasSnapGuides from './CanvasSnapGuides.vue'
 import CanvasViewport from './CanvasViewport.vue'
 
 const props = defineProps({
@@ -269,16 +270,16 @@ function onPointerDown(event: PointerEvent): void {
   startPointerInteraction(event, 'box-select')
 }
 
-let pendingPointer: { id: number; point: Point } | null = null
+let pendingPointer: { id: number; point: Point; shift: boolean } | null = null
 let rafScheduled = false
 
 function onPointerMove(event: PointerEvent): void {
-  pendingPointer = { id: event.pointerId, point: toLocalPoint(event.clientX, event.clientY) }
+  pendingPointer = { id: event.pointerId, point: toLocalPoint(event.clientX, event.clientY), shift: event.shiftKey }
   if (!rafScheduled) {
     rafScheduled = true
     requestAnimationFrame(() => {
       if (pendingPointer) {
-        engine.updatePointer(pendingPointer.id, pendingPointer.point)
+        engine.updatePointer(pendingPointer.id, pendingPointer.point, { shift: pendingPointer.shift })
       }
       rafScheduled = false
       pendingPointer = null
@@ -288,7 +289,7 @@ function onPointerMove(event: PointerEvent): void {
 
 function flushPendingPointer(): void {
   if (pendingPointer) {
-    engine.updatePointer(pendingPointer.id, pendingPointer.point)
+    engine.updatePointer(pendingPointer.id, pendingPointer.point, { shift: pendingPointer.shift })
     pendingPointer = null
     rafScheduled = false
   }
@@ -518,6 +519,7 @@ onBeforeUnmount(() => {
         />
       </template>
     </CanvasViewport>
+    <CanvasSnapGuides />
     <CanvasBoxSelect>
       <template #default="slotProps">
         <slot name="box-select" v-bind="slotProps" />

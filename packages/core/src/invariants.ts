@@ -36,7 +36,8 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
         nodeId: interaction.nodeId,
         handle: interaction.handle,
         startScreenPoint: { ...interaction.startScreenPoint },
-        startNodeBounds: { ...interaction.startNodeBounds }
+        startNodeBounds: { ...interaction.startNodeBounds },
+        aspectRatio: interaction.aspectRatio
       }
     case 'box-select':
       return {
@@ -59,6 +60,7 @@ export function createSnapshot(state: BoardState, grid: GridSettings): BoardSnap
       .sort((a, b) => a.zIndex - b.zIndex),
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
+    snapGuides: [...state.snapGuides],
     nextZIndex: state.nextZIndex
   }
 }

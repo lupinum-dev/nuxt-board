@@ -163,6 +163,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
         }),
         selection: [],
         interaction: { mode: 'idle' },
+        snapGuides: [],
         nextZIndex:
           extensions?.nextZIndex ??
           nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1

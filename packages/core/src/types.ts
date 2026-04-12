@@ -1,5 +1,13 @@
 export type NodeId = string
 export type EdgeId = string
+export type SnapAxis = 'x' | 'y'
+
+export interface SnapGuide {
+  axis: SnapAxis
+  position: number
+  from: number
+  to: number
+}
 
 export interface Point {
   x: number
@@ -104,6 +112,8 @@ export interface ResizeInteractionState {
   handle: ResizeHandle
   startScreenPoint: Point
   startNodeBounds: Pick<CanvasNode, 'x' | 'y' | 'width' | 'height'>
+  /** width / height at the start of the resize, used for aspect-ratio locking. */
+  aspectRatio: number
 }
 
 export interface BoxSelectInteractionState {
@@ -133,6 +143,7 @@ export interface BoardState {
   nodes: Map<NodeId, CanvasNode>
   selection: Set<NodeId>
   interaction: InteractionState
+  snapGuides: SnapGuide[]
   nextZIndex: number
 }
 
@@ -142,6 +153,7 @@ export interface BoardSnapshot {
   nodes: CanvasNode[]
   selection: NodeId[]
   interaction: InteractionState
+  snapGuides: SnapGuide[]
   nextZIndex: number
 }
 
@@ -247,7 +259,7 @@ export interface CanvasEngine {
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
   commitTextEdit(id: NodeId, text?: string): CanvasNode
-  updatePointer(pointerId: number, screenPoint: Point): void
+  updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean }): void
   endInteraction(pointerId?: number): void
   exportJSON(): string
   importJSON(json: string, mode?: 'replace' | 'merge'): void

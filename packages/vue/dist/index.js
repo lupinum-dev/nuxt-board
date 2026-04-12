@@ -1,74 +1,74 @@
-import { computed as d, inject as fe, defineComponent as C, unref as E, renderSlot as b, openBlock as f, createElementBlock as x, normalizeStyle as M, createCommentVNode as T, normalizeClass as Z, useSlots as ee, ref as D, watch as R, normalizeProps as te, guardReactiveProps as ne, withDirectives as ge, withKeys as X, withModifiers as K, vModelText as ve, Fragment as O, createTextVNode as G, toDisplayString as q, renderList as re, createVNode as L, shallowRef as J, provide as ye, markRaw as xe, onMounted as he, onBeforeUnmount as be, withCtx as B, createBlock as Q, mergeProps as N, resolveDynamicComponent as ze } from "vue";
-import { getBoundsFromPoints as je, getVisibleBounds as oe, createCanvasEngine as we } from "@canvas/core";
-const ae = /* @__PURE__ */ Symbol("canvas-engine"), I = {
+import { computed as p, inject as je, defineComponent as C, unref as _, renderSlot as w, openBlock as v, createElementBlock as g, normalizeStyle as P, createCommentVNode as D, normalizeClass as W, useSlots as le, ref as L, watch as V, nextTick as Se, normalizeProps as ce, mergeProps as R, Fragment as $, withDirectives as _e, withKeys as G, withModifiers as U, vModelText as Ee, createTextVNode as re, toDisplayString as oe, renderList as q, createVNode as N, shallowRef as ae, provide as $e, markRaw as Ce, onMounted as Ie, onBeforeUnmount as De, withCtx as A, withMemo as ie, createBlock as se, resolveDynamicComponent as Pe, guardReactiveProps as Be } from "vue";
+import { getBoundsFromPoints as Te, getVisibleBounds as de, createCanvasEngine as Oe } from "@canvas/core";
+const ue = /* @__PURE__ */ Symbol("canvas-engine"), O = {
   visible: !0,
   pattern: "line",
   minorOpacity: 0.14,
   majorOpacity: 0.18,
   fadeEdges: !0
 };
-function z() {
-  const n = fe(ae);
-  if (!n)
+function b() {
+  const o = je(ue);
+  if (!o)
     throw new Error("Canvas composables must be used under <CanvasRoot>.");
-  return n;
+  return o;
 }
-function ke() {
-  const { snapshot: n } = z();
-  return d(() => n.value.camera);
+function Re() {
+  const { snapshot: o } = b();
+  return p(() => o.value.camera);
 }
-function He() {
-  const { snapshot: n } = z();
-  return d(() => n.value.nodes);
+function it() {
+  const { snapshot: o } = b();
+  return p(() => o.value.nodes);
 }
-function Ue() {
-  const { snapshot: n } = z();
-  return d(() => n.value.selection);
+function st() {
+  const { snapshot: o } = b();
+  return p(() => o.value.selection);
 }
-function Ee() {
-  const { snapshot: n } = z();
-  return d(() => n.value.interaction);
+function Ne() {
+  const { snapshot: o } = b();
+  return p(() => o.value.interaction);
 }
-function We() {
-  const { snapshot: n, viewportSize: t } = z();
-  return d(() => oe(t.value.x, t.value.y, n.value.camera));
+function lt() {
+  const { snapshot: o, viewportSize: n } = b();
+  return p(() => de(n.value.x, n.value.y, o.value.camera));
 }
-function Fe(n = 200) {
-  const { snapshot: t, viewportSize: s } = z();
-  return d(() => {
-    const c = oe(s.value.x, s.value.y, t.value.camera);
-    return t.value.nodes.filter((i) => i.visible ? i.x + i.width > c.minX - n && i.x < c.maxX + n && i.y + i.height > c.minY - n && i.y < c.maxY + n : !1);
+function ct(o = 200) {
+  const { snapshot: n, viewportSize: s } = b();
+  return p(() => {
+    const c = de(s.value.x, s.value.y, n.value.camera);
+    return n.value.nodes.filter((i) => i.visible ? i.x + i.width > c.minX - o && i.x < c.maxX + o && i.y + i.height > c.minY - o && i.y < c.maxY + o : !1);
   });
 }
-function Se() {
-  const { snapshot: n, resolvedGrid: t } = z();
+function Le() {
+  const { snapshot: o, resolvedGrid: n } = b();
   function s(c, i) {
     return (c % i + i) % i;
   }
-  return d(() => {
-    const c = n.value.camera.z, i = t.value.size, m = t.value.size * t.value.majorEvery, g = i * c, r = m * c, l = n.value.camera.x * c, p = n.value.camera.y * c, v = g < 6 ? 0 : g < 12 ? t.value.minorOpacity * 0.57 : t.value.minorOpacity, j = r < 8 ? t.value.majorOpacity * 0.44 : t.value.majorOpacity;
+  return p(() => {
+    const c = o.value.camera.z, i = n.value.size, d = n.value.size * n.value.majorEvery, r = i * c, l = d * c, z = o.value.camera.x * c, k = o.value.camera.y * c, f = r < 6 ? 0 : r < 12 ? n.value.minorOpacity * 0.57 : n.value.minorOpacity, x = l < 8 ? n.value.majorOpacity * 0.44 : n.value.majorOpacity;
     return {
-      "--grid-minor-size": `${g}px`,
-      "--grid-major-size": `${r}px`,
-      "--grid-minor-x": `${s(l, g)}px`,
-      "--grid-minor-y": `${s(p, g)}px`,
-      "--grid-major-x": `${s(l, r)}px`,
-      "--grid-major-y": `${s(p, r)}px`,
-      "--grid-minor-color": `rgba(148, 163, 184, ${v})`,
-      "--grid-major-color": `rgba(71, 85, 105, ${j})`,
-      "--grid-mask-image": t.value.fadeEdges ? "radial-gradient(circle at center, black 68%, transparent 100%)" : "none"
+      "--grid-minor-size": `${r}px`,
+      "--grid-major-size": `${l}px`,
+      "--grid-minor-x": `${s(z, r)}px`,
+      "--grid-minor-y": `${s(k, r)}px`,
+      "--grid-major-x": `${s(z, l)}px`,
+      "--grid-major-y": `${s(k, l)}px`,
+      "--grid-minor-color": `rgba(148, 163, 184, ${f})`,
+      "--grid-major-color": `rgba(71, 85, 105, ${x})`,
+      "--grid-mask-image": n.value.fadeEdges ? "radial-gradient(circle at center, black 68%, transparent 100%)" : "none"
     };
   });
 }
-function Ge(n) {
-  const { engine: t, snapshot: s, toLocalPoint: c } = z(), i = d(() => {
-    const p = s.value.nodes.find((v) => v.id === n);
-    if (!p)
-      throw new Error(`Node "${n}" is not present in the current snapshot.`);
-    return p;
-  }), m = d(() => s.value.selection.includes(n)), g = d(
-    () => s.value.interaction.mode === "editing-text" && s.value.interaction.nodeId === n
-  ), r = d(() => i.value.locked), l = d(() => ({
+function dt(o) {
+  const { engine: n, snapshot: s, toLocalPoint: c } = b(), i = p(() => {
+    const f = s.value.nodes.find((x) => x.id === o);
+    if (!f)
+      throw new Error(`Node "${o}" is not present in the current snapshot.`);
+    return f;
+  }), d = p(() => new Set(s.value.selection)), r = p(() => d.value.has(o)), l = p(
+    () => s.value.interaction.mode === "editing-text" && s.value.interaction.nodeId === o
+  ), z = p(() => i.value.locked), k = p(() => ({
     left: `${i.value.x}px`,
     top: `${i.value.y}px`,
     width: `${i.value.width}px`,
@@ -77,50 +77,50 @@ function Ge(n) {
   }));
   return {
     node: i,
-    selected: m,
-    editing: g,
-    locked: r,
-    style: l,
-    beginEdit: () => t.beginTextEdit(n),
-    commitText: (p) => t.commitTextEdit(n, p),
-    startDrag: (p) => t.beginNodeDrag(n, p.pointerId, c(p.clientX, p.clientY)),
-    startResize: (p, v) => t.beginResize(n, p, v.pointerId, c(v.clientX, v.clientY))
+    selected: r,
+    editing: l,
+    locked: z,
+    style: k,
+    beginEdit: () => n.beginTextEdit(o),
+    commitText: (f) => n.commitTextEdit(o, f),
+    startDrag: (f) => n.beginNodeDrag(o, f.pointerId, c(f.clientX, f.clientY)),
+    startResize: (f, x) => n.beginResize(o, f, x.pointerId, c(x.clientX, x.clientY))
   };
 }
-function Ce() {
-  const n = Ee();
-  return d(() => n.value.mode !== "box-select" ? null : je(n.value.startScreenPoint, n.value.currentScreenPoint));
+function Me() {
+  const o = Ne();
+  return p(() => o.value.mode !== "box-select" ? null : Te(o.value.startScreenPoint, o.value.currentScreenPoint));
 }
-const $e = /* @__PURE__ */ C({
+const Ye = /* @__PURE__ */ C({
   __name: "CanvasBoxSelect",
-  setup(n) {
-    const t = Ce(), s = d(() => t.value ? {
-      left: `${t.value.minX}px`,
-      top: `${t.value.minY}px`,
-      width: `${t.value.maxX - t.value.minX}px`,
-      height: `${t.value.maxY - t.value.minY}px`
+  setup(o) {
+    const n = Me(), s = p(() => n.value ? {
+      left: `${n.value.minX}px`,
+      top: `${n.value.minY}px`,
+      width: `${n.value.maxX - n.value.minX}px`,
+      height: `${n.value.maxY - n.value.minY}px`
     } : {});
-    return (c, i) => E(t) ? b(c.$slots, "default", {
+    return (c, i) => _(n) ? w(c.$slots, "default", {
       key: 0,
-      bounds: E(t)
+      bounds: _(n)
     }, () => [
-      E(t) ? (f(), x("div", {
+      _(n) ? (v(), g("div", {
         key: 0,
         class: "canvas-box-select",
-        style: M(s.value)
-      }, null, 4)) : T("", !0)
-    ], !0) : T("", !0);
+        style: P(s.value)
+      }, null, 4)) : D("", !0)
+    ], !0) : D("", !0);
   }
-}), $ = (n, t) => {
-  const s = n.__vccOpts || n;
-  for (const [c, i] of t)
+}), I = (o, n) => {
+  const s = o.__vccOpts || o;
+  for (const [c, i] of n)
     s[c] = i;
   return s;
-}, _e = /* @__PURE__ */ $($e, [["__scopeId", "data-v-2ca667dd"]]), Ie = /* @__PURE__ */ C({
+}, Ke = /* @__PURE__ */ I(Ye, [["__scopeId", "data-v-2ca667dd"]]), Xe = /* @__PURE__ */ C({
   __name: "CanvasGrid",
-  setup(n) {
-    const { resolvedGrid: t } = z(), s = Se(), c = d(() => {
-      switch (t.value.pattern) {
+  setup(o) {
+    const { resolvedGrid: n } = b(), s = Le(), c = p(() => {
+      switch (n.value.pattern) {
         case "dot":
           return [
             "radial-gradient(circle, var(--grid-major-color) 1px, transparent 1px)",
@@ -143,7 +143,7 @@ const $e = /* @__PURE__ */ C({
             "linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px)"
           ].join(", ");
       }
-    }), i = d(() => t.value.pattern === "dot" ? [
+    }), i = p(() => n.value.pattern === "dot" ? [
       "var(--grid-major-size) var(--grid-major-size)",
       "var(--grid-minor-size) var(--grid-minor-size)"
     ].join(", ") : [
@@ -151,7 +151,7 @@ const $e = /* @__PURE__ */ C({
       "var(--grid-minor-size) var(--grid-minor-size)",
       "var(--grid-major-size) var(--grid-major-size)",
       "var(--grid-major-size) var(--grid-major-size)"
-    ].join(", ")), m = d(() => t.value.pattern === "dot" ? [
+    ].join(", ")), d = p(() => n.value.pattern === "dot" ? [
       "var(--grid-major-x) var(--grid-major-y)",
       "var(--grid-minor-x) var(--grid-minor-y)"
     ].join(", ") : [
@@ -160,126 +160,165 @@ const $e = /* @__PURE__ */ C({
       "var(--grid-major-x) var(--grid-major-y)",
       "var(--grid-major-x) var(--grid-major-y)"
     ].join(", "));
-    return (g, r) => E(t).visible && E(t).pattern !== "none" ? (f(), x("div", {
+    return (r, l) => _(n).visible && _(n).pattern !== "none" ? (v(), g("div", {
       key: 0,
       class: "canvas-grid",
-      style: M({
-        ...E(s),
+      style: P({
+        ..._(s),
         backgroundImage: c.value,
         backgroundSize: i.value,
-        backgroundPosition: m.value
+        backgroundPosition: d.value
       })
-    }, null, 4)) : T("", !0);
+    }, null, 4)) : D("", !0);
   }
-}), De = /* @__PURE__ */ $(Ie, [["__scopeId", "data-v-5c13b009"]]), Te = ["data-resize"], Pe = /* @__PURE__ */ C({
+}), Ae = /* @__PURE__ */ I(Xe, [["__scopeId", "data-v-5c13b009"]]), Ve = ["data-resize"], He = /* @__PURE__ */ C({
   __name: "CanvasNodeHandle",
   props: {
     handle: {}
   },
-  setup(n) {
-    return (t, s) => (f(), x("div", {
-      class: Z(["canvas-node-handle", `is-${n.handle}`]),
-      "data-resize": n.handle
-    }, null, 10, Te));
+  setup(o) {
+    return (n, s) => (v(), g("div", {
+      class: W(["canvas-node-handle", `is-${o.handle}`]),
+      "data-resize": o.handle
+    }, null, 10, Ve));
   }
-}), Be = /* @__PURE__ */ $(Pe, [["__scopeId", "data-v-e9964eeb"]]), Ne = ["data-node-id"], Oe = ["onKeydown"], Le = {
+}), Fe = /* @__PURE__ */ I(He, [["__scopeId", "data-v-e9964eeb"]]), Ge = ["data-node-id"], Ue = ["onKeydown"], We = {
   key: 1,
   class: "canvas-node__content"
-}, Re = /* @__PURE__ */ C({
+}, qe = /* @__PURE__ */ C({
   __name: "CanvasNode",
   props: {
     node: {},
     selected: { type: Boolean },
-    editing: { type: Boolean }
+    editing: { type: Boolean },
+    customRenderer: { type: Boolean }
   },
-  setup(n) {
-    const t = n, s = ee(), { engine: c } = z(), i = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], m = D(j(t.node)), g = d(() => ({
-      left: `${t.node.x}px`,
-      top: `${t.node.y}px`,
-      width: `${t.node.width}px`,
-      height: `${t.node.height}px`,
-      zIndex: String(t.node.zIndex)
-    })), r = d(() => ({
-      node: t.node,
-      selected: t.selected,
-      editing: t.editing,
-      beginEdit: () => c.beginTextEdit(t.node.id),
-      commitText: (y) => c.commitTextEdit(t.node.id, y)
-    })), l = d(() => !!s.default);
-    R(
-      () => t.node,
+  setup(o) {
+    const n = o, s = le(), { engine: c } = b(), i = ["n", "ne", "e", "se", "s", "sw", "w", "nw"], d = L(E(n.node)), r = L(null), l = p(() => ({
+      left: `${n.node.x}px`,
+      top: `${n.node.y}px`,
+      width: `${n.node.width}px`,
+      height: `${n.node.height}px`,
+      zIndex: String(n.node.zIndex)
+    })), z = p(() => ({
+      node: n.node,
+      selected: n.selected,
+      editing: n.editing,
+      beginEdit: () => c.beginTextEdit(n.node.id),
+      commitText: (y) => c.commitTextEdit(n.node.id, y)
+    })), k = p(
+      () => n.customRenderer !== void 0 ? n.customRenderer : !!s.default
+    );
+    V(
+      () => n.node,
       (y) => {
-        m.value = j(y);
+        d.value = E(y);
       },
       { deep: !0 }
-    ), R(
-      () => t.editing,
+    ), V(
+      () => n.editing,
       (y) => {
-        y || (m.value = j(t.node));
+        y ? Se(() => {
+          r.value?.focus(), r.value?.select();
+        }) : d.value = E(n.node);
       }
     );
-    function p() {
-      c.commitTextEdit(t.node.id, m.value);
+    function f() {
+      c.commitTextEdit(n.node.id, d.value);
     }
-    function v() {
-      m.value = j(t.node), c.endInteraction();
+    function x() {
+      d.value = E(n.node), c.endInteraction();
     }
-    function j(y) {
+    function E(y) {
       if (y.type !== "text")
         return "";
-      const k = y.data?.content;
-      return typeof k == "string" ? k : "";
+      const j = y.data?.content;
+      return typeof j == "string" ? j : "";
     }
-    return (y, k) => (f(), x("article", {
-      class: Z(["canvas-node", { "is-selected": n.selected, "is-editing": n.editing, "is-locked": n.node.locked }]),
-      style: M(g.value),
-      "data-node-id": n.node.id
+    return (y, j) => (v(), g("article", {
+      class: W(["canvas-node", { "is-selected": o.selected, "is-editing": o.editing, "is-locked": o.node.locked }]),
+      style: P(l.value),
+      "data-node-id": o.node.id
     }, [
-      b(y.$slots, "default", te(ne(r.value)), () => [
-        n.editing && !l.value && n.node.type === "text" ? ge((f(), x("textarea", {
+      k.value ? w(y.$slots, "default", ce(R({ key: 0 }, z.value)), void 0, !0) : (v(), g($, { key: 1 }, [
+        o.editing && o.node.type === "text" ? _e((v(), g("textarea", {
           key: 0,
-          "onUpdate:modelValue": k[0] || (k[0] = (S) => m.value = S),
+          ref_key: "textareaRef",
+          ref: r,
+          "onUpdate:modelValue": j[0] || (j[0] = (S) => d.value = S),
           class: "canvas-node__editor",
           "data-editor": "true",
-          onBlur: p,
+          onBlur: f,
           onKeydown: [
-            X(K(p, ["meta", "prevent"]), ["enter"]),
-            X(K(p, ["ctrl", "prevent"]), ["enter"]),
-            X(K(v, ["prevent"]), ["esc"])
+            G(U(f, ["meta", "prevent"]), ["enter"]),
+            G(U(f, ["ctrl", "prevent"]), ["enter"]),
+            G(U(x, ["prevent"]), ["esc"])
           ]
-        }, null, 40, Oe)), [
-          [ve, m.value]
-        ]) : (f(), x("div", Le, [
-          n.node.type === "text" ? (f(), x(O, { key: 0 }, [
-            G(q(j(n.node) || "Double-click to edit"), 1)
-          ], 64)) : (f(), x(O, { key: 1 }, [
-            G(q(n.node.type), 1)
+        }, null, 40, Ue)), [
+          [Ee, d.value]
+        ]) : (v(), g("div", We, [
+          o.node.type === "text" ? (v(), g($, { key: 0 }, [
+            re(oe(E(o.node) || "Double-click to edit"), 1)
+          ], 64)) : (v(), g($, { key: 1 }, [
+            re(oe(o.node.type), 1)
           ], 64))
         ]))
-      ], !0),
-      n.selected && !n.editing && !n.node.locked ? (f(), x(O, { key: 0 }, re(i, (S) => b(y.$slots, "handle", {
+      ], 64)),
+      o.selected && !o.editing && !o.node.locked ? (v(), g($, { key: 2 }, q(i, (S) => w(y.$slots, "handle", {
         key: S,
-        node: n.node,
+        node: o.node,
         handle: S
       }, () => [
-        L(Be, { handle: S }, null, 8, ["handle"])
-      ], !0)), 64)) : T("", !0)
-    ], 14, Ne));
+        N(Fe, { handle: S }, null, 8, ["handle"])
+      ], !0)), 64)) : D("", !0)
+    ], 14, Ge));
   }
-}), Me = /* @__PURE__ */ $(Re, [["__scopeId", "data-v-3f2792a7"]]), Ye = /* @__PURE__ */ C({
+}), Je = /* @__PURE__ */ I(qe, [["__scopeId", "data-v-975fb886"]]), Qe = {
+  key: 0,
+  class: "canvas-snap-guides"
+}, Ze = /* @__PURE__ */ C({
+  __name: "CanvasSnapGuides",
+  setup(o) {
+    const { snapshot: n } = b(), s = p(() => {
+      const c = n.value.snapGuides;
+      if (!c || c.length === 0) return [];
+      const { x: i, y: d, z: r } = n.value.camera;
+      return c.map((l) => l.axis === "x" ? {
+        axis: "x",
+        pos: (l.position + i) * r,
+        from: (l.from + d) * r,
+        to: (l.to + d) * r
+      } : {
+        axis: "y",
+        pos: (l.position + d) * r,
+        from: (l.from + i) * r,
+        to: (l.to + i) * r
+      });
+    });
+    return (c, i) => s.value.length > 0 ? (v(), g("div", Qe, [
+      (v(!0), g($, null, q(s.value, (d, r) => (v(), g("div", {
+        key: r,
+        class: W(["canvas-snap-guide", d.axis === "x" ? "canvas-snap-guide--vertical" : "canvas-snap-guide--horizontal"]),
+        style: P(
+          d.axis === "x" ? { left: d.pos + "px", top: d.from + "px", height: d.to - d.from + "px" } : { top: d.pos + "px", left: d.from + "px", width: d.to - d.from + "px" }
+        )
+      }, null, 6))), 128))
+    ])) : D("", !0);
+  }
+}), et = /* @__PURE__ */ I(Ze, [["__scopeId", "data-v-46408711"]]), tt = /* @__PURE__ */ C({
   __name: "CanvasViewport",
-  setup(n) {
-    const t = ke(), s = d(() => ({
-      transform: `scale(${t.value.z}) translate(${t.value.x}px, ${t.value.y}px)`
+  setup(o) {
+    const n = Re(), s = p(() => ({
+      transform: `scale(${n.value.z}) translate(${n.value.x}px, ${n.value.y}px)`
     }));
-    return (c, i) => (f(), x("div", {
+    return (c, i) => (v(), g("div", {
       class: "canvas-viewport",
-      style: M(s.value)
+      style: P(s.value)
     }, [
-      b(c.$slots, "default", {}, void 0, !0)
+      w(c.$slots, "default", {}, void 0, !0)
     ], 4));
   }
-}), Xe = /* @__PURE__ */ $(Ye, [["__scopeId", "data-v-53cada3d"]]), Ke = /* @__PURE__ */ C({
+}), nt = /* @__PURE__ */ I(tt, [["__scopeId", "data-v-53cada3d"]]), rt = /* @__PURE__ */ C({
   __name: "CanvasRoot",
   props: {
     engine: {
@@ -304,311 +343,339 @@ const $e = /* @__PURE__ */ C({
     }
   },
   emits: ["ready"],
-  setup(n, { emit: t }) {
-    const s = n, c = t, i = D(null), m = D({ x: 0, y: 0 }), g = D(0), r = s.engine ?? we(), l = J(r.getSnapshot()), p = J(s.renderers);
-    ee();
-    const v = D(!1);
-    function j(e, o) {
+  setup(o, { emit: n }) {
+    const s = o, c = n, i = L(null), d = L({ x: 0, y: 0 }), r = s.engine ?? Oe(), l = ae(r.getSnapshot()), z = ae(s.renderers), k = le(), f = L(!1);
+    function x(e, a) {
       if (e === !1)
         return {
-          ...I,
+          ...O,
           visible: !1,
-          size: o.size,
-          majorEvery: o.majorEvery,
-          snap: o.snap,
-          pattern: o.pattern
+          size: a.size,
+          majorEvery: a.majorEvery,
+          snap: a.snap,
+          pattern: a.pattern
         };
-      const a = e === !0 ? {} : e;
+      const t = e === !0 ? {} : e;
       return {
-        visible: a.visible ?? I.visible,
-        size: a.size ?? o.size,
-        majorEvery: a.majorEvery ?? o.majorEvery,
-        snap: a.snap ?? o.snap,
-        pattern: a.pattern ?? o.pattern,
-        minorOpacity: a.minorOpacity ?? I.minorOpacity,
-        majorOpacity: a.majorOpacity ?? I.majorOpacity,
-        fadeEdges: a.fadeEdges ?? I.fadeEdges
+        visible: t.visible ?? O.visible,
+        size: t.size ?? a.size,
+        majorEvery: t.majorEvery ?? a.majorEvery,
+        snap: t.snap ?? a.snap,
+        pattern: t.pattern ?? a.pattern,
+        minorOpacity: t.minorOpacity ?? O.minorOpacity,
+        majorOpacity: t.majorOpacity ?? O.majorOpacity,
+        fadeEdges: t.fadeEdges ?? O.fadeEdges
       };
     }
-    const y = d(() => j(s.grid, l.value.grid));
-    ye(ae, {
+    const E = p(() => x(s.grid, l.value.grid));
+    $e(ue, {
       engine: r,
       snapshot: l,
       rootElement: i,
-      viewportSize: m,
-      renderers: p,
-      resolvedGrid: y,
-      renderCount: g,
-      toLocalPoint: _
+      viewportSize: d,
+      renderers: z,
+      resolvedGrid: E,
+      toLocalPoint: B
     });
-    const k = d(() => {
-      const e = r.getVisibleBounds(m.value.x, m.value.y);
-      return l.value.nodes.filter((o) => o.visible ? o.x + o.width > e.minX - s.cullMargin && o.x < e.maxX + s.cullMargin && o.y + o.height > e.minY - s.cullMargin && o.y < e.maxY + s.cullMargin : !1);
-    }), S = d(() => ({
+    let y = [], j = /* @__PURE__ */ new Set();
+    const S = p(() => {
+      const e = l.value.selection;
+      return e.length === y.length && e.every((a, t) => a === y[t]) || (y = e, j = new Set(e)), j;
+    });
+    function pe(e, a, t) {
+      if (t)
+        return "full";
+      const u = Math.max(e.width, e.height) * a;
+      return u < 8 ? "hidden" : u < 60 ? "simple" : "full";
+    }
+    const J = p(() => {
+      const e = r.getVisibleBounds(d.value.x, d.value.y), a = l.value.camera.z, t = S.value, u = [];
+      for (const m of l.value.nodes) {
+        if (!m.visible || m.x + m.width <= e.minX - s.cullMargin || m.x >= e.maxX + s.cullMargin || m.y + m.height <= e.minY - s.cullMargin || m.y >= e.maxY + s.cullMargin)
+          continue;
+        const X = pe(m, a, t.has(m.id));
+        X !== "hidden" && u.push({ ...m, lod: X });
+      }
+      return u;
+    }), fe = p(() => ({
       snapshot: l.value,
       camera: l.value.camera,
       grid: l.value.grid,
       selection: l.value.selection,
       interaction: l.value.interaction,
-      visibleNodeCount: k.value.length,
-      renderCount: g.value,
+      visibleNodeCount: J.value.length,
       trace: r.exportTrace().slice(-20)
     }));
-    function h() {
-      l.value = r.getSnapshot();
+    let H = !1;
+    function me() {
+      H || (H = !0, queueMicrotask(() => {
+        l.value = r.getSnapshot(), H = !1;
+      }));
     }
-    const ie = [
-      r.on("camera:change", h),
-      r.on("node:created", h),
-      r.on("node:updated", h),
-      r.on("node:deleted", h),
-      r.on("node:moved", h),
-      r.on("node:resized", h),
-      r.on("selection:change", h),
-      r.on("interaction:start", h),
-      r.on("interaction:update", h),
-      r.on("interaction:end", h),
-      r.on("command:after", h)
+    const ve = [
+      r.on("command:after", me)
     ];
-    R(
+    V(
       () => s.renderers,
       (e) => {
-        p.value = Object.fromEntries(
-          Object.entries(e).map(([o, a]) => [o, xe(a)])
+        z.value = Object.fromEntries(
+          Object.entries(e).map(([a, t]) => [a, Ce(t)])
         );
       },
       { immediate: !0, deep: !0 }
-    ), R(
+    ), V(
       () => s.grid,
       (e) => {
         if (e && typeof e == "object") {
-          const o = {};
-          e.size !== void 0 && (o.size = e.size), e.majorEvery !== void 0 && (o.majorEvery = e.majorEvery), e.snap !== void 0 && (o.snap = e.snap), e.pattern !== void 0 && (o.pattern = e.pattern), Object.keys(o).length > 0 && r.updateGridSettings(o);
+          const a = {};
+          e.size !== void 0 && (a.size = e.size), e.majorEvery !== void 0 && (a.majorEvery = e.majorEvery), e.snap !== void 0 && (a.snap = e.snap), e.pattern !== void 0 && (a.pattern = e.pattern), Object.keys(a).length > 0 && r.updateGridSettings(a);
         }
       },
       { immediate: !0, deep: !0 }
     );
-    function Y() {
+    function M() {
       const e = i.value?.getBoundingClientRect();
-      m.value = {
+      d.value = {
         x: e?.width ?? 0,
         y: e?.height ?? 0
-      }, r.setViewportSize(m.value);
+      }, r.setViewportSize(d.value);
     }
-    function _(e, o) {
-      const a = i.value?.getBoundingClientRect();
+    function B(e, a) {
+      const t = i.value?.getBoundingClientRect();
       return {
-        x: e - (a?.left ?? 0),
-        y: o - (a?.top ?? 0)
+        x: e - (t?.left ?? 0),
+        y: a - (t?.top ?? 0)
       };
     }
-    function V(e) {
+    function Q(e) {
       return e instanceof HTMLElement ? e.closest("[data-node-id]")?.dataset.nodeId : void 0;
     }
-    function A(e) {
+    function Z(e) {
       return e instanceof HTMLElement ? e.closest("[data-resize]")?.dataset.resize : void 0;
     }
-    function H(e) {
+    function ee(e) {
       return e instanceof HTMLElement && !!e.closest('[data-editor="true"]');
     }
-    function P(e, o, a, u) {
-      const w = _(e.clientX, e.clientY);
-      o === "pan" ? r.beginPan(e.pointerId, w) : o === "drag" && a ? r.beginNodeDrag(a, e.pointerId, w) : o === "resize" && a && u ? r.beginResize(a, u, e.pointerId, w) : r.beginBoxSelect(e.pointerId, w), i.value?.setPointerCapture(e.pointerId), i.value?.focus();
+    function Y(e, a, t, u) {
+      const m = B(e.clientX, e.clientY);
+      a === "pan" ? r.beginPan(e.pointerId, m) : a === "drag" && t ? r.beginNodeDrag(t, e.pointerId, m) : a === "resize" && t && u ? r.beginResize(t, u, e.pointerId, m) : r.beginBoxSelect(e.pointerId, m), i.value?.setPointerCapture(e.pointerId), i.value?.focus();
     }
-    function se(e) {
-      if (H(e.target))
+    function ge(e) {
+      if (ee(e.target))
         return;
-      if (e.button === 1 || v.value) {
-        e.preventDefault(), P(e, "pan");
+      if (e.button === 1 || f.value) {
+        e.preventDefault(), Y(e, "pan");
         return;
       }
       if (e.button !== 0)
         return;
-      const o = V(e.target), a = A(e.target);
-      if (a && o) {
-        P(e, "resize", o, a);
+      const a = Q(e.target), t = Z(e.target);
+      if (t && a) {
+        Y(e, "resize", a, t);
         return;
       }
-      if (o) {
-        P(e, "drag", o);
+      if (a) {
+        Y(e, "drag", a);
         return;
       }
-      P(e, "box-select");
+      Y(e, "box-select");
     }
-    function ce(e) {
-      r.updatePointer(e.pointerId, _(e.clientX, e.clientY));
+    let h = null, K = !1;
+    function ye(e) {
+      h = { id: e.pointerId, point: B(e.clientX, e.clientY), shift: e.shiftKey }, K || (K = !0, requestAnimationFrame(() => {
+        h && r.updatePointer(h.id, h.point, { shift: h.shift }), K = !1, h = null;
+      }));
     }
-    function U(e) {
-      r.endInteraction(e.pointerId), i.value?.hasPointerCapture(e.pointerId) && i.value.releasePointerCapture(e.pointerId);
+    function xe() {
+      h && (r.updatePointer(h.id, h.point, { shift: h.shift }), h = null, K = !1);
     }
-    function le(e) {
+    function te(e) {
+      xe(), r.endInteraction(e.pointerId), i.value?.hasPointerCapture(e.pointerId) && i.value.releasePointerCapture(e.pointerId);
+    }
+    function he(e) {
       e.preventDefault();
-      const o = _(e.clientX, e.clientY);
-      e.ctrlKey || e.metaKey ? r.zoomAt(o, Math.max(-10, Math.min(10, e.deltaY))) : r.panBy(e.deltaX, e.deltaY);
+      const a = B(e.clientX, e.clientY);
+      e.ctrlKey || e.metaKey ? r.zoomAt(a, Math.max(-10, Math.min(10, e.deltaY))) : r.panBy(e.deltaX, e.deltaY);
     }
-    function de(e) {
-      if (H(e.target) || A(e.target))
+    function be(e) {
+      if (ee(e.target) || Z(e.target))
         return;
-      const o = V(e.target);
-      if (o) {
-        r.beginTextEdit(o);
+      const a = Q(e.target);
+      if (a) {
+        r.beginTextEdit(a);
         return;
       }
-      const a = _(e.clientX, e.clientY), u = r.screenToWorld(a), w = r.createNode({
+      const t = B(e.clientX, e.clientY), u = r.screenToWorld(t), m = r.createNode({
         type: "text",
         x: u.x,
         y: u.y,
         data: { content: "New node" }
       });
-      r.beginTextEdit(w.id);
+      r.beginTextEdit(m.id);
     }
-    function W(e) {
-      const o = e.target;
-      return o instanceof HTMLTextAreaElement || o instanceof HTMLElement && o.isContentEditable;
+    function ne(e) {
+      const a = e.target;
+      return a instanceof HTMLTextAreaElement || a instanceof HTMLElement && a.isContentEditable;
     }
-    function ue(e) {
-      if (e.code === "Space" && !W(e) && (e.preventDefault(), v.value = !0), W(e))
+    function ze(e) {
+      if (e.code === "Space" && !ne(e) && (e.preventDefault(), f.value = !0), ne(e))
         return;
-      const o = e.metaKey || e.ctrlKey, a = r.getSelection();
+      const a = e.metaKey || e.ctrlKey, t = r.getSelection();
       if (e.key === "Escape") {
         r.clearSelection(), r.endInteraction();
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {
-        a.length > 0 && (e.preventDefault(), r.deleteSelected());
+        t.length > 0 && (e.preventDefault(), r.deleteSelected());
         return;
       }
-      if (e.key === "Enter" && a.length === 1) {
-        r.beginTextEdit(a[0]);
+      if (e.key === "Enter" && t.length === 1) {
+        r.beginTextEdit(t[0]);
         return;
       }
-      if (o && e.key.toLowerCase() === "a") {
+      if (a && e.key.toLowerCase() === "a") {
         e.preventDefault(), r.selectAll();
         return;
       }
-      if (o && e.key.toLowerCase() === "d" && a.length > 0) {
-        e.preventDefault(), r.duplicateNodes(a);
+      if (a && e.key.toLowerCase() === "d" && t.length > 0) {
+        e.preventDefault(), r.duplicateNodes(t);
         return;
       }
-      if (o && e.key.toLowerCase() === "c" && a.length > 0) {
+      if (a && e.key.toLowerCase() === "c" && t.length > 0) {
         e.preventDefault(), r.copySelected();
         return;
       }
-      if (o && e.key.toLowerCase() === "v") {
+      if (a && e.key.toLowerCase() === "v") {
         e.preventDefault(), r.pasteClipboard();
         return;
       }
-      if (o && e.key === "0") {
+      if (a && e.key === "0") {
         e.preventDefault(), r.zoomTo(1, !0);
         return;
       }
-      if (o && e.key === "1") {
+      if (a && e.key === "1") {
         e.preventDefault(), r.zoomToFit(40, !0);
         return;
       }
-      if (o && e.key.toLowerCase() === "z") {
+      if (a && e.key.toLowerCase() === "z") {
         const u = e.shiftKey ? r.redo : r.undo;
         u && (e.preventDefault(), u.call(r));
         return;
       }
-      if (o && e.key.toLowerCase() === "y") {
+      if (a && e.key.toLowerCase() === "y") {
         const u = r.redo;
         u && (e.preventDefault(), u.call(r));
         return;
       }
-      if (a.length > 0 && e.key.startsWith("Arrow")) {
+      if (t.length > 0 && e.key.startsWith("Arrow")) {
         e.preventDefault();
-        const u = e.shiftKey ? l.value.grid.size * l.value.grid.majorEvery : l.value.grid.size, w = e.key === "ArrowLeft" ? { x: -u, y: 0 } : e.key === "ArrowRight" ? { x: u, y: 0 } : e.key === "ArrowUp" ? { x: 0, y: -u } : { x: 0, y: u };
-        for (const me of a)
-          r.moveNode(me, w.x, w.y);
+        const u = e.shiftKey ? l.value.grid.size * l.value.grid.majorEvery : l.value.grid.size, m = e.key === "ArrowLeft" ? { x: -u, y: 0 } : e.key === "ArrowRight" ? { x: u, y: 0 } : e.key === "ArrowUp" ? { x: 0, y: -u } : { x: 0, y: u };
+        for (const X of t)
+          r.moveNode(X, m.x, m.y);
       }
     }
-    function pe(e) {
-      e.code === "Space" && (v.value = !1);
+    function we(e) {
+      e.code === "Space" && (f.value = !1);
     }
     function F(e) {
-      return p.value[e.type] ?? s.fallbackRenderer;
+      return z.value[e.type] ?? s.fallbackRenderer;
     }
-    return he(() => {
-      Y(), window.addEventListener("resize", Y), c("ready", r);
-    }), be(() => {
-      for (const e of ie)
+    function ke(e) {
+      return !!F(e) || !!k[`node:${e.type}`] || !!k.node;
+    }
+    let T = null;
+    return Ie(() => {
+      M(), i.value && typeof ResizeObserver < "u" ? (T = new ResizeObserver(M), T.observe(i.value)) : window.addEventListener("resize", M), c("ready", r);
+    }), De(() => {
+      for (const e of ve)
         e();
-      window.removeEventListener("resize", Y);
-    }), (e, o) => (f(), x("div", {
+      T ? (T.disconnect(), T = null) : window.removeEventListener("resize", M);
+    }), (e, a) => (v(), g("div", {
       ref_key: "rootElement",
       ref: i,
       class: "canvas-root",
       tabindex: "0",
-      onPointerdown: se,
-      onPointermove: ce,
-      onPointerup: U,
-      onPointercancel: U,
-      onWheel: le,
-      onDblclick: de,
-      onKeydown: ue,
-      onKeyup: pe
+      onPointerdown: ge,
+      onPointermove: ye,
+      onPointerup: te,
+      onPointercancel: te,
+      onWheel: he,
+      onDblclick: be,
+      onKeydown: ze,
+      onKeyup: we
     }, [
-      L(De),
-      L(Xe, null, {
-        default: B(() => [
-          b(e.$slots, "viewport", {
-            engine: E(r),
+      N(Ae),
+      N(nt, null, {
+        default: A(() => [
+          w(e.$slots, "viewport", {
+            engine: _(r),
             snapshot: l.value
           }, void 0, !0),
-          (f(!0), x(O, null, re(k.value, (a) => (f(), Q(Me, {
-            key: a.id,
-            node: a,
-            selected: l.value.selection.includes(a.id),
-            editing: l.value.interaction.mode === "editing-text" && l.value.interaction.nodeId === a.id
-          }, {
-            default: B((u) => [
-              b(e.$slots, `node:${a.type}`, N({ ref_for: !0 }, u), () => [
-                b(e.$slots, "node", N({ ref_for: !0 }, u), () => [
-                  F(a) ? (f(), Q(ze(F(a)), N({
-                    key: 0,
-                    ref_for: !0
-                  }, u), null, 16)) : T("", !0)
+          (v(!0), g($, null, q(J.value, (t) => (v(), g($, {
+            key: t.id
+          }, [
+            t.lod === "full" ? ie([t.x, t.y, t.width, t.height, t.zIndex, t.lod, S.value.has(t.id), l.value.interaction.mode === "editing-text" && l.value.interaction.nodeId === t.id], () => (v(), se(Je, {
+              key: 0,
+              node: t,
+              selected: S.value.has(t.id),
+              editing: l.value.interaction.mode === "editing-text" && l.value.interaction.nodeId === t.id,
+              "custom-renderer": ke(t)
+            }, {
+              default: A((u) => [
+                w(e.$slots, `node:${t.type}`, R({ ref_for: !0 }, u), () => [
+                  w(e.$slots, "node", R({ ref_for: !0 }, u), () => [
+                    F(t) ? (v(), se(Pe(F(t)), R({
+                      key: 0,
+                      ref_for: !0
+                    }, u), null, 16)) : D("", !0)
+                  ], !0)
                 ], !0)
-              ], !0)
-            ]),
-            handle: B((u) => [
-              b(e.$slots, "handle", N({ ref_for: !0 }, u), void 0, !0)
-            ]),
-            _: 2
-          }, 1032, ["node", "selected", "editing"]))), 128))
+              ]),
+              handle: A((u) => [
+                w(e.$slots, "handle", R({ ref_for: !0 }, u), void 0, !0)
+              ]),
+              _: 2
+            }, 1032, ["node", "selected", "editing", "custom-renderer"])), a, 0) : ie([t.x, t.y, t.width, t.height, t.zIndex, t.lod], () => (v(), g("div", {
+              key: 1,
+              class: "canvas-node-simple",
+              "data-node-id": t.id,
+              style: P({ left: t.x + "px", top: t.y + "px", width: t.width + "px", height: t.height + "px", zIndex: t.zIndex })
+            }, null, 12, ["data-node-id"])), a, 1)
+          ], 64))), 128))
         ]),
         _: 3
       }),
-      L(_e, null, {
-        default: B((a) => [
-          b(e.$slots, "box-select", te(ne(a)), void 0, !0)
+      N(et),
+      N(Ke, null, {
+        default: A((t) => [
+          w(e.$slots, "box-select", ce(Be(t)), void 0, !0)
         ]),
         _: 3
       }),
-      b(e.$slots, "default", {
-        engine: E(r),
+      w(e.$slots, "default", {
+        engine: _(r),
         snapshot: l.value,
-        debugState: S.value
+        debugState: fe.value
       }, void 0, !0)
     ], 544));
   }
-}), qe = /* @__PURE__ */ $(Ke, [["__scopeId", "data-v-a1b42e1c"]]);
+}), ut = /* @__PURE__ */ I(rt, [["__scopeId", "data-v-d5303f56"]]);
 export {
-  _e as CanvasBoxSelect,
-  De as CanvasGrid,
-  Me as CanvasNode,
-  Be as CanvasNodeHandle,
-  qe as CanvasRoot,
-  Xe as CanvasViewport,
-  Ce as useBoxSelectBounds,
-  ke as useCamera,
-  z as useCanvasEngine,
-  Se as useGridStyle,
-  Ee as useInteraction,
-  Ge as useNode,
-  He as useNodes,
-  Ue as useSelection,
-  We as useVisibleBounds,
-  Fe as useVisibleNodes
+  Ke as CanvasBoxSelect,
+  Ae as CanvasGrid,
+  Je as CanvasNode,
+  Fe as CanvasNodeHandle,
+  ut as CanvasRoot,
+  et as CanvasSnapGuides,
+  nt as CanvasViewport,
+  Me as useBoxSelectBounds,
+  Re as useCamera,
+  b as useCanvasEngine,
+  Le as useGridStyle,
+  Ne as useInteraction,
+  dt as useNode,
+  it as useNodes,
+  st as useSelection,
+  lt as useVisibleBounds,
+  ct as useVisibleNodes
 };

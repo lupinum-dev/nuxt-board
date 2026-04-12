@@ -13,7 +13,8 @@ import {
   zoomCameraAtScreenPoint
 } from './math'
 import { cloneInteraction, createSnapshot, validateState } from './invariants'
-import { applyResizeDelta, snapResizedBounds } from './resize'
+import { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
+import { collectOtherNodeEdges, collectOtherNodeEdgesExcluding, snapBoundsToEdges, snapPositionToEdges } from './snap'
 import type {
   BoardSnapshot,
   BoardState,
@@ -75,6 +76,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     nodes: new Map(),
     selection: new Set(),
     interaction: { mode: 'idle' },
+    snapGuides: [],
     nextZIndex: 1
   }
 
@@ -150,6 +152,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       nodes: cachedNodeArray,
       selection: Array.from(state.selection.values()),
       interaction: cloneInteraction(state.interaction),
+      snapGuides: [...state.snapGuides],
       nextZIndex: state.nextZIndex
     }
   }
@@ -847,7 +850,8 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             y: node.y,
             width: node.width,
             height: node.height
-          }
+          },
+          aspectRatio: node.width / node.height
         })
         bumpNodeToFront(id)
       })
@@ -891,7 +895,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         return cloneNode(next)
       })
     },
-    updatePointer(pointerId, screenPoint) {
+    updatePointer(pointerId, screenPoint, modifiers?) {
       const interaction = state.interaction
       if (interaction.mode === 'idle' || interaction.mode === 'editing-text' || interaction.pointerId !== pointerId) {
         return
@@ -915,16 +919,39 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         runCommand('updatePointer', [pointerId, screenPoint], () => {
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
+
+          // Compute preliminary positions for all dragged nodes
+          const prelimBounds: Record<NodeId, { x: number; y: number; width: number; height: number }> = {}
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
           for (const nodeId of interaction.nodeIds) {
             const node = assertNode(nodeId)
             const origin = interaction.startNodePositions[nodeId]
+            const nx = grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX
+            const ny = grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+            prelimBounds[nodeId] = { x: nx, y: ny, width: node.width, height: node.height }
+            minX = Math.min(minX, nx)
+            minY = Math.min(minY, ny)
+            maxX = Math.max(maxX, nx + node.width)
+            maxY = Math.max(maxY, ny + node.height)
+          }
+
+          // Snap the bounding box of all dragged nodes against other node edges
+          const excludeIds = new Set(interaction.nodeIds)
+          const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds)
+          const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+          const snapResult = snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z)
+          state.snapGuides = snapResult.guides
+
+          for (const nodeId of interaction.nodeIds) {
+            const node = assertNode(nodeId)
+            const pb = prelimBounds[nodeId]
             const next = {
               ...node,
-              x: grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX,
-              y: grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+              x: pb.x + snapResult.dx,
+              y: pb.y + snapResult.dy
             }
             replaceNode(node, next)
-            emit('node:moved', cloneNode(next), { x: next.x - origin.x, y: next.y - origin.y })
+            emit('node:moved', cloneNode(next), { x: next.x - interaction.startNodePositions[nodeId].x, y: next.y - interaction.startNodePositions[nodeId].y })
           }
         }, true)
         return
@@ -935,17 +962,29 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           const node = assertNode(interaction.nodeId)
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
-          const raw = applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, {
-            minWidth: nodeConstraints.minWidth,
-            minHeight: nodeConstraints.minHeight
-          })
-          const nextBounds = grid.snap
-            ? snapResizedBounds(raw, interaction.handle, grid.size, {
-                minWidth: nodeConstraints.minWidth,
-                minHeight: nodeConstraints.minHeight
-              })
-            : raw
-          replaceNode(node, { ...node, ...nextBounds })
+          const constraints = { minWidth: nodeConstraints.minWidth, minHeight: nodeConstraints.minHeight }
+          const locked = Boolean(modifiers?.shift)
+
+          const raw = locked
+            ? applyResizeDeltaLocked(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints, interaction.aspectRatio)
+            : applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints)
+
+          if (locked) {
+            // Use aspect-ratio-aware snapping; skip edge snap to preserve the ratio
+            const nextBounds = grid.snap
+              ? snapResizedBoundsLocked(raw, interaction.startNodeBounds, interaction.handle, grid.size, constraints, interaction.aspectRatio)
+              : raw
+            state.snapGuides = []
+            replaceNode(node, { ...node, ...nextBounds })
+          } else {
+            const gridSnapped = grid.snap
+              ? snapResizedBounds(raw, interaction.handle, grid.size, constraints)
+              : raw
+            const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId)
+            const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z)
+            state.snapGuides = snapResult.guides
+            replaceNode(node, { ...node, ...snapResult.bounds })
+          }
         }, true)
         return
       }
@@ -971,6 +1010,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         return
       }
       runCommand('endInteraction', [pointerId], () => {
+        state.snapGuides = []
         setInteraction({ mode: 'idle' })
       })
     },

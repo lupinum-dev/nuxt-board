@@ -118,7 +118,8 @@ function cloneInteraction(interaction) {
         nodeId: interaction.nodeId,
         handle: interaction.handle,
         startScreenPoint: { ...interaction.startScreenPoint },
-        startNodeBounds: { ...interaction.startNodeBounds }
+        startNodeBounds: { ...interaction.startNodeBounds },
+        aspectRatio: interaction.aspectRatio
       };
     case "box-select":
       return {
@@ -138,6 +139,7 @@ function createSnapshot(state, grid) {
     nodes: Array.from(state.nodes.values()).map((node) => ({ ...node, data: cloneData(node.data) })).sort((a, b) => a.zIndex - b.zIndex),
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
+    snapGuides: [...state.snapGuides],
     nextZIndex: state.nextZIndex
   };
 }
@@ -146,9 +148,10 @@ function cloneData(data) {
 }
 function validateState(state, grid, context) {
   const failures = [];
-  const snapshot = createSnapshot(state, grid);
+  let snapshot = null;
+  const lazySnapshot = () => snapshot ?? (snapshot = createSnapshot(state, grid));
   const push = (name, message) => {
-    failures.push({ name, message, context, snapshot });
+    failures.push({ name, message, context, snapshot: lazySnapshot() });
   };
   if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
     push("camera.finite", "Camera values must be finite numbers.");
@@ -248,6 +251,201 @@ function snapResizedBounds(bounds, handle, gridSize, constraints) {
   }
   return { x, y, width, height };
 }
+function applyResizeDeltaLocked(node, handle, deltaX, deltaY, constraints, aspectRatio) {
+  const { width: w, height: h } = node;
+  let cdx = deltaX;
+  let cdy = deltaY;
+  let effectiveHandle = handle;
+  if (handle === "e") {
+    const newW = Math.max(constraints.minWidth, w + deltaX);
+    cdx = newW - w;
+    cdy = Math.max(constraints.minHeight, newW / aspectRatio) - h;
+    effectiveHandle = "se";
+  } else if (handle === "w") {
+    const newW = Math.max(constraints.minWidth, w - deltaX);
+    cdy = Math.max(constraints.minHeight, newW / aspectRatio) - h;
+    effectiveHandle = "sw";
+  } else if (handle === "s") {
+    const newH = Math.max(constraints.minHeight, h + deltaY);
+    cdy = newH - h;
+    cdx = Math.max(constraints.minWidth, newH * aspectRatio) - w;
+    effectiveHandle = "se";
+  } else if (handle === "n") {
+    const newH = Math.max(constraints.minHeight, h - deltaY);
+    cdx = Math.max(constraints.minWidth, newH * aspectRatio) - w;
+    effectiveHandle = "ne";
+  } else {
+    const xSign = handle.includes("e") ? 1 : -1;
+    const ySign = handle.includes("s") ? 1 : -1;
+    const growX = xSign * deltaX;
+    const growY = ySign * deltaY;
+    let newW;
+    let newH;
+    if (Math.abs(growX / w) >= Math.abs(growY / h)) {
+      newW = Math.max(constraints.minWidth, w + growX);
+      newH = Math.max(constraints.minHeight, newW / aspectRatio);
+    } else {
+      newH = Math.max(constraints.minHeight, h + growY);
+      newW = Math.max(constraints.minWidth, newH * aspectRatio);
+    }
+    cdx = xSign * (newW - w);
+    cdy = ySign * (newH - h);
+  }
+  return applyResizeDelta(node, effectiveHandle, cdx, cdy, constraints);
+}
+function snapResizedBoundsLocked(bounds, startBounds, handle, gridSize, constraints, aspectRatio) {
+  const right = startBounds.x + startBounds.width;
+  const bottom = startBounds.y + startBounds.height;
+  if (handle === "n" || handle === "s") {
+    const snappedH2 = snapSize(bounds.height, gridSize, constraints.minHeight);
+    const snappedW2 = Math.max(constraints.minWidth, snappedH2 * aspectRatio);
+    const y2 = handle === "n" ? bottom - snappedH2 : bounds.y;
+    return { x: bounds.x, y: y2, width: snappedW2, height: snappedH2 };
+  }
+  const snappedW = snapSize(bounds.width, gridSize, constraints.minWidth);
+  const snappedH = Math.max(constraints.minHeight, snappedW / aspectRatio);
+  const x = handle.includes("w") ? right - snappedW : bounds.x;
+  const y = handle.includes("n") ? bottom - snappedH : bounds.y;
+  return { x, y, width: snappedW, height: snappedH };
+}
+
+// src/snap.ts
+function collectNodeEdges(node) {
+  const right = node.x + node.width;
+  const bottom = node.y + node.height;
+  return [
+    { axis: "x", value: node.x, extentMin: node.y, extentMax: bottom },
+    { axis: "x", value: right, extentMin: node.y, extentMax: bottom },
+    { axis: "y", value: node.y, extentMin: node.x, extentMax: right },
+    { axis: "y", value: bottom, extentMin: node.x, extentMax: right }
+  ];
+}
+function collectOtherNodeEdges(nodes, excludeId) {
+  const edges = [];
+  for (const node of nodes) {
+    if (node.id === excludeId || !node.visible) continue;
+    edges.push(...collectNodeEdges(node));
+  }
+  return edges;
+}
+function collectOtherNodeEdgesExcluding(nodes, excludeIds) {
+  const edges = [];
+  for (const node of nodes) {
+    if (excludeIds.has(node.id) || !node.visible) continue;
+    edges.push(...collectNodeEdges(node));
+  }
+  return edges;
+}
+function findBestSnap(activeValue, activeExtentMin, activeExtentMax, axis, candidates, threshold) {
+  let bestDist = threshold;
+  let bestCandidate = null;
+  for (const candidate of candidates) {
+    if (candidate.axis !== axis) continue;
+    const dist = Math.abs(candidate.value - activeValue);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestCandidate = candidate;
+    }
+  }
+  if (!bestCandidate) return null;
+  const guideFrom = Math.min(activeExtentMin, bestCandidate.extentMin);
+  const guideTo = Math.max(activeExtentMax, bestCandidate.extentMax);
+  return {
+    snappedValue: bestCandidate.value,
+    guide: {
+      axis,
+      position: bestCandidate.value,
+      from: guideFrom,
+      to: guideTo
+    }
+  };
+}
+function snapBoundsToEdges(bounds, handle, otherEdges, threshold) {
+  let { x, y, width, height } = bounds;
+  const guides = [];
+  const right = x + width;
+  const bottom = y + height;
+  if (handle.includes("e")) {
+    const snap = findBestSnap(right, y, bottom, "x", otherEdges, threshold);
+    if (snap) {
+      width = snap.snappedValue - x;
+      guides.push(snap.guide);
+    }
+  }
+  if (handle.includes("w")) {
+    const snap = findBestSnap(x, y, bottom, "x", otherEdges, threshold);
+    if (snap) {
+      const oldRight = x + width;
+      x = snap.snappedValue;
+      width = oldRight - x;
+      guides.push(snap.guide);
+    }
+  }
+  if (handle.includes("s")) {
+    const snap = findBestSnap(bottom, x, right, "y", otherEdges, threshold);
+    if (snap) {
+      height = snap.snappedValue - y;
+      guides.push(snap.guide);
+    }
+  }
+  if (handle.includes("n")) {
+    const snap = findBestSnap(y, x, right, "y", otherEdges, threshold);
+    if (snap) {
+      const oldBottom = y + height;
+      y = snap.snappedValue;
+      height = oldBottom - y;
+      guides.push(snap.guide);
+    }
+  }
+  return { bounds: { x, y, width, height }, guides };
+}
+function snapPositionToEdges(bounds, otherEdges, threshold) {
+  let dx = 0;
+  let dy = 0;
+  const guides = [];
+  const { x, y, width, height } = bounds;
+  const right = x + width;
+  const bottom = y + height;
+  const snapLeft = findBestSnap(x, y, bottom, "x", otherEdges, threshold);
+  const snapRight = findBestSnap(right, y, bottom, "x", otherEdges, threshold);
+  if (snapLeft && snapRight) {
+    const distLeft = Math.abs(snapLeft.snappedValue - x);
+    const distRight = Math.abs(snapRight.snappedValue - right);
+    if (distLeft <= distRight) {
+      dx = snapLeft.snappedValue - x;
+      guides.push(snapLeft.guide);
+    } else {
+      dx = snapRight.snappedValue - right;
+      guides.push(snapRight.guide);
+    }
+  } else if (snapLeft) {
+    dx = snapLeft.snappedValue - x;
+    guides.push(snapLeft.guide);
+  } else if (snapRight) {
+    dx = snapRight.snappedValue - right;
+    guides.push(snapRight.guide);
+  }
+  const snapTop = findBestSnap(y, x + dx, right + dx, "y", otherEdges, threshold);
+  const snapBottom = findBestSnap(bottom, x + dx, right + dx, "y", otherEdges, threshold);
+  if (snapTop && snapBottom) {
+    const distTop = Math.abs(snapTop.snappedValue - y);
+    const distBottom = Math.abs(snapBottom.snappedValue - bottom);
+    if (distTop <= distBottom) {
+      dy = snapTop.snappedValue - y;
+      guides.push(snapTop.guide);
+    } else {
+      dy = snapBottom.snappedValue - bottom;
+      guides.push(snapBottom.guide);
+    }
+  } else if (snapTop) {
+    dy = snapTop.snappedValue - y;
+    guides.push(snapTop.guide);
+  } else if (snapBottom) {
+    dy = snapBottom.snappedValue - bottom;
+    guides.push(snapBottom.guide);
+  }
+  return { dx, dy, guides };
+}
 
 // src/engine.ts
 var DEFAULT_CAMERA = { x: 0, y: 0, z: 1 };
@@ -274,11 +472,13 @@ function createCanvasEngine(options = {}) {
   const clipboard = [];
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE };
   let animationToken = 0;
+  let cachedNodeArray = null;
   const state = {
     camera,
     nodes: /* @__PURE__ */ new Map(),
     selection: /* @__PURE__ */ new Set(),
     interaction: { mode: "idle" },
+    snapGuides: [],
     nextZIndex: 1
   };
   for (const node of options.initialNodes ?? []) {
@@ -300,8 +500,12 @@ function createCanvasEngine(options = {}) {
       }
     }
     for (const handler of listeners.get(event) ?? []) {
-      ;
-      handler(...args);
+      try {
+        ;
+        handler(...args);
+      } catch (error) {
+        console.error(`[canvas] handler for "${String(event)}" threw:`, error);
+      }
     }
   }
   function on(event, handler) {
@@ -326,24 +530,49 @@ function createCanvasEngine(options = {}) {
   function getViewportSize() {
     return { ...viewportSize };
   }
-  function getSnapshot() {
-    return createSnapshot(state, grid);
+  function invalidateNodeCache() {
+    cachedNodeArray = null;
   }
-  function runCommand(name, args, fn) {
+  function getSnapshot() {
+    if (!cachedNodeArray) {
+      cachedNodeArray = Array.from(state.nodes.values()).map((node) => ({ ...node, data: structuredClone(node.data) })).sort((a, b) => a.zIndex - b.zIndex);
+    }
+    return {
+      camera: { ...state.camera },
+      grid: { ...grid },
+      nodes: cachedNodeArray,
+      selection: Array.from(state.selection.values()),
+      interaction: cloneInteraction(state.interaction),
+      snapGuides: [...state.snapGuides],
+      nextZIndex: state.nextZIndex
+    };
+  }
+  function runCommand(name, args, fn, skipValidation = false) {
     const started = performance.now();
     emit("command:before", name, args);
     const result = fn();
-    validate(name);
+    if (!skipValidation) {
+      validate(name);
+    }
     emit("command:after", name, args, performance.now() - started);
     return result;
   }
-  async function runAsyncCommand(name, args, fn) {
+  async function runAsyncCommand(name, args, fn, skipValidation = false) {
     const started = performance.now();
     emit("command:before", name, args);
-    const result = await fn();
-    validate(name);
-    emit("command:after", name, args, performance.now() - started);
-    return result;
+    try {
+      const result = await fn();
+      if (!skipValidation) {
+        validate(name);
+      }
+      emit("command:after", name, args, performance.now() - started);
+      return result;
+    } catch (error) {
+      if (error instanceof AnimationCancelled) {
+        return void 0;
+      }
+      throw error;
+    }
   }
   function validate(context) {
     if (invariantMode === "off") {
@@ -453,6 +682,7 @@ function createCanvasEngine(options = {}) {
   }
   function replaceNode(node, next) {
     state.nodes.set(node.id, next);
+    invalidateNodeCache();
   }
   function duplicateNode(node, offset) {
     return {
@@ -462,6 +692,17 @@ function createCanvasEngine(options = {}) {
       y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
       zIndex: state.nextZIndex++
     };
+  }
+  function bumpNodeToFront(id) {
+    const node = state.nodes.get(id);
+    if (!node) {
+      return;
+    }
+    const prev = cloneNode(node);
+    const next = { ...node, zIndex: state.nextZIndex++ };
+    state.nodes.set(id, next);
+    invalidateNodeCache();
+    emit("node:updated", cloneNode(next), prev);
   }
   function getSelectionNodes() {
     return Array.from(state.selection.values()).map((id) => state.nodes.get(id)).filter((node) => Boolean(node));
@@ -481,6 +722,12 @@ function createCanvasEngine(options = {}) {
       caf: (handle) => globalThis.clearTimeout(handle)
     };
   }
+  class AnimationCancelled extends Error {
+    constructor() {
+      super("Animation cancelled");
+      this.name = "AnimationCancelled";
+    }
+  }
   async function animateCamera(target) {
     animationToken += 1;
     const token = animationToken;
@@ -488,10 +735,10 @@ function createCanvasEngine(options = {}) {
     const started = performance.now();
     const duration = 280;
     const { raf } = getAnimationFrameDriver();
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
       const tick = () => {
         if (token !== animationToken) {
-          resolve();
+          reject(new AnimationCancelled());
           return;
         }
         const elapsed = performance.now() - started;
@@ -544,6 +791,7 @@ function createCanvasEngine(options = {}) {
       state.selection = new Set(snapshot.selection.filter((id) => state.nodes.has(id)));
       state.interaction = { mode: "idle" };
       state.nextZIndex = snapshot.nextZIndex;
+      invalidateNodeCache();
       setCamera({ ...snapshot.camera });
       grid.size = snapshot.grid.size;
       grid.majorEvery = snapshot.grid.majorEvery;
@@ -554,9 +802,9 @@ function createCanvasEngine(options = {}) {
     for (const rawNode of snapshot.nodes) {
       const node = normalizeExistingNode(rawNode);
       const id = state.nodes.has(node.id) ? crypto.randomUUID() : node.id;
-      state.nodes.set(id, { ...node, id });
-      state.nextZIndex = Math.max(state.nextZIndex, node.zIndex + 1);
+      state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ });
     }
+    invalidateNodeCache();
   }
   const engine = {
     getState() {
@@ -612,8 +860,15 @@ function createCanvasEngine(options = {}) {
       return getVisibleBounds(width, height, state.camera);
     },
     getNodeAt(worldPoint) {
-      const ordered = Array.from(state.nodes.values()).filter((node) => node.visible).sort((a, b) => b.zIndex - a.zIndex);
-      return ordered.find((node) => pointInBounds(worldPoint, getNodeBounds(node))) ?? null;
+      let best = null;
+      let bestZ = -Infinity;
+      for (const node of state.nodes.values()) {
+        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getNodeBounds(node))) {
+          best = node;
+          bestZ = node.zIndex;
+        }
+      }
+      return best;
     },
     getNodesInBounds(bounds) {
       return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getNodeBounds(node), bounds));
@@ -625,7 +880,7 @@ function createCanvasEngine(options = {}) {
           y: state.camera.y - dy / state.camera.z,
           z: state.camera.z
         });
-      });
+      }, true);
     },
     panTo(worldPoint, animated = false) {
       const target = { x: -worldPoint.x, y: -worldPoint.y, z: state.camera.z };
@@ -635,12 +890,12 @@ function createCanvasEngine(options = {}) {
         } else {
           setCamera(target);
         }
-      });
+      }, true);
     },
     zoomAt(screenPoint, delta) {
       runCommand("zoomAt", [screenPoint, delta], () => {
         setCamera(zoomCameraAtScreenPoint(screenPoint, delta, state.camera, zoom.min, zoom.max));
-      });
+      }, true);
     },
     zoomTo(level, animated = false) {
       const clamped = clamp(level, zoom.min, zoom.max);
@@ -660,7 +915,7 @@ function createCanvasEngine(options = {}) {
         } else {
           setCamera(target);
         }
-      });
+      }, true);
     },
     zoomToFit(padding = 40, animated = false) {
       return runAsyncCommand("zoomToFit", [padding, animated], async () => {
@@ -673,7 +928,7 @@ function createCanvasEngine(options = {}) {
         } else {
           setCamera(target);
         }
-      });
+      }, true);
     },
     zoomToNodes(ids, padding = 40, animated = false) {
       return runAsyncCommand("zoomToNodes", [ids, padding, animated], async () => {
@@ -686,15 +941,17 @@ function createCanvasEngine(options = {}) {
         } else {
           setCamera(target);
         }
-      });
+      }, true);
     },
     createNode(input) {
       return runCommand("createNode", [input], () => {
         const node = normalizeNode(input);
         state.nodes.set(node.id, node);
+        invalidateNodeCache();
         setSelection([node.id]);
-        emit("node:created", cloneNode(node));
-        return cloneNode(node);
+        const cloned = cloneNode(node);
+        emit("node:created", cloned);
+        return cloned;
       });
     },
     updateNode(id, patch) {
@@ -702,14 +959,17 @@ function createCanvasEngine(options = {}) {
         const current = assertNode(id);
         const next = applyNodePatch(current, patch);
         replaceNode(current, next);
-        emit("node:updated", cloneNode(next), cloneNode(current));
-        return cloneNode(next);
+        const clonedNext = cloneNode(next);
+        const clonedCurrent = cloneNode(current);
+        emit("node:updated", clonedNext, clonedCurrent);
+        return clonedNext;
       });
     },
     deleteNode(id) {
       runCommand("deleteNode", [id], () => {
         const node = assertNode(id);
         state.nodes.delete(id);
+        invalidateNodeCache();
         cleanupSelection();
         if (state.interaction.mode !== "idle") {
           setInteraction({ mode: "idle" });
@@ -723,16 +983,17 @@ function createCanvasEngine(options = {}) {
         if (node.locked) {
           return cloneNode(node);
         }
-        const prev = cloneNode(node);
         const next = {
           ...node,
           x: grid.snap ? snapValue(node.x + dx, grid.size) : node.x + dx,
           y: grid.snap ? snapValue(node.y + dy, grid.size) : node.y + dy
         };
         replaceNode(node, next);
-        emit("node:moved", cloneNode(next), { x: next.x - prev.x, y: next.y - prev.y });
-        emit("node:updated", cloneNode(next), prev);
-        return cloneNode(next);
+        const cloned = cloneNode(next);
+        const prev = cloneNode(node);
+        emit("node:moved", cloned, { x: next.x - node.x, y: next.y - node.y });
+        emit("node:updated", cloned, prev);
+        return cloned;
       });
     },
     resizeNode(id, handle, dx, dy) {
@@ -741,7 +1002,6 @@ function createCanvasEngine(options = {}) {
         if (node.locked) {
           return cloneNode(node);
         }
-        const prev = cloneNode(node);
         const raw = applyResizeDelta(node, handle, dx, dy, {
           minWidth: nodeConstraints.minWidth,
           minHeight: nodeConstraints.minHeight
@@ -752,14 +1012,16 @@ function createCanvasEngine(options = {}) {
         }) : raw;
         const next = { ...node, ...nextBounds };
         replaceNode(node, next);
-        emit("node:resized", cloneNode(next), {
-          x: prev.x,
-          y: prev.y,
-          width: prev.width,
-          height: prev.height
+        const cloned = cloneNode(next);
+        const prev = cloneNode(node);
+        emit("node:resized", cloned, {
+          x: node.x,
+          y: node.y,
+          width: node.width,
+          height: node.height
         });
-        emit("node:updated", cloneNode(next), prev);
-        return cloneNode(next);
+        emit("node:updated", cloned, prev);
+        return cloned;
       });
     },
     bringToFront(id) {
@@ -806,6 +1068,7 @@ function createCanvasEngine(options = {}) {
           state.nodes.set(node.id, node);
           emit("node:created", cloneNode(node));
         }
+        invalidateNodeCache();
         setSelection(created.map((node) => node.id));
         return created.map(cloneNode);
       });
@@ -826,6 +1089,7 @@ function createCanvasEngine(options = {}) {
           state.nodes.set(node.id, node);
           emit("node:created", cloneNode(node));
         }
+        invalidateNodeCache();
         setSelection(created.map((node) => node.id));
         return created.map(cloneNode);
       });
@@ -869,6 +1133,9 @@ function createCanvasEngine(options = {}) {
           state.nodes.delete(node.id);
           emit("node:deleted", node.id, cloneNode(node));
         }
+        if (deleting.length > 0) {
+          invalidateNodeCache();
+        }
         setSelection([]);
         setInteraction({ mode: "idle" });
       });
@@ -908,7 +1175,7 @@ function createCanvasEngine(options = {}) {
           startScreenPoint: { ...screenPoint },
           startNodePositions
         });
-        engine.bringToFront(id);
+        bumpNodeToFront(id);
       });
     },
     beginResize(id, handle, pointerId, screenPoint) {
@@ -929,9 +1196,10 @@ function createCanvasEngine(options = {}) {
             y: node.y,
             width: node.width,
             height: node.height
-          }
+          },
+          aspectRatio: node.width / node.height
         });
-        engine.bringToFront(id);
+        bumpNodeToFront(id);
       });
     },
     beginBoxSelect(pointerId, screenPoint) {
@@ -959,16 +1227,21 @@ function createCanvasEngine(options = {}) {
       return runCommand("commitTextEdit", [id, text], () => {
         const node = assertNode(id);
         const prev = cloneNode(node);
-        const data = typeof node.data === "object" && node.data !== null ? structuredClone(node.data) : {};
-        data.content = text;
-        const next = { ...node, data };
-        replaceNode(node, next);
+        let next;
+        if (text !== void 0) {
+          const data = typeof node.data === "object" && node.data !== null ? structuredClone(node.data) : {};
+          data.content = text;
+          next = { ...node, data };
+          replaceNode(node, next);
+          emit("node:updated", cloneNode(next), prev);
+        } else {
+          next = node;
+        }
         setInteraction({ mode: "idle" });
-        emit("node:updated", cloneNode(next), prev);
         return cloneNode(next);
       });
     },
-    updatePointer(pointerId, screenPoint) {
+    updatePointer(pointerId, screenPoint, modifiers) {
       const interaction = state.interaction;
       if (interaction.mode === "idle" || interaction.mode === "editing-text" || interaction.pointerId !== pointerId) {
         return;
@@ -983,25 +1256,43 @@ function createCanvasEngine(options = {}) {
             z: state.camera.z
           });
           interaction.lastScreenPoint = { ...screenPoint };
-        });
+        }, true);
         return;
       }
       if (interaction.mode === "dragging-nodes") {
         runCommand("updatePointer", [pointerId, screenPoint], () => {
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z;
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z;
+          const prelimBounds = {};
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
           for (const nodeId of interaction.nodeIds) {
             const node = assertNode(nodeId);
             const origin = interaction.startNodePositions[nodeId];
+            const nx = grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX;
+            const ny = grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY;
+            prelimBounds[nodeId] = { x: nx, y: ny, width: node.width, height: node.height };
+            minX = Math.min(minX, nx);
+            minY = Math.min(minY, ny);
+            maxX = Math.max(maxX, nx + node.width);
+            maxY = Math.max(maxY, ny + node.height);
+          }
+          const excludeIds = new Set(interaction.nodeIds);
+          const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds);
+          const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+          const snapResult = snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z);
+          state.snapGuides = snapResult.guides;
+          for (const nodeId of interaction.nodeIds) {
+            const node = assertNode(nodeId);
+            const pb = prelimBounds[nodeId];
             const next = {
               ...node,
-              x: grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX,
-              y: grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+              x: pb.x + snapResult.dx,
+              y: pb.y + snapResult.dy
             };
             replaceNode(node, next);
-            emit("node:moved", cloneNode(next), { x: next.x - origin.x, y: next.y - origin.y });
+            emit("node:moved", cloneNode(next), { x: next.x - interaction.startNodePositions[nodeId].x, y: next.y - interaction.startNodePositions[nodeId].y });
           }
-        });
+        }, true);
         return;
       }
       if (interaction.mode === "resizing-node") {
@@ -1009,16 +1300,21 @@ function createCanvasEngine(options = {}) {
           const node = assertNode(interaction.nodeId);
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z;
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z;
-          const raw = applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, {
-            minWidth: nodeConstraints.minWidth,
-            minHeight: nodeConstraints.minHeight
-          });
-          const nextBounds = grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, {
-            minWidth: nodeConstraints.minWidth,
-            minHeight: nodeConstraints.minHeight
-          }) : raw;
-          replaceNode(node, { ...node, ...nextBounds });
-        });
+          const constraints = { minWidth: nodeConstraints.minWidth, minHeight: nodeConstraints.minHeight };
+          const locked = Boolean(modifiers?.shift);
+          const raw = locked ? applyResizeDeltaLocked(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints, interaction.aspectRatio) : applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints);
+          if (locked) {
+            const nextBounds = grid.snap ? snapResizedBoundsLocked(raw, interaction.startNodeBounds, interaction.handle, grid.size, constraints, interaction.aspectRatio) : raw;
+            state.snapGuides = [];
+            replaceNode(node, { ...node, ...nextBounds });
+          } else {
+            const gridSnapped = grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, constraints) : raw;
+            const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId);
+            const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z);
+            state.snapGuides = snapResult.guides;
+            replaceNode(node, { ...node, ...snapResult.bounds });
+          }
+        }, true);
         return;
       }
       runCommand("updatePointer", [pointerId, screenPoint], () => {
@@ -1039,6 +1335,7 @@ function createCanvasEngine(options = {}) {
         return;
       }
       runCommand("endInteraction", [pointerId], () => {
+        state.snapGuides = [];
         setInteraction({ mode: "idle" });
       });
     },
@@ -1048,6 +1345,14 @@ function createCanvasEngine(options = {}) {
     importJSON(json, mode = "replace") {
       runCommand("importJSON", [mode], () => {
         const parsed = JSON.parse(json);
+        if (!parsed || !Array.isArray(parsed.nodes)) {
+          throw new Error("Invalid canvas document: missing nodes array.");
+        }
+        for (const node of parsed.nodes) {
+          if (typeof node.id !== "string" || !Number.isFinite(node.x) || !Number.isFinite(node.y) || !Number.isFinite(node.width) || !Number.isFinite(node.height)) {
+            throw new Error(`Invalid canvas document: node "${node.id ?? "?"}" has invalid geometry.`);
+          }
+        }
         restoreSnapshot(parsed, mode);
       });
     }
@@ -1067,9 +1372,11 @@ function sameArray(a, b) {
 }
 export {
   applyResizeDelta,
+  applyResizeDeltaLocked,
   boundsContain,
   boundsIntersect,
   clamp,
+  collectNodeEdges,
   createCanvasEngine,
   getBoundsFromPoints,
   getVisibleBounds,
@@ -1078,8 +1385,11 @@ export {
   pointInBounds,
   screenToWorld,
   snapBounds,
+  snapBoundsToEdges,
   snapPoint,
+  snapPositionToEdges,
   snapResizedBounds,
+  snapResizedBoundsLocked,
   snapSize,
   snapValue,
   worldToScreen,
