@@ -20,20 +20,60 @@ const accent = computed(() =>
 
 <template>
   <div
-    class="relative size-full rounded-[inherit] overflow-visible"
+    class="group-node"
     :style="{
-      backgroundColor: 'rgba(245, 245, 244, 0.92)',
-      borderWidth: '2px',
-      borderStyle: 'solid',
-      borderColor: accent,
-      boxShadow: selected ? `0 0 0 3px ${accent}22` : undefined
-    }"
+      '--accent': accent,
+      '--accent-border': accent + '66',
+      '--accent-glow': accent + '22'
+    } as any"
+    :class="{ 'is-selected': selected }"
   >
-    <div
-      class="canvas-group-label absolute left-3 -top-3 z-[1] max-w-[calc(100%-24px)] px-1 font-sans text-[15px] font-semibold tracking-tight text-stone-700 truncate bg-[rgb(245,245,244)]"
-      spellcheck="false"
-    >
-      {{ title }}
+    <div class="group-node__label">
+      <span class="group-node__title">{{ title }}</span>
     </div>
   </div>
 </template>
+
+<style scoped>
+.group-node {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: visible;
+  border: 2px solid var(--accent-border);
+  background: transparent;
+}
+
+.group-node.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.group-node__label {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 4px);
+  max-width: calc(100% - 16px);
+  pointer-events: none;
+  transform: scale(calc(1 / var(--canvas-zoom, 1)));
+  transform-origin: left bottom;
+}
+
+.group-node__title {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>

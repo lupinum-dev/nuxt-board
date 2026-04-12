@@ -83,7 +83,7 @@ function getTextContent(node: CanvasNode): string {
 <template>
   <article
     class="canvas-node"
-    :class="{ 'is-selected': selected, 'is-editing': editing, 'is-locked': node.locked }"
+    :class="{ 'is-selected': selected, 'is-editing': editing, 'is-locked': node.locked, 'is-group': node.type === 'group' }"
     :style="style"
     :data-node-id="node.id"
   >
@@ -144,6 +144,11 @@ function getTextContent(node: CanvasNode): string {
 
 .canvas-node.is-locked {
   opacity: 0.7;
+}
+
+.canvas-node.is-group {
+  background: transparent;
+  border: none;
 }
 
 .canvas-node__content,

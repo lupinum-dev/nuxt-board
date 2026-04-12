@@ -5,7 +5,8 @@ import { useCamera } from '../useCanvasEngine'
 const camera = useCamera()
 
 const style = computed(() => ({
-  transform: `scale(${camera.value.z}) translate(${camera.value.x}px, ${camera.value.y}px)`
+  transform: `scale(${camera.value.z}) translate(${camera.value.x}px, ${camera.value.y}px)`,
+  '--canvas-zoom': camera.value.z
 }))
 </script>
 
