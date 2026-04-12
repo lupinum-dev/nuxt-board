@@ -38,7 +38,6 @@ const emit = defineEmits<{
 
 const rootElement = ref<HTMLElement | null>(null)
 const viewportSize = ref<Point>({ x: 0, y: 0 })
-const renderCount = ref(0)
 const engine = props.engine ?? createCanvasEngine()
 const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
 const renderersRef = shallowRef<CanvasRendererRegistry>(props.renderers)
@@ -83,9 +82,10 @@ provide(canvasEngineKey, {
   viewportSize,
   renderers: renderersRef,
   resolvedGrid,
-  renderCount,
   toLocalPoint
 })
+
+const selectionSet = computed(() => new Set(snapshot.value.selection))
 
 const visibleNodes = computed(() => {
   const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
@@ -109,26 +109,22 @@ const debugState = computed(() => ({
   selection: snapshot.value.selection,
   interaction: snapshot.value.interaction,
   visibleNodeCount: visibleNodes.value.length,
-  renderCount: renderCount.value,
   trace: engine.exportTrace().slice(-20)
 }))
 
-function refreshSnapshot(): void {
-  snapshot.value = engine.getSnapshot()
+let snapshotDirty = false
+function scheduleSnapshotRefresh(): void {
+  if (!snapshotDirty) {
+    snapshotDirty = true
+    queueMicrotask(() => {
+      snapshot.value = engine.getSnapshot()
+      snapshotDirty = false
+    })
+  }
 }
 
 const unsubscribes = [
-  engine.on('camera:change', refreshSnapshot),
-  engine.on('node:created', refreshSnapshot),
-  engine.on('node:updated', refreshSnapshot),
-  engine.on('node:deleted', refreshSnapshot),
-  engine.on('node:moved', refreshSnapshot),
-  engine.on('node:resized', refreshSnapshot),
-  engine.on('selection:change', refreshSnapshot),
-  engine.on('interaction:start', refreshSnapshot),
-  engine.on('interaction:update', refreshSnapshot),
-  engine.on('interaction:end', refreshSnapshot),
-  engine.on('command:after', refreshSnapshot)
+  engine.on('command:after', scheduleSnapshotRefresh)
 ]
 
 watch(
@@ -236,11 +232,33 @@ function onPointerDown(event: PointerEvent): void {
   startPointerInteraction(event, 'box-select')
 }
 
+let pendingPointer: { id: number; point: Point } | null = null
+let rafScheduled = false
+
 function onPointerMove(event: PointerEvent): void {
-  engine.updatePointer(event.pointerId, toLocalPoint(event.clientX, event.clientY))
+  pendingPointer = { id: event.pointerId, point: toLocalPoint(event.clientX, event.clientY) }
+  if (!rafScheduled) {
+    rafScheduled = true
+    requestAnimationFrame(() => {
+      if (pendingPointer) {
+        engine.updatePointer(pendingPointer.id, pendingPointer.point)
+      }
+      rafScheduled = false
+      pendingPointer = null
+    })
+  }
+}
+
+function flushPendingPointer(): void {
+  if (pendingPointer) {
+    engine.updatePointer(pendingPointer.id, pendingPointer.point)
+    pendingPointer = null
+    rafScheduled = false
+  }
 }
 
 function onPointerUp(event: PointerEvent): void {
+  flushPendingPointer()
   engine.endInteraction(event.pointerId)
   if (rootElement.value?.hasPointerCapture(event.pointerId)) {
     rootElement.value.releasePointerCapture(event.pointerId)
@@ -385,9 +403,16 @@ function resolveRenderer(node: CanvasNodeState): Component | null {
   return renderersRef.value[node.type] ?? props.fallbackRenderer
 }
 
+let resizeObserver: ResizeObserver | null = null
+
 onMounted(() => {
   updateViewportSize()
-  window.addEventListener('resize', updateViewportSize)
+  if (rootElement.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(updateViewportSize)
+    resizeObserver.observe(rootElement.value)
+  } else {
+    window.addEventListener('resize', updateViewportSize)
+  }
   emit('ready', engine)
 })
 
@@ -395,7 +420,12 @@ onBeforeUnmount(() => {
   for (const unsubscribe of unsubscribes) {
     unsubscribe()
   }
-  window.removeEventListener('resize', updateViewportSize)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  } else {
+    window.removeEventListener('resize', updateViewportSize)
+  }
 })
 </script>
 
@@ -419,8 +449,9 @@ onBeforeUnmount(() => {
       <CanvasNode
         v-for="node in visibleNodes"
         :key="node.id"
+        v-memo="[node.x, node.y, node.width, node.height, node.zIndex, selectionSet.has(node.id), snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id]"
         :node="node"
-        :selected="snapshot.selection.includes(node.id)"
+        :selected="selectionSet.has(node.id)"
         :editing="snapshot.interaction.mode === 'editing-text' && snapshot.interaction.nodeId === node.id"
       >
         <template #default="slotProps">

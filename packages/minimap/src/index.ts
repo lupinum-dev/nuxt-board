@@ -57,12 +57,23 @@ export function useMinimap(
     return Math.min(width / Math.max(1, value.maxX - value.minX), height / Math.max(1, value.maxY - value.minY))
   })
 
+  const offset = computed(() => {
+    const value = bounds.value
+    const contentWidth = (value.maxX - value.minX) * scale.value
+    const contentHeight = (value.maxY - value.minY) * scale.value
+    return {
+      x: (width - contentWidth) / 2,
+      y: (height - contentHeight) / 2
+    }
+  })
+
   const minimapNodes = computed(() => {
     const value = bounds.value
+    const off = offset.value
     return snapshot.value.nodes.map((node) => ({
       node,
-      x: (node.x - value.minX) * scale.value,
-      y: (node.y - value.minY) * scale.value,
+      x: (node.x - value.minX) * scale.value + off.x,
+      y: (node.y - value.minY) * scale.value + off.y,
       width: Math.max(2, node.width * scale.value),
       height: Math.max(2, node.height * scale.value)
     }))
@@ -70,20 +81,24 @@ export function useMinimap(
 
   const viewportRect = computed(() => {
     const value = bounds.value
+    const off = offset.value
     const viewport = engine.getViewportSize()
     const visible = engine.getVisibleBounds(viewport.x, viewport.y)
     return {
-      x: (visible.minX - value.minX) * scale.value,
-      y: (visible.minY - value.minY) * scale.value,
+      x: (visible.minX - value.minX) * scale.value + off.x,
+      y: (visible.minY - value.minY) * scale.value + off.y,
       width: Math.max(6, (visible.maxX - visible.minX) * scale.value),
       height: Math.max(6, (visible.maxY - visible.minY) * scale.value)
     }
   })
 
   async function panToMinimapPoint(point: Point): Promise<void> {
+    const camera = snapshot.value.camera
+    const viewport = engine.getViewportSize()
+    const off = offset.value
     const world = {
-      x: bounds.value.minX + point.x / scale.value,
-      y: bounds.value.minY + point.y / scale.value
+      x: bounds.value.minX + (point.x - off.x) / scale.value - viewport.x / (2 * camera.z),
+      y: bounds.value.minY + (point.y - off.y) / scale.value - viewport.y / (2 * camera.z)
     }
     await engine.panTo(world, false)
   }

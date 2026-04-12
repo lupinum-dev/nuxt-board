@@ -24,6 +24,7 @@ import type {
   CanvasEventMap,
   CanvasNode,
   CanvasPlugin,
+  CanvasPluginContext,
   GridSettings,
   InteractionState,
   InvariantMode,
@@ -97,7 +98,11 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       }
     }
     for (const handler of listeners.get(event) ?? []) {
-      ;(handler as (...payload: Parameters<CanvasEventMap[K]>) => void)(...args)
+      try {
+        ;(handler as (...payload: Parameters<CanvasEventMap[K]>) => void)(...args)
+      } catch (error) {
+        console.error(`[canvas] handler for "${String(event)}" threw:`, error)
+      }
     }
   }
 
@@ -144,10 +149,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   async function runAsyncCommand<T>(name: string, args: unknown[], fn: () => Promise<T>): Promise<T> {
     const started = performance.now()
     emit('command:before', name, args)
-    const result = await fn()
-    validate(name)
-    emit('command:after', name, args, performance.now() - started)
-    return result
+    try {
+      const result = await fn()
+      validate(name)
+      emit('command:after', name, args, performance.now() - started)
+      return result
+    } catch (error) {
+      if (error instanceof AnimationCancelled) {
+        return undefined as T
+      }
+      throw error
+    }
   }
 
   function validate(context: string): void {
@@ -290,6 +302,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     }
   }
 
+  function bumpNodeToFront(id: NodeId): void {
+    const node = state.nodes.get(id)
+    if (!node) {
+      return
+    }
+    const prev = cloneNode(node)
+    const next = { ...node, zIndex: state.nextZIndex++ }
+    state.nodes.set(id, next)
+    emit('node:updated', cloneNode(next), prev)
+  }
+
   function getSelectionNodes(): CanvasNode[] {
     return Array.from(state.selection.values())
       .map((id) => state.nodes.get(id))
@@ -313,6 +336,13 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     }
   }
 
+  class AnimationCancelled extends Error {
+    constructor() {
+      super('Animation cancelled')
+      this.name = 'AnimationCancelled'
+    }
+  }
+
   async function animateCamera(target: Camera): Promise<void> {
     animationToken += 1
     const token = animationToken
@@ -321,10 +351,10 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     const duration = 280
     const { raf } = getAnimationFrameDriver()
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       const tick = () => {
         if (token !== animationToken) {
-          resolve()
+          reject(new AnimationCancelled())
           return
         }
         const elapsed = performance.now() - started
@@ -393,12 +423,11 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     for (const rawNode of snapshot.nodes) {
       const node = normalizeExistingNode(rawNode)
       const id = state.nodes.has(node.id) ? crypto.randomUUID() : node.id
-      state.nodes.set(id, { ...node, id })
-      state.nextZIndex = Math.max(state.nextZIndex, node.zIndex + 1)
+      state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
     }
   }
 
-  const engine: CanvasEngine = {
+  const engine: CanvasPluginContext = {
     getState() {
       return state
     },
@@ -452,10 +481,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return getVisibleBounds(width, height, state.camera)
     },
     getNodeAt(worldPoint) {
-      const ordered = Array.from(state.nodes.values())
-        .filter((node) => node.visible)
-        .sort((a, b) => b.zIndex - a.zIndex)
-      return ordered.find((node) => pointInBounds(worldPoint, getNodeBounds(node))) ?? null
+      let best: CanvasNode | null = null
+      let bestZ = -Infinity
+      for (const node of state.nodes.values()) {
+        if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getNodeBounds(node))) {
+          best = node
+          bestZ = node.zIndex
+        }
+      }
+      return best
     },
     getNodesInBounds(bounds) {
       return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getNodeBounds(node), bounds))
@@ -755,7 +789,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           startScreenPoint: { ...screenPoint },
           startNodePositions
         })
-        engine.bringToFront(id)
+        bumpNodeToFront(id)
       })
     },
     beginResize(id, handle, pointerId, screenPoint) {
@@ -778,7 +812,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             height: node.height
           }
         })
-        engine.bringToFront(id)
+        bumpNodeToFront(id)
       })
     },
     beginBoxSelect(pointerId, screenPoint) {
@@ -806,12 +840,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return runCommand('commitTextEdit', [id, text], () => {
         const node = assertNode(id)
         const prev = cloneNode(node)
-        const data = typeof node.data === 'object' && node.data !== null ? structuredClone(node.data) : {}
-        ;(data as Record<string, unknown>).content = text
-        const next = { ...node, data }
-        replaceNode(node, next)
+        let next: CanvasNode
+        if (text !== undefined) {
+          const data = typeof node.data === 'object' && node.data !== null ? structuredClone(node.data) : {}
+          ;(data as Record<string, unknown>).content = text
+          next = { ...node, data }
+          replaceNode(node, next)
+          emit('node:updated', cloneNode(next), prev)
+        } else {
+          next = node
+        }
         setInteraction({ mode: 'idle' })
-        emit('node:updated', cloneNode(next), prev)
         return cloneNode(next)
       })
     },
@@ -903,8 +942,22 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     importJSON(json, mode = 'replace') {
       runCommand('importJSON', [mode], () => {
-        const parsed = JSON.parse(json) as BoardSnapshot
-        restoreSnapshot(parsed, mode)
+        const parsed = JSON.parse(json)
+        if (!parsed || !Array.isArray(parsed.nodes)) {
+          throw new Error('Invalid canvas document: missing nodes array.')
+        }
+        for (const node of parsed.nodes) {
+          if (
+            typeof node.id !== 'string' ||
+            !Number.isFinite(node.x) ||
+            !Number.isFinite(node.y) ||
+            !Number.isFinite(node.width) ||
+            !Number.isFinite(node.height)
+          ) {
+            throw new Error(`Invalid canvas document: node "${node.id ?? '?'}" has invalid geometry.`)
+          }
+        }
+        restoreSnapshot(parsed as BoardSnapshot, mode)
       })
     }
   }
@@ -916,7 +969,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   validate('createCanvasEngine')
   emit('ready')
 
-  return engine
+  return engine as CanvasEngine
 }
 
 function sameArray(a: string[], b: string[]): boolean {

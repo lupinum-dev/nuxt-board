@@ -1,13 +1,4 @@
-import type { Bounds, CanvasEngine, CanvasNode, CanvasPlugin, NodeId } from '@canvas/core'
-
-export function selectionPlugin(): CanvasPlugin {
-  return {
-    name: 'selection',
-    install() {
-      return undefined
-    }
-  }
-}
+import type { Bounds, CanvasEngine, CanvasNode, NodeId } from '@canvas/core'
 
 export function getSelectionNodes(engine: CanvasEngine): CanvasNode[] {
   const selected = new Set(engine.getSelection())

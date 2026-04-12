@@ -150,9 +150,7 @@ async function runBenchmark(): Promise<void> {
 }
 
 function exportJsonCanvas(): string {
-  exportedJson.value = jsonCanvasSerializer.export(engine.getSnapshot(), {
-    edges: getConnections().getEdges?.() ?? []
-  })
+  exportedJson.value = jsonCanvasSerializer.export(engine)
   return exportedJson.value
 }
 

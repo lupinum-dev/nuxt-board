@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createCanvasEngine } from '@canvas/core'
+import { connectionPlugin } from '@canvas/connections'
 import { jsonCanvasSerializer } from '../src'
 
 describe('json canvas serializer', () => {
@@ -32,6 +33,54 @@ describe('json canvas serializer', () => {
     expect(snapshot.nodes[0]).toMatchObject({
       type: 'image',
       data: { src: '/asset.png', alt: 'Asset' }
+    })
+  })
+
+  it('round-trips custom node types without a registered handler via x-canvas:data', () => {
+    const serializer = jsonCanvasSerializer
+    const engine = createCanvasEngine()
+    engine.createNode({ type: 'video', x: 50, y: 50, data: { src: '/clip.mp4', duration: 42 } })
+
+    const json = serializer.export(engine.getSnapshot())
+    const snapshot = serializer.toSnapshot(serializer.parse(json))
+
+    expect(snapshot.nodes[0]).toMatchObject({
+      type: 'video',
+      data: { src: '/clip.mp4', duration: 42 }
+    })
+  })
+
+  it('preserves engine metadata and connection edges through the extension namespace', () => {
+    const engine = createCanvasEngine({
+      plugins: [connectionPlugin()]
+    })
+    const first = engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      locked: true,
+      visible: false,
+      data: { content: 'Hidden' }
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 240,
+      y: 120,
+      data: { content: 'Visible' }
+    })
+    engine.sendToBack(first.id)
+    engine.createEdge?.({ from: first.id, to: second.id, data: { label: 'Link' } })
+
+    const document = jsonCanvasSerializer.parse(jsonCanvasSerializer.export(engine))
+    const snapshot = jsonCanvasSerializer.toSnapshot(document)
+
+    expect(document['x-canvas']?.edges).toHaveLength(1)
+    expect(snapshot.camera).toEqual(engine.getSnapshot().camera)
+    expect(snapshot.grid).toEqual(engine.getSnapshot().grid)
+    expect(snapshot.nodes.find((node) => node.id === first.id)).toMatchObject({
+      locked: true,
+      visible: false,
+      zIndex: engine.getSnapshot().nodes.find((node) => node.id === first.id)?.zIndex
     })
   })
 })

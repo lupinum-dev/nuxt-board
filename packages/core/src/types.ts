@@ -66,7 +66,7 @@ export interface NodeInput<T extends Record<string, unknown> = Record<string, un
 }
 
 export type NodePatch<T extends Record<string, unknown> = Record<string, unknown>> = Partial<
-  Omit<CanvasNode<T>, 'id' | 'zIndex'>
+  Omit<CanvasNode<T>, 'id' | 'type' | 'zIndex'>
 >
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
@@ -171,9 +171,13 @@ export interface TraceEntry {
   args: unknown[]
 }
 
+export interface CanvasPluginContext extends CanvasEngine {
+  emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void
+}
+
 export interface CanvasPlugin {
   name: string
-  install(engine: CanvasEngine, options?: Record<string, unknown>): void | PluginCleanup
+  install(engine: CanvasPluginContext, options?: Record<string, unknown>): void | PluginCleanup
 }
 
 export type PluginCleanup = () => void
@@ -204,7 +208,6 @@ export interface CanvasEngine {
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void
   on<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe
   once<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe
   off<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): void
@@ -243,7 +246,7 @@ export interface CanvasEngine {
   beginResize(id: NodeId, handle: ResizeHandle, pointerId: number, screenPoint: Point): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
-  commitTextEdit(id: NodeId, text: string): CanvasNode
+  commitTextEdit(id: NodeId, text?: string): CanvasNode
   updatePointer(pointerId: number, screenPoint: Point): void
   endInteraction(pointerId?: number): void
   exportJSON(): string

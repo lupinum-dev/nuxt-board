@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createCanvasEngine } from '@canvas/core'
+import { connectionPlugin } from '@canvas/connections'
 import { historyPlugin } from '../src'
 
 describe('history plugin', () => {
@@ -42,5 +43,28 @@ describe('history plugin', () => {
     engine.undo?.()
     expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({ x: 0, y: 0 })
     vi.useRealTimers()
+  })
+
+  it('restores connection plugin state during undo and redo', () => {
+    const engine = createCanvasEngine({
+      plugins: [connectionPlugin(), historyPlugin({ debounceMs: 0 })]
+    })
+
+    const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+    const second = engine.createNode({ type: 'text', x: 200, y: 0, data: { content: 'B' } })
+    engine.clearHistory?.()
+
+    const edge = engine.createEdge?.({ from: first.id, to: second.id, data: { label: 'A->B' } })
+    expect(edge).toBeDefined()
+
+    engine.deleteNode(first.id)
+    expect(engine.getEdges?.()).toHaveLength(0)
+
+    engine.undo?.()
+    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getEdges?.()).toHaveLength(1)
+
+    engine.redo?.()
+    expect(engine.getEdges?.()).toHaveLength(0)
   })
 })

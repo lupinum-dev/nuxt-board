@@ -20,4 +20,29 @@ describe('minimap', () => {
     expect(minimap.viewportRect.value.width).toBeGreaterThan(0)
     scope.stop()
   })
+
+  it('centers the clicked minimap point into the viewport', async () => {
+    const engine = createCanvasEngine()
+    engine.setViewportSize({ x: 400, y: 300 })
+    engine.createNode({ type: 'text', x: 0, y: 0, width: 100, height: 80, data: { content: 'A' } })
+    engine.createNode({ type: 'text', x: 600, y: 400, width: 100, height: 80, data: { content: 'B' } })
+
+    const scope = effectScope()
+    const minimap = scope.run(() => useMinimap(engine, { width: 200, height: 120 }))
+    if (!minimap) {
+      throw new Error('Minimap scope did not initialize.')
+    }
+
+    await minimap.panToMinimapPoint({ x: 100, y: 60 })
+
+    const visible = engine.getVisibleBounds(400, 300)
+    const worldAtViewportCenter = {
+      x: (visible.minX + visible.maxX) / 2,
+      y: (visible.minY + visible.maxY) / 2
+    }
+
+    expect(worldAtViewportCenter.x).toBeCloseTo(350, 0)
+    expect(worldAtViewportCenter.y).toBeCloseTo(240, 0)
+    scope.stop()
+  })
 })

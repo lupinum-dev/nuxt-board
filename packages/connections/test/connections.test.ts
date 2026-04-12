@@ -24,4 +24,18 @@ describe('connections plugin', () => {
     expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'straight')).toBe('M 0 0 L 100 50')
     expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'bezier')).toContain('C')
   })
+
+  it('throws when creating an edge with non-existent nodes', () => {
+    const engine = createCanvasEngine({
+      plugins: [connectionPlugin()]
+    })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+
+    expect(() => engine.createEdge?.({ from: node.id, to: 'non-existent', data: {} })).toThrow(
+      'target node'
+    )
+    expect(() => engine.createEdge?.({ from: 'non-existent', to: node.id, data: {} })).toThrow(
+      'source node'
+    )
+  })
 })

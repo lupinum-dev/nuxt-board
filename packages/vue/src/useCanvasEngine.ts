@@ -100,7 +100,8 @@ export function useNode(id: string) {
     return current
   })
 
-  const selected = computed(() => snapshot.value.selection.includes(id))
+  const selectionSet = computed(() => new Set(snapshot.value.selection))
+  const selected = computed(() => selectionSet.value.has(id))
   const editing = computed(
     () => snapshot.value.interaction.mode === 'editing-text' && snapshot.value.interaction.nodeId === id
   )

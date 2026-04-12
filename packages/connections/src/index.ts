@@ -1,9 +1,10 @@
-import { computed, defineComponent, h, onScopeDispose, shallowRef, type PropType } from 'vue'
+import { computed, defineComponent, h, onScopeDispose, shallowRef, watch, type PropType } from 'vue'
 import {
   boundsIntersect,
   type Bounds,
   type CanvasEngine,
   type CanvasPlugin,
+  type CanvasPluginContext,
   type CanvasNode,
   type EdgeId,
   type NodeId,
@@ -43,7 +44,7 @@ declare module '@canvas/core' {
 
   interface CanvasEngine {
     createEdge?: <T extends Record<string, unknown> = Record<string, unknown>>(
-      input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId }
+      input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
     ) => CanvasEdge<T>
     deleteEdge?: (id: EdgeId) => void
     getEdges?: () => CanvasEdge[]
@@ -55,7 +56,7 @@ declare module '@canvas/core' {
 
 type ExtendedEngine = CanvasEngine & {
   createEdge: <T extends Record<string, unknown> = Record<string, unknown>>(
-    input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId }
+    input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
   ) => CanvasEdge<T>
   deleteEdge: (id: EdgeId) => void
   getEdges: () => CanvasEdge[]
@@ -75,8 +76,16 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): CanvasP
       let nextZIndex = 1
 
       target.createEdge = <T extends Record<string, unknown> = Record<string, unknown>>(
-        input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId }
+        input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
       ) => {
+        const snapshot = engine.getSnapshot()
+        const nodeIds = new Set(snapshot.nodes.map((n) => n.id))
+        if (!nodeIds.has(input.from)) {
+          throw new Error(`Cannot create edge: source node "${input.from}" does not exist.`)
+        }
+        if (!nodeIds.has(input.to)) {
+          throw new Error(`Cannot create edge: target node "${input.to}" does not exist.`)
+        }
         const edge: CanvasEdge<T> = {
           id: input.id ?? crypto.randomUUID(),
           from: input.from,
@@ -84,8 +93,9 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): CanvasP
           fromAnchor: input.fromAnchor,
           toAnchor: input.toAnchor,
           data: structuredClone(input.data ?? ({} as T)),
-          zIndex: nextZIndex++
+          zIndex: input.zIndex ?? nextZIndex++
         }
+        nextZIndex = Math.max(nextZIndex, edge.zIndex + 1)
         edges.set(edge.id, edge)
         engine.emit('edge:created', edge)
         return structuredClone(edge)
@@ -106,10 +116,10 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): CanvasP
         target.getEdges().filter((edge) => edge.from === from && edge.to === to)
 
       const unsubscribe = engine.on('node:deleted', (id) => {
-        for (const edge of edges.values()) {
-          if (edge.from === id || edge.to === id) {
-            edges.delete(edge.id)
-          }
+        const toDelete = [...edges.values()].filter((edge) => edge.from === id || edge.to === id)
+        for (const edge of toDelete) {
+          edges.delete(edge.id)
+          engine.emit('edge:deleted', edge.id)
         }
       })
 
@@ -187,26 +197,29 @@ export const CanvasConnectionLayer = defineComponent({
     const engine = computed(() => props.engine ?? (injected.engine as ExtendedEngine))
     const version = shallowRef(0)
 
-    const unsubscribes = [
-      engine.value.on('edge:created', () => {
-        version.value += 1
-      }),
-      engine.value.on('edge:deleted', () => {
-        version.value += 1
-      }),
-      engine.value.on('node:updated', () => {
-        version.value += 1
-      }),
-      engine.value.on('node:deleted', () => {
-        version.value += 1
-      })
-    ]
-
-    onScopeDispose(() => {
-      for (const unsubscribe of unsubscribes) {
-        unsubscribe()
+    let versionDirty = false
+    function scheduleVersion(): void {
+      if (!versionDirty) {
+        versionDirty = true
+        queueMicrotask(() => {
+          version.value += 1
+          versionDirty = false
+        })
       }
-    })
+    }
+
+    watch(engine, (current, _prev, onCleanup) => {
+      const unsubscribes = [
+        current.on('edge:created', scheduleVersion),
+        current.on('edge:deleted', scheduleVersion),
+        current.on('command:after', scheduleVersion)
+      ]
+      onCleanup(() => {
+        for (const unsub of unsubscribes) {
+          unsub()
+        }
+      })
+    }, { immediate: true })
 
     const paths = computed(() => {
       void version.value
