@@ -1,4 +1,4 @@
-import type { BoardSnapshot, CanvasEngine, CanvasNode } from '@canvas/core'
+import { asNodeId, type BoardSnapshot, type CanvasEngine, type CanvasNode } from '@canvas/core'
 
 export interface JsonCanvasNode {
   id: string
@@ -82,7 +82,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
         : ((raw['x-canvas:data'] as Record<string, unknown> | undefined) ?? {}))
 
     return {
-      id: raw.id,
+      id: asNodeId(raw.id),
       type: raw.type,
       x: raw.x,
       y: raw.y,
@@ -91,10 +91,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       data,
       zIndex: 1,
       locked: false,
-      visible: true,
-      _gen: 0,
-      _geoGen: 0,
-      _dataGen: 0
+      visible: true
     }
   }
 
@@ -115,7 +112,13 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       const nodes = snapshot.nodes.map((node) => serializeNodeEntry(node))
       const connectionEdges =
         extras?.edges ??
-        (((engineRef as CanvasEngine & { getEdges?: () => Array<Record<string, unknown>> } | null)?.getEdges?.() as
+        (((engineRef as CanvasEngine & {
+          ext?: {
+            connections?: {
+              getEdges: () => Array<Record<string, unknown>>
+            }
+          }
+        } | null)?.ext?.connections?.getEdges() as
           Array<Record<string, unknown>> | undefined) ??
           [])
       return JSON.stringify(
@@ -164,7 +167,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
             zIndex: meta?.zIndex ?? node.zIndex,
             locked: meta?.locked ?? node.locked,
             visible: meta?.visible ?? node.visible,
-            parentId: meta?.parentId ?? node.parentId
+            parentId: meta?.parentId ? asNodeId(meta.parentId) : node.parentId
           }
         }),
         selection: [],

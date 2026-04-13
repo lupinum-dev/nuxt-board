@@ -17,19 +17,15 @@ export function useMinimap(
   minimapNodes: ComputedRef<Array<{ node: CanvasNode; x: number; y: number; width: number; height: number }>>
   panToMinimapPoint: (point: Point) => Promise<void>
 } {
-  const snapshot = shallowRef(engine.getSnapshot())
-  let snapshotDirty = false
-  const scheduleRefresh = () => {
-    if (!snapshotDirty) {
-      snapshotDirty = true
-      queueMicrotask(() => {
-        snapshot.value = engine.getSnapshot()
-        snapshotDirty = false
-      })
-    }
-  }
+  const camera = shallowRef(engine.$camera.get())
+  const nodes = shallowRef(engine.$nodes.get())
   const unsubscribes = [
-    engine.on('command:after', scheduleRefresh)
+    engine.$camera.subscribe((value) => {
+      camera.value = value
+    }),
+    engine.$nodes.subscribe((value) => {
+      nodes.value = value
+    })
   ]
   onScopeDispose(() => {
     for (const unsubscribe of unsubscribes) {
@@ -42,14 +38,15 @@ export function useMinimap(
   const padding = options.padding ?? 24
 
   const bounds = computed(() => {
-    if (snapshot.value.nodes.length === 0) {
+    const entries = Array.from(nodes.value.values())
+    if (entries.length === 0) {
       return { minX: -500, minY: -500, maxX: 500, maxY: 500 }
     }
     return {
-      minX: Math.min(...snapshot.value.nodes.map((node) => node.x)) - padding,
-      minY: Math.min(...snapshot.value.nodes.map((node) => node.y)) - padding,
-      maxX: Math.max(...snapshot.value.nodes.map((node) => node.x + node.width)) + padding,
-      maxY: Math.max(...snapshot.value.nodes.map((node) => node.y + node.height)) + padding
+      minX: Math.min(...entries.map((node) => node.x)) - padding,
+      minY: Math.min(...entries.map((node) => node.y)) - padding,
+      maxX: Math.max(...entries.map((node) => node.x + node.width)) + padding,
+      maxY: Math.max(...entries.map((node) => node.y + node.height)) + padding
     }
   })
 
@@ -71,7 +68,7 @@ export function useMinimap(
   const minimapNodes = computed(() => {
     const value = bounds.value
     const off = offset.value
-    return snapshot.value.nodes.map((node) => ({
+    return Array.from(nodes.value.values()).map((node) => ({
       node,
       x: (node.x - value.minX) * scale.value + off.x,
       y: (node.y - value.minY) * scale.value + off.y,
@@ -94,12 +91,12 @@ export function useMinimap(
   })
 
   async function panToMinimapPoint(point: Point): Promise<void> {
-    const camera = snapshot.value.camera
+    const currentCamera = camera.value
     const viewport = engine.getViewportSize()
     const off = offset.value
     const world = {
-      x: bounds.value.minX + (point.x - off.x) / scale.value - viewport.x / (2 * camera.z),
-      y: bounds.value.minY + (point.y - off.y) / scale.value - viewport.y / (2 * camera.z)
+      x: bounds.value.minX + (point.x - off.x) / scale.value - viewport.x / (2 * currentCamera.z),
+      y: bounds.value.minY + (point.y - off.y) / scale.value - viewport.y / (2 * currentCamera.z)
     }
     await engine.panTo(world, false)
   }

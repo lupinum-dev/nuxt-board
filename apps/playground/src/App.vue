@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { createCanvasEngine, type CanvasNode } from '@canvas/core'
-import { connectionPlugin, CanvasConnectionLayer, type CanvasEdge } from '@canvas/connections'
+import { connectionPlugin, CanvasConnectionLayer } from '@canvas/connections'
 import { historyPlugin } from '@canvas/history'
 import { CanvasMinimap } from '@canvas/minimap'
 import { jsonCanvasSerializer } from '@canvas/serializer'
@@ -55,13 +55,6 @@ const gridOptions = computed(() => ({
 }))
 
 // ━━ Scene management ━━
-function getConnections() {
-  return engine as typeof engine & {
-    createEdge?: (input: Omit<CanvasEdge, 'id' | 'zIndex'> & { id?: string }) => CanvasEdge
-    getEdges?: () => CanvasEdge[]
-  }
-}
-
 function clearBoard(): void {
   const ids = engine.getSnapshot().nodes.map((n) => n.id)
   if (ids.length > 0) {
@@ -99,10 +92,9 @@ async function seedScene(count: number): Promise<void> {
     data: { alt: 'Reference tile' }
   })
 
-  const cx = getConnections()
-  if (cx.createEdge && created.length >= 3) {
-    cx.createEdge({ from: created[0]!.id, to: created[1]!.id, data: { label: 'A' } })
-    cx.createEdge({ from: created[1]!.id, to: created[2]!.id, data: { label: 'B' } })
+  if (created.length >= 3) {
+    engine.ext.connections.createEdge({ from: created[0]!.id, to: created[1]!.id, data: { label: 'A' } })
+    engine.ext.connections.createEdge({ from: created[1]!.id, to: created[2]!.id, data: { label: 'B' } })
   }
 
   engine.clearSelection()

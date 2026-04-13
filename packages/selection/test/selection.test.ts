@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCanvasEngine } from '@canvas/core'
+import { asNodeId, createCanvasEngine } from '@canvas/core'
 import { getSelectionBounds, toggleIds } from '../src'
 
 describe('selection helpers', () => {
@@ -19,6 +19,9 @@ describe('selection helpers', () => {
   })
 
   it('toggles ids in and out of a selection array', () => {
-    expect(toggleIds(['a', 'b'], ['b', 'c']).sort()).toEqual(['a', 'c'])
+    expect(toggleIds([asNodeId('a'), asNodeId('b')], [asNodeId('b'), asNodeId('c')]).sort()).toEqual([
+      asNodeId('a'),
+      asNodeId('c')
+    ])
   })
 })

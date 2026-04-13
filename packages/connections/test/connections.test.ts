@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createCanvasEngine } from '@canvas/core'
+import { asNodeId, createCanvasEngine } from '@canvas/core'
 import { connectionPlugin, routeEdgePath } from '../src'
 
 describe('connections plugin', () => {
@@ -10,14 +10,13 @@ describe('connections plugin', () => {
     const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
     const second = engine.createNode({ type: 'text', x: 200, y: 100, data: { content: 'B' } })
 
-    expect(engine.createEdge).toBeDefined()
-    const edge = engine.createEdge?.({ from: first.id, to: second.id, data: { label: 'depends on' } })
+    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, data: { label: 'depends on' } })
     expect(edge).toBeDefined()
-    expect(engine.getEdgesBetween?.(first.id, second.id)).toHaveLength(1)
-    expect(edge?.data).toMatchObject({ label: 'depends on' })
+    expect(engine.ext.connections.getEdgesBetween(first.id, second.id)).toHaveLength(1)
+    expect(edge.data).toMatchObject({ label: 'depends on' })
 
     engine.deleteNode(first.id)
-    expect(engine.getEdges?.()).toHaveLength(0)
+    expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
 
   it('removes edges when deleting a group that still has child nodes', () => {
@@ -53,14 +52,14 @@ describe('connections plugin', () => {
       data: { content: 'outer' }
     })
     engine.syncGroupZOrder(group.id)
-    engine.createEdge?.({ from: inner.id, to: outer.id, data: {} })
-    expect(engine.getEdges?.()).toHaveLength(1)
+    engine.ext.connections.createEdge({ from: inner.id, to: outer.id, data: {} })
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
 
     engine.select([group.id])
     engine.deleteSelected()
 
     expect(engine.getSnapshot().nodes).toHaveLength(1)
-    expect(engine.getEdges?.()).toHaveLength(0)
+    expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
 
   it('routes straight and bezier paths', () => {
@@ -74,10 +73,10 @@ describe('connections plugin', () => {
     })
     const node = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
 
-    expect(() => engine.createEdge?.({ from: node.id, to: 'non-existent', data: {} })).toThrow(
+    expect(() => engine.ext.connections.createEdge({ from: node.id, to: asNodeId('non-existent'), data: {} })).toThrow(
       'target node'
     )
-    expect(() => engine.createEdge?.({ from: 'non-existent', to: node.id, data: {} })).toThrow(
+    expect(() => engine.ext.connections.createEdge({ from: asNodeId('non-existent'), to: node.id, data: {} })).toThrow(
       'source node'
     )
   })

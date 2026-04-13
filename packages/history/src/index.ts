@@ -1,4 +1,4 @@
-import type { BoardSnapshot, CanvasEngine, CanvasPlugin, CanvasPluginContext } from '@canvas/core'
+import type { BoardSnapshot, CanvasEngine, CanvasPlugin } from '@canvas/core'
 
 export interface HistoryState {
   undoDepth: number
@@ -27,13 +27,15 @@ declare module '@canvas/core' {
     'history:clear': () => void
   }
 
-  interface CanvasEngine {
-    undo?: () => void
-    redo?: () => void
-    canUndo?: () => boolean
-    canRedo?: () => boolean
-    clearHistory?: () => void
-    getHistoryState?: () => HistoryState
+  interface CanvasEngineExtensions<R extends import('@canvas/core').NodeTypeRegistry = import('@canvas/core').NodeTypeRegistry> {
+    history: {
+      undo: () => void
+      redo: () => void
+      canUndo: () => boolean
+      canRedo: () => boolean
+      clear: () => void
+      getState: () => HistoryState
+    }
   }
 }
 
@@ -52,21 +54,6 @@ const DEFAULT_EXCLUDE = new Set([
   'endInteraction'
 ])
 
-type ExtendedEngine = CanvasEngine & {
-  undo: () => void
-  redo: () => void
-  canUndo: () => boolean
-  canRedo: () => boolean
-  clearHistory: () => void
-  getHistoryState: () => HistoryState
-}
-
-type EdgeEnabledEngine = CanvasEngine & {
-  getEdges?: () => Array<Record<string, unknown>>
-  createEdge?: (input: Record<string, unknown>) => Record<string, unknown>
-  deleteEdge?: (id: string) => void
-}
-
 export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)
@@ -75,7 +62,27 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
   return {
     name: 'history',
     install(engine) {
-      const target = engine as ExtendedEngine
+      const getConnections = (): {
+        getEdges: () => Array<Record<string, unknown>>
+        deleteEdge: (id: string) => void
+        createEdge: (input: Record<string, unknown>) => Record<string, unknown>
+      } | null => {
+        const value = (engine.ext as unknown as { connections?: unknown }).connections
+        if (
+          !value ||
+          typeof (value as { getEdges?: unknown }).getEdges !== 'function' ||
+          typeof (value as { deleteEdge?: unknown }).deleteEdge !== 'function' ||
+          typeof (value as { createEdge?: unknown }).createEdge !== 'function'
+        ) {
+          return null
+        }
+        return value as {
+          getEdges: () => Array<Record<string, unknown>>
+          deleteEdge: (id: string) => void
+          createEdge: (input: Record<string, unknown>) => Record<string, unknown>
+        }
+      }
+
       const undoStack: HistoryEntry[] = []
       const redoStack: HistoryEntry[] = []
       let previousSnapshot = canonicalSnapshot(engine.getSnapshot())
@@ -97,11 +104,11 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
       }
 
       function captureExtras(): Record<string, unknown> | undefined {
-        const connectionEngine = engine as EdgeEnabledEngine
         const extras: Record<string, unknown> = {}
-        if (typeof connectionEngine.getEdges === 'function') {
+        const connections = getConnections()
+        if (connections) {
           extras.connections = {
-            edges: structuredClone(connectionEngine.getEdges())
+            edges: structuredClone(connections.getEdges())
           }
         }
         return Object.keys(extras).length > 0 ? extras : undefined
@@ -161,26 +168,19 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
       }
 
       function restoreExtras(extras?: Record<string, unknown>): void {
-        const connectionEngine = engine as EdgeEnabledEngine
-        if (
-          !extras?.connections ||
-          typeof connectionEngine.getEdges !== 'function' ||
-          typeof connectionEngine.deleteEdge !== 'function' ||
-          typeof connectionEngine.createEdge !== 'function'
-        ) {
+        const connections = getConnections()
+        if (!extras?.connections || !connections) {
           return
         }
-        const currentEdges = connectionEngine.getEdges()
+        const currentEdges = connections.getEdges()
         for (const edge of currentEdges) {
-          if (typeof edge.id === 'string') {
-            connectionEngine.deleteEdge(edge.id)
-          }
+          connections.deleteEdge(String(edge.id))
         }
         const nextEdges = ((extras.connections as { edges?: Array<Record<string, unknown>> }).edges ?? []).map((edge) =>
           structuredClone(edge)
         )
         for (const edge of nextEdges) {
-          connectionEngine.createEdge(edge)
+          connections.createEdge(edge)
         }
       }
 
@@ -195,7 +195,8 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
         }
       }
 
-      target.undo = () => {
+      const api = {
+        undo: () => {
         flushPending()
         const entry = undoStack.pop() ?? null
         if (!entry) {
@@ -209,9 +210,9 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
         })
         replaceSnapshot(entry.snapshot, entry.extras)
         engine.emit('history:undo', entry)
-      }
+        },
 
-      target.redo = () => {
+        redo: () => {
         flushPending()
         const entry = redoStack.pop() ?? null
         if (!entry) {
@@ -225,32 +226,35 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
         })
         replaceSnapshot(entry.snapshot, entry.extras)
         engine.emit('history:redo', entry)
-      }
+        },
 
-      target.canUndo = () => {
+        canUndo: () => {
         flushPending()
         return undoStack.length > 0
-      }
+        },
 
-      target.canRedo = () => {
+        canRedo: () => {
         flushPending()
         return redoStack.length > 0
-      }
+        },
 
-      target.clearHistory = () => {
+        clear: () => {
         undoStack.splice(0, undoStack.length)
         redoStack.splice(0, redoStack.length)
         pendingCommand = null
         previousSnapshot = canonicalSnapshot(engine.getSnapshot())
         previousExtras = captureExtras()
         engine.emit('history:clear')
+        },
+
+        getState: () => ({
+          undoDepth: undoStack.length,
+          redoDepth: redoStack.length,
+          current: pendingCommand?.name ?? undoStack[undoStack.length - 1]?.label ?? null
+        })
       }
 
-      target.getHistoryState = () => ({
-        undoDepth: undoStack.length,
-        redoDepth: redoStack.length,
-        current: pendingCommand?.name ?? undoStack[undoStack.length - 1]?.label ?? null
-      })
+      engine.extend('history', api)
 
       const unsubscribeBefore = engine.on('command:before', () => {
         if (!replaying) {

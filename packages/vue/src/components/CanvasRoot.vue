@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, markRaw, onBeforeUnmount, onMounted, provide, ref, shallowRef, useSlots, watch, type Component, type PropType } from 'vue'
-import type { BoardSnapshot, Camera, CanvasEngine, CanvasNode as CanvasNodeState, GridSettings, InteractionState, NodeId, Point, ResizeHandle, SnapGuide } from '@canvas/core'
+import { asNodeId, type BoardSnapshot, type Camera, type CanvasEngine, type CanvasNode as CanvasNodeState, type GridSettings, type InteractionState, type NodeId, type Point, type ResizeHandle, type SnapGuide } from '@canvas/core'
 import { createCanvasEngine } from '@canvas/core'
 import { canvasEngineKey } from '../context'
 import { DEFAULT_CANVAS_GRID_OPTIONS, type CanvasGridOptions, type CanvasRendererRegistry, type ResolvedCanvasGridOptions } from '../grid'
@@ -98,10 +98,10 @@ provide(canvasEngineKey, {
   $snapGuides,
 })
 
-let prevSelectionIds: string[] = []
-let prevSelectionSet = new Set<string>()
+let prevSelectionIds: NodeId[] = []
+let prevSelectionSet = new Set<NodeId>()
 const selectionSet = computed(() => {
-  const ids = snapshot.value.selection
+  const ids = Array.from($selection.value)
   if (ids.length === prevSelectionIds.length && ids.every((id, i) => id === prevSelectionIds[i])) {
     return prevSelectionSet
   }
@@ -130,10 +130,10 @@ function getNodeLod(node: CanvasNodeState, zoom: number, selected: boolean): Nod
 
 const visibleNodes = computed<LodNode[]>(() => {
   const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
-  const zoom = snapshot.value.camera.z
+  const zoom = $camera.value.z
   const sel = selectionSet.value
   const result: LodNode[] = []
-  for (const node of snapshot.value.nodes) {
+  for (const node of $nodes.value.values()) {
     if (!node.visible) {
       continue
     }
@@ -155,10 +155,10 @@ const visibleNodes = computed<LodNode[]>(() => {
 
 const debugState = computed(() => ({
   snapshot: snapshot.value,
-  camera: snapshot.value.camera,
+  camera: $camera.value,
   grid: snapshot.value.grid,
-  selection: snapshot.value.selection,
-  interaction: snapshot.value.interaction,
+  selection: Array.from($selection.value),
+  interaction: $interaction.value,
   visibleNodeCount: visibleNodes.value.length,
   trace: engine.exportTrace().slice(-20)
 }))
@@ -249,16 +249,7 @@ function isEditorTarget(target: EventTarget | null): boolean {
 
 function findNodeIdAtPoint(screenPoint: Point): string | undefined {
   const world = engine.screenToWorld(screenPoint)
-  const nodes = engine.getSnapshot().nodes
-  return [...nodes]
-    .sort((a, b) => b.zIndex - a.zIndex)
-    .find(
-      (n) =>
-        world.x >= n.x &&
-        world.x <= n.x + n.width &&
-        world.y >= n.y &&
-        world.y <= n.y + n.height
-    )?.id
+  return engine.getNodeAt(world)?.id
 }
 
 function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 'resize' | 'box-select', nodeId?: string, handle?: ResizeHandle): void {
@@ -266,9 +257,9 @@ function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 're
   if (kind === 'pan') {
     engine.beginPan(event.pointerId, point)
   } else if (kind === 'drag' && nodeId) {
-    engine.beginNodeDrag(nodeId, event.pointerId, point)
+    engine.beginNodeDrag(asNodeId(nodeId), event.pointerId, point)
   } else if (kind === 'resize' && nodeId && handle) {
-    engine.beginResize(nodeId, handle, event.pointerId, point)
+    engine.beginResize(asNodeId(nodeId), handle, event.pointerId, point)
   } else {
     engine.beginBoxSelect(event.pointerId, point)
   }
@@ -352,7 +343,7 @@ function onDoubleClick(event: MouseEvent): void {
   const screenPoint = toLocalPoint(event.clientX, event.clientY)
   const nodeId = findNodeId(event.target) ?? findNodeIdAtPoint(screenPoint)
   if (nodeId) {
-    engine.beginTextEdit(nodeId)
+    engine.beginTextEdit(asNodeId(nodeId))
     return
   }
   const world = engine.screenToWorld(screenPoint)
@@ -384,6 +375,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
   const mod = event.metaKey || event.ctrlKey
   const selection = engine.getSelection()
+  const history = (engine.ext as unknown as { history?: { undo: () => void; redo: () => void } }).history
   if (event.key === 'Escape') {
     engine.clearSelection()
     engine.endInteraction()
@@ -431,19 +423,17 @@ function onKeyDown(event: KeyboardEvent): void {
     return
   }
   if (mod && event.key.toLowerCase() === 'z') {
-    const target = event.shiftKey ? (engine as CanvasEngine & { redo?: () => void }).redo : (engine as CanvasEngine & { undo?: () => void }).undo
-    if (target) {
-      event.preventDefault()
-      target.call(engine)
+    event.preventDefault()
+    if (event.shiftKey) {
+      history?.redo()
+    } else {
+      history?.undo()
     }
     return
   }
   if (mod && event.key.toLowerCase() === 'y') {
-    const redo = (engine as CanvasEngine & { redo?: () => void }).redo
-    if (redo) {
-      event.preventDefault()
-      redo.call(engine)
-    }
+    event.preventDefault()
+    history?.redo()
     return
   }
   if (selection.length > 0 && event.key.startsWith('Arrow')) {

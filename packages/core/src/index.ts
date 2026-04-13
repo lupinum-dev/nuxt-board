@@ -1,6 +1,7 @@
 export { createCanvasEngine } from './engine'
 export { createBatchController, createSubscribable } from './subscribable'
 export type { BatchController } from './subscribable'
+export { asEdgeId, asNodeId } from './types'
 export {
   addDescendants,
   collectSubtreeIds,
@@ -38,6 +39,7 @@ export type {
   Camera,
   CanvasEngine,
   CanvasEngineOptions,
+  CanvasEngineExtensions,
   CanvasEventMap,
   CanvasNode,
   CanvasPlugin,
@@ -50,11 +52,14 @@ export type {
   InvariantFailure,
   InvariantMode,
   NodeConstraints,
+  NodeData,
   NodeId,
   NodeInput,
+  NodeTypeRegistry,
   NodePatch,
   PluginCleanup,
   Point,
+  ResolvedNode,
   ResizeHandle,
   SelectionMode,
   SnapAxis,

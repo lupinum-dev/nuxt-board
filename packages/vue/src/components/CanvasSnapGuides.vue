@@ -2,12 +2,12 @@
 import { computed } from 'vue'
 import { useCanvasEngine } from '../useCanvasEngine'
 
-const { snapshot } = useCanvasEngine()
+const { $camera, $snapGuides } = useCanvasEngine()
 
 const screenGuides = computed(() => {
-  const guides = snapshot.value.snapGuides
+  const guides = $snapGuides.value
   if (!guides || guides.length === 0) return []
-  const { x: cx, y: cy, z } = snapshot.value.camera
+  const { x: cx, y: cy, z } = $camera.value
   return guides.map((guide) => {
     if (guide.axis === 'x') {
       return {

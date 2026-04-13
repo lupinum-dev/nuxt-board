@@ -1,5 +1,9 @@
-export type NodeId = string
-export type EdgeId = string
+export type Brand<T, K extends string> = T & { readonly __brand: K }
+
+export type NodeId = Brand<string, 'NodeId'>
+export type EdgeId = Brand<string, 'EdgeId'>
+export const asNodeId = (value: string): NodeId => value as NodeId
+export const asEdgeId = (value: string): EdgeId => value as EdgeId
 export type SnapAxis = 'x' | 'y'
 
 export interface SnapGuide {
@@ -48,45 +52,49 @@ export interface NodeConstraints {
   defaultHeight: number
 }
 
-export interface CanvasNode<T extends Record<string, unknown> = Record<string, unknown>> {
-  id: NodeId
-  type: string
-  x: number
-  y: number
-  width: number
-  height: number
-  data: T
-  zIndex: number
-  locked: boolean
-  visible: boolean
-  /** When set, this node is logically contained in the group `parentId` (flat map; not DOM nesting). */
-  parentId?: NodeId
-  /** @internal Incremented on every mutation. */
-  readonly _gen: number
-  /** @internal Incremented on x/y/width/height changes. */
-  readonly _geoGen: number
-  /** @internal Incremented on data changes. */
-  readonly _dataGen: number
+export type NodeData = Record<string, unknown>
+export type NodeTypeRegistry = Record<string, NodeData>
+
+export interface CanvasNode<TType extends string = string, TData extends NodeData = NodeData> {
+  readonly id: NodeId
+  readonly type: TType
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+  readonly data: TData
+  readonly zIndex: number
+  readonly locked: boolean
+  readonly visible: boolean
+  readonly parentId?: NodeId
 }
 
-export interface NodeInput<T extends Record<string, unknown> = Record<string, unknown>> {
+export type ResolvedNode<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+  T extends keyof R = keyof R
+> = T extends keyof R ? CanvasNode<T & string, R[T]> : never
+
+export interface NodeInput<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+  T extends keyof R = keyof R
+> {
   id?: NodeId
-  type?: string
+  type?: T & string
   x?: number
   y?: number
   width?: number
   height?: number
-  data?: T
+  data?: R[T]
   locked?: boolean
   visible?: boolean
   parentId?: NodeId
-  /** When false, selection is unchanged (default true). */
   select?: boolean
 }
 
-export type NodePatch<T extends Record<string, unknown> = Record<string, unknown>> = Partial<
-  Omit<CanvasNode<T>, 'id' | 'type' | 'zIndex'>
->
+export type NodePatch<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+  T extends keyof R = keyof R
+> = Partial<Pick<ResolvedNode<R, T>, 'x' | 'y' | 'width' | 'height' | 'data' | 'locked' | 'visible' | 'parentId'>>
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
@@ -123,7 +131,6 @@ export interface ResizeInteractionState {
   handle: ResizeHandle
   startScreenPoint: Point
   startNodeBounds: Pick<CanvasNode, 'x' | 'y' | 'width' | 'height'>
-  /** width / height at the start of the resize, used for aspect-ratio locking. */
   aspectRatio: number
 }
 
@@ -149,129 +156,125 @@ export type InteractionState =
   | BoxSelectInteractionState
   | EditingInteractionState
 
-export interface BoardState {
-  camera: Camera
-  nodes: Map<NodeId, CanvasNode>
-  selection: Set<NodeId>
-  interaction: InteractionState
-  snapGuides: SnapGuide[]
-  nextZIndex: number
+export interface BoardState<R extends NodeTypeRegistry = NodeTypeRegistry> {
+  readonly camera: Camera
+  readonly nodes: ReadonlyMap<NodeId, ResolvedNode<R>>
+  readonly selection: ReadonlySet<NodeId>
+  readonly interaction: InteractionState
+  readonly snapGuides: readonly SnapGuide[]
+  readonly nextZIndex: number
 }
 
-export interface BoardSnapshot {
-  camera: Camera
-  grid: GridSettings
-  nodes: CanvasNode[]
-  selection: NodeId[]
-  interaction: InteractionState
-  snapGuides: SnapGuide[]
-  nextZIndex: number
+export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
+  readonly camera: Camera
+  readonly grid: GridSettings
+  readonly nodes: readonly ResolvedNode<R>[]
+  readonly selection: readonly NodeId[]
+  readonly interaction: InteractionState
+  readonly snapGuides: readonly SnapGuide[]
+  readonly nextZIndex: number
 }
 
 export type InvariantMode = 'strict' | 'warn' | 'off'
 
-export interface CanvasEngineOptions {
+export interface CanvasEngineExtensions<R extends NodeTypeRegistry = NodeTypeRegistry> {}
+
+export interface CanvasEngineOptions<R extends NodeTypeRegistry = NodeTypeRegistry> {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
-  plugins?: CanvasPlugin[]
+  plugins?: CanvasPlugin<R>[]
   diagnostics?: boolean | { traceLimit?: number }
   invariants?: InvariantMode
-  initialNodes?: CanvasNode[]
+  initialNodes?: ReadonlyArray<ResolvedNode<R>>
 }
 
-export interface InvariantFailure {
+export interface InvariantFailure<R extends NodeTypeRegistry = NodeTypeRegistry> {
   name: string
   message: string
-  snapshot: BoardSnapshot
+  snapshot: BoardSnapshot<R>
   context: string
 }
 
 export interface TraceEntry {
-  event: keyof CanvasEventMap | string
+  event: string
   timestamp: number
   args: unknown[]
 }
 
-export interface CanvasPluginContext extends CanvasEngine {
-  emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void
-}
-
-export interface CanvasPlugin {
-  name: string
-  install(engine: CanvasPluginContext, options?: Record<string, unknown>): void | PluginCleanup
-}
-
-export type PluginCleanup = () => void
-export type Unsubscribe = () => void
-
-export interface CanvasEventMap {
+export interface CanvasEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
   ready: () => void
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
-  'node:created': (node: CanvasNode) => void
-  'node:updated': (node: CanvasNode, prev: CanvasNode) => void
-  'node:deleted': (id: NodeId, prev: CanvasNode) => void
-  'node:moved': (node: CanvasNode, delta: Point) => void
-  'node:resized': (node: CanvasNode, prev: Pick<CanvasNode, 'x' | 'y' | 'width' | 'height'>) => void
+  'node:created': (node: ResolvedNode<R>) => void
+  'node:updated': (node: ResolvedNode<R>, prev: ResolvedNode<R>) => void
+  'node:deleted': (id: NodeId, prev: ResolvedNode<R>) => void
+  'node:moved': (node: ResolvedNode<R>, delta: Point) => void
+  'node:resized': (node: ResolvedNode<R>, prev: Pick<ResolvedNode<R>, 'x' | 'y' | 'width' | 'height'>) => void
   'selection:change': (selected: NodeId[], prev: NodeId[]) => void
   'interaction:start': (state: InteractionState) => void
   'interaction:update': (state: InteractionState) => void
   'interaction:end': (state: InteractionState) => void
   'command:before': (name: string, args: unknown[]) => void
   'command:after': (name: string, args: unknown[], duration: number) => void
-  'invariant:failed': (failure: InvariantFailure) => void
+  'invariant:failed': (failure: InvariantFailure<R>) => void
 }
+
+export type PluginCleanup = () => void
+export type Unsubscribe = () => void
 
 export interface Subscribable<T> {
   get(): T
   subscribe(callback: (value: T, prev: T) => void): Unsubscribe
 }
 
-export interface CanvasEngine {
+export interface CanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
+  readonly ext: CanvasEngineExtensions<R>
   readonly $camera: Subscribable<Camera>
-  readonly $nodes: Subscribable<ReadonlyMap<NodeId, CanvasNode>>
+  readonly $nodes: Subscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
   readonly $interaction: Subscribable<InteractionState>
   readonly $snapGuides: Subscribable<readonly SnapGuide[]>
   batch(fn: () => void): void
-  getState(): Readonly<BoardState>
-  getSnapshot(): BoardSnapshot
+  getState(): BoardState<R>
+  getSnapshot(): BoardSnapshot<R>
   getGridSettings(): GridSettings
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  on<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe
-  once<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): Unsubscribe
-  off<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): void
+  on<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]): Unsubscribe
+  once<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]): Unsubscribe
+  off<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]): void
   exportTrace(): TraceEntry[]
-  use(plugin: CanvasPlugin): void
+  use(plugin: CanvasPlugin<R>): void
   screenToWorld(point: Point): Point
   worldToScreen(point: Point): Point
   getVisibleBounds(width: number, height: number): Bounds
-  getNodeAt(worldPoint: Point): CanvasNode | null
-  getNodesInBounds(bounds: Bounds): CanvasNode[]
+  getNode(id: NodeId): ResolvedNode<R>
+  findNode(id: NodeId): ResolvedNode<R> | null
+  hasNode(id: NodeId): boolean
+  getNodeAt(worldPoint: Point): ResolvedNode<R> | null
+  getNodesInBounds(bounds: Bounds): ResolvedNode<R>[]
   panBy(dx: number, dy: number): void
   panTo(worldPoint: Point, animated?: boolean): Promise<void>
   zoomAt(screenPoint: Point, delta: number): void
   zoomTo(level: number, animated?: boolean): Promise<void>
   zoomToFit(padding?: number, animated?: boolean): Promise<void>
   zoomToNodes(ids: NodeId[], padding?: number, animated?: boolean): Promise<void>
-  createNode<T extends Record<string, unknown> = Record<string, unknown>>(input: NodeInput<T>): CanvasNode<T>
-  updateNode<T extends Record<string, unknown> = Record<string, unknown>>(id: NodeId, patch: NodePatch<T>): CanvasNode<T>
+  createNode<T extends keyof R = keyof R>(input: NodeInput<R, T>): ResolvedNode<R, T>
+  updateNode<T extends keyof R = keyof R>(id: NodeId, patch: NodePatch<R, T>): ResolvedNode<R, T>
   deleteNode(id: NodeId): void
-  moveNode(id: NodeId, dx: number, dy: number): CanvasNode
-  /** Arrow-key style nudge for current selection; one history command; respects group subtrees. */
+  moveNode(id: NodeId, dx: number, dy: number): ResolvedNode<R>
   translateSelectedNodes(dx: number, dy: number): void
-  resizeNode(id: NodeId, handle: ResizeHandle, dx: number, dy: number): CanvasNode
+  resizeNode(id: NodeId, handle: ResizeHandle, dx: number, dy: number): ResolvedNode<R>
   bringToFront(id: NodeId): void
   sendToBack(id: NodeId): void
   lockNode(id: NodeId): void
   unlockNode(id: NodeId): void
-  duplicateNodes(ids: NodeId[], offset?: Point): CanvasNode[]
-  copySelected(): CanvasNode[]
-  pasteClipboard(offset?: Point): CanvasNode[]
+  duplicateNodes(ids: NodeId[], offset?: Point): ResolvedNode<R>[]
+  copySelected(): ResolvedNode<R>[]
+  pasteClipboard(offset?: Point): ResolvedNode<R>[]
   select(ids: NodeId | NodeId[], mode?: SelectionMode): void
   selectAll(): void
   clearSelection(): void
@@ -282,13 +285,21 @@ export interface CanvasEngine {
   beginResize(id: NodeId, handle: ResizeHandle, pointerId: number, screenPoint: Point): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
-  commitTextEdit(id: NodeId, text?: string): CanvasNode
+  commitTextEdit(id: NodeId, text?: string): ResolvedNode<R>
   updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean }): void
   endInteraction(pointerId?: number): void
-  /** Node ids that receive the same delta for keyboard nudge / coordinated moves (includes group subtrees). */
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
-  /** Ensure every descendant of `groupId` has zIndex greater than its ancestor chain (after reparent/wrap). */
   syncGroupZOrder(groupId: NodeId): void
   exportJSON(): string
   importJSON(json: string, mode?: 'replace' | 'merge'): void
+}
+
+export interface CanvasPluginContext<R extends NodeTypeRegistry = NodeTypeRegistry> extends CanvasEngine<R> {
+  emit<K extends keyof CanvasEventMap<R>>(event: K, ...args: Parameters<CanvasEventMap<R>[K]>): void
+  extend<K extends keyof CanvasEngineExtensions<R> & string>(key: K, value: CanvasEngineExtensions<R>[K]): void
+}
+
+export interface CanvasPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {
+  name: string
+  install(engine: CanvasPluginContext<R>, options?: Record<string, unknown>): void | PluginCleanup
 }

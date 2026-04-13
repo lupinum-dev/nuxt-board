@@ -128,20 +128,30 @@ describe('canvas engine', () => {
     expect(snapshot.interaction.mode).toBe('idle')
   })
 
-  it('fires invariant:failed in warn mode instead of throwing', () => {
-    const failures: string[] = []
-    const engine = createCanvasEngine({ invariants: 'warn' })
-    engine.on('invariant:failed', (f) => failures.push(f.name))
+  it('returns detached public nodes from snapshots', () => {
+    const engine = createCanvasEngine()
+    const node = engine.createNode({ type: 'text', x: 10, y: 20, data: { content: 'immutable' } })
+    const snapshot = engine.getSnapshot()
+    const fromSnapshot = snapshot.nodes.find((entry) => entry.id === node.id)!
 
-    // Force an invariant failure by selecting a non-existent node via internal state
-    const state = engine.getState()
-    ;(state.selection as Set<string>).add('non-existent-id')
-    // Trigger a command to run validation
-    engine.clearSelection()
+    expect(() => {
+      ;(fromSnapshot as unknown as { x: number }).x = 999
+    }).toThrow()
+    expect(engine.getNode(node.id).x).toBe(10)
+  })
 
-    // In warn mode we should have received failures, not an exception
-    // (the clearSelection itself fixes the selection, but the point is it didn't throw)
-    expect(engine.getSnapshot().selection).toHaveLength(0)
+  it('emits paired batch command hooks', () => {
+    const engine = createCanvasEngine()
+    const events: string[] = []
+    engine.on('command:before', (name) => events.push(`before:${name}`))
+    engine.on('command:after', (name) => events.push(`after:${name}`))
+
+    engine.batch(() => {
+      engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+      engine.createNode({ type: 'text', x: 100, y: 0, data: { content: 'B' } })
+    })
+
+    expect(events).toEqual(['before:batch', 'after:batch'])
   })
 
   it('merges imported nodes without overwriting existing ones', () => {

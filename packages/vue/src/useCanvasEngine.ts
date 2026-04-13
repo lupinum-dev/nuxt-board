@@ -1,6 +1,5 @@
 import { computed, inject } from 'vue'
-import { getBoundsFromPoints, getVisibleBounds } from '@canvas/core'
-import type { ResizeHandle } from '@canvas/core'
+import { getBoundsFromPoints, getVisibleBounds, type NodeId, type ResizeHandle } from '@canvas/core'
 import { canvasEngineKey } from './context'
 
 export function useCanvasEngine() {
@@ -17,9 +16,8 @@ export function useCamera() {
 }
 
 export function useNodes() {
-  const { snapshot } = useCanvasEngine()
-  // Still returns the sorted array from the snapshot for backward compat
-  return computed(() => snapshot.value.nodes)
+  const { $nodes } = useCanvasEngine()
+  return computed(() => $nodes.value)
 }
 
 export function useSelection() {
@@ -38,10 +36,10 @@ export function useVisibleBounds() {
 }
 
 export function useVisibleNodes(margin = 200) {
-  const { snapshot, viewportSize, $camera } = useCanvasEngine()
+  const { $nodes, viewportSize, $camera } = useCanvasEngine()
   return computed(() => {
     const bounds = getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value)
-    return snapshot.value.nodes.filter((node) => {
+    return Array.from($nodes.value.values()).filter((node) => {
       if (!node.visible) {
         return false
       }
@@ -56,20 +54,20 @@ export function useVisibleNodes(margin = 200) {
 }
 
 export function useGridStyle() {
-  const { snapshot, resolvedGrid } = useCanvasEngine()
+  const { $camera, resolvedGrid } = useCanvasEngine()
 
   function modulo(value: number, divisor: number): number {
     return ((value % divisor) + divisor) % divisor
   }
 
   return computed(() => {
-    const zoom = snapshot.value.camera.z
+    const zoom = $camera.value.z
     const minorWorldStep = resolvedGrid.value.size
     const majorWorldStep = resolvedGrid.value.size * resolvedGrid.value.majorEvery
     const minorScreenStep = minorWorldStep * zoom
     const majorScreenStep = majorWorldStep * zoom
-    const cameraScreenX = snapshot.value.camera.x * zoom
-    const cameraScreenY = snapshot.value.camera.y * zoom
+    const cameraScreenX = $camera.value.x * zoom
+    const cameraScreenY = $camera.value.y * zoom
     const minorAlpha =
       minorScreenStep < 6 ? 0 : minorScreenStep < 12 ? resolvedGrid.value.minorOpacity * 0.57 : resolvedGrid.value.minorOpacity
     const majorAlpha =
@@ -91,11 +89,11 @@ export function useGridStyle() {
   })
 }
 
-export function useNode(id: string) {
-  const { engine, snapshot, $selection, $interaction, toLocalPoint } = useCanvasEngine()
+export function useNode(id: NodeId) {
+  const { engine, $nodes, $selection, $interaction, toLocalPoint } = useCanvasEngine()
 
   const node = computed(() => {
-    const current = snapshot.value.nodes.find((entry) => entry.id === id)
+    const current = $nodes.value.get(id)
     if (!current) {
       throw new Error(`Node "${id}" is not present in the current snapshot.`)
     }

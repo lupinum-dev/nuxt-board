@@ -5,7 +5,8 @@ import type {
   GridSettings,
   InvariantFailure,
   InteractionState,
-  NodeId
+  NodeId,
+  NodeTypeRegistry
 } from './types'
 
 export function cloneInteraction(interaction: InteractionState): InteractionState {
@@ -52,7 +53,7 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
   }
 }
 
-export function createSnapshot(state: BoardState, grid: GridSettings): BoardSnapshot {
+export function createSnapshot<R extends NodeTypeRegistry>(state: BoardState<R>, grid: GridSettings): BoardSnapshot<R> {
   return {
     camera: { ...state.camera },
     grid: { ...grid },
@@ -70,9 +71,13 @@ function cloneData<T>(data: T): T {
   return structuredClone(data)
 }
 
-export function validateState(state: BoardState, grid: GridSettings, context: string): InvariantFailure[] {
-  const failures: InvariantFailure[] = []
-  let snapshot: BoardSnapshot | null = null
+export function validateState<R extends NodeTypeRegistry>(
+  state: BoardState<R>,
+  grid: GridSettings,
+  context: string
+): InvariantFailure<R>[] {
+  const failures: InvariantFailure<R>[] = []
+  let snapshot: BoardSnapshot<R> | null = null
   const lazySnapshot = () => snapshot ?? (snapshot = createSnapshot(state, grid))
 
   const push = (name: string, message: string) => {
@@ -140,7 +145,11 @@ function validateNode(node: CanvasNode, push: (name: string, message: string) =>
   }
 }
 
-function validateNodeParent(node: CanvasNode, state: BoardState, push: (name: string, message: string) => void): void {
+function validateNodeParent<R extends NodeTypeRegistry>(
+  node: CanvasNode,
+  state: BoardState<R>,
+  push: (name: string, message: string) => void
+): void {
   if (node.parentId === undefined) {
     return
   }

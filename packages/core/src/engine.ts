@@ -20,7 +20,7 @@ import {
   getBoundsFromNode,
   sortIdsByZIndex
 } from './hierarchy'
-import { cloneInteraction, createSnapshot, validateState } from './invariants'
+import { cloneInteraction, validateState } from './invariants'
 import { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
 import { collectOtherNodeEdges, collectOtherNodeEdgesExcluding, snapBoundsToEdges, snapPositionToEdges } from './snap'
 import { createBatchController, createSubscribable } from './subscribable'
@@ -30,6 +30,7 @@ import type {
   Bounds,
   Camera,
   CanvasEngine,
+  CanvasEngineExtensions,
   CanvasEngineOptions,
   CanvasEventMap,
   CanvasNode,
@@ -39,12 +40,14 @@ import type {
   InteractionState,
   InvariantMode,
   NodeConstraints,
+  NodeData,
   NodeId,
   NodeInput,
   NodePatch,
+  NodeTypeRegistry,
   Point,
+  ResolvedNode,
   ResizeHandle,
-  SelectionMode,
   SnapGuide,
   Subscribable,
   TraceEntry,
@@ -62,7 +65,50 @@ const DEFAULT_NODE_CONSTRAINTS: NodeConstraints = {
 }
 const DEFAULT_VIEWPORT_SIZE: Point = { x: 1280, y: 720 }
 
-export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEngine {
+interface StoredNode<TType extends string = string, TData extends NodeData = NodeData> extends CanvasNode<TType, TData> {
+  readonly _version: number
+  readonly _geometryVersion: number
+  readonly _dataVersion: number
+}
+
+interface MutableBoardState<R extends NodeTypeRegistry> {
+  camera: Camera
+  nodes: Map<NodeId, StoredNode>
+  selection: Set<NodeId>
+  interaction: InteractionState
+  snapGuides: SnapGuide[]
+  nextZIndex: number
+}
+
+type ListenerMap<R extends NodeTypeRegistry> = Map<keyof CanvasEventMap<R>, Set<(...args: unknown[]) => void>>
+
+function cloneData<T>(value: T): T {
+  return structuredClone(value)
+}
+
+function freezeClone<T>(value: T): T {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      freezeClone(entry)
+    }
+    return Object.freeze(value)
+  }
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      freezeClone(child)
+    }
+    return Object.freeze(value)
+  }
+  return value
+}
+
+function createNodeId(): NodeId {
+  return crypto.randomUUID() as NodeId
+}
+
+export function createCanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry>(
+  options: CanvasEngineOptions<R> = {}
+): CanvasEngine<R> {
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
   const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
@@ -74,15 +120,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       ? options.diagnostics.traceLimit
       : 500
 
-  const listeners = new Map<keyof CanvasEventMap, Set<(...args: unknown[]) => void>>()
+  const listeners: ListenerMap<R> = new Map()
   const trace: TraceEntry[] = []
   const pluginCleanups = new Map<string, () => void>()
-  const clipboard: CanvasNode[] = []
+  const clipboard: StoredNode[] = []
+  const ext = {} as CanvasEngineExtensions<R>
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
-  let cachedNodeArray: CanvasNode[] | null = null
 
-  const state: BoardState = {
+  const state: MutableBoardState<R> = {
     camera,
     nodes: new Map(),
     selection: new Set(),
@@ -97,99 +143,174 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
   }
 
-  // Batch controller — shared by all subscribables; allows engine.batch() to defer notifications
   const batchCtrl = createBatchController()
+  const $camera = createSubscribable<Camera>(freezeClone({ ...state.camera }), batchCtrl)
+  const $nodes = createSubscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>(new Map(), batchCtrl)
+  const $selection = createSubscribable<ReadonlySet<NodeId>>(new Set(state.selection), batchCtrl)
+  const $interaction = createSubscribable<InteractionState>(cloneInteraction(state.interaction), batchCtrl)
+  const $snapGuides = createSubscribable<readonly SnapGuide[]>(state.snapGuides.map((guide) => freezeClone({ ...guide })), batchCtrl)
 
-  // Granular subscribables for fine-grained reactivity
-  const $camera = createSubscribable<Camera>({ ...state.camera }, batchCtrl)
-  const $nodes = createSubscribable<ReadonlyMap<NodeId, CanvasNode>>(state.nodes, batchCtrl)
-  const $selection = createSubscribable<ReadonlySet<NodeId>>(state.selection, batchCtrl)
-  const $interaction = createSubscribable<InteractionState>(state.interaction, batchCtrl)
-  const $snapGuides = createSubscribable<readonly SnapGuide[]>(state.snapGuides, batchCtrl)
+  let cachedPublicNodeMap: ReadonlyMap<NodeId, ResolvedNode<R>> | null = null
+  let validationPending = false
+  let transactionDepth = 0
+  let transactionStartedAt = 0
 
-  function notifyNodesChanged(): void {
-    $nodes.notify()
-  }
-
-  function notifySnapGuidesChanged(): void {
-    $snapGuides.set(state.snapGuides)
-  }
-
-  function emit<K extends keyof CanvasEventMap>(event: K, ...args: Parameters<CanvasEventMap[K]>): void {
+  function emit<K extends keyof CanvasEventMap<R>>(event: K, ...args: Parameters<CanvasEventMap<R>[K]>): void {
     if (diagnosticsEnabled) {
-      trace.push({ event, timestamp: Date.now(), args })
+      trace.push({ event: String(event), timestamp: Date.now(), args })
       if (trace.length > traceLimit) {
         trace.shift()
       }
     }
     for (const handler of listeners.get(event) ?? []) {
       try {
-        ;(handler as (...payload: Parameters<CanvasEventMap[K]>) => void)(...args)
+        ;(handler as (...payload: Parameters<CanvasEventMap<R>[K]>) => void)(...args)
       } catch (error) {
         console.error(`[canvas] handler for "${String(event)}" threw:`, error)
       }
     }
   }
 
-  function on<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]) {
+  function on<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]) {
     const set = listeners.get(event) ?? new Set<(...args: unknown[]) => void>()
     set.add(handler as (...args: unknown[]) => void)
     listeners.set(event, set)
     return () => off(event, handler)
   }
 
-  function once<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]) {
+  function once<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]) {
     const unsubscribe = on(event, ((...args: unknown[]) => {
       unsubscribe()
       ;(handler as (...payload: unknown[]) => void)(...args)
-    }) as CanvasEventMap[K])
+    }) as CanvasEventMap<R>[K])
     return unsubscribe
   }
 
-  function off<K extends keyof CanvasEventMap>(event: K, handler: CanvasEventMap[K]): void {
+  function off<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]): void {
     listeners.get(event)?.delete(handler as (...args: unknown[]) => void)
   }
 
   function getGridSettings(): GridSettings {
-    return { ...grid }
+    return freezeClone({ ...grid })
   }
 
   function getViewportSize(): Point {
-    return { ...viewportSize }
+    return freezeClone({ ...viewportSize })
   }
 
-  function invalidateNodeCache(): void {
-    cachedNodeArray = null
-    notifyNodesChanged()
+  function materializeNode<T extends keyof R = keyof R>(node: StoredNode): ResolvedNode<R, T> {
+    return freezeClone({
+      id: node.id,
+      type: node.type,
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+      data: cloneData(node.data),
+      zIndex: node.zIndex,
+      locked: node.locked,
+      visible: node.visible,
+      ...(node.parentId !== undefined ? { parentId: node.parentId } : {})
+    }) as ResolvedNode<R, T>
   }
 
-  function getSnapshot(): BoardSnapshot {
-    if (!cachedNodeArray) {
-      cachedNodeArray = Array.from(state.nodes.values())
-        .sort((a, b) => a.zIndex - b.zIndex)
+  function getPublicNodeMap(): ReadonlyMap<NodeId, ResolvedNode<R>> {
+    if (!cachedPublicNodeMap) {
+      cachedPublicNodeMap = new Map(
+        Array.from(state.nodes.values(), (node) => [node.id, materializeNode(node)] as const)
+      )
     }
-    return {
+    return cachedPublicNodeMap
+  }
+
+  function notifyNodesChanged(): void {
+    cachedPublicNodeMap = null
+    $nodes.set(new Map(getPublicNodeMap()))
+  }
+
+  function notifySelectionChanged(): void {
+    $selection.set(new Set(state.selection))
+  }
+
+  function notifyInteractionChanged(): void {
+    $interaction.set(cloneInteraction(state.interaction))
+  }
+
+  function notifySnapGuidesChanged(): void {
+    $snapGuides.set(state.snapGuides.map((guide) => freezeClone({ ...guide })))
+  }
+
+  function flushBatchNotifications(): void {
+    const pending = [...batchCtrl.pending]
+    batchCtrl.pending.clear()
+    for (const flush of pending) {
+      flush()
+    }
+  }
+
+  function beginTransaction(): void {
+    if (transactionDepth === 0) {
+      transactionStartedAt = performance.now()
+      batchCtrl.depth += 1
+      emit('command:before', 'batch', [])
+    }
+    transactionDepth += 1
+  }
+
+  function endTransaction(): void {
+    transactionDepth -= 1
+    if (transactionDepth !== 0) {
+      return
+    }
+    if (validationPending) {
+      validate('batch')
+      validationPending = false
+    }
+    batchCtrl.depth -= 1
+    flushBatchNotifications()
+    emit('command:after', 'batch', [], performance.now() - transactionStartedAt)
+  }
+
+  function getSnapshot(): BoardSnapshot<R> {
+    return freezeClone({
       camera: { ...state.camera },
       grid: { ...grid },
-      nodes: cachedNodeArray,
+      nodes: Array.from(getPublicNodeMap().values()).sort((a, b) => a.zIndex - b.zIndex),
       selection: Array.from(state.selection.values()),
       interaction: cloneInteraction(state.interaction),
-      snapGuides: [...state.snapGuides],
+      snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
+      nextZIndex: state.nextZIndex
+    })
+  }
+
+  function getState(): BoardState<R> {
+    return {
+      camera: freezeClone({ ...state.camera }),
+      nodes: new Map(getPublicNodeMap()),
+      selection: new Set(state.selection),
+      interaction: cloneInteraction(state.interaction),
+      snapGuides: state.snapGuides.map((guide) => freezeClone({ ...guide })),
       nextZIndex: state.nextZIndex
     }
   }
 
   function runCommand<T>(name: string, args: unknown[], fn: () => T, skipValidation = false): T {
     const started = performance.now()
-    emit('command:before', name, args)
+    const inTransaction = transactionDepth > 0
+    if (!inTransaction) {
+      emit('command:before', name, args)
+    }
     const result = fn()
     if (!skipValidation) {
-      validate(name)
+      if (inTransaction) {
+        validationPending = true
+      } else {
+        validate(name)
+      }
     }
-    if (batchCtrl.depth === 0) {
+    if (!inTransaction) {
       emit('command:after', name, args, performance.now() - started)
     }
-    // Inside a batch — command:after is suppressed; a single 'batch' event fires on flush
     return result
   }
 
@@ -215,7 +336,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     if (invariantMode === 'off') {
       return
     }
-    const failures = validateState(state, grid, context)
+    const failures = validateState(getState(), grid, context)
     for (const failure of failures) {
       emit('invariant:failed', failure)
     }
@@ -230,8 +351,8 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return
     }
     state.camera = next
-    $camera.set({ ...next })
-    emit('camera:change', { ...next }, prev)
+    $camera.set(freezeClone({ ...next }))
+    emit('camera:change', freezeClone({ ...next }), freezeClone(prev))
   }
 
   function setSelection(nextSelection: Iterable<NodeId>): void {
@@ -241,28 +362,33 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
       return
     }
     state.selection = new Set(next)
-    $selection.set(state.selection)
+    notifySelectionChanged()
     emit('selection:change', next, prev)
   }
 
   function setInteraction(next: InteractionState): void {
     const prev = state.interaction
     state.interaction = next
-    $interaction.set(next)
+    notifyInteractionChanged()
     if (prev.mode === 'idle' && next.mode !== 'idle') {
-      emit('interaction:start', next)
+      emit('interaction:start', cloneInteraction(next))
       return
     }
     if (prev.mode !== 'idle' && next.mode === 'idle') {
-      emit('interaction:end', prev)
+      emit('interaction:end', cloneInteraction(prev))
       return
     }
     if (prev.mode !== 'idle' && next.mode !== 'idle') {
-      emit('interaction:update', next)
+      emit('interaction:update', cloneInteraction(next))
     }
   }
 
-  function assertNode(id: NodeId): CanvasNode {
+  function setSnapGuides(next: SnapGuide[]): void {
+    state.snapGuides = next
+    notifySnapGuidesChanged()
+  }
+
+  function assertStoredNode(id: NodeId): StoredNode {
     const node = state.nodes.get(id)
     if (!node) {
       throw new Error(`Node "${id}" does not exist.`)
@@ -270,26 +396,33 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     return node
   }
 
-  function normalizeExistingNode(node: CanvasNode): CanvasNode {
+  function normalizeExistingNode(node: ResolvedNode<R>): StoredNode {
     const parentId =
       typeof node.parentId === 'string' && node.parentId.length > 0 ? node.parentId : undefined
     return {
       ...node,
-      data: structuredClone(node.data),
+      data: cloneData(node.data),
       locked: Boolean(node.locked),
       visible: node.visible !== false,
       parentId,
-      _gen: node._gen ?? 0,
-      _geoGen: node._geoGen ?? 0,
-      _dataGen: node._dataGen ?? 0
+      _version: 0,
+      _geometryVersion: 0,
+      _dataVersion: 0
     }
   }
 
-  function normalizeNode<T extends Record<string, unknown> = Record<string, unknown>>(input: NodeInput<T>): CanvasNode<T> {
-    const rawPoint = {
-      x: input.x ?? 0,
-      y: input.y ?? 0
+  function defaultNodeData(type: string): NodeData {
+    if (type === 'text') {
+      return { content: '' }
     }
+    if (type === 'group') {
+      return { title: 'Untitled group', accent: '#0d9488' }
+    }
+    return {}
+  }
+
+  function normalizeNode<T extends keyof R = keyof R>(input: NodeInput<R, T>): StoredNode {
+    const rawPoint = { x: input.x ?? 0, y: input.y ?? 0 }
     const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint
     const width = grid.snap
       ? snapSize(input.width ?? nodeConstraints.defaultWidth, grid.size, nodeConstraints.minWidth)
@@ -297,68 +430,68 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     const height = grid.snap
       ? snapSize(input.height ?? nodeConstraints.defaultHeight, grid.size, nodeConstraints.minHeight)
       : input.height ?? nodeConstraints.defaultHeight
-
-    const t = input.type ?? 'text'
-    const defaultData =
-      t === 'text'
-        ? ({ content: '' } as unknown as T)
-        : t === 'group'
-          ? ({ title: 'Untitled group', accent: '#0d9488' } as unknown as T)
-          : ({} as T)
-
+    const type = (input.type ?? 'text') as keyof R & string
     const parentId =
       typeof input.parentId === 'string' && input.parentId.length > 0 ? input.parentId : undefined
 
     return {
-      id: input.id ?? crypto.randomUUID(),
-      type: t,
+      id: input.id ?? createNodeId(),
+      type,
       x: snappedPoint.x,
       y: snappedPoint.y,
       width,
       height,
-      data: structuredClone(input.data ?? defaultData),
+      data: cloneData((input.data ?? defaultNodeData(type)) as R[keyof R]),
       zIndex: state.nextZIndex++,
       locked: Boolean(input.locked),
       visible: input.visible !== false,
       parentId,
-      _gen: 0,
-      _geoGen: 0,
-      _dataGen: 0
+      _version: 0,
+      _geometryVersion: 0,
+      _dataVersion: 0
     }
   }
 
-  function applyNodePatch<T extends Record<string, unknown> = Record<string, unknown>>(
-    node: CanvasNode<T>,
-    patch: NodePatch<T>
-  ): CanvasNode<T> {
-    const next: CanvasNode<T> = {
+  function applyNodePatch<T extends keyof R = keyof R>(node: StoredNode, patch: NodePatch<R, T>): StoredNode {
+    const nextBase = {
       ...node,
       ...patch,
       parentId: 'parentId' in patch ? patch.parentId : node.parentId,
-      data: patch.data === undefined ? node.data : structuredClone(patch.data),
-      visible: patch.visible ?? node.visible,
-      locked: patch.locked ?? node.locked
+      data: patch.data === undefined ? node.data : cloneData(patch.data)
     }
-    if (grid.snap) {
-      next.x = snapValue(next.x, grid.size)
-      next.y = snapValue(next.y, grid.size)
-      next.width = snapSize(next.width, grid.size, nodeConstraints.minWidth)
-      next.height = snapSize(next.height, grid.size, nodeConstraints.minHeight)
+    const x = grid.snap ? snapValue(nextBase.x, grid.size) : nextBase.x
+    const y = grid.snap ? snapValue(nextBase.y, grid.size) : nextBase.y
+    const width = grid.snap ? snapSize(nextBase.width, grid.size, nodeConstraints.minWidth) : nextBase.width
+    const height = grid.snap ? snapSize(nextBase.height, grid.size, nodeConstraints.minHeight) : nextBase.height
+
+    return {
+      ...nextBase,
+      x,
+      y,
+      width,
+      height,
+      _version: node._version,
+      _geometryVersion: node._geometryVersion,
+      _dataVersion: node._dataVersion
     }
-    return next
   }
 
-  function replaceNode(node: CanvasNode, next: CanvasNode): void {
-    const geoChanged = node.x !== next.x || node.y !== next.y || node.width !== next.width || node.height !== next.height
+  function replaceStoredNode(node: StoredNode, next: StoredNode): StoredNode {
+    const geometryChanged = node.x !== next.x || node.y !== next.y || node.width !== next.width || node.height !== next.height
     const dataChanged = node.data !== next.data
-    const stamped = {
+    const stored: StoredNode = {
       ...next,
-      _gen: node._gen + 1,
-      _geoGen: geoChanged ? node._geoGen + 1 : node._geoGen,
-      _dataGen: dataChanged ? node._dataGen + 1 : node._dataGen,
+      _version: node._version + 1,
+      _geometryVersion: geometryChanged ? node._geometryVersion + 1 : node._geometryVersion,
+      _dataVersion: dataChanged ? node._dataVersion + 1 : node._dataVersion
     }
-    state.nodes.set(node.id, stamped)
-    invalidateNodeCache()
+    state.nodes.set(node.id, stored)
+    notifyNodesChanged()
+    return stored
+  }
+
+  function getPublicNode(id: NodeId): ResolvedNode<R> {
+    return materializeNode(assertStoredNode(id))
   }
 
   function bumpNodeToFront(id: NodeId): void {
@@ -366,28 +499,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     if (!node) {
       return
     }
-    replaceNode(node, { ...node, zIndex: state.nextZIndex++ })
-    emit('node:updated', assertNode(id), node)
+    const next = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
+    emit('node:updated', materializeNode(next), materializeNode(node))
     restackGroupDescendantsAbove(id)
   }
 
-  /** After raising a group's z-index, every descendant must stay strictly above it (Obsidian-style frame behind cards). */
-  function restackGroupDescendantsAbove(groupId: NodeId): void {
-    const g = state.nodes.get(groupId)
-    if (!g || g.type !== 'group') {
-      return
-    }
-    for (const child of getDirectChildren(groupId)) {
-      fixSubtreeZOrderAfter(g, child.id)
-    }
-  }
-
-  function getDirectChildren(parentId: NodeId): CanvasNode[] {
-    return [...state.nodes.values()].filter((n) => n.parentId === parentId)
+  function getDirectChildren(parentId: NodeId): StoredNode[] {
+    return Array.from(state.nodes.values()).filter((node) => node.parentId === parentId)
   }
 
   function collectSubtreeIdSet(rootId: NodeId, into: Set<NodeId>): void {
-    collectSubtreeIds(rootId, state.nodes, into)
+    collectSubtreeIds(rootId, state.nodes as Map<NodeId, CanvasNode>, into)
   }
 
   function forestIdsFromSeeds(seedIds: Iterable<NodeId>): Set<NodeId> {
@@ -403,106 +525,103 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   function deletionOrderPostOrder(ids: Set<NodeId>): NodeId[] {
     const memo = new Map<NodeId, number>()
     function depthOf(id: NodeId): number {
-      const hit = memo.get(id)
-      if (hit !== undefined) {
-        return hit
+      const cached = memo.get(id)
+      if (cached !== undefined) {
+        return cached
       }
-      const n = state.nodes.get(id)
-      if (!n?.parentId || !ids.has(n.parentId)) {
+      const node = state.nodes.get(id)
+      if (!node?.parentId || !ids.has(node.parentId)) {
         memo.set(id, 0)
         return 0
       }
-      const d = depthOf(n.parentId) + 1
-      memo.set(id, d)
-      return d
+      const depth = depthOf(node.parentId) + 1
+      memo.set(id, depth)
+      return depth
     }
-    return [...ids].sort((a, b) => depthOf(b) - depthOf(a))
+    return Array.from(ids).sort((a, b) => depthOf(b) - depthOf(a))
   }
 
-  function fixSubtreeZOrderAfter(parent: CanvasNode | null, nodeId: NodeId): void {
+  function fixSubtreeZOrderAfter(parent: StoredNode | null, nodeId: NodeId): void {
     const node = state.nodes.get(nodeId)
     if (!node) {
       return
     }
-    let cur = node
-    if (parent && cur.zIndex <= parent.zIndex) {
-      cur = { ...cur, zIndex: state.nextZIndex++ }
-      replaceNode(node, cur)
+    let current = node
+    if (parent && current.zIndex <= parent.zIndex) {
+      current = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
     }
-    const anchor = state.nodes.get(nodeId)!
     for (const child of getDirectChildren(nodeId)) {
-      fixSubtreeZOrderAfter(anchor, child.id)
+      fixSubtreeZOrderAfter(current, child.id)
+    }
+  }
+
+  function restackGroupDescendantsAbove(groupId: NodeId): void {
+    const group = state.nodes.get(groupId)
+    if (!group || group.type !== 'group') {
+      return
+    }
+    for (const child of getDirectChildren(groupId)) {
+      fixSubtreeZOrderAfter(group, child.id)
     }
   }
 
   function reparentAfterDrag(movedIds: NodeId[]): void {
-    const ordered = sortIdsByZIndex(movedIds, state.nodes)
+    const ordered = sortIdsByZIndex(movedIds, state.nodes as Map<NodeId, CanvasNode>)
     for (const id of ordered) {
-      const n = state.nodes.get(id)
-      if (!n) {
+      const node = state.nodes.get(id)
+      if (!node) {
         continue
       }
-      const nextParent = findContainingGroup(n, state.nodes)
-      const prevParent = n.parentId
-      if (nextParent === prevParent) {
+      const nextParent = findContainingGroup(node, state.nodes as Map<NodeId, CanvasNode>)
+      if (nextParent === node.parentId) {
         continue
       }
-      replaceNode(n, { ...n, parentId: nextParent })
-      emit('node:updated', assertNode(id), n)
-      const pNode = nextParent ? assertNode(nextParent) : null
-      fixSubtreeZOrderAfter(pNode, id)
+      const updated = replaceStoredNode(node, { ...node, parentId: nextParent })
+      emit('node:updated', materializeNode(updated), materializeNode(node))
+      fixSubtreeZOrderAfter(nextParent ? assertStoredNode(nextParent) : null, id)
     }
   }
 
-  function getCopyClosureNodes(): CanvasNode[] {
+  function getSelectionNodes(): StoredNode[] {
+    return Array.from(state.selection.values())
+      .map((id) => state.nodes.get(id))
+      .filter((node): node is StoredNode => Boolean(node))
+  }
+
+  function getCopyClosureNodes(): StoredNode[] {
     const selected = getSelectionNodes()
     const ids = expandGroupDragSeeds(
-      selected.map((n) => n.id),
-      state.nodes
+      selected.map((node) => node.id),
+      state.nodes as Map<NodeId, CanvasNode>
     )
-    return [...ids]
-      .map((nid) => state.nodes.get(nid))
-      .filter((node): node is CanvasNode => Boolean(node))
+    return Array.from(ids)
+      .map((id) => state.nodes.get(id))
+      .filter((node): node is StoredNode => Boolean(node))
       .sort((a, b) => a.zIndex - b.zIndex)
   }
 
-  function duplicateForest(nodes: CanvasNode[], offset: Point): CanvasNode[] {
+  function duplicateForest(nodes: StoredNode[], offset: Point): StoredNode[] {
     const sorted = [...nodes].sort((a, b) => a.zIndex - b.zIndex)
     const idMap = new Map<NodeId, NodeId>()
-    for (const n of sorted) {
-      idMap.set(n.id, crypto.randomUUID())
+    for (const node of sorted) {
+      idMap.set(node.id, createNodeId())
     }
-    const created: CanvasNode[] = []
-    for (const n of sorted) {
-      const newId = idMap.get(n.id)!
-      const mappedParent =
-        n.parentId && idMap.has(n.parentId) ? (idMap.get(n.parentId) as NodeId) : undefined
-      const dup: CanvasNode = {
-        ...n,
-        data: structuredClone(n.data),
-        id: newId,
-        parentId: mappedParent,
-        x: grid.snap ? snapValue(n.x + offset.x, grid.size) : n.x + offset.x,
-        y: grid.snap ? snapValue(n.y + offset.y, grid.size) : n.y + offset.y,
-        zIndex: state.nextZIndex++,
-        _gen: 0,
-        _geoGen: 0,
-        _dataGen: 0
-      }
-      created.push(dup)
-    }
-    return created
-  }
-
-  function getSelectionNodes(): CanvasNode[] {
-    return Array.from(state.selection.values())
-      .map((id) => state.nodes.get(id))
-      .filter((node): node is CanvasNode => Boolean(node))
+    return sorted.map((node) => ({
+      ...node,
+      id: idMap.get(node.id)!,
+      data: cloneData(node.data),
+      parentId: node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : undefined,
+      x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
+      y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
+      zIndex: state.nextZIndex++,
+      _version: 0,
+      _geometryVersion: 0,
+      _dataVersion: 0
+    }))
   }
 
   function cleanupSelection(): void {
-    const next = Array.from(state.selection.values()).filter((id) => state.nodes.has(id))
-    setSelection(next)
+    setSelection(Array.from(state.selection.values()).filter((id) => state.nodes.has(id)))
   }
 
   function getAnimationFrameDriver() {
@@ -554,7 +673,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
 
   function computeFitCamera(ids: NodeId[] | null, padding = 40): Camera | null {
     const source = ids
-      ? ids.map((id) => state.nodes.get(id)).filter((node): node is CanvasNode => Boolean(node && node.visible))
+      ? ids.map((id) => state.nodes.get(id)).filter((node): node is StoredNode => Boolean(node && node.visible))
       : Array.from(state.nodes.values()).filter((node) => node.visible)
     if (source.length === 0) {
       return null
@@ -587,15 +706,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     }
   }
 
-  function restoreSnapshot(snapshot: BoardSnapshot, mode: 'replace' | 'merge'): void {
+  function restoreSnapshot(snapshot: BoardSnapshot<R>, mode: 'replace' | 'merge'): void {
     if (mode === 'replace') {
       state.nodes = new Map(snapshot.nodes.map((node) => [node.id, normalizeExistingNode(node)]))
       state.selection = new Set(snapshot.selection.filter((id) => state.nodes.has(id)))
       state.interaction = { mode: 'idle' }
       state.nextZIndex = snapshot.nextZIndex
-      invalidateNodeCache()
-      $selection.set(state.selection)
-      $interaction.set(state.interaction)
+      notifyNodesChanged()
+      notifySelectionChanged()
+      notifyInteractionChanged()
       setCamera({ ...snapshot.camera })
       grid.size = snapshot.grid.size
       grid.majorEvery = snapshot.grid.majorEvery
@@ -606,41 +725,31 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
 
     for (const rawNode of snapshot.nodes) {
       const node = normalizeExistingNode(rawNode)
-      const id = state.nodes.has(node.id) ? crypto.randomUUID() : node.id
+      const id = state.nodes.has(node.id) ? createNodeId() : node.id
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
     }
-    invalidateNodeCache()
+    notifyNodesChanged()
   }
 
-  const engine: CanvasPluginContext = {
+  const engine: CanvasPluginContext<R> = {
+    ext,
     $camera,
-    $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, CanvasNode>>,
+    $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>,
     $selection: $selection as Subscribable<ReadonlySet<NodeId>>,
     $interaction,
     $snapGuides,
-    batch(fn: () => void): void {
-      const started = performance.now()
-      batchCtrl.depth++
+    extend(key, value) {
+      ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
+    },
+    batch(fn) {
+      beginTransaction()
       try {
         fn()
       } finally {
-        batchCtrl.depth--
-        if (batchCtrl.depth === 0) {
-          // Flush all deferred subscribable notifications
-          const pending = [...batchCtrl.pending]
-          batchCtrl.pending.clear()
-          for (const flush of pending) {
-            flush()
-          }
-          // Emit a single command:after so the Vue layer refreshes the snapshot
-          // and the history plugin creates one undo entry
-          emit('command:after', 'batch', [], performance.now() - started)
-        }
+        endTransaction()
       }
     },
-    getState() {
-      return state
-    },
+    getState,
     getSnapshot,
     getGridSettings,
     getViewportSize,
@@ -674,7 +783,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     exportTrace() {
       return trace.slice()
     },
-    use(plugin: CanvasPlugin) {
+    use(plugin: CanvasPlugin<R>) {
       if (pluginCleanups.has(plugin.name)) {
         return
       }
@@ -690,8 +799,17 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     getVisibleBounds(width, height) {
       return getVisibleBounds(width, height, state.camera)
     },
+    getNode(id) {
+      return getPublicNode(id)
+    },
+    findNode(id) {
+      return state.nodes.has(id) ? getPublicNode(id) : null
+    },
+    hasNode(id) {
+      return state.nodes.has(id)
+    },
     getNodeAt(worldPoint) {
-      let best: CanvasNode | null = null
+      let best: StoredNode | null = null
       let bestZ = -Infinity
       for (const node of state.nodes.values()) {
         if (node.visible && node.zIndex > bestZ && pointInBounds(worldPoint, getBoundsFromNode(node))) {
@@ -699,10 +817,12 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           bestZ = node.zIndex
         }
       }
-      return best
+      return best ? materializeNode(best) : null
     },
     getNodesInBounds(bounds) {
-      return Array.from(state.nodes.values()).filter((node) => node.visible && boundsIntersect(getBoundsFromNode(node), bounds))
+      return Array.from(state.nodes.values())
+        .filter((node) => node.visible && boundsIntersect(getBoundsFromNode(node), bounds))
+        .map((node) => materializeNode(node))
     },
     panBy(dx, dy) {
       runCommand('panBy', [dx, dy], () => {
@@ -730,10 +850,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     zoomTo(level, animated = false) {
       const clamped = clamp(level, zoom.min, zoom.max)
-      const viewportCenter = {
-        x: viewportSize.x / 2,
-        y: viewportSize.y / 2
-      }
+      const viewportCenter = { x: viewportSize.x / 2, y: viewportSize.y / 2 }
       const centerWorld = screenToWorld(viewportCenter, state.camera)
       const target = {
         x: viewportCenter.x / clamped - centerWorld.x,
@@ -774,43 +891,43 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         }
       }, true)
     },
-    createNode<T extends Record<string, unknown> = Record<string, unknown>>(input: NodeInput<T>) {
+    createNode<T extends keyof R = keyof R>(input: NodeInput<R, T>) {
       return runCommand('createNode', [input], () => {
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
-        invalidateNodeCache()
+        notifyNodesChanged()
         if (input.select !== false) {
           setSelection([node.id])
         }
-        emit('node:created', node)
-        return node
+        const publicNode = materializeNode(node) as ResolvedNode<R, T>
+        emit('node:created', publicNode)
+        return publicNode
       })
     },
-    updateNode<T extends Record<string, unknown> = Record<string, unknown>>(id: NodeId, patch: NodePatch<T>) {
+    updateNode<T extends keyof R = keyof R>(id: NodeId, patch: NodePatch<R, T>) {
       return runCommand('updateNode', [id, patch], () => {
-        const current = assertNode(id) as CanvasNode<T>
+        const current = assertStoredNode(id)
         const next = applyNodePatch(current, patch)
-        replaceNode(current, next)
-        const stored = assertNode(id) as CanvasNode<T>
-        emit('node:updated', stored, current)
-        return stored
+        const stored = replaceStoredNode(current, next)
+        const publicNode = materializeNode(stored) as ResolvedNode<R, T>
+        emit('node:updated', publicNode, materializeNode(current) as ResolvedNode<R, T>)
+        return publicNode
       })
     },
     deleteNode(id) {
       runCommand('deleteNode', [id], () => {
-        assertNode(id)
-        const toDel = new Set<NodeId>()
-        collectSubtreeIdSet(id, toDel)
-        const order = deletionOrderPostOrder(toDel)
-        for (const delId of order) {
-          const prevNode = state.nodes.get(delId)
+        assertStoredNode(id)
+        const toDelete = new Set<NodeId>()
+        collectSubtreeIdSet(id, toDelete)
+        for (const deleteId of deletionOrderPostOrder(toDelete)) {
+          const prevNode = state.nodes.get(deleteId)
           if (!prevNode) {
             continue
           }
-          state.nodes.delete(delId)
-          emit('node:deleted', delId, prevNode)
+          state.nodes.delete(deleteId)
+          emit('node:deleted', deleteId, materializeNode(prevNode))
         }
-        invalidateNodeCache()
+        notifyNodesChanged()
         cleanupSelection()
         if (state.interaction.mode !== 'idle') {
           setInteraction({ mode: 'idle' })
@@ -819,57 +936,57 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     moveNode(id, dx, dy) {
       return runCommand('moveNode', [id, dx, dy], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
         if (node.locked) {
-          return node
+          return materializeNode(node)
         }
-        const targets = collectUniformTranslationTargets([id], state.nodes)
-        for (const tid of targets) {
-          const n = assertNode(tid)
+        const targets = collectUniformTranslationTargets([id], state.nodes as Map<NodeId, CanvasNode>)
+        for (const targetId of targets) {
+          const current = assertStoredNode(targetId)
           const next = {
-            ...n,
-            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
-            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+            ...current,
+            x: grid.snap ? snapValue(current.x + dx, grid.size) : current.x + dx,
+            y: grid.snap ? snapValue(current.y + dy, grid.size) : current.y + dy
           }
-          replaceNode(n, next)
-          const stored = assertNode(tid)
-          emit('node:moved', stored, { x: stored.x - n.x, y: stored.y - n.y })
-          emit('node:updated', stored, n)
+          const stored = replaceStoredNode(current, next)
+          const publicNode = materializeNode(stored)
+          emit('node:moved', publicNode, { x: publicNode.x - current.x, y: publicNode.y - current.y })
+          emit('node:updated', publicNode, materializeNode(current))
         }
         reparentAfterDrag(targets)
-        return assertNode(id)
+        return getPublicNode(id)
       })
     },
     translateSelectedNodes(dx, dy) {
       runCommand('translateSelectedNodes', [dx, dy], () => {
-        const seeds = Array.from(state.selection.values()).filter((sid) => {
-          const n = state.nodes.get(sid)
-          return n && !n.locked
+        const seeds = Array.from(state.selection.values()).filter((id) => {
+          const node = state.nodes.get(id)
+          return node && !node.locked
         })
         if (seeds.length === 0) {
           return
         }
-        const targets = collectUniformTranslationTargets(seeds, state.nodes)
-        for (const tid of targets) {
-          const n = assertNode(tid)
+        const targets = collectUniformTranslationTargets(seeds, state.nodes as Map<NodeId, CanvasNode>)
+        for (const targetId of targets) {
+          const current = assertStoredNode(targetId)
           const next = {
-            ...n,
-            x: grid.snap ? snapValue(n.x + dx, grid.size) : n.x + dx,
-            y: grid.snap ? snapValue(n.y + dy, grid.size) : n.y + dy
+            ...current,
+            x: grid.snap ? snapValue(current.x + dx, grid.size) : current.x + dx,
+            y: grid.snap ? snapValue(current.y + dy, grid.size) : current.y + dy
           }
-          replaceNode(n, next)
-          const stored = assertNode(tid)
-          emit('node:moved', stored, { x: stored.x - n.x, y: stored.y - n.y })
-          emit('node:updated', stored, n)
+          const stored = replaceStoredNode(current, next)
+          const publicNode = materializeNode(stored)
+          emit('node:moved', publicNode, { x: publicNode.x - current.x, y: publicNode.y - current.y })
+          emit('node:updated', publicNode, materializeNode(current))
         }
         reparentAfterDrag(targets)
       })
     },
     resizeNode(id, handle, dx, dy) {
       return runCommand('resizeNode', [id, handle, dx, dy], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
         if (node.locked) {
-          return node
+          return materializeNode(node)
         }
         const raw = applyResizeDelta(node, handle, dx, dy, {
           minWidth: nodeConstraints.minWidth,
@@ -881,74 +998,76 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
               minHeight: nodeConstraints.minHeight
             })
           : raw
-        const next = { ...node, ...nextBounds }
-        replaceNode(node, next)
-        const stored = assertNode(id)
-        emit('node:resized', stored, {
+        const stored = replaceStoredNode(node, { ...node, ...nextBounds })
+        const publicNode = materializeNode(stored)
+        emit('node:resized', publicNode, {
           x: node.x,
           y: node.y,
           width: node.width,
           height: node.height
         })
-        emit('node:updated', stored, node)
-        return stored
+        emit('node:updated', publicNode, materializeNode(node))
+        return publicNode
       })
     },
     bringToFront(id) {
       runCommand('bringToFront', [id], () => {
-        const node = assertNode(id)
-        replaceNode(node, { ...node, zIndex: state.nextZIndex++ })
-        emit('node:updated', assertNode(id), node)
+        const node = assertStoredNode(id)
+        const stored = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
+        emit('node:updated', materializeNode(stored), materializeNode(node))
         restackGroupDescendantsAbove(id)
       })
     },
     sendToBack(id) {
       runCommand('sendToBack', [id], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
         const minZ = Math.min(...Array.from(state.nodes.values(), (entry) => entry.zIndex))
-        replaceNode(node, { ...node, zIndex: minZ - 1 })
-        emit('node:updated', assertNode(id), node)
+        const stored = replaceStoredNode(node, { ...node, zIndex: minZ - 1 })
+        emit('node:updated', materializeNode(stored), materializeNode(node))
         restackGroupDescendantsAbove(id)
       })
     },
     lockNode(id) {
       runCommand('lockNode', [id], () => {
-        const node = assertNode(id)
-        replaceNode(node, { ...node, locked: true })
-        emit('node:updated', assertNode(id), node)
+        const node = assertStoredNode(id)
+        const stored = replaceStoredNode(node, { ...node, locked: true })
+        emit('node:updated', materializeNode(stored), materializeNode(node))
       })
     },
     unlockNode(id) {
       runCommand('unlockNode', [id], () => {
-        const node = assertNode(id)
-        replaceNode(node, { ...node, locked: false })
-        emit('node:updated', assertNode(id), node)
+        const node = assertStoredNode(id)
+        const stored = replaceStoredNode(node, { ...node, locked: false })
+        emit('node:updated', materializeNode(stored), materializeNode(node))
       })
     },
     duplicateNodes(ids, offset = { x: grid.size, y: grid.size }) {
       return runCommand('duplicateNodes', [ids, offset], () => {
         const forest = forestIdsFromSeeds(ids)
-        const source = [...forest]
-          .map((nid) => state.nodes.get(nid))
-          .filter((node): node is CanvasNode => Boolean(node))
+        const source = Array.from(forest)
+          .map((id) => state.nodes.get(id))
+          .filter((node): node is StoredNode => Boolean(node))
           .sort((a, b) => a.zIndex - b.zIndex)
         const created = duplicateForest(source, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
-          emit('node:created', node)
+          emit('node:created', materializeNode(node))
         }
-        invalidateNodeCache()
+        notifyNodesChanged()
         setSelection(created.map((node) => node.id))
-        return created
+        return created.map((node) => materializeNode(node))
       })
     },
     copySelected() {
       return runCommand('copySelected', [], () => {
         clipboard.length = 0
         for (const node of getCopyClosureNodes()) {
-          clipboard.push({ ...node, data: structuredClone(node.data) })
+          clipboard.push({
+            ...node,
+            data: cloneData(node.data)
+          })
         }
-        return [...clipboard]
+        return clipboard.map((node) => materializeNode(node))
       })
     },
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
@@ -956,11 +1075,11 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         const created = duplicateForest(clipboard, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
-          emit('node:created', node)
+          emit('node:created', materializeNode(node))
         }
-        invalidateNodeCache()
+        notifyNodesChanged()
         setSelection(created.map((node) => node.id))
-        return created
+        return created.map((node) => materializeNode(node))
       })
     },
     select(ids, mode = 'replace') {
@@ -998,21 +1117,20 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     deleteSelected() {
       runCommand('deleteSelected', [], () => {
         const deletingRoots = getSelectionNodes().filter((node) => !node.locked)
-        const toDel = new Set<NodeId>()
-        for (const n of deletingRoots) {
-          collectSubtreeIdSet(n.id, toDel)
+        const toDelete = new Set<NodeId>()
+        for (const node of deletingRoots) {
+          collectSubtreeIdSet(node.id, toDelete)
         }
-        const order = deletionOrderPostOrder(toDel)
-        for (const delId of order) {
-          const prevNode = state.nodes.get(delId)
+        for (const deleteId of deletionOrderPostOrder(toDelete)) {
+          const prevNode = state.nodes.get(deleteId)
           if (!prevNode) {
             continue
           }
-          state.nodes.delete(delId)
-          emit('node:deleted', delId, prevNode)
+          state.nodes.delete(deleteId)
+          emit('node:deleted', deleteId, materializeNode(prevNode))
         }
-        if (toDel.size > 0) {
-          invalidateNodeCache()
+        if (toDelete.size > 0) {
+          notifyNodesChanged()
         }
         setSelection([])
         setInteraction({ mode: 'idle' })
@@ -1023,32 +1141,28 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
     },
     beginPan(pointerId, screenPoint) {
       runCommand('beginPan', [pointerId, screenPoint], () => {
-        setInteraction({
-          mode: 'panning',
-          pointerId,
-          lastScreenPoint: { ...screenPoint }
-        })
-      })
+        setInteraction({ mode: 'panning', pointerId, lastScreenPoint: { ...screenPoint } })
+      }, true)
     },
     beginNodeDrag(id, pointerId, screenPoint) {
       runCommand('beginNodeDrag', [id, pointerId, screenPoint], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
         if (node.locked) {
           return
         }
         const initialSelection = state.selection.has(id)
           ? getSelectionNodes().filter((entry) => !entry.locked).map((entry) => entry.id)
           : [id]
-        const nodeIds = collectUniformTranslationTargets(initialSelection, state.nodes)
+        const nodeIds = collectUniformTranslationTargets(initialSelection, state.nodes as Map<NodeId, CanvasNode>)
         if (!state.selection.has(id)) {
           setSelection([id])
         }
         const startNodePositions = Object.fromEntries(
           nodeIds.map((nodeId) => {
-            const current = assertNode(nodeId)
+            const current = assertStoredNode(nodeId)
             return [nodeId, { x: current.x, y: current.y }]
           })
-        )
+        ) as Record<NodeId, Point>
         setInteraction({
           mode: 'dragging-nodes',
           pointerId,
@@ -1057,11 +1171,11 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           startNodePositions
         })
         bumpNodeToFront(id)
-      })
+      }, true)
     },
     beginResize(id, handle, pointerId, screenPoint) {
       runCommand('beginResize', [id, handle, pointerId, screenPoint], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
         if (node.locked) {
           return
         }
@@ -1081,7 +1195,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           aspectRatio: node.width / node.height
         })
         bumpNodeToFront(id)
-      })
+      }, true)
     },
     beginBoxSelect(pointerId, screenPoint) {
       runCommand('beginBoxSelect', [pointerId, screenPoint], () => {
@@ -1095,31 +1209,30 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
           startWorldPoint: worldPoint,
           currentWorldPoint: worldPoint
         })
-      })
+      }, true)
     },
     beginTextEdit(id) {
       runCommand('beginTextEdit', [id], () => {
-        assertNode(id)
+        assertStoredNode(id)
         setSelection([id])
         setInteraction({ mode: 'editing-text', nodeId: id })
-      })
+      }, true)
     },
     commitTextEdit(id, text) {
       return runCommand('commitTextEdit', [id, text], () => {
-        const node = assertNode(id)
+        const node = assertStoredNode(id)
+        let stored = node
         if (text !== undefined) {
-          const data = typeof node.data === 'object' && node.data !== null ? structuredClone(node.data) : {}
+          const data = typeof node.data === 'object' && node.data !== null ? cloneData(node.data) : {}
           ;(data as Record<string, unknown>).content = text
-          const next = { ...node, data }
-          replaceNode(node, next)
-          const stored = assertNode(id)
-          emit('node:updated', stored, node)
+          stored = replaceStoredNode(node, { ...node, data })
+          emit('node:updated', materializeNode(stored), materializeNode(node))
         }
         setInteraction({ mode: 'idle' })
-        return assertNode(id)
+        return materializeNode(stored)
       })
     },
-    updatePointer(pointerId, screenPoint, modifiers?) {
+    updatePointer(pointerId, screenPoint, modifiers) {
       const interaction = state.interaction
       if (interaction.mode === 'idle' || interaction.mode === 'editing-text' || interaction.pointerId !== pointerId) {
         return
@@ -1134,7 +1247,10 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             y: state.camera.y + deltaY / state.camera.z,
             z: state.camera.z
           })
-          interaction.lastScreenPoint = { ...screenPoint }
+          setInteraction({
+            ...interaction,
+            lastScreenPoint: { ...screenPoint }
+          })
         }, true)
         return
       }
@@ -1143,40 +1259,42 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         runCommand('updatePointer', [pointerId, screenPoint], () => {
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
-
-          // Compute preliminary positions for all dragged nodes
           const prelimBounds: Record<NodeId, { x: number; y: number; width: number; height: number }> = {}
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+          let minX = Infinity
+          let minY = Infinity
+          let maxX = -Infinity
+          let maxY = -Infinity
+
           for (const nodeId of interaction.nodeIds) {
-            const node = assertNode(nodeId)
+            const node = assertStoredNode(nodeId)
             const origin = interaction.startNodePositions[nodeId]
-            const nx = grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX
-            const ny = grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
-            prelimBounds[nodeId] = { x: nx, y: ny, width: node.width, height: node.height }
-            minX = Math.min(minX, nx)
-            minY = Math.min(minY, ny)
-            maxX = Math.max(maxX, nx + node.width)
-            maxY = Math.max(maxY, ny + node.height)
+            const x = grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX
+            const y = grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+            prelimBounds[nodeId] = { x, y, width: node.width, height: node.height }
+            minX = Math.min(minX, x)
+            minY = Math.min(minY, y)
+            maxX = Math.max(maxX, x + node.width)
+            maxY = Math.max(maxY, y + node.height)
           }
 
-          // Snap the bounding box of all dragged nodes against other node edges
           const excludeIds = new Set(interaction.nodeIds)
           const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds)
           const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
           const snapResult = snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z)
-          state.snapGuides = snapResult.guides
-          notifySnapGuidesChanged()
+          setSnapGuides(snapResult.guides)
 
           for (const nodeId of interaction.nodeIds) {
-            const node = assertNode(nodeId)
-            const pb = prelimBounds[nodeId]
-            const next = {
-              ...node,
-              x: pb.x + snapResult.dx,
-              y: pb.y + snapResult.dy
-            }
-            replaceNode(node, next)
-            emit('node:moved', next, { x: next.x - interaction.startNodePositions[nodeId].x, y: next.y - interaction.startNodePositions[nodeId].y })
+            const current = assertStoredNode(nodeId)
+            const preliminary = prelimBounds[nodeId]
+            const stored = replaceStoredNode(current, {
+              ...current,
+              x: preliminary.x + snapResult.dx,
+              y: preliminary.y + snapResult.dy
+            })
+            emit('node:moved', materializeNode(stored), {
+              x: stored.x - interaction.startNodePositions[nodeId].x,
+              y: stored.y - interaction.startNodePositions[nodeId].y
+            })
           }
         }, true)
         return
@@ -1184,33 +1302,27 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
 
       if (interaction.mode === 'resizing-node') {
         runCommand('updatePointer', [pointerId, screenPoint], () => {
-          const node = assertNode(interaction.nodeId)
+          const node = assertStoredNode(interaction.nodeId)
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
           const constraints = { minWidth: nodeConstraints.minWidth, minHeight: nodeConstraints.minHeight }
           const locked = Boolean(modifiers?.shift)
-
           const raw = locked
             ? applyResizeDeltaLocked(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints, interaction.aspectRatio)
             : applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints)
 
           if (locked) {
-            // Use aspect-ratio-aware snapping; skip edge snap to preserve the ratio
             const nextBounds = grid.snap
               ? snapResizedBoundsLocked(raw, interaction.startNodeBounds, interaction.handle, grid.size, constraints, interaction.aspectRatio)
               : raw
-            state.snapGuides = []
-            notifySnapGuidesChanged()
-            replaceNode(node, { ...node, ...nextBounds })
+            setSnapGuides([])
+            replaceStoredNode(node, { ...node, ...nextBounds })
           } else {
-            const gridSnapped = grid.snap
-              ? snapResizedBounds(raw, interaction.handle, grid.size, constraints)
-              : raw
+            const gridSnapped = grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, constraints) : raw
             const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId)
             const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z)
-            state.snapGuides = snapResult.guides
-            notifySnapGuidesChanged()
-            replaceNode(node, { ...node, ...snapResult.bounds })
+            setSnapGuides(snapResult.guides)
+            replaceStoredNode(node, { ...node, ...snapResult.bounds })
           }
         }, true)
         return
@@ -1218,15 +1330,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
 
       runCommand('updatePointer', [pointerId, screenPoint], () => {
         const currentWorldPoint = engine.screenToWorld(screenPoint)
-        interaction.currentScreenPoint = { ...screenPoint }
-        interaction.currentWorldPoint = currentWorldPoint
         const bounds = getBoundsFromPoints(interaction.startWorldPoint, currentWorldPoint)
-        const matches = engine
-          .getNodesInBounds(bounds)
-          .filter((node) => node.visible)
-          .map((node) => node.id)
+        const matches = engine.getNodesInBounds(bounds).filter((node) => node.visible).map((node) => node.id)
         setSelection(matches)
-      })
+        setInteraction({
+          ...interaction,
+          currentScreenPoint: { ...screenPoint },
+          currentWorldPoint
+        })
+      }, true)
     },
     endInteraction(pointerId) {
       const interaction = state.interaction
@@ -1237,34 +1349,29 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
         return
       }
       runCommand('endInteraction', [pointerId], () => {
-        const prevInteraction = state.interaction
-        state.snapGuides = []
-        notifySnapGuidesChanged()
-        if (prevInteraction.mode === 'dragging-nodes') {
-          reparentAfterDrag(prevInteraction.nodeIds)
+        const previous = state.interaction
+        setSnapGuides([])
+        if (previous.mode === 'dragging-nodes') {
+          reparentAfterDrag(previous.nodeIds)
         }
         setInteraction({ mode: 'idle' })
       })
     },
     getUniformTranslationTargets(seedIds) {
-      return collectUniformTranslationTargets(seedIds, state.nodes)
+      return collectUniformTranslationTargets(seedIds, state.nodes as Map<NodeId, CanvasNode>)
     },
     syncGroupZOrder(groupId) {
       runCommand('syncGroupZOrder', [groupId], () => {
-        assertNode(groupId)
+        assertStoredNode(groupId)
         restackGroupDescendantsAbove(groupId)
       })
     },
     exportJSON() {
-      const snapshot = getSnapshot()
-      return JSON.stringify({
-        ...snapshot,
-        nodes: snapshot.nodes.map(({ _gen, _geoGen, _dataGen, ...rest }) => rest)
-      })
+      return JSON.stringify(getSnapshot())
     },
     importJSON(json, mode = 'replace') {
       runCommand('importJSON', [mode], () => {
-        const parsed = JSON.parse(json)
+        const parsed = JSON.parse(json) as BoardSnapshot<R>
         if (!parsed || !Array.isArray(parsed.nodes)) {
           throw new Error('Invalid canvas document: missing nodes array.')
         }
@@ -1276,13 +1383,15 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
             !Number.isFinite(node.width) ||
             !Number.isFinite(node.height)
           ) {
-            throw new Error(`Invalid canvas document: node "${node.id ?? '?'}" has invalid geometry.`)
+            throw new Error(`Invalid canvas document: node "${String(node.id ?? '?')}" has invalid geometry.`)
           }
         }
-        restoreSnapshot(parsed as BoardSnapshot, mode)
+        restoreSnapshot(parsed, mode)
       })
     }
   }
+
+  notifyNodesChanged()
 
   for (const plugin of options.plugins ?? []) {
     engine.use(plugin)
@@ -1291,7 +1400,7 @@ export function createCanvasEngine(options: CanvasEngineOptions = {}): CanvasEng
   validate('createCanvasEngine')
   emit('ready')
 
-  return engine as CanvasEngine
+  return engine as CanvasEngine<R>
 }
 
 function sameArray(a: string[], b: string[]): boolean {

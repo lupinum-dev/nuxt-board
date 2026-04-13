@@ -69,7 +69,7 @@ describe('json canvas serializer', () => {
       data: { content: 'Visible' }
     })
     engine.sendToBack(first.id)
-    engine.createEdge?.({ from: first.id, to: second.id, data: { label: 'Link' } })
+    engine.ext.connections.createEdge({ from: first.id, to: second.id, data: { label: 'Link' } })
 
     const document = jsonCanvasSerializer.parse(jsonCanvasSerializer.export(engine))
     const snapshot = jsonCanvasSerializer.toSnapshot(document)
