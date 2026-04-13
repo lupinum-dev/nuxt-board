@@ -69,6 +69,40 @@ body {
   background: rgba(20, 184, 166, 0.18);
 }
 
+.demo-toolbar-note {
+  align-self: center;
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.demo-color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.demo-color-field span {
+  font-weight: 600;
+}
+
+.demo-color-field input[type='color'] {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
 .demo-caption {
   color: #475569;
   font-size: 0.95rem;

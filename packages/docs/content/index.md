@@ -18,11 +18,11 @@ Vue Board gives you a headless board engine, Vue primitives, Nuxt auto-imports, 
 #links
   :::u-button
   ---
-  to: /getting-started/introduction
+  to: /getting-started/quick-start
   size: xl
   trailing-icon: i-lucide-arrow-right
   ---
-  Get started
+  Build your first board
   :::
 
   :::u-button
@@ -88,6 +88,74 @@ Why this stack
 
   #description
   Add history, minimaps, connections, and serializer workflows only when the product needs them.
+  :::
+::
+
+::u-page-section
+#title
+Build this in 5 minutes
+
+#description
+Start from a runnable board, then pull in the pattern you actually need.
+
+::tabs
+
+:::tabs-item{label="Kanban" icon="i-lucide-columns-3"}
+::kanban-board-demo
+::
+
+[Open the kanban example](/examples/kanban-board)
+:::
+
+:::tabs-item{label="Workflow" icon="i-lucide-workflow"}
+::workflow-builder-demo
+::
+
+[Open the workflow builder](/examples/workflow-builder)
+:::
+
+::
+::
+
+::u-page-section
+#title
+Choose your path
+
+#features
+  :::u-page-feature
+  ---
+  icon: i-lucide-rocket
+  to: /getting-started/quick-start
+  ---
+  #title
+  New here
+
+  #description
+  Start with one quick start page for both Vue and Nuxt, then move into Essentials.
+  :::
+
+  :::u-page-feature
+  ---
+  icon: i-lucide-compass
+  to: /guides/essentials/core-concepts
+  ---
+  #title
+  Already building
+
+  #description
+  Skip setup and go straight to the engine model, nodes, renderers, and interaction rules.
+  :::
+
+  :::u-page-feature
+  ---
+  icon: i-lucide-sparkles
+  to: /examples/basic-board
+  ---
+  #title
+  Just browsing
+
+  #description
+  Open the examples first. Every example is a live board you can poke at.
   :::
 ::
 

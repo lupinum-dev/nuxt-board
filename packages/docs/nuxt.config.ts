@@ -114,7 +114,7 @@ export default defineNuxtConfig({
         ]
       },
       {
-        title: 'Guides',
+        title: 'Learn',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/guides%' }
@@ -128,10 +128,10 @@ export default defineNuxtConfig({
         ]
       },
       {
-        title: 'Recipes',
+        title: 'Cookbook',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '/recipes%' }
+          { field: 'path', operator: 'LIKE', value: '/cookbook%' }
         ]
       },
       {

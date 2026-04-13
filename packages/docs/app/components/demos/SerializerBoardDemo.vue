@@ -10,6 +10,15 @@ const engine = createBoardEngine({
 })
 
 const payload = ref('')
+const formatMode = ref<'pretty' | 'compact'>('pretty')
+
+function serializeBoard() {
+  const raw = jsonCanvasSerializer.export(engine)
+  if (formatMode.value === 'compact') {
+    return JSON.stringify(JSON.parse(raw))
+  }
+  return JSON.stringify(JSON.parse(raw), null, 2)
+}
 
 function seed() {
   engine.importJSON(JSON.stringify({
@@ -28,11 +37,11 @@ function seed() {
     engine.ext.connections.deleteEdge(edge.id)
   }
   engine.ext.connections.createEdge({ from: 'source' as never, to: 'target' as never, data: { label: 'json-canvas' } })
-  payload.value = jsonCanvasSerializer.export(engine)
+  payload.value = serializeBoard()
 }
 
 function exportBoard() {
-  payload.value = jsonCanvasSerializer.export(engine)
+  payload.value = serializeBoard()
 }
 
 function importBoard() {
@@ -59,6 +68,12 @@ onMounted(async () => {
       </button>
       <button @click="importBoard">
         Import payload
+      </button>
+      <button :class="{ 'bg-teal-100': formatMode === 'pretty' }" @click="formatMode = 'pretty'; exportBoard()">
+        Pretty JSON
+      </button>
+      <button :class="{ 'bg-teal-100': formatMode === 'compact' }" @click="formatMode = 'compact'; exportBoard()">
+        Compact JSON
       </button>
     </div>
 

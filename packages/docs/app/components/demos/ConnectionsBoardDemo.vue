@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
-import { connectionPlugin, BoardConnectionLayer } from '@lupinum/board-connections'
+import { connectionPlugin, BoardConnectionLayer, type ConnectionRouting } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 import { BoardMinimap } from '@lupinum/board-minimap'
 
@@ -11,6 +11,7 @@ const engine = createBoardEngine({
 })
 
 const historyState = computed(() => engine.ext.history.getState())
+const routing = ref<ConnectionRouting>('bezier')
 
 function seed() {
   engine.importJSON(JSON.stringify({
@@ -58,6 +59,15 @@ onMounted(async () => {
       <button @click="shuffle">
         Shuffle layout
       </button>
+      <button :class="{ 'bg-teal-100': routing === 'bezier' }" @click="routing = 'bezier'">
+        Bezier
+      </button>
+      <button :class="{ 'bg-teal-100': routing === 'step' }" @click="routing = 'step'">
+        Step
+      </button>
+      <button :class="{ 'bg-teal-100': routing === 'straight' }" @click="routing = 'straight'">
+        Straight
+      </button>
       <button
         :disabled="!engine.ext.history.canUndo()"
         @click="engine.ext.history.undo()"
@@ -78,7 +88,7 @@ onMounted(async () => {
         :engine="engine"
         style="height: 360px"
       >
-        <BoardConnectionLayer />
+        <BoardConnectionLayer :routing="routing" />
       </BoardRoot>
       <div class="absolute right-4 bottom-4 rounded-2xl border border-slate-200/80 bg-white/85 p-2 shadow-lg backdrop-blur">
         <BoardMinimap
