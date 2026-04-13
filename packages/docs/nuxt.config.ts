@@ -37,7 +37,7 @@ export default defineNuxtConfig({
     build: {
       markdown: {
         toc: {
-          searchDepth: 1
+          searchDepth: 3
         }
       }
     }
@@ -125,6 +125,13 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/examples%' }
+        ]
+      },
+      {
+        title: 'Recipes',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/recipes%' }
         ]
       },
       {
