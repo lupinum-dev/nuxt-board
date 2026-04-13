@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { CanvasNode } from '@canvas/core'
+import type { BoardNode } from '@lupinum/board-core'
 
 defineProps<{
-  node: CanvasNode
+  node: BoardNode
   selected: boolean
 }>()
 
-function getData(node: CanvasNode): { src?: string; alt?: string } {
+function getData(node: BoardNode): { src?: string; alt?: string } {
   return node.data as { src?: string; alt?: string }
 }
 </script>

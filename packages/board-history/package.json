@@ -1,0 +1,43 @@
+{
+  "name": "@lupinum/board-history",
+  "version": "0.1.0",
+  "description": "Undo and redo plugin for @lupinum/board-core.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "directory": "packages/board-history"
+  },
+  "homepage": "https://vue-board.vercel.app",
+  "bugs": {
+    "url": "https://github.com/Mat4m0/canvas/issues"
+  },
+  "keywords": [
+    "board",
+    "history",
+    "undo",
+    "redo"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --tsconfig tsconfig.build.json"
+  },
+  "dependencies": {
+    "@lupinum/board-core": "workspace:*"
+  }
+}

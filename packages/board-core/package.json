@@ -1,0 +1,42 @@
+{
+  "name": "@lupinum/board-core",
+  "version": "0.1.0",
+  "description": "Headless node-based board engine for spatial editors, diagramming tools, and whiteboard-style interfaces.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "directory": "packages/board-core"
+  },
+  "homepage": "https://vue-board.vercel.app",
+  "bugs": {
+    "url": "https://github.com/Mat4m0/canvas/issues"
+  },
+  "keywords": [
+    "board",
+    "canvas",
+    "diagram",
+    "editor",
+    "nodes",
+    "vue"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --clean && tsc -p tsconfig.build.json"
+  }
+}

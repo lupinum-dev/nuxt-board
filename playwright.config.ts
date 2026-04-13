@@ -6,10 +6,18 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173'
   },
-  webServer: {
-    command: 'pnpm --filter @canvas/playground dev --host 127.0.0.1 --port 4173',
-    port: 4173,
-    reuseExistingServer: true,
-    timeout: 120_000
-  }
+  webServer: [
+    {
+      command: 'pnpm --filter @lupinum/board-playground dev --host 127.0.0.1 --port 4173',
+      port: 4173,
+      reuseExistingServer: true,
+      timeout: 120_000
+    },
+    {
+      command: 'pnpm docs:api && pnpm --filter docs dev --host 127.0.0.1 --port 4174',
+      port: 4174,
+      reuseExistingServer: true,
+      timeout: 120_000
+    }
+  ]
 })

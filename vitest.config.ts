@@ -6,18 +6,18 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@canvas/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
-      '@canvas/vue': fileURLToPath(new URL('./packages/vue/src/index.ts', import.meta.url)),
-      '@canvas/history': fileURLToPath(new URL('./packages/history/src/index.ts', import.meta.url)),
-      '@canvas/selection': fileURLToPath(new URL('./packages/selection/src/index.ts', import.meta.url)),
-      '@canvas/connections': fileURLToPath(new URL('./packages/connections/src/index.ts', import.meta.url)),
-      '@canvas/minimap': fileURLToPath(new URL('./packages/minimap/src/index.ts', import.meta.url)),
-      '@canvas/serializer': fileURLToPath(new URL('./packages/serializer/src/index.ts', import.meta.url))
+      '@lupinum/board-core': fileURLToPath(new URL('./packages/board-core/src/index.ts', import.meta.url)),
+      '@lupinum/vue-board': fileURLToPath(new URL('./packages/vue-board/src/index.ts', import.meta.url)),
+      '@lupinum/board-history': fileURLToPath(new URL('./packages/board-history/src/index.ts', import.meta.url)),
+      '@lupinum/board-selection': fileURLToPath(new URL('./packages/board-selection/src/index.ts', import.meta.url)),
+      '@lupinum/board-connections': fileURLToPath(new URL('./packages/board-connections/src/index.ts', import.meta.url)),
+      '@lupinum/board-minimap': fileURLToPath(new URL('./packages/board-minimap/src/index.ts', import.meta.url)),
+      '@lupinum/board-serializer': fileURLToPath(new URL('./packages/board-serializer/src/index.ts', import.meta.url))
     }
   },
   test: {
     environmentMatchGlobs: [
-      ['packages/vue/test/**/*.test.ts', 'jsdom'],
+      ['packages/vue-board/test/**/*.test.ts', 'jsdom'],
       ['tests/e2e/**/*.spec.ts', 'node']
     ],
     include: ['packages/**/test/**/*.test.ts'],

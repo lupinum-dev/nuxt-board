@@ -106,7 +106,7 @@ const kbd = (label: string) =>
 
 const shortcuts = [
   { keys: 'Double-click', action: 'Create node' },
-  { keys: 'Space + drag', action: 'Pan canvas' },
+  { keys: 'Space + drag', action: 'Pan board' },
   { keys: `${kbd('Ctrl')} ${kbd('A')}`, action: 'Select all' },
   { keys: `${kbd('Ctrl')} ${kbd('D')}`, action: 'Duplicate' },
   { keys: `${kbd('Ctrl')} ${kbd('Z')} / ${kbd('Y')}`, action: 'Undo / Redo' },

@@ -1,0 +1,48 @@
+{
+  "name": "@lupinum/vue-board",
+  "version": "0.1.0",
+  "description": "Vue 3 board components and composables built on top of @lupinum/board-core.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/index.css"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "directory": "packages/vue-board"
+  },
+  "homepage": "https://vue-board.vercel.app",
+  "bugs": {
+    "url": "https://github.com/Mat4m0/canvas/issues"
+  },
+  "keywords": [
+    "board",
+    "vue",
+    "diagram",
+    "whiteboard",
+    "nodes"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@lupinum/board-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  }
+}

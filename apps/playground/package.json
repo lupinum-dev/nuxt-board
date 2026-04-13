@@ -1,5 +1,5 @@
 {
-  "name": "@canvas/playground",
+  "name": "@lupinum/board-playground",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,12 +8,12 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@canvas/core": "workspace:*",
-    "@canvas/history": "workspace:*",
-    "@canvas/connections": "workspace:*",
-    "@canvas/minimap": "workspace:*",
-    "@canvas/serializer": "workspace:*",
-    "@canvas/vue": "workspace:*",
+    "@lupinum/board-core": "workspace:*",
+    "@lupinum/board-history": "workspace:*",
+    "@lupinum/board-connections": "workspace:*",
+    "@lupinum/board-minimap": "workspace:*",
+    "@lupinum/board-serializer": "workspace:*",
+    "@lupinum/vue-board": "workspace:*",
     "vue": "^3.5.18"
   }
 }

@@ -1,0 +1,67 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useBoardEngine } from '../useBoardEngine'
+
+const { $camera, $snapGuides } = useBoardEngine()
+
+const screenGuides = computed(() => {
+  const guides = $snapGuides.value
+  if (!guides || guides.length === 0) return []
+  const { x: cx, y: cy, z } = $camera.value
+  return guides.map((guide) => {
+    if (guide.axis === 'x') {
+      return {
+        axis: 'x' as const,
+        pos: (guide.position + cx) * z,
+        from: (guide.from + cy) * z,
+        to: (guide.to + cy) * z
+      }
+    } else {
+      return {
+        axis: 'y' as const,
+        pos: (guide.position + cy) * z,
+        from: (guide.from + cx) * z,
+        to: (guide.to + cx) * z
+      }
+    }
+  })
+})
+</script>
+
+<template>
+  <div v-if="screenGuides.length > 0" class="board-snap-guides">
+    <div
+      v-for="(guide, index) in screenGuides"
+      :key="index"
+      class="board-snap-guide"
+      :class="guide.axis === 'x' ? 'board-snap-guide--vertical' : 'board-snap-guide--horizontal'"
+      :style="guide.axis === 'x'
+        ? { left: guide.pos + 'px', top: guide.from + 'px', height: (guide.to - guide.from) + 'px' }
+        : { top: guide.pos + 'px', left: guide.from + 'px', width: (guide.to - guide.from) + 'px' }
+      "
+    />
+  </div>
+</template>
+
+<style scoped>
+.board-snap-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999999;
+}
+
+.board-snap-guide {
+  position: absolute;
+}
+
+.board-snap-guide--vertical {
+  width: 1px;
+  background: var(--board-accent, #3b82f6);
+}
+
+.board-snap-guide--horizontal {
+  height: 1px;
+  background: var(--board-accent, #3b82f6);
+}
+</style>

@@ -6,21 +6,21 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
   const totalNodes = async () =>
     page.evaluate(() => {
       const api = (window as unknown as {
-        __canvasPlayground: { engine: { getSnapshot: () => { nodes: unknown[] } } }
-      }).__canvasPlayground
+        __boardPlayground: { engine: { getSnapshot: () => { nodes: unknown[] } } }
+      }).__boardPlayground
       return api.engine.getSnapshot().nodes.length
     })
 
   const created = await page.evaluate(() => {
     const api = (window as unknown as {
-      __canvasPlayground: {
+      __boardPlayground: {
         engine: {
           createNode: (input: Record<string, unknown>) => { id: string }
           commitTextEdit: (id: string, text: string) => void
           getSnapshot: () => { nodes: unknown[] }
         }
       }
-    }).__canvasPlayground
+    }).__boardPlayground
     const node = api.engine.createNode({
       type: 'text',
       x: 420,
@@ -46,12 +46,12 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
 test('renders connections, minimap, and serializer helpers', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.locator('.canvas-connection-layer')).toBeVisible()
-  await expect(page.locator('.canvas-connection-layer path')).toHaveCount(2)
-  await expect(page.locator('.canvas-minimap')).toBeVisible()
+  await expect(page.locator('.board-connection-layer')).toBeVisible()
+  await expect(page.locator('.board-connection-layer path')).toHaveCount(2)
+  await expect(page.locator('.board-minimap')).toBeVisible()
 
   const before = await page.getByTestId('camera-value').textContent()
-  await page.locator('.canvas-root').evaluate((element) => {
+  await page.locator('.board-root').evaluate((element) => {
     element.dispatchEvent(
       new WheelEvent('wheel', {
         bubbles: true,
@@ -68,8 +68,8 @@ test('renders connections, minimap, and serializer helpers', async ({ page }) =>
 
   const exportedLength = await page.evaluate(() => {
     const api = (window as unknown as {
-      __canvasPlayground: { exportJsonCanvas: () => string }
-    }).__canvasPlayground
+      __boardPlayground: { exportJsonCanvas: () => string }
+    }).__boardPlayground
     return api.exportJsonCanvas().length
   })
   expect(exportedLength).toBeGreaterThan(10)

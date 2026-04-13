@@ -14,13 +14,13 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@canvas/core": ["packages/core/src/index.ts"],
-      "@canvas/vue": ["packages/vue/src/index.ts"],
-      "@canvas/history": ["packages/history/src/index.ts"],
-      "@canvas/selection": ["packages/selection/src/index.ts"],
-      "@canvas/connections": ["packages/connections/src/index.ts"],
-      "@canvas/minimap": ["packages/minimap/src/index.ts"],
-      "@canvas/serializer": ["packages/serializer/src/index.ts"]
+      "@lupinum/board-core": ["packages/board-core/src/index.ts"],
+      "@lupinum/vue-board": ["packages/vue-board/src/index.ts"],
+      "@lupinum/board-history": ["packages/board-history/src/index.ts"],
+      "@lupinum/board-selection": ["packages/board-selection/src/index.ts"],
+      "@lupinum/board-connections": ["packages/board-connections/src/index.ts"],
+      "@lupinum/board-minimap": ["packages/board-minimap/src/index.ts"],
+      "@lupinum/board-serializer": ["packages/board-serializer/src/index.ts"]
     }
   },
   "include": [

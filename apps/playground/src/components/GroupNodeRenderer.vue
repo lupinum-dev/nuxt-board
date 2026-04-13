@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import type { CanvasNode } from '@canvas/core'
-import { useCanvasEngine } from '@canvas/vue'
+import type { BoardNode } from '@lupinum/board-core'
+import { useBoardEngine } from '@lupinum/vue-board'
 
 const props = defineProps<{
-  node: CanvasNode
+  node: BoardNode
   selected: boolean
   editing: boolean
 }>()
 
-const { engine } = useCanvasEngine()
+const { engine } = useBoardEngine()
 
 type GroupData = { title?: string; accent?: string }
 
@@ -98,13 +98,13 @@ function cancel(): void {
   height: 100%;
   border-radius: inherit;
   overflow: visible;
-  border: calc(2px / var(--canvas-zoom, 1)) solid var(--accent-border);
+  border: calc(2px / var(--board-zoom, 1)) solid var(--accent-border);
   background: var(--accent-bg);
 }
 
 .group-node.is-selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 calc(2px / var(--canvas-zoom, 1)) var(--accent-glow);
+  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--accent-glow);
 }
 
 .group-node__label {
@@ -112,7 +112,7 @@ function cancel(): void {
   left: 0;
   bottom: 100%;
   max-width: 100%;
-  transform: scale(calc(1 / var(--canvas-zoom, 1)));
+  transform: scale(calc(1 / var(--board-zoom, 1)));
   transform-origin: left bottom;
 }
 

@@ -36,7 +36,7 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
       >
         <rect x="2.5" y="2.5" width="9" height="9" rx="2" transform="rotate(45 7 7)" fill="currentColor" />
       </svg>
-      <span>canvas</span>
+      <span>board</span>
     </div>
 
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />

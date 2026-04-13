@@ -7,6 +7,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const runtimeConfig = useRuntimeConfig()
 const { toc } = useAppConfig()
 const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
 
@@ -28,7 +29,17 @@ useSeoMeta({
   title,
   ogTitle: title,
   description,
-  ogDescription: description
+  ogDescription: description,
+  ogUrl: new URL(route.path, runtimeConfig.public.siteUrl).href
+})
+
+useHead({
+  link: [
+    {
+      rel: 'canonical',
+      href: new URL(route.path, runtimeConfig.public.siteUrl).href
+    }
+  ]
 })
 
 const headline = computed(() => findPageHeadline(navigation?.value, page.value?.path))

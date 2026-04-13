@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { createCanvasEngine, type CanvasNode } from '@canvas/core'
-import { connectionPlugin, CanvasConnectionLayer } from '@canvas/connections'
-import { historyPlugin } from '@canvas/history'
-import { CanvasMinimap } from '@canvas/minimap'
-import { jsonCanvasSerializer } from '@canvas/serializer'
-import { CanvasRoot, type CanvasRendererRegistry } from '@canvas/vue'
+import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
+import { connectionPlugin, BoardConnectionLayer } from '@lupinum/board-connections'
+import { historyPlugin } from '@lupinum/board-history'
+import { BoardMinimap } from '@lupinum/board-minimap'
+import { jsonCanvasSerializer } from '@lupinum/board-serializer'
+import { BoardRoot, type BoardRendererRegistry } from '@lupinum/vue-board'
 import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
 import ImageNodeRenderer from './components/ImageNodeRenderer.vue'
 import PlaygroundToolbar from './components/PlaygroundToolbar.vue'
@@ -13,7 +13,7 @@ import PlaygroundPanel from './components/PlaygroundPanel.vue'
 import PlaygroundDiagnostics from './components/PlaygroundDiagnostics.vue'
 
 type PlaygroundApi = {
-  engine: ReturnType<typeof createCanvasEngine>
+  engine: ReturnType<typeof createBoardEngine>
   seedScene: (count: number) => Promise<void>
   runBenchmark: () => Promise<void>
   exportJsonCanvas: () => string
@@ -21,7 +21,7 @@ type PlaygroundApi = {
 }
 
 // ━━ Engine ━━
-const engine = createCanvasEngine({
+const engine = createBoardEngine({
   diagnostics: { traceLimit: 500 },
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
   plugins: [historyPlugin(), connectionPlugin()]
@@ -41,7 +41,7 @@ const showDiagnostics = ref(true)
 const showMinimap = ref(true)
 
 // ━━ Renderers ━━
-const renderers: CanvasRendererRegistry = {
+const renderers: BoardRendererRegistry = {
   image: ImageNodeRenderer,
   group: GroupNodeRenderer
 }
@@ -66,7 +66,7 @@ function clearBoard(): void {
 async function seedScene(count: number): Promise<void> {
   clearBoard()
   const columns = Math.ceil(Math.sqrt(count))
-  const created: CanvasNode[] = []
+  const created: BoardNode[] = []
 
   for (let i = 0; i < count; i += 1) {
     const col = i % columns
@@ -242,7 +242,7 @@ function onImageFileSelected(event: Event): void {
 // ━━ Lifecycle ━━
 onMounted(async () => {
   await seedScene(selectedScene.value)
-  ;(window as Window & { __canvasPlayground?: PlaygroundApi }).__canvasPlayground = {
+  ;(window as Window & { __boardPlayground?: PlaygroundApi }).__boardPlayground = {
     engine,
     seedScene,
     runBenchmark,
@@ -255,14 +255,14 @@ onMounted(async () => {
 <template>
   <main class="relative w-screen h-screen overflow-hidden">
     <!-- Canvas (fills viewport) -->
-    <CanvasRoot
+    <BoardRoot
       class="absolute inset-0"
       :engine="engine"
       :grid="gridOptions"
       :renderers="renderers"
     >
       <template #viewport>
-        <CanvasConnectionLayer />
+        <BoardConnectionLayer />
       </template>
 
       <template #default="{ debugState }">
@@ -285,11 +285,11 @@ onMounted(async () => {
             v-if="showMinimap"
             class="absolute right-4 bottom-4 z-10 glass-light border border-black/6 rounded-[10px] shadow-sm overflow-hidden"
           >
-            <CanvasMinimap :width="200" :height="140" />
+            <BoardMinimap :width="200" :height="140" />
           </div>
         </Transition>
       </template>
-    </CanvasRoot>
+    </BoardRoot>
 
     <!-- Hidden file input for image upload -->
     <input
@@ -332,13 +332,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Deep overrides for canvas library components — uses raw values
+/* Deep overrides for board library components — uses raw values
    since theme() is unavailable in Vue scoped CSS with Tailwind 4 */
-:deep(.canvas-root) {
+:deep(.board-root) {
   background: var(--color-stone-50);
 }
 
-:deep(.canvas-node) {
+:deep(.board-node) {
   border-color: rgba(28, 25, 23, 0.14);
   border-radius: 8px;
   background: white;
@@ -347,7 +347,7 @@ onMounted(async () => {
     0 4px 12px -4px rgba(0, 0, 0, 0.04);
 }
 
-:deep(.canvas-node.is-selected) {
+:deep(.board-node.is-selected) {
   outline: 2px solid var(--color-teal-600);
   outline-offset: -1px;
   box-shadow:
@@ -355,28 +355,28 @@ onMounted(async () => {
     0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-:deep(.canvas-node.is-locked) {
+:deep(.board-node.is-locked) {
   opacity: 0.55;
 }
 
-:deep(.canvas-node__content),
-:deep(.canvas-node__editor) {
+:deep(.board-node__content),
+:deep(.board-node__editor) {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   color: var(--color-stone-900);
 }
 
-:deep(.canvas-connection-layer) {
+:deep(.board-connection-layer) {
   color: var(--color-stone-400);
 }
 
-:deep(.canvas-node-simple) {
+:deep(.board-node-simple) {
   border-color: rgba(28, 25, 23, 0.10);
   border-radius: 6px;
 }
 
-:deep(.canvas-node-handle) {
+:deep(.board-node-handle) {
   background: white;
   border: 1.5px solid var(--color-teal-600);
   border-radius: 2px;

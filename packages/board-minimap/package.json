@@ -1,0 +1,47 @@
+{
+  "name": "@lupinum/board-minimap",
+  "version": "0.1.0",
+  "description": "Minimap composable and Vue component for Vue Board.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "directory": "packages/board-minimap"
+  },
+  "homepage": "https://vue-board.vercel.app",
+  "bugs": {
+    "url": "https://github.com/Mat4m0/canvas/issues"
+  },
+  "keywords": [
+    "board",
+    "minimap",
+    "vue",
+    "diagram"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@lupinum/board-core": "workspace:*",
+    "@lupinum/vue-board": "workspace:*"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  }
+}
