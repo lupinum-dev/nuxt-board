@@ -151,6 +151,37 @@ describe('BoardConnectionLayer', () => {
     expect(wrapper.find('[data-connection-handle="from"]').exists()).toBe(true)
   })
 
+  it('renders auto endpoint handles at the side midpoint', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()]
+    })
+    const source = engine.createNode({ type: 'text', x: 40, y: 40, width: 120, height: 80, data: { content: 'A' } })
+    const target = engine.createNode({ type: 'text', x: 280, y: 180, width: 120, height: 80, data: { content: 'B' } })
+    engine.ext.connections.createEdge({ from: source.id, to: target.id, data: {} })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer)
+      },
+      attachTo: document.body
+    })
+
+    await nextTick()
+    const hit = wrapper.find('[data-connection-hit="true"]').element
+    dispatchPointerEvent(hit, 'pointermove', { pointerId: 4, clientX: 180, clientY: 120 })
+    await nextTick()
+
+    const fromCircles = wrapper.findAll('[data-connection-handle="from"] circle')
+    const toCircles = wrapper.findAll('[data-connection-handle="to"] circle')
+    expect(fromCircles).toHaveLength(2)
+    expect(toCircles).toHaveLength(2)
+    expect(fromCircles[1]?.attributes('cx')).toBe('160')
+    expect(fromCircles[1]?.attributes('cy')).toBe('80')
+    expect(toCircles[1]?.attributes('cx')).toBe('280')
+    expect(toCircles[1]?.attributes('cy')).toBe('220')
+  })
+
   it('reconnects a dragged handle to another node and stays idle in the board engine', async () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin()]

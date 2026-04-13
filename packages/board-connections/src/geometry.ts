@@ -16,8 +16,7 @@ import type {
 } from './types'
 
 const AUTO_SIDE_DEADBAND = 24
-const AUTO_OFFSET_MIN = 0.15
-const AUTO_OFFSET_MAX = 0.85
+const AUTO_ANCHOR_OFFSET = 0.5
 const STEP_OFFSET = 24
 const SMOOTH_STEP_RADIUS = 10
 
@@ -52,19 +51,6 @@ function nodeCenter(node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>): Poin
     x: node.x + node.width / 2,
     y: node.y + node.height / 2
   }
-}
-
-function projectOffset(
-  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
-  side: AnchorSide,
-  target: Point
-): number {
-  if (side === 'left' || side === 'right') {
-    const height = Math.max(node.height, 1)
-    return clamp((target.y - node.y) / height, AUTO_OFFSET_MIN, AUTO_OFFSET_MAX)
-  }
-  const width = Math.max(node.width, 1)
-  return clamp((target.x - node.x) / width, AUTO_OFFSET_MIN, AUTO_OFFSET_MAX)
 }
 
 export function resolveAnchorPoint(
@@ -138,10 +124,8 @@ export function resolveConnectionEndpoint(
       kind: 'explicit'
     }
   }
-
-  const targetCenter = nodeCenter(otherNode)
   const side = resolveAutoAnchorSide(node, otherNode, role, previousSide)
-  const offset = projectOffset(node, side, targetCenter)
+  const offset = AUTO_ANCHOR_OFFSET
   return {
     nodeId: node.id,
     node,

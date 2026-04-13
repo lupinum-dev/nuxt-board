@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
-import { buildConnectionRoute, connectionPlugin, resolveAutoAnchorSide, resolveEdgeRenderState } from '../src'
+import {
+  buildConnectionRoute,
+  connectionPlugin,
+  resolveAutoAnchorSide,
+  resolveConnectionEndpoint,
+  resolveEdgeRenderState
+} from '../src'
 
 describe('connections plugin', () => {
   it('creates edges, queries them, and removes them with deleted nodes', () => {
@@ -71,6 +77,62 @@ describe('connections plugin', () => {
 
     const nearlyDiagonal = { x: 70, y: 80, width: 100, height: 60 }
     expect(resolveAutoAnchorSide(source, nearlyDiagonal, 'source', 'right')).toBe('right')
+  })
+
+  it('locks auto endpoints to the center of the resolved side', () => {
+    const left = { id: 'left' as never, x: 0, y: 0, width: 120, height: 80 }
+    const right = { id: 'right' as never, x: 280, y: 120, width: 120, height: 80 }
+    const below = { id: 'below' as never, x: 20, y: 220, width: 120, height: 80 }
+    const edge = {
+      id: 'edge' as never,
+      from: left.id,
+      to: right.id,
+      data: {},
+      zIndex: 1
+    }
+
+    const horizontalSource = resolveConnectionEndpoint(edge, left, right, 'source')
+    const horizontalTarget = resolveConnectionEndpoint(edge, right, left, 'target')
+    const verticalSource = resolveConnectionEndpoint(
+      { ...edge, to: below.id },
+      left,
+      below,
+      'source'
+    )
+
+    expect(horizontalSource.side).toBe('right')
+    expect(horizontalSource.offset).toBe(0.5)
+    expect(horizontalSource.point).toEqual({ x: 120, y: 40 })
+    expect(horizontalTarget.side).toBe('left')
+    expect(horizontalTarget.offset).toBe(0.5)
+    expect(horizontalTarget.point).toEqual({ x: 280, y: 160 })
+    expect(verticalSource.side).toBe('bottom')
+    expect(verticalSource.offset).toBe(0.5)
+    expect(verticalSource.point).toEqual({ x: 60, y: 80 })
+  })
+
+  it('preserves explicit non-center anchors', () => {
+    const source = { id: 'source' as never, x: 0, y: 0, width: 120, height: 80 }
+    const target = { id: 'target' as never, x: 280, y: 120, width: 120, height: 80 }
+
+    const resolved = resolveConnectionEndpoint(
+      {
+        id: 'edge' as never,
+        from: source.id,
+        to: target.id,
+        fromAnchor: { side: 'right', offset: 0.2 },
+        data: {},
+        zIndex: 1
+      },
+      source,
+      target,
+      'source'
+    )
+
+    expect(resolved.side).toBe('right')
+    expect(resolved.offset).toBe(0.2)
+    expect(resolved.point).toEqual({ x: 120, y: 16 })
+    expect(resolved.kind).toBe('explicit')
   })
 
   it('builds directional routes for bezier, smooth-step, step, and straight paths', () => {
