@@ -36,6 +36,7 @@ import type {
   CanvasNode,
   CanvasPlugin,
   CanvasPluginContext,
+  CommandMiddleware,
   GridSettings,
   InteractionState,
   InvariantMode,
@@ -123,6 +124,7 @@ export function createCanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry
   const listeners: ListenerMap<R> = new Map()
   const trace: TraceEntry[] = []
   const pluginCleanups = new Map<string, () => void>()
+  const middlewares: CommandMiddleware[] = []
   const clipboard: StoredNode[] = []
   const ext = {} as CanvasEngineExtensions<R>
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
@@ -294,7 +296,28 @@ export function createCanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry
     }
   }
 
+  function runMiddlewareChain(name: string, args: unknown[]): boolean {
+    if (middlewares.length === 0) return true
+    let proceeded = false
+    let i = 0
+    function step(): void {
+      if (i < middlewares.length) {
+        middlewares[i++](name, args, step)
+      } else {
+        proceeded = true
+      }
+    }
+    step()
+    return proceeded
+  }
+
   function runCommand<T>(name: string, args: unknown[], fn: () => T, skipValidation = false): T {
+    // Middleware runs first — before any events are emitted.
+    // If the chain doesn't call next(), the command is silently cancelled.
+    if (!runMiddlewareChain(name, args)) {
+      emit('command:blocked', name, args)
+      return undefined as unknown as T
+    }
     const started = performance.now()
     const inTransaction = transactionDepth > 0
     if (!inTransaction) {
@@ -789,6 +812,16 @@ export function createCanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry
       }
       const cleanup = plugin.install(engine)
       pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
+    },
+    addMiddleware(fn: CommandMiddleware) {
+      middlewares.push(fn)
+      return () => {
+        const idx = middlewares.indexOf(fn)
+        if (idx !== -1) middlewares.splice(idx, 1)
+      }
+    },
+    runCommand<T>(name: string, args: unknown[], fn: () => T): T {
+      return runCommand(name, args, fn)
     },
     screenToWorld(point) {
       return screenToWorld(point, state.camera)

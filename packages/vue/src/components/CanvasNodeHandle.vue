@@ -18,8 +18,8 @@ defineProps<{
   width: var(--_size);
   height: var(--_size);
   border: calc(2px / var(--canvas-zoom, 1)) solid currentColor;
-  background: #fff;
-  box-shadow: 0 0 0 calc(1px / var(--canvas-zoom, 1)) rgba(0, 0, 0, 0.2);
+  background: var(--canvas-node-bg, #fff);
+  box-shadow: 0 0 0 calc(1px / var(--canvas-zoom, 1)) var(--canvas-handle-shadow, rgba(0, 0, 0, 0.2));
 }
 
 .is-n,

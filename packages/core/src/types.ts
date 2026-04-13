@@ -218,11 +218,24 @@ export interface CanvasEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
   'interaction:end': (state: InteractionState) => void
   'command:before': (name: string, args: unknown[]) => void
   'command:after': (name: string, args: unknown[], duration: number) => void
+  'command:blocked': (name: string, args: unknown[]) => void
   'invariant:failed': (failure: InvariantFailure<R>) => void
 }
 
 export type PluginCleanup = () => void
 export type Unsubscribe = () => void
+
+/**
+ * A middleware function that intercepts engine commands before they execute.
+ * Call `next()` to allow the command to proceed; omit it to cancel.
+ *
+ * @example
+ * engine.addMiddleware((name, args, next) => {
+ *   if (name === 'moveNode') return  // block all moves
+ *   next()
+ * })
+ */
+export type CommandMiddleware = (name: string, args: unknown[], next: () => void) => void
 
 export interface Subscribable<T> {
   get(): T
@@ -248,6 +261,13 @@ export interface CanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   off<K extends keyof CanvasEventMap<R>>(event: K, handler: CanvasEventMap<R>[K]): void
   exportTrace(): TraceEntry[]
   use(plugin: CanvasPlugin<R>): void
+  /**
+   * Register a middleware that intercepts every command.
+   * Middleware runs synchronously before the command body.
+   * Call `next()` to allow the command to proceed; omit it to cancel silently.
+   * Returns an unsubscribe function that removes the middleware.
+   */
+  addMiddleware(fn: CommandMiddleware): Unsubscribe
   screenToWorld(point: Point): Point
   worldToScreen(point: Point): Point
   getVisibleBounds(width: number, height: number): Bounds
@@ -297,6 +317,13 @@ export interface CanvasEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
 export interface CanvasPluginContext<R extends NodeTypeRegistry = NodeTypeRegistry> extends CanvasEngine<R> {
   emit<K extends keyof CanvasEventMap<R>>(event: K, ...args: Parameters<CanvasEventMap<R>[K]>): void
   extend<K extends keyof CanvasEngineExtensions<R> & string>(key: K, value: CanvasEngineExtensions<R>[K]): void
+  /**
+   * Execute a named command through the full engine pipeline:
+   * middleware chain → command:before → fn() → invariant validation → command:after.
+   * Use this in plugins so that edge/connection operations appear in traces,
+   * are interceptable by middleware, and are captured by the history plugin.
+   */
+  runCommand<T>(name: string, args: unknown[], fn: () => T): T
 }
 
 export interface CanvasPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {

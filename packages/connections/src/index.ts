@@ -79,33 +79,37 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): CanvasP
         createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
           input: Omit<CanvasEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
         ) {
-          if (!engine.hasNode(input.from)) {
-            throw new Error(`Cannot create edge: source node "${input.from}" does not exist.`)
-          }
-          if (!engine.hasNode(input.to)) {
-            throw new Error(`Cannot create edge: target node "${input.to}" does not exist.`)
-          }
-          const edge: CanvasEdge<T> = {
-            id: input.id ?? asEdgeId(crypto.randomUUID()),
-            from: input.from,
-            to: input.to,
-            fromAnchor: input.fromAnchor,
-            toAnchor: input.toAnchor,
-            data: structuredClone(input.data ?? ({} as T)),
-            zIndex: input.zIndex ?? nextZIndex++
-          }
-          nextZIndex = Math.max(nextZIndex, edge.zIndex + 1)
-          edges.set(edge.id, edge)
-          const cloned = cloneEdge(edge)
-          engine.emit('edge:created', cloned)
-          return cloned
+          return engine.runCommand('edge:create', [input], () => {
+            if (!engine.hasNode(input.from)) {
+              throw new Error(`Cannot create edge: source node "${input.from}" does not exist.`)
+            }
+            if (!engine.hasNode(input.to)) {
+              throw new Error(`Cannot create edge: target node "${input.to}" does not exist.`)
+            }
+            const edge: CanvasEdge<T> = {
+              id: input.id ?? asEdgeId(crypto.randomUUID()),
+              from: input.from,
+              to: input.to,
+              fromAnchor: input.fromAnchor,
+              toAnchor: input.toAnchor,
+              data: structuredClone(input.data ?? ({} as T)),
+              zIndex: input.zIndex ?? nextZIndex++
+            }
+            nextZIndex = Math.max(nextZIndex, edge.zIndex + 1)
+            edges.set(edge.id, edge)
+            const cloned = cloneEdge(edge)
+            engine.emit('edge:created', cloned)
+            return cloned
+          }) as CanvasEdge<T>
         },
         deleteEdge(id) {
           if (!edges.has(id)) {
             return
           }
-          edges.delete(id)
-          engine.emit('edge:deleted', id)
+          engine.runCommand('edge:delete', [id], () => {
+            edges.delete(id)
+            engine.emit('edge:deleted', id)
+          })
         },
         getEdges() {
           return Array.from(edges.values(), (edge) => cloneEdge(edge))
@@ -125,6 +129,10 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): CanvasP
       ;(engine.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting }).__routing = routing
 
       const unsubscribe = engine.on('node:deleted', (id) => {
+        // Cascade: collect first to avoid mutation-during-iteration, then remove directly.
+        // We bypass runCommand here because this is a side effect of deleteNode, not a
+        // separate user action — the history plugin captures edge state as part of the
+        // parent command's extras, so routing this through a nested command would corrupt it.
         const toDelete = Array.from(edges.values()).filter((edge) => edge.from === id || edge.to === id)
         for (const edge of toDelete) {
           edges.delete(edge.id)

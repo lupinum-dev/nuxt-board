@@ -57,11 +57,11 @@ const screenGuides = computed(() => {
 
 .canvas-snap-guide--vertical {
   width: 1px;
-  background: #3b82f6;
+  background: var(--canvas-accent, #3b82f6);
 }
 
 .canvas-snap-guide--horizontal {
   height: 1px;
-  background: #3b82f6;
+  background: var(--canvas-accent, #3b82f6);
 }
 </style>

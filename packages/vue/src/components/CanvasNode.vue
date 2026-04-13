@@ -133,8 +133,8 @@ function getTextContent(node: CanvasNode): string {
   box-sizing: border-box;
   overflow: visible;
   border: calc(1px / var(--canvas-zoom, 1)) solid currentColor;
-  color: #0f172a;
-  background: #fff;
+  color: inherit;
+  background: var(--canvas-node-bg, #fff);
   contain: layout style;
 }
 

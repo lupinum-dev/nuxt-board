@@ -268,6 +268,18 @@ function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 're
 }
 
 function onPointerDown(event: PointerEvent): void {
+  const localPoint = toLocalPoint(event.clientX, event.clientY)
+  activePointers.set(event.pointerId, localPoint)
+
+  // Second finger down (touch only) — switch to pinch-to-zoom mode
+  if (activePointers.size === 2 && event.pointerType === 'touch') {
+    engine.endInteraction()
+    rootElement.value?.setPointerCapture(event.pointerId)
+    pinchActive = true
+    pinchPrevDistance = getPinchDistance()
+    return
+  }
+
   if (isEditorTarget(event.target)) {
     return
   }
@@ -293,11 +305,48 @@ function onPointerDown(event: PointerEvent): void {
   startPointerInteraction(event, 'box-select')
 }
 
+// Multi-pointer tracking for pinch-to-zoom
+const activePointers = new Map<number, Point>()
+let pinchActive = false
+let pinchPrevDistance = 0
+
+function getPinchDistance(): number {
+  const pts = [...activePointers.values()]
+  const p1 = pts[0]
+  const p2 = pts[1]
+  if (!p1 || !p2) return 0
+  return Math.hypot(p2.x - p1.x, p2.y - p1.y)
+}
+
+function getPinchMidpoint(): Point {
+  const pts = [...activePointers.values()]
+  const p1 = pts[0]
+  const p2 = pts[1]
+  if (!p1 || !p2) return { x: 0, y: 0 }
+  return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+}
+
 let pendingPointer: { id: number; point: Point; shift: boolean } | null = null
 let rafScheduled = false
 
 function onPointerMove(event: PointerEvent): void {
-  pendingPointer = { id: event.pointerId, point: toLocalPoint(event.clientX, event.clientY), shift: event.shiftKey }
+  const localPoint = toLocalPoint(event.clientX, event.clientY)
+  activePointers.set(event.pointerId, localPoint)
+
+  if (pinchActive) {
+    const newDist = getPinchDistance()
+    if (pinchPrevDistance > 0 && newDist > 0) {
+      // Convert ratio to the delta scale expected by zoomAt:
+      // nextZoom = currentZoom * 2^(-delta * 0.01), so delta = -100 * log2(ratio)
+      const ratio = newDist / pinchPrevDistance
+      const delta = -100 * Math.log2(ratio)
+      engine.zoomAt(getPinchMidpoint(), delta)
+    }
+    pinchPrevDistance = newDist
+    return
+  }
+
+  pendingPointer = { id: event.pointerId, point: localPoint, shift: event.shiftKey }
   if (!rafScheduled) {
     rafScheduled = true
     requestAnimationFrame(() => {
@@ -319,11 +368,23 @@ function flushPendingPointer(): void {
 }
 
 function onPointerUp(event: PointerEvent): void {
-  flushPendingPointer()
-  engine.endInteraction(event.pointerId)
+  activePointers.delete(event.pointerId)
+
   if (rootElement.value?.hasPointerCapture(event.pointerId)) {
     rootElement.value.releasePointerCapture(event.pointerId)
   }
+
+  if (pinchActive) {
+    if (activePointers.size < 2) {
+      pinchActive = false
+      pinchPrevDistance = 0
+      engine.endInteraction()
+    }
+    return
+  }
+
+  flushPendingPointer()
+  engine.endInteraction(event.pointerId)
 }
 
 function onWheel(event: WheelEvent): void {
@@ -551,21 +612,31 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .canvas-root {
+  /* Theme tokens — override any of these to customise the canvas appearance.
+     Example dark mode: .canvas-root { --canvas-bg: #1e293b; --canvas-fg: #f1f5f9; ... } */
+  --canvas-bg: #fff;
+  --canvas-fg: #0f172a;
+  --canvas-node-bg: #fff;
+  --canvas-node-border: rgba(15, 23, 42, 0.15);
+  --canvas-node-stripe: rgba(15, 23, 42, 0.07);
+  --canvas-accent: #3b82f6;
+  --canvas-handle-shadow: rgba(0, 0, 0, 0.2);
+
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   touch-action: none;
   user-select: none;
-  background: #fff;
-  color: #0f172a;
+  background: var(--canvas-bg);
+  color: var(--canvas-fg);
 }
 
 .canvas-node-simple {
   position: absolute;
   box-sizing: border-box;
-  border: calc(1px / var(--canvas-zoom, 1)) solid rgba(15, 23, 42, 0.15);
-  background: #fff;
+  border: calc(1px / var(--canvas-zoom, 1)) solid var(--canvas-node-border);
+  background: var(--canvas-node-bg);
   overflow: hidden;
   contain: layout style paint;
 }
@@ -579,8 +650,8 @@ onBeforeUnmount(() => {
   height: 50%;
   background: repeating-linear-gradient(
     to bottom,
-    rgba(15, 23, 42, 0.07) 0px,
-    rgba(15, 23, 42, 0.07) 2px,
+    var(--canvas-node-stripe) 0px,
+    var(--canvas-node-stripe) 2px,
     transparent 2px,
     transparent 6px
   );
