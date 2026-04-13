@@ -1,84 +1,80 @@
-<!--
-Get your module up and running quickly.
+# @canvas/nuxt
 
-Find and replace all on all files (CMD+SHIFT+F):
-- Name: My Module
-- Package name: my-module
-- Description: My new Nuxt module
--->
+Nuxt module for [`@canvas/vue`](../vue) that auto-imports the canvas components and composables with SSR-safe defaults.
 
-# My Module
+## What It Does
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
+- Auto-imports `CanvasRoot`, `CanvasNode`, `CanvasViewport`, `CanvasGrid`, `CanvasBoxSelect`, `CanvasNodeHandle`, and `CanvasSnapGuides`
+- Auto-imports the core canvas composables from `@canvas/vue`
+- Auto-imports `createCanvasEngine`
+- Transpiles `@canvas/vue` and `@canvas/core` for Nuxt so workspace and linked installs behave consistently
+- Supports real Nuxt SSR instead of wrapping the canvas in client-only stubs
 
-My new Nuxt module for doing amazing things.
-
-- [✨ &nbsp;Release Notes](/CHANGELOG.md)
-<!-- - [🏀 Online playground](https://stackblitz.com/github/your-org/my-module?file=playground%2Fapp.vue) -->
-<!-- - [📖 &nbsp;Documentation](https://example.com) -->
-
-## Features
-
-<!-- Highlight some of the features your module provide here -->
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
-
-## Quick Setup
-
-Install the module to your Nuxt application with one command:
+## Install
 
 ```bash
-npx nuxt module add my-module
+pnpm add @canvas/nuxt @canvas/vue @canvas/core
 ```
 
-That's it! You can now use My Module in your Nuxt app ✨
+Then register the module:
 
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['@canvas/nuxt'],
+})
+```
 
-## Contribution
+## Usage
 
-<details>
-  <summary>Local development</summary>
-  
-  ```bash
-  # Install dependencies
-  npm install
-  
-  # Generate type stubs
-  npm run dev:prepare
-  
-  # Develop with the playground
-  npm run dev
-  
-  # Build the playground
-  npm run dev:build
-  
-  # Run ESLint
-  npm run lint
-  
-  # Run Vitest
-  npm run test
-  npm run test:watch
-  
-  # Release new version
-  npm run release
-  ```
+```vue
+<script setup lang="ts">
+import { asNodeId } from '@canvas/core'
 
-</details>
+const engine = createCanvasEngine({
+  initialNodes: [
+    {
+      id: asNodeId('welcome'),
+      type: 'text',
+      x: 64,
+      y: 64,
+      width: 220,
+      height: 96,
+      data: { content: 'Nuxt SSR canvas' },
+      zIndex: 1,
+      locked: false,
+      visible: true,
+    },
+  ],
+})
+</script>
 
+<template>
+  <CanvasRoot :engine="engine" style="width: 100%; height: 480px;" />
+</template>
+```
 
-<!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/my-module/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/my-module
+## SSR Notes
 
-[npm-downloads-src]: https://img.shields.io/npm/dm/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/my-module
+`@canvas/nuxt` server-renders the canvas shell and any deterministic initial nodes. If you seed the engine during SSR, use stable IDs for initial content so server HTML and client hydration match. The playground in [`packages/nuxt/playground`](./playground) shows the intended pattern.
 
-[license-src]: https://img.shields.io/npm/l/my-module.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/my-module
+## Module Options
 
-[nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
-[nuxt-href]: https://nuxt.com
+```ts
+export default defineNuxtConfig({
+  modules: ['@canvas/nuxt'],
+  canvas: {
+    prefix: '',
+    autoImportComponents: true,
+    autoImportComposables: true,
+  },
+})
+```
+
+## Local Development
+
+```bash
+pnpm --filter @canvas/nuxt dev
+pnpm --filter @canvas/nuxt test
+pnpm --filter @canvas/nuxt-playground build
+```

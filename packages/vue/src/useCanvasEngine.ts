@@ -38,10 +38,14 @@ export function useVisibleBounds() {
 export function useVisibleNodes(margin = 200) {
   const { $nodes, viewportSize, $camera } = useCanvasEngine()
   return computed(() => {
-    const bounds = getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value)
+    const canCull = viewportSize.value.x > 0 && viewportSize.value.y > 0
+    const bounds = canCull ? getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value) : null
     return Array.from($nodes.value.values()).filter((node) => {
       if (!node.visible) {
         return false
+      }
+      if (!bounds) {
+        return true
       }
       return (
         node.x + node.width > bounds.minX - margin &&

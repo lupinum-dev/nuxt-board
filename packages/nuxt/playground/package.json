@@ -8,7 +8,13 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
-    "@canvas/nuxt": "link:..",
+    "@canvas/connections": "workspace:*",
+    "@canvas/core": "workspace:*",
+    "@canvas/history": "workspace:*",
+    "@canvas/minimap": "workspace:*",
+    "@canvas/nuxt": "workspace:*",
+    "@canvas/serializer": "workspace:*",
+    "@canvas/vue": "workspace:*",
     "nuxt": "^4.4.2"
   }
 }

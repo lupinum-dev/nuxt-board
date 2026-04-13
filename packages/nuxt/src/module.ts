@@ -1,4 +1,4 @@
-import { defineNuxtModule, addComponent, addImports, createResolver } from '@nuxt/kit'
+import { defineNuxtModule, addComponent, addImports } from '@nuxt/kit'
 
 export interface ModuleOptions {
   /**
@@ -54,9 +54,13 @@ export default defineNuxtModule<ModuleOptions>({
     autoImportComponents: true,
     autoImportComposables: true,
   },
-  setup(options, _nuxt) {
-    const _resolver = createResolver(import.meta.url)
+  setup(options, nuxt) {
     const prefix = options.prefix ?? ''
+    for (const dependency of ['@canvas/vue', '@canvas/core']) {
+      if (!nuxt.options.build.transpile.includes(dependency)) {
+        nuxt.options.build.transpile.push(dependency)
+      }
+    }
 
     if (options.autoImportComponents !== false) {
       for (const name of CANVAS_COMPONENTS) {
@@ -64,10 +68,6 @@ export default defineNuxtModule<ModuleOptions>({
           name: `${prefix}${name}`,
           export: name,
           filePath: '@canvas/vue',
-          // Canvas relies on DOM APIs (ResizeObserver, pointer events, window).
-          // Rendering must only happen on the client; Nuxt generates a
-          // no-op server stub automatically.
-          mode: 'client',
         })
       }
     }

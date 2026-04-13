@@ -15,9 +15,9 @@ describe('@canvas/nuxt module', async () => {
     expect(html).toContain('canvas-module-ok')
   })
 
-  it('does not server-render the canvas DOM (client-only component)', async () => {
+  it('server-renders the canvas markup and initial nodes', async () => {
     const html = await $fetch('/')
-    // CanvasRoot is mode:client, so its .canvas-root div must not appear in SSR HTML
-    expect(html).not.toContain('class="canvas-root"')
+    expect(html).toContain('class="canvas-root"')
+    expect(html).toContain('fixture-node-content')
   })
 })

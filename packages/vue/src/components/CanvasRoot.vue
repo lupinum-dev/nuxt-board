@@ -129,7 +129,8 @@ function getNodeLod(node: CanvasNodeState, zoom: number, selected: boolean): Nod
 
 
 const visibleNodes = computed<LodNode[]>(() => {
-  const bounds = engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y)
+  const canCull = viewportSize.value.x > 0 && viewportSize.value.y > 0
+  const bounds = canCull ? engine.getVisibleBounds(viewportSize.value.x, viewportSize.value.y) : null
   const zoom = $camera.value.z
   const sel = selectionSet.value
   const result: LodNode[] = []
@@ -137,12 +138,12 @@ const visibleNodes = computed<LodNode[]>(() => {
     if (!node.visible) {
       continue
     }
-    if (
+    if (bounds && (
       node.x + node.width <= bounds.minX - props.cullMargin ||
       node.x >= bounds.maxX + props.cullMargin ||
       node.y + node.height <= bounds.minY - props.cullMargin ||
       node.y >= bounds.maxY + props.cullMargin
-    ) {
+    )) {
       continue
     }
     const lod = getNodeLod(node, zoom, sel.has(node.id))
