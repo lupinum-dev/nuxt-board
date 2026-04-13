@@ -1,5 +1,6 @@
 import { computed, inject } from 'vue'
 import { getBoundsFromPoints, getVisibleBounds } from '@canvas/core'
+import type { ResizeHandle } from '@canvas/core'
 import { canvasEngineKey } from './context'
 
 export function useCanvasEngine() {
@@ -11,34 +12,35 @@ export function useCanvasEngine() {
 }
 
 export function useCamera() {
-  const { snapshot } = useCanvasEngine()
-  return computed(() => snapshot.value.camera)
+  const { $camera } = useCanvasEngine()
+  return computed(() => $camera.value)
 }
 
 export function useNodes() {
   const { snapshot } = useCanvasEngine()
+  // Still returns the sorted array from the snapshot for backward compat
   return computed(() => snapshot.value.nodes)
 }
 
 export function useSelection() {
-  const { snapshot } = useCanvasEngine()
-  return computed(() => snapshot.value.selection)
+  const { $selection } = useCanvasEngine()
+  return computed(() => [...$selection.value])
 }
 
 export function useInteraction() {
-  const { snapshot } = useCanvasEngine()
-  return computed(() => snapshot.value.interaction)
+  const { $interaction } = useCanvasEngine()
+  return computed(() => $interaction.value)
 }
 
 export function useVisibleBounds() {
-  const { snapshot, viewportSize } = useCanvasEngine()
-  return computed(() => getVisibleBounds(viewportSize.value.x, viewportSize.value.y, snapshot.value.camera))
+  const { $camera, viewportSize } = useCanvasEngine()
+  return computed(() => getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value))
 }
 
 export function useVisibleNodes(margin = 200) {
-  const { snapshot, viewportSize } = useCanvasEngine()
+  const { snapshot, viewportSize, $camera } = useCanvasEngine()
   return computed(() => {
-    const bounds = getVisibleBounds(viewportSize.value.x, viewportSize.value.y, snapshot.value.camera)
+    const bounds = getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value)
     return snapshot.value.nodes.filter((node) => {
       if (!node.visible) {
         return false
@@ -90,7 +92,7 @@ export function useGridStyle() {
 }
 
 export function useNode(id: string) {
-  const { engine, snapshot, toLocalPoint } = useCanvasEngine()
+  const { engine, snapshot, $selection, $interaction, toLocalPoint } = useCanvasEngine()
 
   const node = computed(() => {
     const current = snapshot.value.nodes.find((entry) => entry.id === id)
@@ -100,10 +102,9 @@ export function useNode(id: string) {
     return current
   })
 
-  const selectionSet = computed(() => new Set(snapshot.value.selection))
-  const selected = computed(() => selectionSet.value.has(id))
+  const selected = computed(() => $selection.value.has(id))
   const editing = computed(
-    () => snapshot.value.interaction.mode === 'editing-text' && snapshot.value.interaction.nodeId === id
+    () => $interaction.value.mode === 'editing-text' && $interaction.value.nodeId === id
   )
   const locked = computed(() => node.value.locked)
 
@@ -124,17 +125,18 @@ export function useNode(id: string) {
     beginEdit: () => engine.beginTextEdit(id),
     commitText: (text: string) => engine.commitTextEdit(id, text),
     startDrag: (event: PointerEvent) => engine.beginNodeDrag(id, event.pointerId, toLocalPoint(event.clientX, event.clientY)),
-    startResize: (handle: Parameters<typeof engine.beginResize>[1], event: PointerEvent) =>
+    startResize: (handle: ResizeHandle, event: PointerEvent) =>
       engine.beginResize(id, handle, event.pointerId, toLocalPoint(event.clientX, event.clientY))
   }
 }
 
 export function useBoxSelectBounds() {
-  const interaction = useInteraction()
+  const { $interaction } = useCanvasEngine()
   return computed(() => {
-    if (interaction.value.mode !== 'box-select') {
+    const interaction = $interaction.value
+    if (interaction.mode !== 'box-select') {
       return null
     }
-    return getBoundsFromPoints(interaction.value.startScreenPoint, interaction.value.currentScreenPoint)
+    return getBoundsFromPoints(interaction.startScreenPoint, interaction.currentScreenPoint)
   })
 }

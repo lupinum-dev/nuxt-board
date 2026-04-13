@@ -1,4 +1,6 @@
 export { createCanvasEngine } from './engine'
+export { createBatchController, createSubscribable } from './subscribable'
+export type { BatchController } from './subscribable'
 export {
   addDescendants,
   collectSubtreeIds,
@@ -57,6 +59,7 @@ export type {
   SelectionMode,
   SnapAxis,
   SnapGuide,
+  Subscribable,
   TraceEntry,
   Unsubscribe,
   ZoomSettings

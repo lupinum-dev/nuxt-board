@@ -91,7 +91,10 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       data,
       zIndex: 1,
       locked: false,
-      visible: true
+      visible: true,
+      _gen: 0,
+      _geoGen: 0,
+      _dataGen: 0
     }
   }
 

@@ -61,6 +61,12 @@ export interface CanvasNode<T extends Record<string, unknown> = Record<string, u
   visible: boolean
   /** When set, this node is logically contained in the group `parentId` (flat map; not DOM nesting). */
   parentId?: NodeId
+  /** @internal Incremented on every mutation. */
+  readonly _gen: number
+  /** @internal Incremented on x/y/width/height changes. */
+  readonly _geoGen: number
+  /** @internal Incremented on data changes. */
+  readonly _dataGen: number
 }
 
 export interface NodeInput<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -218,7 +224,18 @@ export interface CanvasEventMap {
   'invariant:failed': (failure: InvariantFailure) => void
 }
 
+export interface Subscribable<T> {
+  get(): T
+  subscribe(callback: (value: T, prev: T) => void): Unsubscribe
+}
+
 export interface CanvasEngine {
+  readonly $camera: Subscribable<Camera>
+  readonly $nodes: Subscribable<ReadonlyMap<NodeId, CanvasNode>>
+  readonly $selection: Subscribable<ReadonlySet<NodeId>>
+  readonly $interaction: Subscribable<InteractionState>
+  readonly $snapGuides: Subscribable<readonly SnapGuide[]>
+  batch(fn: () => void): void
   getState(): Readonly<BoardState>
   getSnapshot(): BoardSnapshot
   getGridSettings(): GridSettings

@@ -84,7 +84,16 @@ export function historyPlugin(options: HistoryPluginOptions = {}): CanvasPlugin 
       let replaying = false
 
       function cloneSnapshot(snapshot: BoardSnapshot): BoardSnapshot {
-        return structuredClone(snapshot)
+        // Nodes are immutable (new object on every mutation), so we only need
+        // to copy the array — not deep-clone each node's data.
+        return {
+          ...snapshot,
+          camera: { ...snapshot.camera },
+          grid: { ...snapshot.grid },
+          nodes: [...snapshot.nodes],
+          selection: [...snapshot.selection],
+          snapGuides: [...snapshot.snapGuides]
+        }
       }
 
       function captureExtras(): Record<string, unknown> | undefined {

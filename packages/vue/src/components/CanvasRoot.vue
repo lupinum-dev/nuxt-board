@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, markRaw, onBeforeUnmount, onMounted, provide, ref, shallowRef, useSlots, watch, type Component, type PropType } from 'vue'
-import type { BoardSnapshot, CanvasEngine, CanvasNode as CanvasNodeState, GridSettings, Point, ResizeHandle } from '@canvas/core'
+import type { BoardSnapshot, Camera, CanvasEngine, CanvasNode as CanvasNodeState, GridSettings, InteractionState, NodeId, Point, ResizeHandle, SnapGuide } from '@canvas/core'
 import { createCanvasEngine } from '@canvas/core'
 import { canvasEngineKey } from '../context'
 import { DEFAULT_CANVAS_GRID_OPTIONS, type CanvasGridOptions, type CanvasRendererRegistry, type ResolvedCanvasGridOptions } from '../grid'
@@ -42,6 +42,13 @@ const viewportSize = ref<Point>({ x: 0, y: 0 })
 const engine = props.engine ?? createCanvasEngine()
 const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
 const renderersRef = shallowRef<CanvasRendererRegistry>(props.renderers)
+
+// Granular reactive refs backed by engine subscribables
+const $camera = shallowRef<Camera>(engine.$camera.get())
+const $nodes = shallowRef<ReadonlyMap<NodeId, CanvasNodeState>>(engine.$nodes.get())
+const $selection = shallowRef<ReadonlySet<NodeId>>(engine.$selection.get())
+const $interaction = shallowRef<InteractionState>(engine.$interaction.get())
+const $snapGuides = shallowRef<readonly SnapGuide[]>(engine.$snapGuides.get())
 const slots = useSlots()
 const spacePressed = ref(false)
 
@@ -83,7 +90,12 @@ provide(canvasEngineKey, {
   viewportSize,
   renderers: renderersRef,
   resolvedGrid,
-  toLocalPoint
+  toLocalPoint,
+  $camera,
+  $nodes,
+  $selection,
+  $interaction,
+  $snapGuides,
 })
 
 let prevSelectionIds: string[] = []
@@ -163,7 +175,12 @@ function scheduleSnapshotRefresh(): void {
 }
 
 const unsubscribes = [
-  engine.on('command:after', scheduleSnapshotRefresh)
+  engine.on('command:after', scheduleSnapshotRefresh),
+  engine.$camera.subscribe((v) => { $camera.value = v }),
+  engine.$nodes.subscribe((v) => { $nodes.value = v }),
+  engine.$selection.subscribe((v) => { $selection.value = v }),
+  engine.$interaction.subscribe((v) => { $interaction.value = v }),
+  engine.$snapGuides.subscribe((v) => { $snapGuides.value = v }),
 ]
 
 watch(
