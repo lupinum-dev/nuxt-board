@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 export default defineNuxtConfig({
   modules: ['@lupinum/nuxt-board'],
   devtools: { enabled: true },
-  css: ['~/assets/board-playground.css'],
+  css: ['~/assets/playground.css'],
   alias: {
     '@lupinum/board-core': fileURLToPath(new URL('../../board-core/src/index.ts', import.meta.url)),
     '@lupinum/vue-board': fileURLToPath(new URL('../../vue-board/src/index.ts', import.meta.url)),
