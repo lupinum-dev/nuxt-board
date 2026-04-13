@@ -100,18 +100,18 @@ Start from a runnable board, then pull in the pattern you actually need.
 
 ::tabs
 
-:::tabs-item{label="Kanban" icon="i-lucide-columns-3"}
-::kanban-board-demo
-::
-
-[Open the kanban example](/examples/kanban-board)
-:::
-
 :::tabs-item{label="Workflow" icon="i-lucide-workflow"}
 ::workflow-builder-demo
 ::
 
 [Open the workflow builder](/examples/workflow-builder)
+:::
+
+:::tabs-item{label="Connected graph" icon="i-lucide-cable"}
+::connections-board-demo
+::
+
+[Open the connections example](/examples/connections-and-minimap)
 :::
 
 ::
@@ -137,7 +137,7 @@ Choose your path
   :::u-page-feature
   ---
   icon: i-lucide-compass
-  to: /guides/essentials/core-concepts
+  to: /essentials/core-concepts
   ---
   #title
   Already building

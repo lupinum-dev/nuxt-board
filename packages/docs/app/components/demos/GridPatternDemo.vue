@@ -42,8 +42,8 @@ onMounted(reset)
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="reset">
-        Reset all boards
+      <button class="demo-danger" @click="reset">
+        Reset all
       </button>
       <span class="demo-toolbar-note">Each board has the same nodes and snap settings. Only the pattern changes.</span>
     </div>

@@ -1291,9 +1291,14 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       }
 
       if (interaction.mode === 'dragging-nodes') {
-        runCommand('updatePointer', [pointerId, screenPoint], () => {
-          const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
-          const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
+        runCommand('updatePointer', [pointerId, screenPoint, modifiers], () => {
+          const rawDeltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
+          const rawDeltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
+          const axisLocked = Boolean(modifiers?.shift)
+          const deltaX = axisLocked && Math.abs(rawDeltaY) > Math.abs(rawDeltaX) ? 0 : rawDeltaX
+          const deltaY = axisLocked && Math.abs(rawDeltaX) >= Math.abs(rawDeltaY) ? 0 : rawDeltaY
+          const bypassSnapping = Boolean(modifiers?.space)
+          const snapToGrid = grid.snap && !bypassSnapping
           const prelimBounds: Record<NodeId, { x: number; y: number; width: number; height: number }> = {}
           let minX = Infinity
           let minY = Infinity
@@ -1306,8 +1311,8 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             if (!origin) {
               continue
             }
-            const x = grid.snap ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX
-            const y = grid.snap ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
+            const x = snapToGrid ? snapValue(origin.x + deltaX, grid.size) : origin.x + deltaX
+            const y = snapToGrid ? snapValue(origin.y + deltaY, grid.size) : origin.y + deltaY
             prelimBounds[nodeId] = { x, y, width: node.width, height: node.height }
             minX = Math.min(minX, x)
             minY = Math.min(minY, y)
@@ -1315,10 +1320,14 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             maxY = Math.max(maxY, y + node.height)
           }
 
-          const excludeIds = new Set(interaction.nodeIds)
-          const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds)
-          const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-          const snapResult = snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z)
+          const snapResult = bypassSnapping
+            ? { dx: 0, dy: 0, guides: [] as SnapGuide[] }
+            : (() => {
+                const excludeIds = new Set(interaction.nodeIds)
+                const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds)
+                const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+                return snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z)
+              })()
           setSnapGuides(snapResult.guides)
 
           for (const nodeId of interaction.nodeIds) {
@@ -1343,28 +1352,34 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       }
 
       if (interaction.mode === 'resizing-node') {
-        runCommand('updatePointer', [pointerId, screenPoint], () => {
+        runCommand('updatePointer', [pointerId, screenPoint, modifiers], () => {
           const node = assertStoredNode(interaction.nodeId)
           const deltaX = (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
           const deltaY = (screenPoint.y - interaction.startScreenPoint.y) / state.camera.z
           const constraints = { minWidth: nodeConstraints.minWidth, minHeight: nodeConstraints.minHeight }
           const locked = Boolean(modifiers?.shift)
+          const bypassSnapping = Boolean(modifiers?.space)
           const raw = locked
             ? applyResizeDeltaLocked(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints, interaction.aspectRatio)
             : applyResizeDelta(interaction.startNodeBounds, interaction.handle, deltaX, deltaY, constraints)
 
           if (locked) {
-            const nextBounds = grid.snap
+            const nextBounds = !bypassSnapping && grid.snap
               ? snapResizedBoundsLocked(raw, interaction.startNodeBounds, interaction.handle, grid.size, constraints, interaction.aspectRatio)
               : raw
             setSnapGuides([])
             replaceStoredNode(node, { ...node, ...nextBounds })
           } else {
-            const gridSnapped = grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, constraints) : raw
-            const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId)
-            const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z)
-            setSnapGuides(snapResult.guides)
-            replaceStoredNode(node, { ...node, ...snapResult.bounds })
+            const gridSnapped = !bypassSnapping && grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, constraints) : raw
+            if (bypassSnapping) {
+              setSnapGuides([])
+              replaceStoredNode(node, { ...node, ...gridSnapped })
+            } else {
+              const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId)
+              const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z)
+              setSnapGuides(snapResult.guides)
+              replaceStoredNode(node, { ...node, ...snapResult.bounds })
+            }
           }
         }, true)
         return

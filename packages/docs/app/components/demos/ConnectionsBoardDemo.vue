@@ -53,37 +53,25 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">
-        Reset graph
+      <button class="demo-danger" @click="seed">
+        Reset
       </button>
       <button @click="shuffle">
-        Shuffle layout
+        Shuffle
       </button>
-      <button :class="{ 'bg-teal-100': routing === 'bezier' }" @click="routing = 'bezier'">
-        Bezier
-      </button>
-      <button :class="{ 'bg-teal-100': routing === 'smooth-step' }" @click="routing = 'smooth-step'">
-        Smooth step
-      </button>
-      <button :class="{ 'bg-teal-100': routing === 'step' }" @click="routing = 'step'">
-        Step
-      </button>
-      <button :class="{ 'bg-teal-100': routing === 'straight' }" @click="routing = 'straight'">
-        Straight
-      </button>
-      <button
-        :disabled="!engine.ext.history.canUndo()"
-        @click="engine.ext.history.undo()"
-      >
+      <span class="demo-toggle-group">
+        <button :class="{ active: routing === 'bezier' }" @click="routing = 'bezier'">Bezier</button>
+        <button :class="{ active: routing === 'smooth-step' }" @click="routing = 'smooth-step'">Smooth</button>
+        <button :class="{ active: routing === 'step' }" @click="routing = 'step'">Step</button>
+        <button :class="{ active: routing === 'straight' }" @click="routing = 'straight'">Straight</button>
+      </span>
+      <button :disabled="!engine.ext.history.canUndo()" @click="engine.ext.history.undo()">
         Undo
       </button>
-      <button
-        :disabled="!engine.ext.history.canRedo()"
-        @click="engine.ext.history.redo()"
-      >
+      <button :disabled="!engine.ext.history.canRedo()" @click="engine.ext.history.redo()">
         Redo
       </button>
-      <span class="ml-auto text-xs font-mono text-slate-500">undo {{ historyState.undoDepth }} / redo {{ historyState.redoDepth }}</span>
+      <span class="demo-history-badge ml-auto">{{ historyState.undoDepth }} undo / {{ historyState.redoDepth }} redo</span>
     </div>
 
     <div class="relative">

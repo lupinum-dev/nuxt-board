@@ -11,9 +11,9 @@ function seed() {
     camera: { x: -80, y: -20, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'brief', type: 'text', x: 80, y: 80, width: 220, height: 120, data: { content: 'Brief\nMap the core flows' }, zIndex: 1, locked: false, visible: true },
-      { id: 'draft', type: 'text', x: 360, y: 220, width: 240, height: 140, data: { content: 'Draft\nSketch the happy path' }, zIndex: 2, locked: false, visible: true },
-      { id: 'review', type: 'text', x: 650, y: 100, width: 220, height: 120, data: { content: 'Review\nRefine details with the team' }, zIndex: 3, locked: false, visible: true }
+      { id: 'research', type: 'text', x: 60, y: 60, width: 240, height: 120, data: { content: 'User research\nSynthesize interview findings' }, zIndex: 1, locked: false, visible: true },
+      { id: 'prototype', type: 'text', x: 370, y: 200, width: 260, height: 140, data: { content: 'Prototype\nInteractive flows for the onboarding redesign' }, zIndex: 2, locked: false, visible: true },
+      { id: 'review', type: 'text', x: 680, y: 80, width: 220, height: 120, data: { content: 'Design review\nAlign with eng on feasibility' }, zIndex: 3, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -72,14 +72,14 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">
-        Reset scene
+      <button class="demo-danger" @click="seed">
+        Reset
       </button>
-      <button @click="addNode">
+      <button class="demo-primary" @click="addNode">
         Add note
       </button>
       <button @click="wrapSelectionInGroup">
-        Wrap selection
+        Group selection
       </button>
       <button @click="engine.zoomToFit(72, false)">
         Zoom to fit

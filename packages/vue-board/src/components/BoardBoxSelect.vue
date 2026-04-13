@@ -26,8 +26,10 @@ const style = computed(() => {
 <style scoped>
 .board-box-select {
   position: absolute;
-  border: 1px dashed currentColor;
-  background: rgba(15, 23, 42, 0.04);
+  border: 1.5px solid var(--board-box-select-stroke, rgba(15, 118, 110, 0.64));
+  border-radius: 14px;
+  background: var(--board-box-select-fill, rgba(15, 118, 110, 0.1));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   pointer-events: none;
 }
 </style>

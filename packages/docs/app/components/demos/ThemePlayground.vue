@@ -59,7 +59,7 @@ onMounted(reset)
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="reset">
+      <button class="demo-danger" @click="reset">
         Reset theme
       </button>
       <span class="demo-toolbar-note">Change the CSS custom properties and the board updates immediately.</span>
@@ -69,23 +69,23 @@ onMounted(reset)
       <div class="border-b border-slate-200/80 bg-white/80 p-4 lg:border-r lg:border-b-0">
         <div class="space-y-4">
           <label class="demo-color-field">
-            <span>Board background</span>
+            <div><span>Board background</span><code class="demo-color-var">--board-bg</code></div>
             <input v-model="colors.bg" type="color">
           </label>
           <label class="demo-color-field">
-            <span>Board foreground</span>
+            <div><span>Board foreground</span><code class="demo-color-var">--board-fg</code></div>
             <input v-model="colors.fg" type="color">
           </label>
           <label class="demo-color-field">
-            <span>Node background</span>
+            <div><span>Node background</span><code class="demo-color-var">--board-node-bg</code></div>
             <input v-model="colors.nodeBg" type="color">
           </label>
           <label class="demo-color-field">
-            <span>Node border</span>
+            <div><span>Node border</span><code class="demo-color-var">--board-node-border</code></div>
             <input v-model="colors.nodeBorder" type="color">
           </label>
           <label class="demo-color-field">
-            <span>Accent</span>
+            <div><span>Accent</span><code class="demo-color-var">--board-accent</code></div>
             <input v-model="colors.accent" type="color">
           </label>
         </div>

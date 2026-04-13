@@ -59,21 +59,19 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">
-        Reset board
+      <button class="demo-danger" @click="seed">
+        Reset
       </button>
-      <button @click="exportBoard">
+      <button class="demo-primary" @click="exportBoard">
         Export JSON Canvas
       </button>
       <button @click="importBoard">
         Import payload
       </button>
-      <button :class="{ 'bg-teal-100': formatMode === 'pretty' }" @click="formatMode = 'pretty'; exportBoard()">
-        Pretty JSON
-      </button>
-      <button :class="{ 'bg-teal-100': formatMode === 'compact' }" @click="formatMode = 'compact'; exportBoard()">
-        Compact JSON
-      </button>
+      <span class="demo-toggle-group">
+        <button :class="{ active: formatMode === 'pretty' }" @click="formatMode = 'pretty'; exportBoard()">Pretty</button>
+        <button :class="{ active: formatMode === 'compact' }" @click="formatMode = 'compact'; exportBoard()">Compact</button>
+      </span>
     </div>
 
     <div class="grid gap-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">

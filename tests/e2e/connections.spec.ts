@@ -131,3 +131,49 @@ test('keeps connections attached through drag resize and zoom interactions', asy
 
   await expect(board).toHaveScreenshot('connections-interaction-zoom.png')
 })
+
+test('creates a new connection from a card edge and previews the route cleanly', async ({ page }) => {
+  await seedConnectionScene(page)
+
+  const board = page.locator('.board-root').first()
+  const countEdges = async () =>
+    page.evaluate(() => {
+      const api = (window as unknown as {
+        __boardPlayground: {
+          engine: {
+            ext: {
+              connections: {
+                getEdges: () => Array<{ id: string }>
+              }
+            }
+          }
+        }
+      }).__boardPlayground
+      return api.engine.ext.connections.getEdges().length
+    })
+
+  const before = await countEdges()
+  const hotspot = page.locator('[data-connection-node-id="input"][data-connection-side="right"]').first()
+  const hotspotBox = await hotspot.boundingBox()
+  if (!hotspotBox) {
+    throw new Error('Missing source hotspot bounds')
+  }
+
+  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2, hotspotBox.y + hotspotBox.height / 2)
+  await expect(page.locator('[data-connection-create-handle="true"]').first()).toBeVisible()
+
+  await page.mouse.move(hotspotBox.x + hotspotBox.width / 2, hotspotBox.y + hotspotBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(hotspotBox.x + 150, hotspotBox.y - 28, { steps: 10 })
+  await expect(board).toHaveScreenshot('connections-create-edge-preview.png')
+
+  const output = page.locator('[data-node-id="output"]')
+  const outputBox = await output.boundingBox()
+  if (!outputBox) {
+    throw new Error('Missing output node bounds')
+  }
+
+  await page.mouse.move(outputBox.x + 6, outputBox.y + outputBox.height / 2, { steps: 12 })
+  await page.mouse.up()
+  await expect.poll(countEdges).toBe(before + 1)
+})

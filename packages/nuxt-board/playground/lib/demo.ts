@@ -12,7 +12,7 @@ import { connectionPlugin } from '../../../board-connections/src/index'
 import { historyPlugin } from '../../../board-history/src/index'
 import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 
-export type DemoSceneId = 'workflow' | 'systems' | 'dense'
+export type DemoSceneId = 'workflow' | 'systems' | 'dense' | 'polish'
 
 export interface DemoSceneOption {
   id: DemoSceneId
@@ -52,6 +52,11 @@ export const DEMO_SCENES: DemoSceneOption[] = [
     id: 'dense',
     label: 'Dense Dataset',
     summary: 'A larger seeded board for zoom, culling, and interaction stress.',
+  },
+  {
+    id: 'polish',
+    label: 'Polish Pass',
+    summary: 'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
   },
 ]
 
@@ -284,8 +289,37 @@ function createDenseScene(): DemoScene {
   }
 }
 
+function createPolishScene(): DemoScene {
+  const nodes: DemoNode[] = [
+    groupNode('polish-flow', 56, 52, 1120, 520, 'Canvas Polish', '#0f766e', 1),
+    textNode('polish-brief', 104, 120, 230, 112, 'Brief\nNeed calmer chrome\n+ cleaner edge cadence', 10, 'polish-flow'),
+    textNode('polish-parse', 438, 86, 244, 124, 'Parse input\nPreserve structure', 11, 'polish-flow'),
+    textNode('polish-score', 456, 300, 236, 118, 'Score signals\nWeight confidence', 12, 'polish-flow'),
+    textNode('polish-output', 820, 176, 248, 130, 'Output\nReadable + stable', 13, 'polish-flow'),
+    textNode('polish-notes', 820, 352, 214, 96, 'Alt-drag to duplicate\nDrag from card edge to connect', 14, 'polish-flow'),
+  ]
+
+  const edges = [
+    connection('polish-1', 'polish-brief', 'polish-parse', 'frame'),
+    connection('polish-2', 'polish-brief', 'polish-score', 'branch'),
+    connection('polish-3', 'polish-parse', 'polish-output', 'emit'),
+    connection('polish-4', 'polish-score', 'polish-output', 'merge'),
+    connection('polish-5', 'polish-output', 'polish-notes', 'follow-up'),
+  ]
+
+  return {
+    id: 'polish',
+    label: 'Polish Pass',
+    summary: 'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
+    snapshot: snapshotFrom(nodes, { x: 18, y: 24, z: 0.82 }, { ...DEFAULT_GRID, pattern: 'dot' }),
+    edges,
+  }
+}
+
 function getScene(id: DemoSceneId): DemoScene {
   switch (id) {
+    case 'polish':
+      return createPolishScene()
     case 'systems':
       return createSystemsScene()
     case 'dense':

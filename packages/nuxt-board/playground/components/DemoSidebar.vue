@@ -96,7 +96,11 @@ const emit = defineEmits<{
       </p>
       <ul class="sidebar__list">
         <li>Double-click the board to create a text node.</li>
-        <li>Use <kbd>Space</kbd> + drag to pan.</li>
+        <li>Drag from a card edge to create a connection.</li>
+        <li>Use <kbd>Alt/Option</kbd> + drag to duplicate the selection.</li>
+        <li>Use <kbd>Shift</kbd> while dragging to lock to one axis.</li>
+        <li>Use <kbd>Space</kbd> while dragging or resizing to bypass snapping.</li>
+        <li>Use <kbd>Space</kbd> + drag to pan, or <kbd>Space</kbd> + scroll to zoom.</li>
         <li>Use <kbd>Ctrl/Cmd</kbd> + <kbd>1</kbd> to zoom-to-fit.</li>
         <li>Use arrows to nudge the current selection.</li>
       </ul>

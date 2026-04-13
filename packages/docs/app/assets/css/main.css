@@ -58,15 +58,93 @@ body {
   border: 0;
   border-radius: 999px;
   padding: 0.55rem 0.85rem;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  color: #0f172a;
-  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+  background: rgba(15, 23, 42, 0.05);
+  transition: all 0.15s ease;
 }
 
 .demo-toolbar button:hover {
-  background: rgba(20, 184, 166, 0.18);
+  color: #0f172a;
+  background: rgba(20, 184, 166, 0.14);
+}
+
+.demo-toolbar button:active {
+  transform: scale(0.97);
+}
+
+.demo-toolbar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Primary action — teal-tinted with strong presence */
+.demo-toolbar button.demo-primary {
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.18);
+}
+
+.demo-toolbar button.demo-primary:hover {
+  color: #115e59;
+  background: rgba(20, 184, 166, 0.22);
+}
+
+/* Danger — subtle red accent for destructive actions */
+.demo-toolbar button.demo-danger {
+  color: #64748b;
+}
+
+.demo-toolbar button.demo-danger:hover {
+  color: #be123c;
+  background: rgba(190, 18, 60, 0.08);
+}
+
+/* Toggle group — segmented control appearance */
+.demo-toggle-group {
+  display: inline-flex;
+  gap: 1px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.demo-toggle-group button {
+  background: transparent;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 999px;
+}
+
+.demo-toggle-group button:hover {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.demo-toggle-group button.active {
+  color: #0f766e;
+  background: white;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* History badge — mono-spaced depth counter */
+.demo-history-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.04);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
 }
 
 .demo-toolbar-note {
@@ -101,6 +179,16 @@ body {
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
+}
+
+.demo-color-var {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
 }
 
 .demo-caption {

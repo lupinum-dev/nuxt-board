@@ -114,7 +114,14 @@ export default defineNuxtConfig({
         ]
       },
       {
-        title: 'Learn',
+        title: 'Essentials',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/essentials%' }
+        ]
+      },
+      {
+        title: 'Guides',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/guides%' }
@@ -139,6 +146,13 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '/api%' }
+        ]
+      },
+      {
+        title: 'Events',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/events%' }
         ]
       }
     ]

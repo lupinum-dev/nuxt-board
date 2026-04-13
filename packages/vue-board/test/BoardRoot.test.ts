@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { defineComponent, h, markRaw } from 'vue'
+import { defineComponent, h, markRaw, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
@@ -62,7 +62,7 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
-  it('delegates pointerdown to drag and resize interactions', async () => {
+  it('starts drag and resize only after the pointer clears the movement threshold', async () => {
     const engine = createBoardEngine()
     const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Drag me' } })
     const wrapper = mount(BoardRoot, {
@@ -76,15 +76,62 @@ describe('BoardRoot', () => {
       clientX: 50,
       clientY: 50
     })
+    expect(engine.getSelection()).toEqual([node.id])
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'idle'
+    })
+
+    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointermove', {
+      pointerId: 1,
+      clientX: 53,
+      clientY: 52
+    })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'idle'
+    })
+
+    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointermove', {
+      pointerId: 1,
+      clientX: 66,
+      clientY: 58
+    })
     expect(engine.getSnapshot().interaction).toMatchObject({
       mode: 'dragging-nodes'
     })
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 1,
+      clientX: 66,
+      clientY: 58
+    })
+
+    await nextTick()
+    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointerdown', {
+      button: 0,
+      pointerId: 2,
+      clientX: 46,
+      clientY: 46
+    })
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 2,
+      clientX: 46,
+      clientY: 46
+    })
+    await nextTick()
 
     dispatchPointerEvent(wrapper.find('[data-resize="se"]').element, 'pointerdown', {
       button: 0,
-      pointerId: 2,
+      pointerId: 3,
       clientX: 120,
       clientY: 110
+    })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'idle'
+    })
+
+    dispatchPointerEvent(wrapper.find('[data-resize="se"]').element, 'pointermove', {
+      pointerId: 3,
+      clientX: 132,
+      clientY: 122
     })
     expect(engine.getSnapshot().interaction).toMatchObject({
       mode: 'resizing-node',
@@ -166,6 +213,35 @@ describe('BoardRoot', () => {
 
     await wrapper.trigger('keydown', { key: 'Delete' })
     expect(engine.getSnapshot().nodes).toHaveLength(1)
+  })
+
+  it('duplicates the current selection when alt-dragging past the threshold', async () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Clone me' } })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body
+    })
+
+    const element = wrapper.find(`[data-node-id="${node.id}"]`).element
+    dispatchPointerEvent(element, 'pointerdown', {
+      button: 0,
+      pointerId: 12,
+      altKey: true,
+      clientX: 60,
+      clientY: 60
+    })
+    dispatchPointerEvent(element, 'pointermove', {
+      pointerId: 12,
+      altKey: true,
+      clientX: 84,
+      clientY: 84
+    })
+    await nextTick()
+
+    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'dragging-nodes' })
+    expect(engine.getSelection()).toHaveLength(1)
   })
 
   it('applies grid visibility and pattern overrides', async () => {

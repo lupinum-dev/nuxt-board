@@ -132,31 +132,57 @@ function getTextContent(node: BoardNode): string {
   position: absolute;
   box-sizing: border-box;
   overflow: visible;
-  border: calc(1px / var(--board-zoom, 1)) solid currentColor;
-  color: inherit;
+  border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border, rgba(148, 163, 184, 0.28));
+  border-radius: calc(18px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow, 0 18px 40px -30px rgba(15, 23, 42, 0.22));
   background: var(--board-node-bg, #fff);
+  color: inherit;
   contain: layout style;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    outline-color 140ms ease,
+    transform 140ms ease;
+}
+
+.board-node:hover:not(.is-group):not(.is-editing) {
+  border-color: var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
+  box-shadow: var(--board-node-shadow-hover, 0 22px 48px -28px rgba(15, 23, 42, 0.28));
+  transform: translateY(calc(-1px / var(--board-zoom, 1)));
 }
 
 .board-node.is-selected {
-  outline: calc(3px / var(--board-zoom, 1)) solid currentColor;
+  outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
+  outline-offset: calc(1px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow-selected, 0 24px 52px -28px rgba(15, 23, 42, 0.32));
+}
+
+.board-node.is-editing {
+  outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
+  outline-offset: calc(1px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow-selected, 0 24px 52px -28px rgba(15, 23, 42, 0.32));
 }
 
 .board-node.is-locked {
-  opacity: 0.7;
+  opacity: 0.8;
+  filter: saturate(0.82);
 }
 
 .board-node.is-group {
-  background: transparent;
-  border: none;
+  background: var(--board-group-bg, rgba(15, 23, 42, 0.04));
+  border-style: dashed;
+  border-color: var(--board-group-border, rgba(15, 23, 42, 0.12));
   outline: none;
+  box-shadow: none;
+  transform: none;
 }
 
 .board-node__content,
 .board-node__editor {
   width: 100%;
   height: 100%;
-  padding: 12px;
+  padding: 16px 18px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -164,5 +190,18 @@ function getTextContent(node: BoardNode): string {
   resize: none;
   outline: none;
   white-space: pre-wrap;
+}
+
+.board-node__content {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-node {
+    transition: none;
+  }
 }
 </style>

@@ -72,10 +72,10 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">
-        Reset workflow
+      <button class="demo-danger" @click="seed">
+        Reset
       </button>
-      <button @click="advanceSelected">
+      <button class="demo-primary" @click="advanceSelected">
         Cycle selected step
       </button>
       <button :disabled="!engine.ext.history.canUndo()" @click="engine.ext.history.undo()">
@@ -84,7 +84,7 @@ onMounted(async () => {
       <button :disabled="!engine.ext.history.canRedo()" @click="engine.ext.history.redo()">
         Redo
       </button>
-      <span class="ml-auto text-xs font-mono text-slate-500">undo {{ historyState.undoDepth }} / redo {{ historyState.redoDepth }}</span>
+      <span class="demo-history-badge ml-auto">{{ historyState.undoDepth }} undo / {{ historyState.redoDepth }} redo</span>
     </div>
 
     <BoardRoot

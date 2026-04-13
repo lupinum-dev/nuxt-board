@@ -29,6 +29,18 @@ function dispatchPointerEvent(
   target.dispatchEvent(event)
 }
 
+function query(selector: string): Element {
+  const element = document.body.querySelector(selector)
+  if (!element) {
+    throw new Error(`Missing element for selector: ${selector}`)
+  }
+  return element
+}
+
+function queryAll(selector: string): Element[] {
+  return Array.from(document.body.querySelectorAll(selector))
+}
+
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
     configurable: true,
@@ -80,13 +92,14 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const before = wrapper.find('.board-connection-layer > g > path:not([data-connection-hit])').attributes('d')
+    const before = query('.board-connection-layer > g > path:not([data-connection-hit])').getAttribute('d')
     engine.updateNode(target.id, { x: 420, y: 40 })
     await nextTick()
     await nextTick()
-    const after = wrapper.find('.board-connection-layer > g > path:not([data-connection-hit])').attributes('d')
+    const after = query('.board-connection-layer > g > path:not([data-connection-hit])').getAttribute('d')
 
     expect(before).not.toBe(after)
+    wrapper.unmount()
   })
 
   it('exposes resolved endpoints and route metadata to the edge slot', async () => {
@@ -119,6 +132,7 @@ describe('BoardConnectionLayer', () => {
 
     await nextTick()
     expect(wrapper.find('.edge-slot').text()).toMatch(/right\|left\|bezier\|true/)
+    wrapper.unmount()
   })
 
   it('reveals endpoint handles on hover and selects edges on pointerdown', async () => {
@@ -138,17 +152,18 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    expect(wrapper.find('[data-connection-handle="from"]').exists()).toBe(false)
+    expect(queryAll('[data-connection-handle="from"]')).toHaveLength(0)
 
-    const hit = wrapper.find('[data-connection-hit="true"]').element
+    const hit = query('[data-connection-hit="true"]')
     dispatchPointerEvent(hit, 'pointermove', { pointerId: 1, clientX: 140, clientY: 60 })
     await nextTick()
-    expect(wrapper.find('[data-connection-handle="from"]').exists()).toBe(true)
-    expect(wrapper.find('[data-connection-handle="to"]').exists()).toBe(true)
+    expect(queryAll('[data-connection-handle="from"]')).toHaveLength(1)
+    expect(queryAll('[data-connection-handle="to"]')).toHaveLength(1)
 
     dispatchPointerEvent(hit, 'pointerdown', { pointerId: 1, button: 0, clientX: 140, clientY: 60 })
     await nextTick()
-    expect(wrapper.find('[data-connection-handle="from"]').exists()).toBe(true)
+    expect(queryAll('[data-connection-handle="from"]')).toHaveLength(1)
+    wrapper.unmount()
   })
 
   it('renders auto endpoint handles at the side midpoint', async () => {
@@ -168,18 +183,19 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const hit = wrapper.find('[data-connection-hit="true"]').element
+    const hit = query('[data-connection-hit="true"]')
     dispatchPointerEvent(hit, 'pointermove', { pointerId: 4, clientX: 180, clientY: 120 })
     await nextTick()
 
-    const fromCircles = wrapper.findAll('[data-connection-handle="from"] circle')
-    const toCircles = wrapper.findAll('[data-connection-handle="to"] circle')
+    const fromCircles = queryAll('[data-connection-handle="from"] circle')
+    const toCircles = queryAll('[data-connection-handle="to"] circle')
     expect(fromCircles).toHaveLength(2)
     expect(toCircles).toHaveLength(2)
-    expect(fromCircles[1]?.attributes('cx')).toBe('160')
-    expect(fromCircles[1]?.attributes('cy')).toBe('80')
-    expect(toCircles[1]?.attributes('cx')).toBe('280')
-    expect(toCircles[1]?.attributes('cy')).toBe('220')
+    expect(fromCircles[1]?.getAttribute('cx')).toBe('160')
+    expect(fromCircles[1]?.getAttribute('cy')).toBe('80')
+    expect(toCircles[1]?.getAttribute('cx')).toBe('280')
+    expect(toCircles[1]?.getAttribute('cy')).toBe('220')
+    wrapper.unmount()
   })
 
   it('reconnects a dragged handle to another node and stays idle in the board engine', async () => {
@@ -206,18 +222,18 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const hit = wrapper.find('[data-connection-hit="true"]').element
+    const hit = query('[data-connection-hit="true"]')
     dispatchPointerEvent(hit, 'pointermove', { pointerId: 2, clientX: 150, clientY: 60 })
     await nextTick()
 
-    const handle = wrapper.find('[data-connection-handle="to"]').element
+    const handle = query('[data-connection-handle="to"]')
     dispatchPointerEvent(handle, 'pointerdown', { pointerId: 2, button: 0, clientX: 260, clientY: 60 })
     await nextTick()
 
     dispatchPointerEvent(window, 'pointermove', { pointerId: 2, clientX: 560, clientY: 60 })
     await nextTick()
     await nextTick()
-    expect(wrapper.find('.board-connection-layer rect').exists()).toBe(true)
+    expect(queryAll('.board-connection-layer rect')).not.toHaveLength(0)
 
     dispatchPointerEvent(window, 'pointerup', { pointerId: 2, clientX: 560, clientY: 60 })
     await nextTick()
@@ -229,6 +245,7 @@ describe('BoardConnectionLayer', () => {
       fromAnchor: { side: 'right', offset: 0.25 },
       toAnchor: undefined
     })
+    wrapper.unmount()
   })
 
   it('cancels reconnect when the dragged endpoint is dropped off-node', async () => {
@@ -248,11 +265,11 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const hit = wrapper.find('[data-connection-hit="true"]').element
+    const hit = query('[data-connection-hit="true"]')
     dispatchPointerEvent(hit, 'pointermove', { pointerId: 3, clientX: 150, clientY: 60 })
     await nextTick()
 
-    const handle = wrapper.find('[data-connection-handle="from"]').element
+    const handle = query('[data-connection-handle="from"]')
     dispatchPointerEvent(handle, 'pointerdown', { pointerId: 3, button: 0, clientX: 140, clientY: 60 })
     await nextTick()
 
@@ -266,5 +283,77 @@ describe('BoardConnectionLayer', () => {
       from: source.id,
       to: target.id
     })
+    wrapper.unmount()
+  })
+
+  it('reveals a node-side create handle and creates a new edge to another node', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()]
+    })
+    const source = engine.createNode({ type: 'text', x: 40, y: 40, width: 120, height: 80, data: { content: 'A' } })
+    const target = engine.createNode({ type: 'text', x: 320, y: 40, width: 120, height: 80, data: { content: 'B' } })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer)
+      },
+      attachTo: document.body
+    })
+
+    await nextTick()
+    const hotspot = query(`[data-connection-node-id="${source.id}"][data-connection-side="right"]`)
+    dispatchPointerEvent(hotspot, 'pointerenter', { pointerId: 9, clientX: 160, clientY: 80 })
+    await nextTick()
+
+    expect(queryAll('[data-connection-create-handle="true"]')).toHaveLength(1)
+
+    dispatchPointerEvent(hotspot, 'pointerdown', { pointerId: 9, button: 0, clientX: 160, clientY: 80 })
+    await nextTick()
+    dispatchPointerEvent(window, 'pointermove', { pointerId: 9, clientX: 340, clientY: 80 })
+    await nextTick()
+    await nextTick()
+    dispatchPointerEvent(window, 'pointerup', { pointerId: 9, clientX: 340, clientY: 80 })
+    await nextTick()
+    await nextTick()
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      from: source.id,
+      to: target.id,
+      fromAnchor: { side: 'right', offset: 0.5 }
+    })
+    wrapper.unmount()
+  })
+
+  it('creates a new text node when a create drag is dropped on empty space', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()]
+    })
+    const source = engine.createNode({ type: 'text', x: 40, y: 40, width: 120, height: 80, data: { content: 'A' } })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer)
+      },
+      attachTo: document.body
+    })
+
+    await nextTick()
+    const hotspot = query(`[data-connection-node-id="${source.id}"][data-connection-side="right"]`)
+    dispatchPointerEvent(hotspot, 'pointerdown', { pointerId: 10, button: 0, clientX: 160, clientY: 80 })
+    await nextTick()
+    dispatchPointerEvent(window, 'pointermove', { pointerId: 10, clientX: 520, clientY: 220 })
+    await nextTick()
+    await nextTick()
+    dispatchPointerEvent(window, 'pointerup', { pointerId: 10, clientX: 520, clientY: 220 })
+    await nextTick()
+    await nextTick()
+
+    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'editing-text' })
+    wrapper.unmount()
   })
 })

@@ -164,6 +164,28 @@ const debugState = computed(() => ({
   trace: engine.exportTrace().slice(-20)
 }))
 
+const POINTER_DRAG_THRESHOLD = 6
+
+type PendingPointerInteraction =
+  | {
+      kind: 'drag'
+      pointerId: number
+      startPoint: Point
+      nodeId: string
+    }
+  | {
+      kind: 'resize'
+      pointerId: number
+      startPoint: Point
+      nodeId: string
+      handle: ResizeHandle
+    }
+  | {
+      kind: 'box-select'
+      pointerId: number
+      startPoint: Point
+    }
+
 let snapshotDirty = false
 function scheduleSnapshotRefresh(): void {
   if (!snapshotDirty) {
@@ -257,19 +279,116 @@ function findNodeIdAtPoint(screenPoint: Point): string | undefined {
   return engine.getNodeAt(world)?.id
 }
 
-function startPointerInteraction(event: PointerEvent, kind: 'pan' | 'drag' | 'resize' | 'box-select', nodeId?: string, handle?: ResizeHandle): void {
-  const point = toLocalPoint(event.clientX, event.clientY)
+function startPointerInteraction(
+  pointerId: number,
+  point: Point,
+  kind: 'pan' | 'drag' | 'resize' | 'box-select',
+  nodeId?: string,
+  handle?: ResizeHandle
+): void {
   if (kind === 'pan') {
-    engine.beginPan(event.pointerId, point)
+    engine.beginPan(pointerId, point)
   } else if (kind === 'drag' && nodeId) {
-    engine.beginNodeDrag(asNodeId(nodeId), event.pointerId, point)
+    engine.beginNodeDrag(asNodeId(nodeId), pointerId, point)
   } else if (kind === 'resize' && nodeId && handle) {
-    engine.beginResize(asNodeId(nodeId), handle, event.pointerId, point)
+    engine.beginResize(asNodeId(nodeId), handle, pointerId, point)
   } else {
-    engine.beginBoxSelect(event.pointerId, point)
+    engine.beginBoxSelect(pointerId, point)
   }
+  rootElement.value?.focus()
+}
+
+const pendingInteraction = shallowRef<PendingPointerInteraction | null>(null)
+
+function clearPendingInteraction(pointerId?: number): void {
+  if (!pendingInteraction.value) {
+    return
+  }
+  if (pointerId !== undefined && pendingInteraction.value.pointerId !== pointerId) {
+    return
+  }
+  pendingInteraction.value = null
+}
+
+function exceedsPointerThreshold(startPoint: Point, nextPoint: Point): boolean {
+  return Math.hypot(nextPoint.x - startPoint.x, nextPoint.y - startPoint.y) >= POINTER_DRAG_THRESHOLD
+}
+
+function beginDeferredInteraction(event: PointerEvent, nodeId?: string, handle?: ResizeHandle): void {
+  const point = toLocalPoint(event.clientX, event.clientY)
   rootElement.value?.setPointerCapture(event.pointerId)
   rootElement.value?.focus()
+
+  if (handle && nodeId) {
+    engine.select(asNodeId(nodeId))
+    engine.bringToFront(asNodeId(nodeId))
+    pendingInteraction.value = {
+      kind: 'resize',
+      pointerId: event.pointerId,
+      startPoint: point,
+      nodeId,
+      handle
+    }
+    return
+  }
+
+  if (nodeId) {
+    const selection = engine.getSelection()
+    if (!selection.includes(asNodeId(nodeId))) {
+      engine.select(asNodeId(nodeId))
+    }
+    engine.bringToFront(asNodeId(nodeId))
+    pendingInteraction.value = {
+      kind: 'drag',
+      pointerId: event.pointerId,
+      startPoint: point,
+      nodeId
+    }
+    return
+  }
+
+  engine.clearSelection()
+  pendingInteraction.value = {
+    kind: 'box-select',
+    pointerId: event.pointerId,
+    startPoint: point
+  }
+}
+
+function startPendingInteraction(event: PointerEvent, point: Point): boolean {
+  const pending = pendingInteraction.value
+  if (!pending || pending.pointerId !== event.pointerId || !exceedsPointerThreshold(pending.startPoint, point)) {
+    return false
+  }
+
+  if (pending.kind === 'drag') {
+    if (event.altKey) {
+      const sourceNode = engine.findNode(asNodeId(pending.nodeId))
+      const created = engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 })
+      const dragNode =
+        (sourceNode &&
+          created.find((node) =>
+            node.type === sourceNode.type &&
+            node.x === sourceNode.x &&
+            node.y === sourceNode.y &&
+            node.width === sourceNode.width &&
+            node.height === sourceNode.height
+          )) ??
+        created[0]
+      if (dragNode) {
+        startPointerInteraction(event.pointerId, pending.startPoint, 'drag', String(dragNode.id))
+      }
+    } else {
+      startPointerInteraction(event.pointerId, pending.startPoint, 'drag', pending.nodeId)
+    }
+  } else if (pending.kind === 'resize') {
+    startPointerInteraction(event.pointerId, pending.startPoint, 'resize', pending.nodeId, pending.handle)
+  } else {
+    startPointerInteraction(event.pointerId, pending.startPoint, 'box-select')
+  }
+
+  pendingInteraction.value = null
+  return true
 }
 
 function onPointerDown(event: PointerEvent): void {
@@ -293,7 +412,8 @@ function onPointerDown(event: PointerEvent): void {
   }
   if (event.button === 1 || spacePressed.value) {
     event.preventDefault()
-    startPointerInteraction(event, 'pan')
+    rootElement.value?.setPointerCapture(event.pointerId)
+    startPointerInteraction(event.pointerId, localPoint, 'pan')
     return
   }
   if (event.button !== 0) {
@@ -302,15 +422,7 @@ function onPointerDown(event: PointerEvent): void {
 
   const nodeId = findNodeId(event.target)
   const handle = findHandle(event.target)
-  if (handle && nodeId) {
-    startPointerInteraction(event, 'resize', nodeId, handle)
-    return
-  }
-  if (nodeId) {
-    startPointerInteraction(event, 'drag', nodeId)
-    return
-  }
-  startPointerInteraction(event, 'box-select')
+  beginDeferredInteraction(event, nodeId, handle)
 }
 
 // Multi-pointer tracking for pinch-to-zoom
@@ -334,7 +446,7 @@ function getPinchMidpoint(): Point {
   return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
 }
 
-let pendingPointer: { id: number; point: Point; shift: boolean } | null = null
+let pendingPointer: { id: number; point: Point; shift: boolean; space: boolean } | null = null
 let rafScheduled = false
 
 function onPointerMove(event: PointerEvent): void {
@@ -354,12 +466,20 @@ function onPointerMove(event: PointerEvent): void {
     return
   }
 
-  pendingPointer = { id: event.pointerId, point: localPoint, shift: event.shiftKey }
+  const startedPendingInteraction = startPendingInteraction(event, localPoint)
+  if (!startedPendingInteraction && pendingInteraction.value?.pointerId === event.pointerId) {
+    return
+  }
+
+  pendingPointer = { id: event.pointerId, point: localPoint, shift: event.shiftKey, space: spacePressed.value }
   if (!rafScheduled) {
     rafScheduled = true
     requestAnimationFrame(() => {
       if (pendingPointer) {
-        engine.updatePointer(pendingPointer.id, pendingPointer.point, { shift: pendingPointer.shift })
+        engine.updatePointer(pendingPointer.id, pendingPointer.point, {
+          shift: pendingPointer.shift,
+          space: pendingPointer.space
+        })
       }
       rafScheduled = false
       pendingPointer = null
@@ -369,7 +489,10 @@ function onPointerMove(event: PointerEvent): void {
 
 function flushPendingPointer(): void {
   if (pendingPointer) {
-    engine.updatePointer(pendingPointer.id, pendingPointer.point, { shift: pendingPointer.shift })
+    engine.updatePointer(pendingPointer.id, pendingPointer.point, {
+      shift: pendingPointer.shift,
+      space: pendingPointer.space
+    })
     pendingPointer = null
     rafScheduled = false
   }
@@ -391,6 +514,11 @@ function onPointerUp(event: PointerEvent): void {
     return
   }
 
+  if (pendingInteraction.value?.pointerId === event.pointerId) {
+    clearPendingInteraction(event.pointerId)
+    return
+  }
+
   flushPendingPointer()
   engine.endInteraction(event.pointerId)
 }
@@ -398,8 +526,10 @@ function onPointerUp(event: PointerEvent): void {
 function onWheel(event: WheelEvent): void {
   event.preventDefault()
   const point = toLocalPoint(event.clientX, event.clientY)
-  if (event.ctrlKey || event.metaKey) {
+  if (event.ctrlKey || event.metaKey || spacePressed.value) {
     engine.zoomAt(point, Math.max(-10, Math.min(10, event.deltaY)))
+  } else if (event.shiftKey) {
+    engine.panBy(event.deltaX || event.deltaY, 0)
   } else {
     engine.panBy(event.deltaX, event.deltaY)
   }
@@ -620,15 +750,30 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .board-root {
-  /* Theme tokens — override any of these to customise the board appearance.
-     Example dark mode: .board-root { --board-bg: #1e293b; --board-fg: #f1f5f9; ... } */
-  --board-bg: #fff;
+  --board-bg:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fbfd 0%, #f2f7fb 100%);
   --board-fg: #0f172a;
-  --board-node-bg: #fff;
-  --board-node-border: rgba(15, 23, 42, 0.15);
-  --board-node-stripe: rgba(15, 23, 42, 0.07);
-  --board-accent: #3b82f6;
-  --board-handle-shadow: rgba(0, 0, 0, 0.2);
+  --board-node-bg: rgba(255, 255, 255, 0.96);
+  --board-node-border: rgba(148, 163, 184, 0.28);
+  --board-node-border-hover: rgba(100, 116, 139, 0.42);
+  --board-node-stripe: rgba(15, 23, 42, 0.06);
+  --board-node-ring: rgba(15, 118, 110, 0.38);
+  --board-node-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.22), 0 2px 10px rgba(15, 23, 42, 0.05);
+  --board-node-shadow-hover: 0 22px 48px -28px rgba(15, 23, 42, 0.28), 0 6px 18px rgba(15, 23, 42, 0.08);
+  --board-node-shadow-selected: 0 24px 52px -28px rgba(15, 23, 42, 0.32), 0 10px 22px rgba(15, 23, 42, 0.1);
+  --board-group-bg: rgba(15, 23, 42, 0.04);
+  --board-group-border: rgba(15, 23, 42, 0.12);
+  --board-accent: #0f766e;
+  --board-edge-color: rgba(71, 85, 105, 0.82);
+  --board-edge-active-color: #0f766e;
+  --board-handle-shadow: rgba(15, 23, 42, 0.12);
+  --board-box-select-fill: rgba(15, 118, 110, 0.1);
+  --board-box-select-stroke: rgba(15, 118, 110, 0.64);
+  --board-snap-guide-color: rgba(15, 118, 110, 0.95);
+  --board-grid-minor-rgb: 148 163 184;
+  --board-grid-major-rgb: 100 116 139;
 
   position: relative;
   width: 100%;
@@ -638,6 +783,7 @@ onBeforeUnmount(() => {
   user-select: none;
   background: var(--board-bg);
   color: var(--board-fg);
+  isolation: isolate;
 }
 
 .board-node-simple {
@@ -645,6 +791,8 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border);
   background: var(--board-node-bg);
+  border-radius: calc(18px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow);
   overflow: hidden;
   contain: layout style paint;
 }
@@ -663,5 +811,34 @@ onBeforeUnmount(() => {
     transparent 2px,
     transparent 6px
   );
+}
+
+@media (prefers-color-scheme: dark) {
+  .board-root {
+    --board-bg:
+      radial-gradient(circle at top left, rgba(13, 148, 136, 0.13), transparent 24%),
+      radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 28%),
+      linear-gradient(180deg, #0b1220 0%, #111827 100%);
+    --board-fg: #e5eef6;
+    --board-node-bg: rgba(15, 23, 42, 0.92);
+    --board-node-border: rgba(148, 163, 184, 0.18);
+    --board-node-border-hover: rgba(148, 163, 184, 0.3);
+    --board-node-stripe: rgba(226, 232, 240, 0.08);
+    --board-node-ring: rgba(45, 212, 191, 0.45);
+    --board-node-shadow: 0 18px 40px -30px rgba(2, 6, 23, 0.8), 0 10px 24px rgba(2, 6, 23, 0.24);
+    --board-node-shadow-hover: 0 22px 52px -28px rgba(2, 6, 23, 0.88), 0 12px 30px rgba(2, 6, 23, 0.3);
+    --board-node-shadow-selected: 0 24px 56px -26px rgba(2, 6, 23, 0.92), 0 14px 36px rgba(2, 6, 23, 0.34);
+    --board-group-bg: rgba(148, 163, 184, 0.06);
+    --board-group-border: rgba(148, 163, 184, 0.22);
+    --board-accent: #2dd4bf;
+    --board-edge-color: rgba(148, 163, 184, 0.74);
+    --board-edge-active-color: #2dd4bf;
+    --board-handle-shadow: rgba(2, 6, 23, 0.38);
+    --board-box-select-fill: rgba(45, 212, 191, 0.12);
+    --board-box-select-stroke: rgba(45, 212, 191, 0.72);
+    --board-snap-guide-color: rgba(45, 212, 191, 0.98);
+    --board-grid-minor-rgb: 71 85 105;
+    --board-grid-major-rgb: 148 163 184;
+  }
 }
 </style>

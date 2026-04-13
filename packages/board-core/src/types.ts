@@ -306,7 +306,7 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
   commitTextEdit(id: NodeId, text?: string): ResolvedNode<R>
-  updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean }): void
+  updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean; space?: boolean }): void
   endInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void

@@ -84,8 +84,8 @@ export function useGridStyle() {
       '--grid-minor-y': `${modulo(cameraScreenY, minorScreenStep)}px`,
       '--grid-major-x': `${modulo(cameraScreenX, majorScreenStep)}px`,
       '--grid-major-y': `${modulo(cameraScreenY, majorScreenStep)}px`,
-      '--grid-minor-color': `rgba(148, 163, 184, ${minorAlpha})`,
-      '--grid-major-color': `rgba(71, 85, 105, ${majorAlpha})`,
+      '--grid-minor-color': `rgba(var(--board-grid-minor-rgb, 148 163 184) / ${minorAlpha})`,
+      '--grid-major-color': `rgba(var(--board-grid-major-rgb, 71 85 105) / ${majorAlpha})`,
       '--grid-mask-image': resolvedGrid.value.fadeEdges
         ? 'radial-gradient(circle at center, black 68%, transparent 100%)'
         : 'none'

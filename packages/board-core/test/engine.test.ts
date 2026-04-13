@@ -27,6 +27,50 @@ describe('board engine', () => {
     expect(snapshot.nodes.find((node) => node.id === second.id)).toMatchObject({ x: 150, y: 70 })
   })
 
+  it('locks node dragging to the dominant axis while shift is held', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'Axis' } })
+
+    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 48, y: 14 }, { shift: true })
+    engine.endInteraction(1)
+
+    expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({
+      x: 48,
+      y: 0
+    })
+  })
+
+  it('bypasses grid snapping while dragging when space is held', () => {
+    const engine = createBoardEngine({ grid: { size: 20, snap: true } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'Free' } })
+
+    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
+    engine.endInteraction(1)
+
+    expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({
+      x: 17,
+      y: 9
+    })
+    expect(engine.getSnapshot().snapGuides).toEqual([])
+  })
+
+  it('bypasses grid snapping while resizing when space is held', () => {
+    const engine = createBoardEngine({ grid: { size: 20, snap: true } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 200, height: 100, data: {} })
+
+    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
+    engine.endInteraction(1)
+
+    expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({
+      width: 217,
+      height: 109
+    })
+    expect(engine.getSnapshot().snapGuides).toEqual([])
+  })
+
   it('supports box selection in screen space', () => {
     const engine = createBoardEngine()
     const first = engine.createNode({ type: 'text', x: 20, y: 20, width: 80, height: 60, data: { content: 'A' } })

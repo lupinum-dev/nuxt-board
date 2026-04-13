@@ -43,6 +43,37 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
   await expect.poll(totalNodes).toBe(created.count)
 })
 
+test('supports alt-drag duplication and benchmark reporting', async ({ page }) => {
+  await page.goto('/')
+
+  const totalNodes = async () =>
+    page.evaluate(() => {
+      const api = (window as unknown as {
+        __boardPlayground: { engine: { getSnapshot: () => { nodes: unknown[] } } }
+      }).__boardPlayground
+      return api.engine.getSnapshot().nodes.length
+    })
+
+  const firstNode = page.locator('[data-node-id]').first()
+  const box = await firstNode.boundingBox()
+  if (!box) {
+    throw new Error('Missing node bounds')
+  }
+
+  const before = await totalNodes()
+  await page.keyboard.down('Alt')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 44, box.y + box.height / 2 + 32, { steps: 8 })
+  await page.mouse.up()
+  await page.keyboard.up('Alt')
+
+  await expect.poll(totalNodes).toBe(before + 1)
+
+  await page.getByRole('button', { name: 'Benchmark' }).click()
+  await expect(page.getByText(/total .* avg .* max/i)).toBeVisible()
+})
+
 test('renders connections, minimap, and serializer helpers', async ({ page }) => {
   await page.goto('/')
 
