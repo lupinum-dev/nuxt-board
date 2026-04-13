@@ -6,12 +6,14 @@ export {
   resolveAnchorPoint,
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
+  resolveFloatingEndpoint,
   resolveEdgeRenderState
 } from './geometry'
 export type {
   AnchorPosition,
   AnchorSide,
   BoardEdge,
+  BoardEdgePatch,
   ConnectionPluginOptions,
   ConnectionRoute,
   ConnectionRouteSegment,

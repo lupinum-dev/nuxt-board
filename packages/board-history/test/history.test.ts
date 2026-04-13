@@ -68,4 +68,46 @@ describe('history plugin', () => {
     engine.ext.history.redo()
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
+
+  it('undoes and redoes edge reconnect updates', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin(), historyPlugin({ debounceMs: 0 })]
+    })
+
+    const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+    const second = engine.createNode({ type: 'text', x: 200, y: 0, data: { content: 'B' } })
+    const third = engine.createNode({ type: 'text', x: 400, y: 0, data: { content: 'C' } })
+    const edge = engine.ext.connections.createEdge({
+      from: first.id,
+      to: second.id,
+      fromAnchor: { side: 'right', offset: 0.3 },
+      toAnchor: { side: 'left', offset: 0.6 },
+      label: 'A->B',
+      data: {}
+    })
+
+    engine.ext.history.clear()
+    engine.ext.connections.updateEdge(edge.id, {
+      to: third.id,
+      toAnchor: undefined
+    })
+
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      to: third.id,
+      fromAnchor: { side: 'right', offset: 0.3 },
+      toAnchor: undefined
+    })
+
+    engine.ext.history.undo()
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      to: second.id,
+      toAnchor: { side: 'left', offset: 0.6 }
+    })
+
+    engine.ext.history.redo()
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      to: third.id,
+      toAnchor: undefined
+    })
+  })
 })

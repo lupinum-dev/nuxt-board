@@ -194,4 +194,25 @@ describe('BoardRoot', () => {
     })
     expect(wrapper.find('.board-grid').exists()).toBe(true)
   })
+
+  it('ignores connection-layer interactive targets for board interactions', () => {
+    const engine = createBoardEngine()
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body
+    })
+
+    const interactive = document.createElement('div')
+    interactive.dataset.boardInteractive = 'true'
+    wrapper.element.appendChild(interactive)
+
+    dispatchPointerEvent(interactive, 'pointerdown', {
+      button: 0,
+      pointerId: 11,
+      clientX: 120,
+      clientY: 120
+    })
+
+    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
+  })
 })

@@ -152,6 +152,38 @@ export function resolveConnectionEndpoint(
   }
 }
 
+export function resolveFloatingEndpoint(
+  pointValue: Point,
+  otherPoint: Point,
+  role: 'source' | 'target',
+  previousSide?: AnchorSide
+): ResolvedConnectionEndpoint {
+  const probeNode = {
+    id: `floating-${role}` as BoardNode['id'],
+    x: pointValue.x,
+    y: pointValue.y,
+    width: 0,
+    height: 0
+  }
+  const otherNode = {
+    id: `other-${role}` as BoardNode['id'],
+    x: otherPoint.x,
+    y: otherPoint.y,
+    width: 0,
+    height: 0
+  }
+  const side = resolveAutoAnchorSide(probeNode, otherNode, role, previousSide)
+
+  return {
+    nodeId: probeNode.id,
+    node: probeNode,
+    side,
+    offset: 0.5,
+    point: pointValue,
+    kind: 'auto'
+  }
+}
+
 function boundsFromPoints(points: Point[]): Bounds {
   return points.reduce<Bounds>(
     (acc, current) => ({

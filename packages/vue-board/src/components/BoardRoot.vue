@@ -248,6 +248,10 @@ function isEditorTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && Boolean(target.closest('[data-editor="true"]'))
 }
 
+function isBoardInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest('[data-board-interactive="true"]'))
+}
+
 function findNodeIdAtPoint(screenPoint: Point): string | undefined {
   const world = engine.screenToWorld(screenPoint)
   return engine.getNodeAt(world)?.id
@@ -282,6 +286,9 @@ function onPointerDown(event: PointerEvent): void {
   }
 
   if (isEditorTarget(event.target)) {
+    return
+  }
+  if (isBoardInteractiveTarget(event.target)) {
     return
   }
   if (event.button === 1 || spacePressed.value) {
@@ -399,7 +406,7 @@ function onWheel(event: WheelEvent): void {
 }
 
 function onDoubleClick(event: MouseEvent): void {
-  if (isEditorTarget(event.target) || findHandle(event.target)) {
+  if (isEditorTarget(event.target) || findHandle(event.target) || isBoardInteractiveTarget(event.target)) {
     return
   }
   const screenPoint = toLocalPoint(event.clientX, event.clientY)

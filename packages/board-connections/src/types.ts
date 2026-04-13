@@ -24,6 +24,18 @@ export interface BoardEdge<T = Record<string, unknown>> {
   zIndex: number
 }
 
+export interface BoardEdgePatch<T = Record<string, unknown>> {
+  from?: NodeId
+  to?: NodeId
+  fromAnchor?: AnchorPosition
+  toAnchor?: AnchorPosition
+  fromEnd?: EdgeEnd
+  toEnd?: EdgeEnd
+  label?: string
+  color?: string
+  data?: T
+}
+
 export interface ConnectionPluginOptions {
   routing?: ConnectionRouting
   defaultArrow?: 'none' | 'start' | 'end' | 'both'
@@ -34,7 +46,9 @@ export interface ConnectionsExtension {
   createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
     input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
   ): BoardEdge<T>
+  updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(id: EdgeId, patch: BoardEdgePatch<T>): BoardEdge<T>
   deleteEdge(id: EdgeId): void
+  getEdge(id: EdgeId): BoardEdge | undefined
   getEdges(): BoardEdge[]
   getEdgesFrom(id: NodeId): BoardEdge[]
   getEdgesTo(id: NodeId): BoardEdge[]
@@ -62,4 +76,3 @@ export interface ConnectionRoute {
   waypoints: Point[]
   segments: ConnectionRouteSegment[]
 }
-

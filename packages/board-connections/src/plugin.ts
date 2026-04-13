@@ -1,6 +1,7 @@
 import { asEdgeId, type BoardPlugin, type EdgeId } from '@lupinum/board-core'
 import type {
   BoardEdge,
+  BoardEdgePatch,
   ConnectionPluginOptions,
   ConnectionRouting,
   ConnectionsExtension,
@@ -10,6 +11,7 @@ import type {
 declare module '@lupinum/board-core' {
   interface BoardEventMap<R extends import('@lupinum/board-core').NodeTypeRegistry = import('@lupinum/board-core').NodeTypeRegistry> {
     'edge:created': (edge: BoardEdge) => void
+    'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
@@ -86,6 +88,41 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
             return cloned
           }) as BoardEdge<T>
         },
+        updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(id: EdgeId, patch: BoardEdgePatch<T>) {
+          const current = edges.get(id) as BoardEdge<T> | undefined
+          if (!current) {
+            throw new Error(`Cannot update edge: edge "${id}" does not exist.`)
+          }
+
+          return engine.runCommand('edge:update', [id, patch], () => {
+            const nextFrom = 'from' in patch ? patch.from : current.from
+            const nextTo = 'to' in patch ? patch.to : current.to
+            if (!nextFrom || !engine.hasNode(nextFrom)) {
+              throw new Error(`Cannot update edge: source node "${nextFrom}" does not exist.`)
+            }
+            if (!nextTo || !engine.hasNode(nextTo)) {
+              throw new Error(`Cannot update edge: target node "${nextTo}" does not exist.`)
+            }
+
+            const next: BoardEdge<T> = {
+              ...current,
+              from: nextFrom,
+              to: nextTo,
+              fromAnchor: 'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
+              toAnchor: 'toAnchor' in patch ? patch.toAnchor : current.toAnchor,
+              fromEnd: 'fromEnd' in patch ? patch.fromEnd : current.fromEnd,
+              toEnd: 'toEnd' in patch ? patch.toEnd : current.toEnd,
+              label: 'label' in patch ? patch.label : current.label,
+              color: 'color' in patch ? patch.color : current.color,
+              data: 'data' in patch ? structuredClone((patch.data ?? {}) as T) : structuredClone(current.data)
+            }
+
+            edges.set(id, next)
+            const cloned = cloneEdge(next)
+            engine.emit('edge:updated', cloned, cloneEdge(current))
+            return cloned
+          }) as BoardEdge<T>
+        },
         deleteEdge(id) {
           if (!edges.has(id)) {
             return
@@ -94,6 +131,10 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
             edges.delete(id)
             engine.emit('edge:deleted', id)
           })
+        },
+        getEdge(id) {
+          const edge = edges.get(id)
+          return edge ? cloneEdge(edge) : undefined
         },
         getEdges() {
           return Array.from(edges.values(), (edge) => cloneEdge(edge))
@@ -129,4 +170,3 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
     }
   }
 }
-

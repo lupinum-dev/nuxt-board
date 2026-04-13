@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { buildConnectionRoute, connectionPlugin, resolveAutoAnchorSide, resolveEdgeRenderState } from '../src'
 
@@ -108,6 +108,51 @@ describe('connections plugin', () => {
     expect(result.target.side).toBe('top')
     expect(result.route.bounds.maxX).toBeGreaterThan(result.route.bounds.minX)
     expect(result.route.bounds.maxY).toBeGreaterThan(result.route.bounds.minY)
+  })
+
+  it('updates edges and emits edge:updated while preserving identity fields', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()]
+    })
+    const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+    const second = engine.createNode({ type: 'text', x: 200, y: 0, data: { content: 'B' } })
+    const third = engine.createNode({ type: 'text', x: 400, y: 0, data: { content: 'C' } })
+    const updated = vi.fn()
+    engine.on('edge:updated', updated)
+
+    const edge = engine.ext.connections.createEdge({
+      from: first.id,
+      to: second.id,
+      fromAnchor: { side: 'right', offset: 0.25 },
+      toAnchor: { side: 'left', offset: 0.75 },
+      label: 'old',
+      color: '#111827',
+      data: { version: 1 }
+    })
+
+    const next = engine.ext.connections.updateEdge(edge.id, {
+      to: third.id,
+      toAnchor: undefined,
+      label: 'new',
+      data: { version: 2 }
+    })
+
+    expect(next.id).toBe(edge.id)
+    expect(next.zIndex).toBe(edge.zIndex)
+    expect(next.from).toBe(first.id)
+    expect(next.fromAnchor).toEqual({ side: 'right', offset: 0.25 })
+    expect(next.to).toBe(third.id)
+    expect(next.toAnchor).toBeUndefined()
+    expect(next.label).toBe('new')
+    expect(next.data).toEqual({ version: 2 })
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      id: edge.id,
+      to: third.id,
+      label: 'new'
+    })
+    expect(updated).toHaveBeenCalledTimes(1)
+    expect(updated.mock.calls[0]?.[0]).toMatchObject({ id: edge.id, to: third.id, label: 'new' })
+    expect(updated.mock.calls[0]?.[1]).toMatchObject({ id: edge.id, to: second.id, label: 'old' })
   })
 
   it('throws when creating an edge with non-existent nodes', () => {
