@@ -37,6 +37,7 @@
     "build": "tsup src/index.ts --format esm --dts --clean --tsconfig tsconfig.build.json"
   },
   "dependencies": {
+    "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*"
   }
 }

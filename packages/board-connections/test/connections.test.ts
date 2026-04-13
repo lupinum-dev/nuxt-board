@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
-import { connectionPlugin, routeEdgePath } from '../src'
+import { buildConnectionRoute, connectionPlugin, resolveAutoAnchorSide, resolveEdgeRenderState } from '../src'
 
 describe('connections plugin', () => {
   it('creates edges, queries them, and removes them with deleted nodes', () => {
@@ -10,10 +10,11 @@ describe('connections plugin', () => {
     const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
     const second = engine.createNode({ type: 'text', x: 200, y: 100, data: { content: 'B' } })
 
-    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, data: { label: 'depends on' } })
+    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, label: 'depends on', color: '#0f766e', data: {} })
     expect(edge).toBeDefined()
     expect(engine.ext.connections.getEdgesBetween(first.id, second.id)).toHaveLength(1)
-    expect(edge.data).toMatchObject({ label: 'depends on' })
+    expect(edge.label).toBe('depends on')
+    expect(edge.color).toBe('#0f766e')
 
     engine.deleteNode(first.id)
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
@@ -62,9 +63,51 @@ describe('connections plugin', () => {
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
 
-  it('routes straight and bezier paths', () => {
-    expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'straight')).toBe('M 0 0 L 100 50')
-    expect(routeEdgePath({ x: 0, y: 0 }, { x: 100, y: 50 }, 'bezier')).toContain('C')
+  it('resolves auto sides with hysteresis across diagonal thresholds', () => {
+    const source = { x: 0, y: 0, width: 100, height: 60 }
+    const target = { x: 140, y: 20, width: 100, height: 60 }
+    expect(resolveAutoAnchorSide(source, target, 'source')).toBe('right')
+    expect(resolveAutoAnchorSide(target, source, 'target')).toBe('left')
+
+    const nearlyDiagonal = { x: 70, y: 80, width: 100, height: 60 }
+    expect(resolveAutoAnchorSide(source, nearlyDiagonal, 'source', 'right')).toBe('right')
+  })
+
+  it('builds directional routes for bezier, smooth-step, step, and straight paths', () => {
+    const source = { nodeId: 'a' as never, node: { id: 'a' as never, x: 0, y: 0, width: 100, height: 80 }, side: 'right' as const, offset: 0.5, point: { x: 100, y: 40 }, kind: 'explicit' as const }
+    const target = { nodeId: 'b' as never, node: { id: 'b' as never, x: 260, y: 120, width: 100, height: 80 }, side: 'left' as const, offset: 0.5, point: { x: 260, y: 160 }, kind: 'explicit' as const }
+
+    expect(buildConnectionRoute({ source, target, routing: 'straight' }).path).toBe('M100 40 L260 160')
+    expect(buildConnectionRoute({ source, target, routing: 'bezier' }).path).toContain('C')
+    expect(buildConnectionRoute({ source, target, routing: 'smooth-step' }).path).toContain('Q')
+    expect(buildConnectionRoute({ source, target, routing: 'step' }).path).not.toContain('Q')
+  })
+
+  it('resolves edge geometry with explicit anchors and route bounds', () => {
+    const source = { id: 'source' as never, x: 0, y: 0, width: 100, height: 80 }
+    const target = { id: 'target' as never, x: 260, y: 80, width: 100, height: 80 }
+    const result = resolveEdgeRenderState(
+      {
+        id: 'edge' as never,
+        from: source.id,
+        to: target.id,
+        fromAnchor: { side: 'bottom', offset: 0.25 },
+        toAnchor: { side: 'top', offset: 0.75 },
+        fromEnd: 'none',
+        toEnd: 'arrow',
+        label: 'route',
+        data: {},
+        zIndex: 1
+      },
+      source,
+      target,
+      { routing: 'smooth-step' }
+    )
+
+    expect(result.source.side).toBe('bottom')
+    expect(result.target.side).toBe('top')
+    expect(result.route.bounds.maxX).toBeGreaterThan(result.route.bounds.minX)
+    expect(result.route.bounds.maxY).toBeGreaterThan(result.route.bounds.minY)
   })
 
   it('throws when creating an edge with non-existent nodes', () => {

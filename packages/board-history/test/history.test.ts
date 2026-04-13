@@ -54,7 +54,7 @@ describe('history plugin', () => {
     const second = engine.createNode({ type: 'text', x: 200, y: 0, data: { content: 'B' } })
     engine.ext.history.clear()
 
-    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, data: { label: 'A->B' } })
+    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, label: 'A->B', fromEnd: 'arrow', color: '#111827', data: {} })
     expect(edge).toBeDefined()
 
     engine.deleteNode(first.id)
@@ -63,6 +63,7 @@ describe('history plugin', () => {
     engine.ext.history.undo()
     expect(engine.getSnapshot().nodes).toHaveLength(2)
     expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({ label: 'A->B', fromEnd: 'arrow', color: '#111827' })
 
     engine.ext.history.redo()
     expect(engine.ext.connections.getEdges()).toHaveLength(0)

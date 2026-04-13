@@ -36,7 +36,7 @@ function seed() {
   for (const edge of engine.ext.connections.getEdges()) {
     engine.ext.connections.deleteEdge(edge.id)
   }
-  engine.ext.connections.createEdge({ from: 'source' as never, to: 'target' as never, data: { label: 'json-canvas' } })
+  engine.ext.connections.createEdge({ from: 'source' as never, to: 'target' as never, label: 'json-canvas', data: {} })
   payload.value = serializeBoard()
 }
 
@@ -47,8 +47,7 @@ function exportBoard() {
 function importBoard() {
   if (!payload.value.trim()) return
   const document = jsonCanvasSerializer.parse(payload.value)
-  const snapshot = jsonCanvasSerializer.toSnapshot(document)
-  engine.importJSON(JSON.stringify(snapshot), 'replace')
+  jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
 }
 
 onMounted(async () => {

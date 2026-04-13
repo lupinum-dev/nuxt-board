@@ -32,10 +32,10 @@ function seed() {
   for (const edge of connections.getEdges()) {
     connections.deleteEdge(edge.id)
   }
-  connections.createEdge({ from: 'input' as never, to: 'parse' as never, data: { label: 'clean' } })
-  connections.createEdge({ from: 'input' as never, to: 'score' as never, data: { label: 'rank' } })
-  connections.createEdge({ from: 'parse' as never, to: 'output' as never, data: { label: 'emit' } })
-  connections.createEdge({ from: 'score' as never, to: 'output' as never, data: { label: 'merge' } })
+  connections.createEdge({ from: 'input' as never, to: 'parse' as never, label: 'clean', data: {} })
+  connections.createEdge({ from: 'input' as never, to: 'score' as never, label: 'rank', data: {} })
+  connections.createEdge({ from: 'parse' as never, to: 'output' as never, label: 'emit', data: {} })
+  connections.createEdge({ from: 'score' as never, to: 'output' as never, label: 'merge', data: {} })
 }
 
 function shuffle() {
@@ -61,6 +61,9 @@ onMounted(async () => {
       </button>
       <button :class="{ 'bg-teal-100': routing === 'bezier' }" @click="routing = 'bezier'">
         Bezier
+      </button>
+      <button :class="{ 'bg-teal-100': routing === 'smooth-step' }" @click="routing = 'smooth-step'">
+        Smooth step
       </button>
       <button :class="{ 'bg-teal-100': routing === 'step' }" @click="routing = 'step'">
         Step

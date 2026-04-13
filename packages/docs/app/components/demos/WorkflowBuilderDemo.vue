@@ -38,8 +38,8 @@ function seed() {
     engine.ext.connections.deleteEdge(edge.id)
   }
 
-  engine.ext.connections.createEdge({ from: 'capture' as NodeId, to: 'qualify' as NodeId, data: { label: 'validated' } })
-  engine.ext.connections.createEdge({ from: 'qualify' as NodeId, to: 'handoff' as NodeId, data: { label: 'approved' } })
+  engine.ext.connections.createEdge({ from: 'capture' as NodeId, to: 'qualify' as NodeId, label: 'validated', data: {} })
+  engine.ext.connections.createEdge({ from: 'qualify' as NodeId, to: 'handoff' as NodeId, label: 'approved', data: {} })
 }
 
 function nextStatus(current: StepStatus): StepStatus {

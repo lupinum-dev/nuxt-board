@@ -1,4 +1,5 @@
 import { asNodeId, type BoardSnapshot, type BoardEngine, type BoardNode } from '@lupinum/board-core'
+import type { AnchorSide, BoardEdge, EdgeEnd } from '@lupinum/board-connections'
 
 export interface JsonCanvasNode {
   id: string
@@ -13,7 +14,7 @@ export interface JsonCanvasNode {
 
 export interface JsonCanvasDocument {
   nodes: JsonCanvasNode[]
-  edges?: Array<Record<string, unknown>>
+  edges?: JsonCanvasEdge[]
   'x-canvas'?: {
     camera?: BoardSnapshot['camera']
     grid?: BoardSnapshot['grid']
@@ -27,8 +28,21 @@ export interface JsonCanvasDocument {
         parentId?: string
       }
     >
-    edges?: Array<Record<string, unknown>>
+    edges?: JsonCanvasEdge[]
   }
+}
+
+export interface JsonCanvasEdge {
+  id: string
+  fromNode: string
+  toNode: string
+  fromSide?: AnchorSide
+  toSide?: AnchorSide
+  fromEnd?: EdgeEnd
+  toEnd?: EdgeEnd
+  color?: string
+  label?: string
+  [key: string]: unknown
 }
 
 export type TypeHandler = {
@@ -40,10 +54,11 @@ export interface JsonCanvasSerializer {
   registerType(type: string, handler: TypeHandler): void
   export(
     input: BoardSnapshot | BoardEngine,
-    extras?: { edges?: Array<Record<string, unknown>> }
+    extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] }
   ): string
   parse(json: string): JsonCanvasDocument
   toSnapshot(document: JsonCanvasDocument): BoardSnapshot
+  hydrateEngine(engine: BoardEngine, document: JsonCanvasDocument, mode?: 'replace' | 'merge'): void
 }
 
 export function createJsonCanvasSerializer(): JsonCanvasSerializer {
@@ -73,7 +88,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
     }
   }
 
-  function deserializeNodeEntry(raw: JsonCanvasNode): BoardNode {
+  function deserializeNodeEntry(raw: JsonCanvasNode, index: number): BoardNode {
     const handler = typeHandlers.get(raw.type)
     const data =
       handler?.deserialize?.(raw) ??
@@ -89,7 +104,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       width: raw.width,
       height: raw.height,
       data,
-      zIndex: 1,
+      zIndex: index + 1,
       locked: false,
       visible: true
     }
@@ -101,7 +116,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
     },
     export(
       input: BoardSnapshot | BoardEngine,
-      extras?: { edges?: Array<Record<string, unknown>> }
+      extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] }
     ): string {
       const snapshot = typeof (input as BoardEngine).getSnapshot === 'function'
         ? (input as BoardEngine).getSnapshot()
@@ -112,19 +127,20 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       const nodes = snapshot.nodes.map((node) => serializeNodeEntry(node))
       const connectionEdges =
         extras?.edges ??
-        (((engineRef as BoardEngine & {
+        ((((engineRef as BoardEngine & {
           ext?: {
             connections?: {
-              getEdges: () => Array<Record<string, unknown>>
+              getEdges: () => BoardEdge[]
             }
           }
         } | null)?.ext?.connections?.getEdges() as
-          Array<Record<string, unknown>> | undefined) ??
-          [])
+          BoardEdge[] | undefined) ??
+          [])) as JsonCanvasEdge[] | BoardEdge[]
+      const serializedEdges = connectionEdges.map((edge) => serializeEdgeEntry(edge))
       return JSON.stringify(
         {
           nodes,
-          edges: connectionEdges,
+          edges: serializedEdges,
           'x-canvas': {
             camera: snapshot.camera,
             grid: snapshot.grid,
@@ -140,7 +156,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
                 }
               ])
             ),
-            edges: connectionEdges
+            edges: serializedEdges
           }
         },
         null,
@@ -155,7 +171,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       return parsed as JsonCanvasDocument
     },
     toSnapshot(document: JsonCanvasDocument): BoardSnapshot {
-      const nodes = document.nodes.map((node) => deserializeNodeEntry(node))
+      const nodes = document.nodes.map((node, index) => deserializeNodeEntry(node, index))
       const extensions = document['x-canvas']
       return {
         camera: extensions?.camera ?? { x: 0, y: 0, z: 1 },
@@ -177,9 +193,67 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
           extensions?.nextZIndex ??
           nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1
       }
+    },
+    hydrateEngine(engine: BoardEngine, document: JsonCanvasDocument, mode: 'replace' | 'merge' = 'replace'): void {
+      const snapshot = this.toSnapshot(document)
+      engine.importJSON(JSON.stringify(snapshot), mode)
+
+      const connections = (engine.ext as BoardEngine['ext'] & {
+        connections?: {
+          getEdges: () => BoardEdge[]
+          deleteEdge: (id: string) => void
+          createEdge: (input: Omit<BoardEdge, 'zIndex'> & { zIndex?: number }) => BoardEdge
+        }
+      }).connections
+
+      if (!connections) {
+        return
+      }
+
+      for (const edge of connections.getEdges()) {
+        connections.deleteEdge(String(edge.id))
+      }
+
+      const rawEdges = document.edges ?? document['x-canvas']?.edges ?? []
+      for (const edge of rawEdges) {
+        connections.createEdge(deserializeEdgeEntry(edge))
+      }
     }
   }
 }
 
 /** Default serializer instance for convenience. */
 export const jsonCanvasSerializer: JsonCanvasSerializer = createJsonCanvasSerializer()
+
+function serializeEdgeEntry(edge: JsonCanvasEdge | BoardEdge): JsonCanvasEdge {
+  if ('fromNode' in edge && 'toNode' in edge) {
+    return structuredClone(edge)
+  }
+
+  return {
+    id: String(edge.id),
+    fromNode: String(edge.from),
+    toNode: String(edge.to),
+    fromSide: edge.fromAnchor?.side,
+    toSide: edge.toAnchor?.side,
+    fromEnd: edge.fromEnd,
+    toEnd: edge.toEnd,
+    color: edge.color,
+    label: edge.label
+  }
+}
+
+function deserializeEdgeEntry(edge: JsonCanvasEdge): Omit<BoardEdge, 'zIndex'> & { zIndex?: number } {
+  return {
+    id: edge.id as BoardEdge['id'],
+    from: asNodeId(edge.fromNode),
+    to: asNodeId(edge.toNode),
+    fromAnchor: edge.fromSide ? { side: edge.fromSide, offset: 0.5 } : undefined,
+    toAnchor: edge.toSide ? { side: edge.toSide, offset: 0.5 } : undefined,
+    fromEnd: edge.fromEnd,
+    toEnd: edge.toEnd,
+    color: typeof edge.color === 'string' ? edge.color : undefined,
+    label: typeof edge.label === 'string' ? edge.label : undefined,
+    data: {}
+  }
+}

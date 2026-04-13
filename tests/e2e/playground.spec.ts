@@ -47,7 +47,7 @@ test('renders connections, minimap, and serializer helpers', async ({ page }) =>
   await page.goto('/')
 
   await expect(page.locator('.board-connection-layer')).toBeVisible()
-  await expect(page.locator('.board-connection-layer path')).toHaveCount(2)
+  await expect(page.locator('.board-connection-layer > path')).toHaveCount(2)
   await expect(page.locator('.board-minimap')).toBeVisible()
 
   const before = await page.getByTestId('camera-value').textContent()

@@ -69,18 +69,74 @@ describe('json canvas serializer', () => {
       data: { content: 'Visible' }
     })
     engine.sendToBack(first.id)
-    engine.ext.connections.createEdge({ from: first.id, to: second.id, data: { label: 'Link' } })
+    engine.ext.connections.createEdge({
+      from: first.id,
+      to: second.id,
+      fromAnchor: { side: 'right', offset: 0.35 },
+      toAnchor: { side: 'left', offset: 0.65 },
+      fromEnd: 'none',
+      toEnd: 'arrow',
+      color: '#0f766e',
+      label: 'Link',
+      data: {}
+    })
 
     const document = jsonCanvasSerializer.parse(jsonCanvasSerializer.export(engine))
     const snapshot = jsonCanvasSerializer.toSnapshot(document)
 
     expect(document['x-canvas']?.edges).toHaveLength(1)
+    expect(document.edges?.[0]).toMatchObject({
+      fromSide: 'right',
+      toSide: 'left',
+      toEnd: 'arrow',
+      color: '#0f766e',
+      label: 'Link'
+    })
     expect(snapshot.camera).toEqual(engine.getSnapshot().camera)
     expect(snapshot.grid).toEqual(engine.getSnapshot().grid)
     expect(snapshot.nodes.find((node) => node.id === first.id)).toMatchObject({
       locked: true,
       visible: false,
       zIndex: engine.getSnapshot().nodes.find((node) => node.id === first.id)?.zIndex
+    })
+  })
+
+  it('hydrates connections back into an engine from json canvas edges', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()]
+    })
+    engine.createNode({ id: 'source' as never, type: 'text', x: 0, y: 0, data: { content: 'A' } })
+    engine.createNode({ id: 'target' as never, type: 'text', x: 240, y: 0, data: { content: 'B' } })
+
+    const document = jsonCanvasSerializer.parse(JSON.stringify({
+      nodes: [
+        { id: 'source', type: 'text', x: 0, y: 0, width: 180, height: 120, text: 'A' },
+        { id: 'target', type: 'text', x: 240, y: 0, width: 180, height: 120, text: 'B' }
+      ],
+      edges: [
+        {
+          id: 'edge-1',
+          fromNode: 'source',
+          toNode: 'target',
+          fromSide: 'right',
+          toSide: 'left',
+          fromEnd: 'none',
+          toEnd: 'arrow',
+          color: '#0f766e',
+          label: 'Link'
+        }
+      ]
+    }))
+
+    jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      label: 'Link',
+      color: '#0f766e',
+      toEnd: 'arrow',
+      fromAnchor: { side: 'right', offset: 0.5 },
+      toAnchor: { side: 'left', offset: 0.5 }
     })
   })
 

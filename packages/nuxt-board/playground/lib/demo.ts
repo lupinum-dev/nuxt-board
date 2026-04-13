@@ -350,8 +350,7 @@ export function exportDemoDocument(engine: BoardEngine): string {
 
 export function importDemoDocument(engine: BoardEngine, json: string): void {
   const document = jsonCanvasSerializer.parse(json)
-  const snapshot = jsonCanvasSerializer.toSnapshot(document)
-  engine.importJSON(JSON.stringify(snapshot), 'replace')
+  jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
   replaceEdges(engine, document.edges ?? document['x-canvas']?.edges ?? [])
   engine.clearSelection()
   engine.endInteraction()

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { ConnectionRouting } from '@lupinum/board-connections'
+
 const gridSize = defineModel<10 | 20 | 40>('gridSize', { required: true })
 const gridPattern = defineModel<'line' | 'dot' | 'cross' | 'none'>('gridPattern', { required: true })
+const connectionRouting = defineModel<ConnectionRouting>('connectionRouting', { required: true })
 
 defineProps<{
   benchmarkResult: string
@@ -62,6 +65,22 @@ const pbtn =
             <option value="dot">Dot</option>
             <option value="cross">Cross</option>
             <option value="none">None</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="flex flex-col gap-2 px-4 py-3.5">
+        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Connections</h3>
+        <label class="flex items-center justify-between gap-3 cursor-pointer">
+          <span class="text-[13px] text-stone-600">Style</span>
+          <select
+            v-model="connectionRouting"
+            class="appearance-none w-[110px] py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+          >
+            <option value="bezier">Curve</option>
+            <option value="smooth-step">Angled smooth</option>
+            <option value="step">Angled</option>
+            <option value="straight">Straight</option>
           </select>
         </label>
       </section>

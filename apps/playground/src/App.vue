@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
-import { connectionPlugin, BoardConnectionLayer } from '@lupinum/board-connections'
+import { connectionPlugin, BoardConnectionLayer, type ConnectionRouting } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 import { BoardMinimap } from '@lupinum/board-minimap'
 import { jsonCanvasSerializer } from '@lupinum/board-serializer'
@@ -35,6 +35,7 @@ const gridPattern = ref<'line' | 'dot' | 'cross' | 'none'>('line')
 const gridSize = ref<10 | 20 | 40>(20)
 const benchmarkResult = ref('idle')
 const exportedJson = ref('')
+const connectionRouting = ref<ConnectionRouting>('bezier')
 
 const showPanel = ref(true)
 const showDiagnostics = ref(true)
@@ -93,8 +94,8 @@ async function seedScene(count: number): Promise<void> {
   })
 
   if (created.length >= 3) {
-    engine.ext.connections.createEdge({ from: created[0]!.id, to: created[1]!.id, data: { label: 'A' } })
-    engine.ext.connections.createEdge({ from: created[1]!.id, to: created[2]!.id, data: { label: 'B' } })
+    engine.ext.connections.createEdge({ from: created[0]!.id, to: created[1]!.id, label: 'A', data: {} })
+    engine.ext.connections.createEdge({ from: created[1]!.id, to: created[2]!.id, label: 'B', data: {} })
   }
 
   engine.clearSelection()
@@ -133,8 +134,7 @@ function exportJsonCanvas(): string {
 function importJsonCanvas(): void {
   if (!exportedJson.value) return
   const doc = jsonCanvasSerializer.parse(exportedJson.value)
-  const snapshot = jsonCanvasSerializer.toSnapshot(doc)
-  engine.importJSON(JSON.stringify(snapshot), 'replace')
+  jsonCanvasSerializer.hydrateEngine(engine, doc, 'replace')
 }
 
 const GROUP_PAD = 36
@@ -262,7 +262,7 @@ onMounted(async () => {
       :renderers="renderers"
     >
       <template #viewport>
-        <BoardConnectionLayer />
+        <BoardConnectionLayer :routing="connectionRouting" />
       </template>
 
       <template #default="{ debugState }">
@@ -316,13 +316,14 @@ onMounted(async () => {
 
     <!-- Settings panel -->
     <Transition name="panel-slide">
-      <PlaygroundPanel
-        v-if="showPanel"
-        v-model:grid-size="gridSize"
-        v-model:grid-pattern="gridPattern"
-        :benchmark-result="benchmarkResult"
-        :exported-json="exportedJson"
-        @close="showPanel = false"
+        <PlaygroundPanel
+          v-if="showPanel"
+          v-model:grid-size="gridSize"
+          v-model:grid-pattern="gridPattern"
+          v-model:connection-routing="connectionRouting"
+          :benchmark-result="benchmarkResult"
+          :exported-json="exportedJson"
+          @close="showPanel = false"
         @benchmark="runBenchmark"
         @export="exportJsonCanvas"
         @import="importJsonCanvas"
