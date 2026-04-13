@@ -42,6 +42,8 @@ export interface GridSettings {
   size: number
   majorEvery: number
   snap: boolean
+  edgeSnap: boolean
+  edgeSnapThreshold: number
   pattern: GridPattern
 }
 

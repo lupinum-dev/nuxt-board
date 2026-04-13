@@ -63,6 +63,8 @@ function resolveGridOptions(
       size: engineGrid.size,
       majorEvery: engineGrid.majorEvery,
       snap: engineGrid.snap,
+      edgeSnap: engineGrid.edgeSnap,
+      edgeSnapThreshold: engineGrid.edgeSnapThreshold,
       pattern: engineGrid.pattern
     }
   }
@@ -74,6 +76,8 @@ function resolveGridOptions(
     size: overrides.size ?? engineGrid.size,
     majorEvery: overrides.majorEvery ?? engineGrid.majorEvery,
     snap: overrides.snap ?? engineGrid.snap,
+    edgeSnap: overrides.edgeSnap ?? engineGrid.edgeSnap,
+    edgeSnapThreshold: overrides.edgeSnapThreshold ?? engineGrid.edgeSnapThreshold,
     pattern: overrides.pattern ?? engineGrid.pattern,
     minorOpacity: overrides.minorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.minorOpacity,
     majorOpacity: overrides.majorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.majorOpacity,
@@ -229,6 +233,12 @@ watch(
       }
       if (value.snap !== undefined) {
         patch.snap = value.snap
+      }
+      if (value.edgeSnap !== undefined) {
+        patch.edgeSnap = value.edgeSnap
+      }
+      if (value.edgeSnapThreshold !== undefined) {
+        patch.edgeSnapThreshold = value.edgeSnapThreshold
       }
       if (value.pattern !== undefined) {
         patch.pattern = value.pattern

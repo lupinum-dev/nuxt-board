@@ -57,7 +57,7 @@ import type {
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 }
 const DEFAULT_ZOOM: ZoomSettings = { min: 0.1, max: 8 }
-const DEFAULT_GRID: GridSettings = { size: 10, majorEvery: 5, snap: true, pattern: 'line' }
+const DEFAULT_GRID: GridSettings = { size: 10, majorEvery: 5, snap: true, edgeSnap: true, edgeSnapThreshold: 8, pattern: 'line' }
 const DEFAULT_NODE_CONSTRAINTS: NodeConstraints = {
   minWidth: 50,
   minHeight: 50,
@@ -744,6 +744,8 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       grid.size = snapshot.grid.size
       grid.majorEvery = snapshot.grid.majorEvery
       grid.snap = snapshot.grid.snap
+      grid.edgeSnap = snapshot.grid.edgeSnap ?? true
+      grid.edgeSnapThreshold = snapshot.grid.edgeSnapThreshold ?? 8
       grid.pattern = snapshot.grid.pattern
       return
     }
@@ -788,6 +790,12 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
         }
         if (patch.snap !== undefined) {
           grid.snap = patch.snap
+        }
+        if (patch.edgeSnap !== undefined) {
+          grid.edgeSnap = patch.edgeSnap
+        }
+        if (patch.edgeSnapThreshold !== undefined) {
+          grid.edgeSnapThreshold = Math.max(1, patch.edgeSnapThreshold)
         }
         if (patch.pattern !== undefined) {
           grid.pattern = patch.pattern
@@ -1320,13 +1328,13 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             maxY = Math.max(maxY, y + node.height)
           }
 
-          const snapResult = bypassSnapping
+          const snapResult = (bypassSnapping || !grid.edgeSnap)
             ? { dx: 0, dy: 0, guides: [] as SnapGuide[] }
             : (() => {
                 const excludeIds = new Set(interaction.nodeIds)
                 const otherEdges = collectOtherNodeEdgesExcluding(state.nodes.values(), excludeIds)
                 const groupBounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-                return snapPositionToEdges(groupBounds, otherEdges, 8 / state.camera.z)
+                return snapPositionToEdges(groupBounds, otherEdges, grid.edgeSnapThreshold / state.camera.z)
               })()
           setSnapGuides(snapResult.guides)
 
@@ -1371,12 +1379,12 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             replaceStoredNode(node, { ...node, ...nextBounds })
           } else {
             const gridSnapped = !bypassSnapping && grid.snap ? snapResizedBounds(raw, interaction.handle, grid.size, constraints) : raw
-            if (bypassSnapping) {
+            if (bypassSnapping || !grid.edgeSnap) {
               setSnapGuides([])
               replaceStoredNode(node, { ...node, ...gridSnapped })
             } else {
               const otherEdges = collectOtherNodeEdges(state.nodes.values(), interaction.nodeId)
-              const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, 8 / state.camera.z)
+              const snapResult = snapBoundsToEdges(gridSnapped, interaction.handle, otherEdges, grid.edgeSnapThreshold / state.camera.z)
               setSnapGuides(snapResult.guides)
               replaceStoredNode(node, { ...node, ...snapResult.bounds })
             }

@@ -11,36 +11,55 @@ const tone = computed(() => {
   const status = String(props.node.data.status ?? 'pending')
   if (status === 'done') {
     return {
-      badge: 'bg-emerald-50 text-emerald-700',
+      badge: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300/60',
       border: '#10b981',
-      surface: 'from-emerald-50 via-white to-emerald-100/70'
+      surface: `linear-gradient(135deg,
+        color-mix(in srgb, #10b981 14%, white),
+        color-mix(in srgb, #10b981 4%, white) 60%,
+        color-mix(in srgb, #10b981 10%, white))`,
+      glow: 'inset 0 1px 0 0 rgba(16,185,129,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(16,185,129,0.10)'
     }
   }
   if (status === 'active') {
     return {
-      badge: 'bg-sky-50 text-sky-700',
+      badge: 'bg-sky-100 text-sky-800 ring-1 ring-sky-300/60',
       border: '#0ea5e9',
-      surface: 'from-sky-50 via-white to-cyan-100/70'
+      surface: `linear-gradient(135deg,
+        color-mix(in srgb, #0ea5e9 14%, white),
+        color-mix(in srgb, #0ea5e9 4%, white) 60%,
+        color-mix(in srgb, #0ea5e9 10%, white))`,
+      glow: 'inset 0 1px 0 0 rgba(14,165,233,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(14,165,233,0.10)'
     }
   }
   return {
-    badge: 'bg-accented text-muted',
+    badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
     border: '#94a3b8',
-    surface: 'from-slate-100 via-white to-slate-50'
+    surface: `linear-gradient(135deg,
+      color-mix(in srgb, #94a3b8 8%, white),
+      white 60%,
+      color-mix(in srgb, #94a3b8 6%, white))`,
+    glow: 'inset 0 1px 0 0 rgba(148,163,184,0.14), 0 18px 60px rgba(15,23,42,0.06)'
   }
 })
 </script>
 
 <template>
   <div
-    class="h-full rounded-md border bg-gradient-to-br p-4 shadow-[0_18px_60px_rgba(15,23,42,0.10)]"
-    :class="[tone.surface, selected ? 'ring-2 ring-primary' : 'border-default']"
-    :style="{ borderLeft: `6px solid ${tone.border}` }"
+    class="h-full rounded-md border p-4"
+    :class="[selected ? 'ring-2 ring-primary' : 'border-default']"
+    :style="{
+      borderLeft: `5px solid ${tone.border}`,
+      background: tone.surface,
+      boxShadow: tone.glow
+    }"
   >
     <div class="flex h-full flex-col justify-between gap-3">
       <div class="flex items-center justify-between gap-3">
-        <span class="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed">Step</span>
-        <span class="rounded-full px-2 py-1 text-[0.7rem] font-medium" :class="tone.badge">{{ node.data.status }}</span>
+        <span class="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed">
+          <span class="inline-block size-1.5 rounded-full" :style="{ background: tone.border }"></span>
+          Step
+        </span>
+        <span class="rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide" :class="tone.badge">{{ node.data.status }}</span>
       </div>
       <div>
         <h3 class="text-lg font-semibold tracking-tight text-highlighted">

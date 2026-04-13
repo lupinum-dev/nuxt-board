@@ -56,14 +56,14 @@ const screenGuides = computed(() => {
 }
 
 .board-snap-guide--vertical {
-  width: 2px;
+  width: var(--board-snap-guide-width, 2px);
   background: var(--board-snap-guide-color, #0f766e);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 18px -4px var(--board-snap-guide-color, #0f766e);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 var(--board-snap-guide-glow-size, 18px) -4px var(--board-snap-guide-color, #0f766e);
 }
 
 .board-snap-guide--horizontal {
-  height: 2px;
+  height: var(--board-snap-guide-width, 2px);
   background: var(--board-snap-guide-color, #0f766e);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 18px -4px var(--board-snap-guide-color, #0f766e);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 var(--board-snap-guide-glow-size, 18px) -4px var(--board-snap-guide-color, #0f766e);
 }
 </style>

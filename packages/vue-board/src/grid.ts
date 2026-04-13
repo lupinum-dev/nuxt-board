@@ -6,6 +6,8 @@ export interface BoardGridOptions {
   size?: number
   majorEvery?: number
   snap?: boolean
+  edgeSnap?: boolean
+  edgeSnapThreshold?: number
   pattern?: GridPattern
   minorOpacity?: number
   majorOpacity?: number
@@ -17,6 +19,8 @@ export interface ResolvedBoardGridOptions {
   size: number
   majorEvery: number
   snap: boolean
+  edgeSnap: boolean
+  edgeSnapThreshold: number
   pattern: GridPattern
   minorOpacity: number
   majorOpacity: number
