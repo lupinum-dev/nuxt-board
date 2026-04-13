@@ -1,7 +1,8 @@
-import MyModule from '../../../src/module'
+import CanvasModule from '../../../src/module'
 
 export default defineNuxtConfig({
   modules: [
-    MyModule,
+    CanvasModule,
   ],
+  canvas: {},
 })

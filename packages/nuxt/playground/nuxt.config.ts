@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
-  modules: ['my-module'],
+  modules: ['@canvas/nuxt'],
   devtools: { enabled: true },
   compatibilityDate: 'latest',
-  myModule: {},
+  canvas: {},
 })
