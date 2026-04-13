@@ -31,13 +31,20 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">Reset demo</button>
+      <button @click="seed">
+        Reset demo
+      </button>
       <button @click="engine.createNode({ type: 'text', x: 260, y: 80, width: 220, height: 110, data: { content: 'Auto-imported from Nuxt' } })">
         Add node
       </button>
-      <button @click="engine.zoomToFit(84, false)">Fit view</button>
+      <button @click="engine.zoomToFit(84, false)">
+        Fit view
+      </button>
     </div>
 
-    <BoardRoot :engine="engine" style="height: 320px" />
+    <BoardRoot
+      :engine="engine"
+      style="height: 320px"
+    />
   </div>
 </template>

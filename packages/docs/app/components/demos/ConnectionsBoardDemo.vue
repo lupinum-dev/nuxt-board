@@ -52,19 +52,40 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">Reset graph</button>
-      <button @click="shuffle">Shuffle layout</button>
-      <button :disabled="!engine.ext.history.canUndo()" @click="engine.ext.history.undo()">Undo</button>
-      <button :disabled="!engine.ext.history.canRedo()" @click="engine.ext.history.redo()">Redo</button>
+      <button @click="seed">
+        Reset graph
+      </button>
+      <button @click="shuffle">
+        Shuffle layout
+      </button>
+      <button
+        :disabled="!engine.ext.history.canUndo()"
+        @click="engine.ext.history.undo()"
+      >
+        Undo
+      </button>
+      <button
+        :disabled="!engine.ext.history.canRedo()"
+        @click="engine.ext.history.redo()"
+      >
+        Redo
+      </button>
       <span class="ml-auto text-xs font-mono text-slate-500">undo {{ historyState.undoDepth }} / redo {{ historyState.redoDepth }}</span>
     </div>
 
     <div class="relative">
-      <BoardRoot :engine="engine" style="height: 360px">
+      <BoardRoot
+        :engine="engine"
+        style="height: 360px"
+      >
         <BoardConnectionLayer />
       </BoardRoot>
       <div class="absolute right-4 bottom-4 rounded-2xl border border-slate-200/80 bg-white/85 p-2 shadow-lg backdrop-blur">
-        <BoardMinimap :engine="engine" :width="180" :height="110" />
+        <BoardMinimap
+          :engine="engine"
+          :width="180"
+          :height="110"
+        />
       </div>
     </div>
   </div>

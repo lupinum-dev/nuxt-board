@@ -20,16 +20,27 @@ const emit = defineEmits<{
 <template>
   <aside class="sidebar">
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Active Scene</p>
-      <h2 class="sidebar__title">{{ sceneLabel }}</h2>
-      <p class="sidebar__copy">{{ sceneSummary }}</p>
+      <p class="sidebar__eyebrow">
+        Active Scene
+      </p>
+      <h2 class="sidebar__title">
+        {{ sceneLabel }}
+      </h2>
+      <p class="sidebar__copy">
+        {{ sceneSummary }}
+      </p>
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Grid</p>
+      <p class="sidebar__eyebrow">
+        Grid
+      </p>
       <label class="sidebar__field">
         <span>Size</span>
-        <select v-model="gridSize" class="sidebar__select">
+        <select
+          v-model="gridSize"
+          class="sidebar__select"
+        >
           <option :value="16">16 px</option>
           <option :value="24">24 px</option>
           <option :value="40">40 px</option>
@@ -37,7 +48,10 @@ const emit = defineEmits<{
       </label>
       <label class="sidebar__field">
         <span>Pattern</span>
-        <select v-model="gridPattern" class="sidebar__select">
+        <select
+          v-model="gridPattern"
+          class="sidebar__select"
+        >
           <option value="line">Line</option>
           <option value="dot">Dot</option>
           <option value="cross">Cross</option>
@@ -47,7 +61,9 @@ const emit = defineEmits<{
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">JSON Canvas</p>
+      <p class="sidebar__eyebrow">
+        JSON Canvas
+      </p>
       <textarea
         v-model="documentText"
         class="sidebar__textarea"
@@ -55,18 +71,29 @@ const emit = defineEmits<{
         placeholder="Export the current board, tweak it, then import it back."
       />
       <div class="sidebar__footer">
-        <button class="sidebar__button" @click="emit('import')">Import JSON</button>
+        <button
+          class="sidebar__button"
+          @click="emit('import')"
+        >
+          Import JSON
+        </button>
         <span class="sidebar__status">{{ status }}</span>
       </div>
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Benchmark</p>
-      <p class="sidebar__copy sidebar__copy--mono">{{ benchmarkResult }}</p>
+      <p class="sidebar__eyebrow">
+        Benchmark
+      </p>
+      <p class="sidebar__copy sidebar__copy--mono">
+        {{ benchmarkResult }}
+      </p>
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Shortcuts</p>
+      <p class="sidebar__eyebrow">
+        Shortcuts
+      </p>
       <ul class="sidebar__list">
         <li>Double-click the board to create a text node.</li>
         <li>Use <kbd>Space</kbd> + drag to pan.</li>

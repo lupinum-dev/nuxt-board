@@ -74,11 +74,11 @@ export default defineNuxtModule<ModuleOptions>({
 
     if (options.autoImportComposables !== false) {
       addImports(
-        BOARD_COMPOSABLES.map((name) => ({
+        BOARD_COMPOSABLES.map(name => ({
           name,
           as: name,
           from: '@lupinum/vue-board',
-        }))
+        })),
       )
 
       addImports({

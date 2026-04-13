@@ -25,27 +25,89 @@ const emit = defineEmits<{
   <div class="toolbar">
     <label class="toolbar__field">
       <span>Scene</span>
-      <select v-model="sceneId" class="toolbar__select">
-        <option v-for="scene in scenes" :key="scene.id" :value="scene.id">
+      <select
+        v-model="sceneId"
+        class="toolbar__select"
+      >
+        <option
+          v-for="scene in scenes"
+          :key="scene.id"
+          :value="scene.id"
+        >
           {{ scene.label }}
         </option>
       </select>
     </label>
 
     <div class="toolbar__cluster">
-      <button class="toolbar__button" @click="emit('reseed')">Reset</button>
-      <button class="toolbar__button" @click="emit('fit')">Fit</button>
-      <button class="toolbar__button" @click="emit('group')">Group</button>
-      <button class="toolbar__button" @click="emit('benchmark')">Benchmark</button>
-      <button class="toolbar__button" @click="emit('export')">Export</button>
+      <button
+        class="toolbar__button"
+        @click="emit('reseed')"
+      >
+        Reset
+      </button>
+      <button
+        class="toolbar__button"
+        @click="emit('fit')"
+      >
+        Fit
+      </button>
+      <button
+        class="toolbar__button"
+        @click="emit('group')"
+      >
+        Group
+      </button>
+      <button
+        class="toolbar__button"
+        @click="emit('benchmark')"
+      >
+        Benchmark
+      </button>
+      <button
+        class="toolbar__button"
+        @click="emit('export')"
+      >
+        Export
+      </button>
     </div>
 
     <div class="toolbar__cluster">
-      <button class="toolbar__toggle" :class="{ 'is-active': showGrid }" @click="showGrid = !showGrid">Grid</button>
-      <button class="toolbar__toggle" :class="{ 'is-active': snapToGrid }" @click="snapToGrid = !snapToGrid">Snap</button>
-      <button class="toolbar__toggle" :class="{ 'is-active': showMinimap }" @click="showMinimap = !showMinimap">Minimap</button>
-      <button class="toolbar__toggle" :class="{ 'is-active': showDiagnostics }" @click="showDiagnostics = !showDiagnostics">Diag</button>
-      <button class="toolbar__toggle" :class="{ 'is-active': showPanel }" @click="showPanel = !showPanel">Panel</button>
+      <button
+        class="toolbar__toggle"
+        :class="{ 'is-active': showGrid }"
+        @click="showGrid = !showGrid"
+      >
+        Grid
+      </button>
+      <button
+        class="toolbar__toggle"
+        :class="{ 'is-active': snapToGrid }"
+        @click="snapToGrid = !snapToGrid"
+      >
+        Snap
+      </button>
+      <button
+        class="toolbar__toggle"
+        :class="{ 'is-active': showMinimap }"
+        @click="showMinimap = !showMinimap"
+      >
+        Minimap
+      </button>
+      <button
+        class="toolbar__toggle"
+        :class="{ 'is-active': showDiagnostics }"
+        @click="showDiagnostics = !showDiagnostics"
+      >
+        Diag
+      </button>
+      <button
+        class="toolbar__toggle"
+        :class="{ 'is-active': showPanel }"
+        @click="showPanel = !showPanel"
+      >
+        Panel
+      </button>
     </div>
   </div>
 </template>

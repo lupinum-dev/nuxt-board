@@ -34,7 +34,7 @@ watch(
       inputRef.value?.focus()
       inputRef.value?.select()
     })
-  }
+  },
 )
 
 watch(title, (value) => {
@@ -81,7 +81,10 @@ function cancel(): void {
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="cancel"
       >
-      <span v-else class="group-frame__title">{{ title }}</span>
+      <span
+        v-else
+        class="group-frame__title"
+      >{{ title }}</span>
     </div>
   </div>
 </template>

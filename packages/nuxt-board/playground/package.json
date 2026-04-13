@@ -7,6 +7,9 @@
     "build": "nuxt build",
     "generate": "nuxt generate"
   },
+  "devDependencies": {
+    "vite": "7.3.2"
+  },
   "dependencies": {
     "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*",

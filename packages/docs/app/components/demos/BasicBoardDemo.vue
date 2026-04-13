@@ -38,14 +38,14 @@ function wrapSelectionInGroup() {
   if (selected.length === 0) {
     return
   }
-  const nodes = engine.getSnapshot().nodes.filter((node) => selected.includes(node.id))
+  const nodes = engine.getSnapshot().nodes.filter(node => selected.includes(node.id))
   if (nodes.length === 0) {
     return
   }
-  const minX = Math.min(...nodes.map((node) => node.x))
-  const minY = Math.min(...nodes.map((node) => node.y))
-  const maxX = Math.max(...nodes.map((node) => node.x + node.width))
-  const maxY = Math.max(...nodes.map((node) => node.y + node.height))
+  const minX = Math.min(...nodes.map(node => node.x))
+  const minY = Math.min(...nodes.map(node => node.y))
+  const maxX = Math.max(...nodes.map(node => node.x + node.width))
+  const maxY = Math.max(...nodes.map(node => node.y + node.height))
   const group = engine.createNode({
     type: 'group',
     x: minX - 28,
@@ -72,12 +72,23 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">Reset scene</button>
-      <button @click="addNode">Add note</button>
-      <button @click="wrapSelectionInGroup">Wrap selection</button>
-      <button @click="engine.zoomToFit(72, false)">Zoom to fit</button>
+      <button @click="seed">
+        Reset scene
+      </button>
+      <button @click="addNode">
+        Add note
+      </button>
+      <button @click="wrapSelectionInGroup">
+        Wrap selection
+      </button>
+      <button @click="engine.zoomToFit(72, false)">
+        Zoom to fit
+      </button>
     </div>
 
-    <BoardRoot :engine="engine" style="height: 360px" />
+    <BoardRoot
+      :engine="engine"
+      style="height: 360px"
+    />
   </div>
 </template>

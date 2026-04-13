@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
-import { BoardConnectionLayer } from '@lupinum/board-connections'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardConnectionLayer } from '../../board-connections/src/index'
+import { BoardMinimap } from '../../board-minimap/src/index'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import DemoDiagnostics from '~/components/DemoDiagnostics.vue'
 import DemoGroupNodeRenderer from '~/components/DemoGroupNodeRenderer.vue'
@@ -79,10 +79,7 @@ onBeforeUnmount(() => {
   }
 })
 
-const stats = computed(() => {
-  version.value
-  return getDemoCounts(engine)
-})
+const stats = ref(getDemoCounts(engine))
 
 const gridOptions = computed(() => ({
   visible: showGrid.value,
@@ -110,6 +107,10 @@ watch(sceneId, (next, prev) => {
   }
 })
 
+watch(version, () => {
+  stats.value = getDemoCounts(engine)
+}, { immediate: true })
+
 function exportDocument(): void {
   documentText.value = exportDemoDocument(engine)
   status.value = 'Exported current board as JSON Canvas.'
@@ -128,7 +129,8 @@ function importDocument(): void {
     snapToGrid.value = grid.snap
     status.value = 'Imported JSON Canvas into the live engine.'
     version.value += 1
-  } catch (error) {
+  }
+  catch (error) {
     status.value = error instanceof Error ? error.message : 'Import failed.'
   }
 }
@@ -142,7 +144,7 @@ async function runBenchmark(): Promise<void> {
     const t0 = performance.now()
     engine.panBy(step % 2 === 0 ? 18 : -12, 10)
     engine.zoomAt({ x: 520, y: 260 }, step % 2 === 0 ? -0.6 : 0.42)
-    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise(resolve => requestAnimationFrame(resolve))
     samples.push(performance.now() - t0)
   }
 
@@ -167,7 +169,9 @@ function groupSelection(): void {
   <main class="demo-shell">
     <section class="demo-hero">
       <div class="demo-hero__copy">
-        <p class="demo-hero__eyebrow">Nuxt SSR Playground</p>
+        <p class="demo-hero__eyebrow">
+          Nuxt SSR Playground
+        </p>
         <h1>Interactive board markup, rendered on the server before hydration.</h1>
         <p class="demo-hero__lede">
           This playground uses deterministic scene data so Nuxt can server-render the board, then hydrate into the same
@@ -198,10 +202,14 @@ function groupSelection(): void {
     <section class="demo-stage-shell">
       <div class="demo-stage-shell__header">
         <div>
-          <p class="demo-stage-shell__eyebrow">{{ activeScene.label }}</p>
+          <p class="demo-stage-shell__eyebrow">
+            {{ activeScene.label }}
+          </p>
           <h2>{{ activeScene.summary }}</h2>
         </div>
-        <p class="demo-stage-shell__status">{{ status }}</p>
+        <p class="demo-stage-shell__status">
+          {{ status }}
+        </p>
       </div>
 
       <DemoToolbar
@@ -243,8 +251,14 @@ function groupSelection(): void {
                 :trace="getLastTraceLabel(engine)"
               />
 
-              <div v-if="showMinimap" class="demo-minimap">
-                <BoardMinimap :width="208" :height="148" />
+              <div
+                v-if="showMinimap"
+                class="demo-minimap"
+              >
+                <BoardMinimap
+                  :width="208"
+                  :height="148"
+                />
               </div>
             </template>
           </BoardRoot>

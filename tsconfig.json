@@ -12,6 +12,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "noEmit": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@lupinum/board-core": ["packages/board-core/src/index.ts"],
@@ -25,10 +26,25 @@
   },
   "include": [
     "**/*.d.ts",
-    "packages/**/*.ts",
-    "packages/**/*.vue",
+    "packages/board-core/**/*.ts",
+    "packages/board-history/**/*.ts",
+    "packages/board-selection/**/*.ts",
+    "packages/board-serializer/**/*.ts",
+    "packages/board-connections/**/*.ts",
+    "packages/board-connections/**/*.vue",
+    "packages/board-minimap/**/*.ts",
+    "packages/board-minimap/**/*.vue",
+    "packages/vue-board/**/*.ts",
+    "packages/vue-board/**/*.vue",
     "apps/**/*.ts",
     "apps/**/*.vue",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "packages/docs/**",
+    "packages/nuxt-board/**",
+    "**/.nuxt/**",
+    "**/.output/**",
+    "**/dist/**"
   ]
 }

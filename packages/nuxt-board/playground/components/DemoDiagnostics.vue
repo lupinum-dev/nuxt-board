@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  camera: { x: number; y: number; z: number }
+  camera: { x: number, y: number, z: number }
   nodes: number
   edges: number
   selection: number

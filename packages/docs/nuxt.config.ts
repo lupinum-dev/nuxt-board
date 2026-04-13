@@ -22,28 +22,11 @@ export default defineNuxtConfig({
     '~/components'
   ],
 
-  alias: {
-    '@lupinum/board-core': fileURLToPath(new URL('../board-core/src/index.ts', import.meta.url)),
-    '@lupinum/vue-board': fileURLToPath(new URL('../vue-board/src/index.ts', import.meta.url)),
-    '@lupinum/board-history': fileURLToPath(new URL('../board-history/src/index.ts', import.meta.url)),
-    '@lupinum/board-selection': fileURLToPath(new URL('../board-selection/src/index.ts', import.meta.url)),
-    '@lupinum/board-connections': fileURLToPath(new URL('../board-connections/src/index.ts', import.meta.url)),
-    '@lupinum/board-minimap': fileURLToPath(new URL('../board-minimap/src/index.ts', import.meta.url)),
-    '@lupinum/board-serializer': fileURLToPath(new URL('../board-serializer/src/index.ts', import.meta.url))
-  },
-
   devtools: {
     enabled: true
   },
 
   css: ['~/assets/css/main.css'],
-
-  runtimeConfig: {
-    public: {
-      siteUrl,
-      githubUrl: 'https://github.com/Mat4m0/canvas'
-    }
-  },
 
   site: {
     url: siteUrl,
@@ -60,16 +43,28 @@ export default defineNuxtConfig({
     }
   },
 
+  runtimeConfig: {
+    public: {
+      siteUrl,
+      githubUrl: 'https://github.com/Mat4m0/canvas'
+    }
+  },
+
+  alias: {
+    '@lupinum/board-core': fileURLToPath(new URL('../board-core/src/index.ts', import.meta.url)),
+    '@lupinum/vue-board': fileURLToPath(new URL('../vue-board/src/index.ts', import.meta.url)),
+    '@lupinum/board-history': fileURLToPath(new URL('../board-history/src/index.ts', import.meta.url)),
+    '@lupinum/board-selection': fileURLToPath(new URL('../board-selection/src/index.ts', import.meta.url)),
+    '@lupinum/board-connections': fileURLToPath(new URL('../board-connections/src/index.ts', import.meta.url)),
+    '@lupinum/board-minimap': fileURLToPath(new URL('../board-minimap/src/index.ts', import.meta.url)),
+    '@lupinum/board-serializer': fileURLToPath(new URL('../board-serializer/src/index.ts', import.meta.url))
+  },
+
   experimental: {
     asyncContext: true
   },
 
   compatibilityDate: '2024-07-11',
-
-  board: {
-    autoImportComponents: true,
-    autoImportComposables: true
-  },
 
   nitro: {
     prerender: {
@@ -78,9 +73,15 @@ export default defineNuxtConfig({
         '/getting-started/introduction',
         '/examples/basic-board'
       ],
+      ignore: [/^\/_og\//],
       crawlLinks: true,
       autoSubfolderIndex: false
     }
+  },
+
+  board: {
+    autoImportComponents: true,
+    autoImportComposables: true
   },
 
   eslint: {

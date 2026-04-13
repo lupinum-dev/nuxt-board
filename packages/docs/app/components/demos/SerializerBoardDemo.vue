@@ -51,13 +51,22 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">Reset board</button>
-      <button @click="exportBoard">Export JSON Canvas</button>
-      <button @click="importBoard">Import payload</button>
+      <button @click="seed">
+        Reset board
+      </button>
+      <button @click="exportBoard">
+        Export JSON Canvas
+      </button>
+      <button @click="importBoard">
+        Import payload
+      </button>
     </div>
 
     <div class="grid gap-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <BoardRoot :engine="engine" style="height: 360px">
+      <BoardRoot
+        :engine="engine"
+        style="height: 360px"
+      >
         <BoardConnectionLayer />
       </BoardRoot>
       <textarea

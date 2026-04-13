@@ -50,11 +50,21 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">Reset renderers</button>
-      <button @click="addInsight">Add insight card</button>
-      <button @click="engine.zoomToFit(72, false)">Focus board</button>
+      <button @click="seed">
+        Reset renderers
+      </button>
+      <button @click="addInsight">
+        Add insight card
+      </button>
+      <button @click="engine.zoomToFit(72, false)">
+        Focus board
+      </button>
     </div>
 
-    <BoardRoot :engine="engine" :renderers="renderers" style="height: 340px" />
+    <BoardRoot
+      :engine="engine"
+      :renderers="renderers"
+      style="height: 340px"
+    />
   </div>
 </template>

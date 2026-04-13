@@ -16,10 +16,6 @@ export default defineConfig({
     }
   },
   test: {
-    environmentMatchGlobs: [
-      ['packages/vue-board/test/**/*.test.ts', 'jsdom'],
-      ['tests/e2e/**/*.spec.ts', 'node']
-    ],
     include: ['packages/**/test/**/*.test.ts'],
     coverage: {
       reporter: ['text', 'html']

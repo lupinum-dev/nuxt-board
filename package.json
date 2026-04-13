@@ -12,28 +12,31 @@
     "dev:docs": "pnpm docs:api && pnpm --filter docs dev",
     "dev:playground": "pnpm --filter @lupinum/board-playground dev",
     "docs:api": "node scripts/generate-api-docs.mjs",
-    "lint": "tsc --noEmit -p tsconfig.json",
+    "format": "pnpm --filter docs exec eslint . --fix && pnpm --filter @lupinum/nuxt-board exec eslint . --fix",
+    "lint": "pnpm --filter docs lint && pnpm --filter @lupinum/nuxt-board lint",
     "pack:check": "node scripts/pack-check.mjs",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:docs": "pnpm docs:api && pnpm --filter docs typecheck && pnpm --filter docs build",
     "test:e2e": "playwright test",
-    "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts && pnpm --filter @lupinum/nuxt-board test"
+    "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts && pnpm --filter @lupinum/nuxt-board test",
+    "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter @lupinum/nuxt-board test:types",
+    "typecheck:workspace": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.6",
     "@playwright/test": "^1.54.1",
     "@tailwindcss/vite": "^4.2.2",
-    "@types/node": "^24.0.3",
-    "@changesets/cli": "^2.29.6",
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@types/node": "^25.6.0",
+    "@vitejs/plugin-vue": "^6.0.6",
     "@vue/test-utils": "^2.4.6",
-    "jsdom": "^26.1.0",
+    "jsdom": "^29.0.2",
     "playwright": "^1.54.1",
     "tailwindcss": "^4.2.2",
     "tsup": "^8.2.4",
-    "typescript": "^5.8.3",
-    "vite": "^7.0.6",
-    "vitest": "^3.2.4",
+    "typescript": "^6.0.2",
+    "vite": "^7.3.2",
+    "vitest": "^4.1.4",
     "vue": "^3.5.18",
-    "vue-tsc": "^2.0.29"
+    "vue-tsc": "^3.2.6"
   }
 }

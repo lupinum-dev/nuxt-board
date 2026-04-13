@@ -1,8 +1,32 @@
+/** @vitest-environment jsdom */
+
 import { defineComponent, h, markRaw } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
 import BoardRoot from '../src/components/BoardRoot.vue'
+
+function dispatchPointerEvent(
+  element: Element,
+  type: string,
+  init: PointerEventInit & { pointerId?: number }
+) {
+  const EventCtor = window.PointerEvent ?? window.MouseEvent
+  const event = new EventCtor(type, {
+    bubbles: true,
+    cancelable: true,
+    ...init
+  })
+
+  if (!('pointerId' in event) && init.pointerId !== undefined) {
+    Object.defineProperty(event, 'pointerId', {
+      configurable: true,
+      value: init.pointerId
+    })
+  }
+
+  element.dispatchEvent(event)
+}
 
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
@@ -46,7 +70,7 @@ describe('BoardRoot', () => {
       attachTo: document.body
     })
 
-    await wrapper.find(`[data-node-id="${node.id}"]`).trigger('pointerdown', {
+    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointerdown', {
       button: 0,
       pointerId: 1,
       clientX: 50,
@@ -56,7 +80,7 @@ describe('BoardRoot', () => {
       mode: 'dragging-nodes'
     })
 
-    await wrapper.find('[data-resize="se"]').trigger('pointerdown', {
+    dispatchPointerEvent(wrapper.find('[data-resize="se"]').element, 'pointerdown', {
       button: 0,
       pointerId: 2,
       clientX: 120,
@@ -101,25 +125,29 @@ describe('BoardRoot', () => {
       attachTo: document.body
     })
 
-    await wrapper.trigger('pointerdown', {
+    dispatchPointerEvent(wrapper.element, 'pointerdown', {
       button: 0,
       pointerId: 7,
       clientX: 0,
       clientY: 0
     })
-    await wrapper.trigger('pointermove', {
+    dispatchPointerEvent(wrapper.element, 'pointermove', {
       pointerId: 7,
       clientX: 180,
       clientY: 140
     })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.board-box-select').exists()).toBe(true)
 
-    await wrapper.trigger('pointerup', {
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 7,
       clientX: 180,
       clientY: 140
     })
+    await Promise.resolve()
+    await wrapper.vm.$nextTick()
 
     expect(engine.getSelection()).toEqual([first.id])
   })

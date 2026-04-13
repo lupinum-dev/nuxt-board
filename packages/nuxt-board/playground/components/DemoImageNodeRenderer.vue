@@ -6,13 +6,16 @@ defineProps<{
   selected: boolean
 }>()
 
-function getImageData(node: BoardNode): { alt?: string; src?: string } {
-  return node.data as { alt?: string; src?: string }
+function getImageData(node: BoardNode): { alt?: string, src?: string } {
+  return node.data as { alt?: string, src?: string }
 }
 </script>
 
 <template>
-  <div class="image-card" :class="{ 'is-selected': selected }">
+  <div
+    class="image-card"
+    :class="{ 'is-selected': selected }"
+  >
     <img
       v-if="getImageData(node).src"
       :src="getImageData(node).src"
@@ -20,7 +23,10 @@ function getImageData(node: BoardNode): { alt?: string; src?: string } {
       class="image-card__media"
       draggable="false"
     >
-    <div v-else class="image-card__placeholder">
+    <div
+      v-else
+      class="image-card__placeholder"
+    >
       <span class="image-card__badge">Preview</span>
       <strong>{{ getImageData(node).alt ?? 'Reference image' }}</strong>
       <p>Drop product shots, diagrams, or runbooks into the board.</p>

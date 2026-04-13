@@ -8,8 +8,8 @@ import {
   type GridPattern,
   type Point,
 } from '@lupinum/board-core'
-import { connectionPlugin } from '@lupinum/board-connections'
-import { historyPlugin } from '@lupinum/board-history'
+import { connectionPlugin } from '../../../board-connections/src/index'
+import { historyPlugin } from '../../../board-history/src/index'
 import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 
 export type DemoSceneId = 'workflow' | 'systems' | 'dense'
@@ -63,7 +63,7 @@ function textNode(
   height: number,
   content: string,
   zIndex: number,
-  parentId?: string
+  parentId?: string,
 ): DemoNode {
   return {
     id: asNodeId(id),
@@ -88,7 +88,7 @@ function imageNode(
   height: number,
   alt: string,
   zIndex: number,
-  parentId?: string
+  parentId?: string,
 ): DemoNode {
   return {
     id: asNodeId(id),
@@ -113,7 +113,7 @@ function groupNode(
   height: number,
   title: string,
   accent: string,
-  zIndex: number
+  zIndex: number,
 ): DemoNode {
   return {
     id: asNodeId(id),
@@ -133,7 +133,7 @@ function connection(
   id: string,
   from: string,
   to: string,
-  label: string
+  label: string,
 ): Record<string, unknown> {
   return {
     id: asEdgeId(id),
@@ -147,7 +147,7 @@ function connection(
 function snapshotFrom(
   nodes: DemoNode[],
   camera: Point & { z: number },
-  grid = DEFAULT_GRID
+  grid = DEFAULT_GRID,
 ): BoardSnapshot {
   return {
     camera,
@@ -254,8 +254,8 @@ function createDenseScene(): DemoScene {
             62,
             `Cell ${lane + 1}.${row * 2 + col + 1}\nQueued`,
             zIndex,
-            laneIds[lane]
-          )
+            laneIds[lane],
+          ),
         )
         zIndex += 1
       }
@@ -397,7 +397,7 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
     return
   }
 
-  const selectedNodes = snapshot.nodes.filter((node) => selection.includes(node.id))
+  const selectedNodes = snapshot.nodes.filter(node => selection.includes(node.id))
   if (selectedNodes.length === 0) {
     return
   }
@@ -432,7 +432,7 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
     }
   }
   engine.syncGroupZOrder(group.id)
-  engine.select([group.id, ...selection.filter((id) => id !== group.id)])
+  engine.select([group.id, ...selection.filter(id => id !== group.id)])
 }
 
 export function getSceneSummary(id: DemoSceneId): DemoSceneOption {
