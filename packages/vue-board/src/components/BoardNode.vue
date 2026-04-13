@@ -133,8 +133,8 @@ function getTextContent(node: BoardNode): string {
   box-sizing: border-box;
   overflow: visible;
   border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border, rgba(148, 163, 184, 0.28));
-  border-radius: calc(18px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow, 0 18px 40px -30px rgba(15, 23, 42, 0.22));
+  border-radius: calc(var(--board-node-radius, 8px) / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   background: var(--board-node-bg, #fff);
   color: inherit;
   contain: layout style;
@@ -148,20 +148,20 @@ function getTextContent(node: BoardNode): string {
 
 .board-node:hover:not(.is-group):not(.is-editing) {
   border-color: var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
-  box-shadow: var(--board-node-shadow-hover, 0 22px 48px -28px rgba(15, 23, 42, 0.28));
+  box-shadow: var(--board-node-shadow-hover, 0 4px 12px rgba(0, 0, 0, 0.08));
   transform: translateY(calc(-1px / var(--board-zoom, 1)));
 }
 
 .board-node.is-selected {
   outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
   outline-offset: calc(1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, 0 24px 52px -28px rgba(15, 23, 42, 0.32));
+  box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
 }
 
 .board-node.is-editing {
   outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
   outline-offset: calc(1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, 0 24px 52px -28px rgba(15, 23, 42, 0.32));
+  box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
 }
 
 .board-node.is-locked {

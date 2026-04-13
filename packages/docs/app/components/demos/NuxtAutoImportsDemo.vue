@@ -12,8 +12,8 @@ function seed() {
     camera: { x: 0, y: 0, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'nuxt', type: 'text', x: 100, y: 100, width: 240, height: 120, data: { content: 'Nuxt module\nNo manual imports required' }, zIndex: 1, locked: false, visible: true },
-      { id: 'board', type: 'text', x: 420, y: 180, width: 240, height: 120, data: { content: 'BoardRoot\nBoard composables\ncreateBoardEngine' }, zIndex: 2, locked: false, visible: true }
+      { id: 'nuxt', type: 'text', x: 100, y: 100, width: 240, height: 100, data: { content: 'Nuxt module\nZero manual imports' }, zIndex: 1, locked: false, visible: true },
+      { id: 'board', type: 'text', x: 420, y: 180, width: 240, height: 100, data: { content: 'Components, composables\nand engine auto-imported' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -31,14 +31,14 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="seed">
-        Reset demo
+      <button class="demo-danger" @click="seed">
+        Reset
       </button>
-      <button @click="engine.createNode({ type: 'text', x: 260, y: 80, width: 220, height: 110, data: { content: 'Auto-imported from Nuxt' } })">
+      <button class="demo-primary" @click="engine.createNode({ type: 'text', x: 260, y: 80, width: 220, height: 100, data: { content: 'Auto-imported\nfrom Nuxt module' } })">
         Add node
       </button>
       <button @click="engine.zoomToFit(84, false)">
-        Fit view
+        Zoom to fit
       </button>
     </div>
 

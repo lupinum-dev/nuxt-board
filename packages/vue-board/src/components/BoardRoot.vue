@@ -321,7 +321,6 @@ function beginDeferredInteraction(event: PointerEvent, nodeId?: string, handle?:
 
   if (handle && nodeId) {
     engine.select(asNodeId(nodeId))
-    engine.bringToFront(asNodeId(nodeId))
     pendingInteraction.value = {
       kind: 'resize',
       pointerId: event.pointerId,
@@ -337,7 +336,6 @@ function beginDeferredInteraction(event: PointerEvent, nodeId?: string, handle?:
     if (!selection.includes(asNodeId(nodeId))) {
       engine.select(asNodeId(nodeId))
     }
-    engine.bringToFront(asNodeId(nodeId))
     pendingInteraction.value = {
       kind: 'drag',
       pointerId: event.pointerId,
@@ -364,7 +362,7 @@ function startPendingInteraction(event: PointerEvent, point: Point): boolean {
   if (pending.kind === 'drag') {
     if (event.altKey) {
       const sourceNode = engine.findNode(asNodeId(pending.nodeId))
-      const created = engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 })
+      const created = engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 }) ?? []
       const dragNode =
         (sourceNode &&
           created.find((node) =>
@@ -552,7 +550,9 @@ function onDoubleClick(event: MouseEvent): void {
     y: world.y,
     data: { content: 'New node' }
   })
-  engine.beginTextEdit(node.id)
+  if (node) {
+    engine.beginTextEdit(node.id)
+  }
 }
 
 function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
@@ -750,28 +750,26 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .board-root {
-  --board-bg:
-    radial-gradient(circle at top left, rgba(20, 184, 166, 0.08), transparent 24%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 28%),
-    linear-gradient(180deg, #f8fbfd 0%, #f2f7fb 100%);
-  --board-fg: #0f172a;
-  --board-node-bg: rgba(255, 255, 255, 0.96);
-  --board-node-border: rgba(148, 163, 184, 0.28);
-  --board-node-border-hover: rgba(100, 116, 139, 0.42);
-  --board-node-stripe: rgba(15, 23, 42, 0.06);
-  --board-node-ring: rgba(15, 118, 110, 0.38);
-  --board-node-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.22), 0 2px 10px rgba(15, 23, 42, 0.05);
-  --board-node-shadow-hover: 0 22px 48px -28px rgba(15, 23, 42, 0.28), 0 6px 18px rgba(15, 23, 42, 0.08);
-  --board-node-shadow-selected: 0 24px 52px -28px rgba(15, 23, 42, 0.32), 0 10px 22px rgba(15, 23, 42, 0.1);
-  --board-group-bg: rgba(15, 23, 42, 0.04);
-  --board-group-border: rgba(15, 23, 42, 0.12);
-  --board-accent: #0f766e;
-  --board-edge-color: rgba(71, 85, 105, 0.82);
-  --board-edge-active-color: #0f766e;
-  --board-handle-shadow: rgba(15, 23, 42, 0.12);
-  --board-box-select-fill: rgba(15, 118, 110, 0.1);
-  --board-box-select-stroke: rgba(15, 118, 110, 0.64);
-  --board-snap-guide-color: rgba(15, 118, 110, 0.95);
+  --board-bg: var(--ui-bg, #f8fbfd);
+  --board-fg: var(--ui-text-highlighted, #0f172a);
+  --board-node-bg: var(--ui-bg, rgba(255, 255, 255, 0.96));
+  --board-node-border: var(--ui-border, rgba(148, 163, 184, 0.28));
+  --board-node-border-hover: var(--ui-border-hover, rgba(100, 116, 139, 0.42));
+  --board-node-stripe: var(--ui-bg-accented, rgba(15, 23, 42, 0.06));
+  --board-node-ring: color-mix(in srgb, var(--ui-primary, #0f766e) 45%, transparent);
+  --board-node-radius: 8px;
+  --board-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --board-node-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --board-node-shadow-selected: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --board-group-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.04));
+  --board-group-border: var(--ui-border, rgba(15, 23, 42, 0.12));
+  --board-accent: var(--ui-primary, #0f766e);
+  --board-edge-color: var(--ui-text-dimmed, rgba(71, 85, 105, 0.82));
+  --board-edge-active-color: var(--ui-primary, #0f766e);
+  --board-handle-shadow: rgba(0, 0, 0, 0.1);
+  --board-box-select-fill: color-mix(in srgb, var(--ui-primary, #0f766e) 10%, transparent);
+  --board-box-select-stroke: color-mix(in srgb, var(--ui-primary, #0f766e) 60%, transparent);
+  --board-snap-guide-color: var(--ui-primary, rgba(15, 118, 110, 0.95));
   --board-grid-minor-rgb: 148 163 184;
   --board-grid-major-rgb: 100 116 139;
 
@@ -791,7 +789,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border);
   background: var(--board-node-bg);
-  border-radius: calc(18px / var(--board-zoom, 1));
+  border-radius: calc(var(--board-node-radius, 8px) / var(--board-zoom, 1));
   box-shadow: var(--board-node-shadow);
   overflow: hidden;
   contain: layout style paint;
@@ -813,32 +811,27 @@ onBeforeUnmount(() => {
   );
 }
 
-@media (prefers-color-scheme: dark) {
-  .board-root {
-    --board-bg:
-      radial-gradient(circle at top left, rgba(13, 148, 136, 0.13), transparent 24%),
-      radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 28%),
-      linear-gradient(180deg, #0b1220 0%, #111827 100%);
-    --board-fg: #e5eef6;
-    --board-node-bg: rgba(15, 23, 42, 0.92);
-    --board-node-border: rgba(148, 163, 184, 0.18);
-    --board-node-border-hover: rgba(148, 163, 184, 0.3);
-    --board-node-stripe: rgba(226, 232, 240, 0.08);
-    --board-node-ring: rgba(45, 212, 191, 0.45);
-    --board-node-shadow: 0 18px 40px -30px rgba(2, 6, 23, 0.8), 0 10px 24px rgba(2, 6, 23, 0.24);
-    --board-node-shadow-hover: 0 22px 52px -28px rgba(2, 6, 23, 0.88), 0 12px 30px rgba(2, 6, 23, 0.3);
-    --board-node-shadow-selected: 0 24px 56px -26px rgba(2, 6, 23, 0.92), 0 14px 36px rgba(2, 6, 23, 0.34);
-    --board-group-bg: rgba(148, 163, 184, 0.06);
-    --board-group-border: rgba(148, 163, 184, 0.22);
-    --board-accent: #2dd4bf;
-    --board-edge-color: rgba(148, 163, 184, 0.74);
-    --board-edge-active-color: #2dd4bf;
-    --board-handle-shadow: rgba(2, 6, 23, 0.38);
-    --board-box-select-fill: rgba(45, 212, 191, 0.12);
-    --board-box-select-stroke: rgba(45, 212, 191, 0.72);
-    --board-snap-guide-color: rgba(45, 212, 191, 0.98);
-    --board-grid-minor-rgb: 71 85 105;
-    --board-grid-major-rgb: 148 163 184;
-  }
+:global(.dark) .board-root {
+  --board-bg: var(--ui-bg, #111827);
+  --board-fg: var(--ui-text-highlighted, #e5eef6);
+  --board-node-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.92));
+  --board-node-border: var(--ui-border, rgba(148, 163, 184, 0.18));
+  --board-node-border-hover: var(--ui-border-hover, rgba(148, 163, 184, 0.3));
+  --board-node-stripe: var(--ui-bg-accented, rgba(226, 232, 240, 0.08));
+  --board-node-ring: color-mix(in srgb, var(--ui-primary, #2dd4bf) 50%, transparent);
+  --board-node-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --board-node-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --board-node-shadow-selected: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --board-group-bg: var(--ui-bg-elevated, rgba(148, 163, 184, 0.06));
+  --board-group-border: var(--ui-border, rgba(148, 163, 184, 0.22));
+  --board-accent: var(--ui-primary, #2dd4bf);
+  --board-edge-color: var(--ui-text-dimmed, rgba(148, 163, 184, 0.74));
+  --board-edge-active-color: var(--ui-primary, #2dd4bf);
+  --board-handle-shadow: rgba(0, 0, 0, 0.3);
+  --board-box-select-fill: color-mix(in srgb, var(--ui-primary, #2dd4bf) 12%, transparent);
+  --board-box-select-stroke: color-mix(in srgb, var(--ui-primary, #2dd4bf) 70%, transparent);
+  --board-snap-guide-color: var(--ui-primary, rgba(45, 212, 191, 0.98));
+  --board-grid-minor-rgb: 71 85 105;
+  --board-grid-major-rgb: 148 163 184;
 }
 </style>

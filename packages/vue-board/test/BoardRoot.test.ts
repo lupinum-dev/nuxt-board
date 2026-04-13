@@ -244,6 +244,76 @@ describe('BoardRoot', () => {
     expect(engine.getSelection()).toHaveLength(1)
   })
 
+  it('respects middleware-blocked drag, duplicate, and create commands without crashing', async () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Locked down' } })
+    const blocked: string[] = []
+    engine.addMiddleware((name, _args, next) => {
+      if (name === 'beginNodeDrag' || name === 'duplicateNodes' || name === 'createNode') {
+        blocked.push(name)
+        return
+      }
+      next()
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body
+    })
+
+    const element = wrapper.find(`[data-node-id="${node.id}"]`).element
+    dispatchPointerEvent(element, 'pointerdown', {
+      button: 0,
+      pointerId: 13,
+      clientX: 60,
+      clientY: 60
+    })
+    dispatchPointerEvent(element, 'pointermove', {
+      pointerId: 13,
+      clientX: 90,
+      clientY: 90
+    })
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 13,
+      clientX: 90,
+      clientY: 90
+    })
+    await nextTick()
+
+    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({ x: 40, y: 40 })
+
+    dispatchPointerEvent(element, 'pointerdown', {
+      button: 0,
+      pointerId: 14,
+      altKey: true,
+      clientX: 60,
+      clientY: 60
+    })
+    dispatchPointerEvent(element, 'pointermove', {
+      pointerId: 14,
+      altKey: true,
+      clientX: 90,
+      clientY: 90
+    })
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 14,
+      clientX: 90,
+      clientY: 90
+    })
+    await nextTick()
+
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
+
+    await wrapper.trigger('dblclick', {
+      clientX: 320,
+      clientY: 240
+    })
+
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(blocked).toEqual(['beginNodeDrag', 'duplicateNodes', 'createNode'])
+  })
+
   it('applies grid visibility and pattern overrides', async () => {
     const engine = createBoardEngine()
     const wrapper = mount(BoardRoot, {

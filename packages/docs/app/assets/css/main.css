@@ -38,37 +38,36 @@ body {
 .demo-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ui-primary) 18%, #0f172a 10%);
-  border-radius: 1.5rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(240, 253, 250, 0.9));
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
 }
 
 .demo-toolbar {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 0.875rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-bg-elevated);
 }
 
 .demo-toolbar button {
   border: 0;
-  border-radius: 999px;
-  padding: 0.55rem 0.85rem;
+  border-radius: var(--ui-radius);
+  padding: 0.45rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  color: #334155;
-  background: rgba(15, 23, 42, 0.05);
+  color: var(--ui-text-muted);
+  background: var(--ui-bg-accented);
   transition: all 0.15s ease;
 }
 
 .demo-toolbar button:hover {
-  color: #0f172a;
-  background: rgba(20, 184, 166, 0.14);
+  color: var(--ui-text-highlighted);
+  background: color-mix(in srgb, var(--ui-primary) 12%, var(--ui-bg-accented));
 }
 
 .demo-toolbar button:active {
@@ -81,75 +80,70 @@ body {
   pointer-events: none;
 }
 
-/* Primary action — teal-tinted with strong presence */
 .demo-toolbar button.demo-primary {
-  color: #0f766e;
-  background: rgba(20, 184, 166, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.18);
+  color: var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 20%, transparent);
 }
 
 .demo-toolbar button.demo-primary:hover {
-  color: #115e59;
-  background: rgba(20, 184, 166, 0.22);
+  background: color-mix(in srgb, var(--ui-primary) 18%, transparent);
 }
 
-/* Danger — subtle red accent for destructive actions */
 .demo-toolbar button.demo-danger {
-  color: #64748b;
+  color: var(--ui-text-muted);
 }
 
 .demo-toolbar button.demo-danger:hover {
-  color: #be123c;
-  background: rgba(190, 18, 60, 0.08);
+  color: var(--ui-error);
+  background: color-mix(in srgb, var(--ui-error) 8%, transparent);
 }
 
-/* Toggle group — segmented control appearance */
 .demo-toggle-group {
   display: inline-flex;
   gap: 1px;
   padding: 3px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg-accented);
 }
 
 .demo-toggle-group button {
   background: transparent;
-  padding: 0.4rem 0.7rem;
+  padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
-  border-radius: 999px;
+  color: var(--ui-text-muted);
+  border-radius: calc(var(--ui-radius) - 2px);
 }
 
 .demo-toggle-group button:hover {
-  color: #334155;
-  background: rgba(255, 255, 255, 0.5);
+  color: var(--ui-text-default);
+  background: color-mix(in srgb, var(--ui-bg) 50%, transparent);
 }
 
 .demo-toggle-group button.active {
-  color: #0f766e;
-  background: white;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  color: var(--ui-primary);
+  background: var(--ui-bg);
+  box-shadow: var(--ui-shadow-xs);
 }
 
-/* History badge — mono-spaced depth counter */
 .demo-history-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.04);
-  font-family: 'IBM Plex Mono', monospace;
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg-accented);
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--ui-text-dimmed);
   letter-spacing: 0.02em;
 }
 
 .demo-toolbar-note {
   align-self: center;
-  color: #475569;
+  color: var(--ui-text-muted);
   font-size: 0.8rem;
   line-height: 1.5;
 }
@@ -159,12 +153,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 1rem;
-  padding: 0.85rem 1rem;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  padding: 0.75rem 0.875rem;
+  background: var(--ui-bg);
   font-size: 0.875rem;
-  color: #0f172a;
+  color: var(--ui-text-highlighted);
 }
 
 .demo-color-field span {
@@ -172,11 +166,11 @@ body {
 }
 
 .demo-color-field input[type='color'] {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--ui-radius);
   background: transparent;
   cursor: pointer;
 }
@@ -184,15 +178,15 @@ body {
 .demo-color-var {
   display: block;
   margin-top: 0.15rem;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 400;
-  color: #94a3b8;
+  color: var(--ui-text-dimmed);
   letter-spacing: 0.01em;
 }
 
 .demo-caption {
-  color: #475569;
+  color: var(--ui-text-muted);
   font-size: 0.95rem;
   line-height: 1.6;
 }

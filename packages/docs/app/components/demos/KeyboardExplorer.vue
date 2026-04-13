@@ -57,8 +57,8 @@ function seed() {
     camera: { x: -20, y: -10, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'kbd-1', type: 'text', x: 80, y: 80, width: 220, height: 120, data: { content: 'Click me\nThen press shortcuts' }, zIndex: 1, locked: false, visible: true },
-      { id: 'kbd-2', type: 'text', x: 380, y: 170, width: 220, height: 120, data: { content: 'Try Delete, Escape,\nor Cmd/Ctrl + 1' }, zIndex: 2, locked: false, visible: true }
+      { id: 'kbd-1', type: 'text', x: 80, y: 80, width: 220, height: 100, data: { content: 'Click me first\nthen press shortcuts' }, zIndex: 1, locked: false, visible: true },
+      { id: 'kbd-2', type: 'text', x: 380, y: 170, width: 220, height: 100, data: { content: 'Try Delete, Escape\nor Cmd+1 to zoom' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -80,8 +80,8 @@ onMounted(reset)
 <template>
   <div ref="frame" class="demo-frame" tabindex="0" @keydown.capture="recordShortcut">
     <div class="demo-toolbar">
-      <button @click="reset">
-        Reset board
+      <button class="demo-danger" @click="reset">
+        Reset
       </button>
       <span class="demo-toolbar-note">{{ lastShortcut }}</span>
     </div>
@@ -89,22 +89,22 @@ onMounted(reset)
     <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
       <BoardRoot :engine="engine" style="height: 360px" />
 
-      <div class="border-t border-slate-200/80 bg-white/80 p-4 lg:border-t-0 lg:border-l">
-        <p class="text-sm font-semibold text-slate-900">
+      <div class="border-t border-default bg-elevated p-4 lg:border-t-0 lg:border-l">
+        <p class="text-sm font-semibold text-highlighted">
           Shortcut log
         </p>
-        <p class="mt-1 text-xs leading-5 text-slate-500">
+        <p class="mt-1 text-xs leading-5 text-dimmed">
           The board still handles the real interaction. This panel just echoes recognized combos.
         </p>
         <ul class="mt-4 space-y-2">
           <li
             v-for="entry in history"
             :key="entry"
-            class="rounded-xl border border-slate-200/80 bg-white px-3 py-2 font-mono text-xs text-slate-700"
+            class="rounded-md border border-default bg-default px-3 py-2 font-mono text-xs text-default"
           >
             {{ entry }}
           </li>
-          <li v-if="history.length === 0" class="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-xs text-slate-500">
+          <li v-if="history.length === 0" class="rounded-md border border-dashed border-default px-3 py-4 text-xs text-dimmed">
             No shortcuts captured yet.
           </li>
         </ul>

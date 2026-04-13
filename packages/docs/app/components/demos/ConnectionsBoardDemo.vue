@@ -81,7 +81,7 @@ onMounted(async () => {
       >
         <BoardConnectionLayer :routing="routing" />
       </BoardRoot>
-      <div class="absolute right-4 bottom-4 rounded-2xl border border-slate-200/80 bg-white/85 p-2 shadow-lg backdrop-blur">
+      <div class="absolute right-4 bottom-4 rounded-md border border-default bg-elevated/90 p-2 shadow-lg backdrop-blur">
         <BoardMinimap
           :engine="engine"
           :width="180"

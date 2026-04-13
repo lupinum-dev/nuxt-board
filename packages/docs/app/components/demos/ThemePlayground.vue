@@ -29,8 +29,8 @@ function seed() {
     camera: { x: 0, y: 0, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'theme-1', type: 'text', x: 70, y: 70, width: 240, height: 120, data: { content: 'Theme tokens\nDrive the whole board' }, zIndex: 1, locked: false, visible: true },
-      { id: 'theme-2', type: 'text', x: 370, y: 190, width: 260, height: 120, data: { content: 'Try bold accent colors\nand softer borders' }, zIndex: 2, locked: false, visible: true }
+      { id: 'theme-1', type: 'text', x: 70, y: 70, width: 240, height: 100, data: { content: 'Theme tokens\ndrive the whole board' }, zIndex: 1, locked: false, visible: true },
+      { id: 'theme-2', type: 'text', x: 370, y: 190, width: 240, height: 100, data: { content: 'Try bold accents\nand softer borders' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -66,7 +66,7 @@ onMounted(reset)
     </div>
 
     <div class="grid gap-0 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <div class="border-b border-slate-200/80 bg-white/80 p-4 lg:border-r lg:border-b-0">
+      <div class="border-b border-default bg-elevated p-4 lg:border-r lg:border-b-0">
         <div class="space-y-4">
           <label class="demo-color-field">
             <div><span>Board background</span><code class="demo-color-var">--board-bg</code></div>
@@ -92,7 +92,7 @@ onMounted(reset)
       </div>
 
       <div class="p-4">
-        <div class="overflow-hidden rounded-[1.25rem] border border-slate-200/80" :style="boardStyle">
+        <div class="overflow-hidden rounded-md border border-default" :style="boardStyle">
           <BoardRoot
             :engine="engine"
             :grid="{ minorOpacity: 0.12, majorOpacity: 0.18, fadeEdges: true }"

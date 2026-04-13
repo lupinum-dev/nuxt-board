@@ -19,8 +19,8 @@ function seedOne(pattern: 'line' | 'dot' | 'cross' | 'none', engine: ReturnType<
     camera: { x: 0, y: 0, z: 1 },
     grid: { ...engine.getGridSettings(), pattern },
     nodes: [
-      { id: 'alpha', type: 'text', x: 70, y: 70, width: 210, height: 110, data: { content: `${pattern} grid\nMove me around` }, zIndex: 1, locked: false, visible: true },
-      { id: 'beta', type: 'text', x: 340, y: 170, width: 210, height: 110, data: { content: 'Same scene\nDifferent feel' }, zIndex: 2, locked: false, visible: true }
+      { id: 'alpha', type: 'text', x: 70, y: 70, width: 200, height: 100, data: { content: `${pattern}\nDrag me` }, zIndex: 1, locked: false, visible: true },
+      { id: 'beta', type: 'text', x: 330, y: 160, width: 200, height: 100, data: { content: 'Same nodes\ndifferent pattern' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -52,13 +52,13 @@ onMounted(reset)
       <div
         v-for="demo in demos"
         :key="demo.pattern"
-        class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-sm"
+        class="overflow-hidden rounded-md border border-default bg-elevated shadow-sm"
       >
-        <div class="border-b border-slate-200/80 px-4 py-3">
-          <p class="text-sm font-semibold text-slate-900">
+        <div class="border-b border-default px-4 py-3">
+          <p class="text-sm font-semibold text-highlighted">
             {{ demo.label }}
           </p>
-          <p class="text-xs text-slate-500">
+          <p class="text-xs text-dimmed">
             <code>{{ demo.pattern }}</code>
           </p>
         </div>

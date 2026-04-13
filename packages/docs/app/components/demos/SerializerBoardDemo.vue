@@ -25,8 +25,8 @@ function seed() {
     camera: { x: 0, y: 0, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'source', type: 'text', x: 80, y: 110, width: 220, height: 120, data: { content: 'Serialize me' }, zIndex: 1, locked: false, visible: true },
-      { id: 'target', type: 'text', x: 420, y: 110, width: 220, height: 120, data: { content: 'Round-trip me' }, zIndex: 2, locked: false, visible: true }
+      { id: 'source', type: 'text', x: 80, y: 110, width: 220, height: 100, data: { content: 'Serialize me\nto JSON Canvas' }, zIndex: 1, locked: false, visible: true },
+      { id: 'target', type: 'text', x: 420, y: 110, width: 220, height: 100, data: { content: 'Edit the JSON\nthen import back' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -83,7 +83,7 @@ onMounted(async () => {
       </BoardRoot>
       <textarea
         v-model="payload"
-        class="min-h-[360px] resize-none border-0 border-l border-slate-200 bg-slate-950 p-4 font-mono text-xs leading-6 text-teal-100 outline-none"
+        class="min-h-[360px] resize-none border-0 border-l border-default bg-inverted p-4 font-mono text-xs leading-6 text-primary outline-none"
         spellcheck="false"
       />
     </div>

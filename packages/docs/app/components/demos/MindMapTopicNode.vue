@@ -29,7 +29,7 @@ const style = computed(() => {
   return {
     surface: 'from-slate-50 via-white to-slate-100/40',
     border: '#94a3b8',
-    text: 'text-slate-800',
+    text: 'text-default',
     label: 'LEAF'
   }
 })
@@ -37,17 +37,17 @@ const style = computed(() => {
 
 <template>
   <div
-    class="h-full rounded-[1.25rem] border bg-gradient-to-br p-4 shadow-[0_14px_48px_rgba(15,23,42,0.08)]"
-    :class="[style.surface, selected ? 'ring-2 ring-teal-400' : 'border-slate-900/10']"
+    class="h-full rounded-md border bg-gradient-to-br p-4 shadow-[0_14px_48px_rgba(15,23,42,0.08)]"
+    :class="[style.surface, selected ? 'ring-2 ring-primary' : 'border-default']"
     :style="{ borderLeft: `5px solid ${style.border}` }"
   >
     <div class="flex h-full flex-col justify-between gap-2">
-      <span class="text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-slate-400">{{ style.label }}</span>
+      <span class="text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-dimmed">{{ style.label }}</span>
       <div>
         <h3 class="text-base font-semibold tracking-tight" :class="style.text">
           {{ node.data.title }}
         </h3>
-        <p v-if="node.data.detail" class="mt-1.5 text-sm leading-5 text-slate-500">
+        <p v-if="node.data.detail" class="mt-1.5 text-sm leading-5 text-dimmed">
           {{ node.data.detail }}
         </p>
       </div>

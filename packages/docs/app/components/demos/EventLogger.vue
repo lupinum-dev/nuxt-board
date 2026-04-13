@@ -18,8 +18,8 @@ function seed() {
     camera: { x: 0, y: 0, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'event-a', type: 'text', x: 70, y: 80, width: 220, height: 110, data: { content: 'Interact with me' }, zIndex: 1, locked: false, visible: true },
-      { id: 'event-b', type: 'text', x: 360, y: 200, width: 220, height: 110, data: { content: 'Every action streams here' }, zIndex: 2, locked: false, visible: true }
+      { id: 'event-a', type: 'text', x: 70, y: 80, width: 220, height: 100, data: { content: 'Select me\nDrag me around' }, zIndex: 1, locked: false, visible: true },
+      { id: 'event-b', type: 'text', x: 360, y: 200, width: 220, height: 100, data: { content: 'Watch the log\nupdate in real time' }, zIndex: 2, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -73,11 +73,11 @@ onBeforeUnmount(() => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button @click="reset">
-        Reset board
+      <button class="demo-danger" @click="reset">
+        Reset
       </button>
-      <button @click="addNode">
-        Create node
+      <button class="demo-primary" @click="addNode">
+        Add node
       </button>
       <button @click="deleteSelected">
         Delete selected
@@ -87,15 +87,15 @@ onBeforeUnmount(() => {
     <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
       <BoardRoot :engine="engine" style="height: 360px" />
 
-      <div class="border-t border-slate-200/80 bg-slate-950 p-4 font-mono text-xs text-teal-100 lg:border-t-0 lg:border-l">
-        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-teal-300">
+      <div class="border-t border-default bg-inverted p-4 font-mono text-xs text-primary lg:border-t-0 lg:border-l">
+        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-primary">
           Live event stream
         </p>
         <ul class="mt-3 space-y-2 leading-6">
-          <li v-for="entry in entries" :key="entry" class="rounded-xl bg-white/5 px-3 py-2">
+          <li v-for="entry in entries" :key="entry" class="rounded-md bg-elevated/10 px-3 py-2">
             {{ entry }}
           </li>
-          <li v-if="entries.length === 0" class="rounded-xl border border-dashed border-white/10 px-3 py-4 text-teal-200/70">
+          <li v-if="entries.length === 0" class="rounded-md border border-dashed border-white/10 px-3 py-4 text-dimmed">
             No events yet.
           </li>
         </ul>

@@ -11,9 +11,9 @@ function seed() {
     camera: { x: -80, y: -20, z: 1 },
     grid: engine.getGridSettings(),
     nodes: [
-      { id: 'research', type: 'text', x: 60, y: 60, width: 240, height: 120, data: { content: 'User research\nSynthesize interview findings' }, zIndex: 1, locked: false, visible: true },
-      { id: 'prototype', type: 'text', x: 370, y: 200, width: 260, height: 140, data: { content: 'Prototype\nInteractive flows for the onboarding redesign' }, zIndex: 2, locked: false, visible: true },
-      { id: 'review', type: 'text', x: 680, y: 80, width: 220, height: 120, data: { content: 'Design review\nAlign with eng on feasibility' }, zIndex: 3, locked: false, visible: true }
+      { id: 'research', type: 'text', x: 60, y: 60, width: 240, height: 100, data: { content: 'User research\nSynthesize interview findings' }, zIndex: 1, locked: false, visible: true },
+      { id: 'prototype', type: 'text', x: 370, y: 200, width: 260, height: 110, data: { content: 'Prototype\nOnboarding redesign flows' }, zIndex: 2, locked: false, visible: true },
+      { id: 'review', type: 'text', x: 680, y: 80, width: 220, height: 100, data: { content: 'Design review\nAlign with eng' }, zIndex: 3, locked: false, visible: true }
     ],
     selection: [],
     interaction: { mode: 'idle' },
@@ -28,8 +28,8 @@ function addNode() {
     x: 180 + Math.round(Math.random() * 320),
     y: 140 + Math.round(Math.random() * 160),
     width: 220,
-    height: 120,
-    data: { content: 'Note\nCreated from the docs demo' }
+    height: 100,
+    data: { content: 'New note\nDouble-click to edit' }
   })
 }
 

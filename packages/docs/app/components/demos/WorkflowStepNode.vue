@@ -24,7 +24,7 @@ const tone = computed(() => {
     }
   }
   return {
-    badge: 'bg-slate-100 text-slate-600',
+    badge: 'bg-accented text-muted',
     border: '#94a3b8',
     surface: 'from-slate-100 via-white to-slate-50'
   }
@@ -33,20 +33,20 @@ const tone = computed(() => {
 
 <template>
   <div
-    class="h-full rounded-[1.25rem] border bg-gradient-to-br p-4 shadow-[0_18px_60px_rgba(15,23,42,0.10)]"
-    :class="[tone.surface, selected ? 'ring-2 ring-sky-400' : 'border-slate-900/10']"
+    class="h-full rounded-md border bg-gradient-to-br p-4 shadow-[0_18px_60px_rgba(15,23,42,0.10)]"
+    :class="[tone.surface, selected ? 'ring-2 ring-primary' : 'border-default']"
     :style="{ borderLeft: `6px solid ${tone.border}` }"
   >
     <div class="flex h-full flex-col justify-between gap-3">
       <div class="flex items-center justify-between gap-3">
-        <span class="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-slate-500">Step</span>
+        <span class="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed">Step</span>
         <span class="rounded-full px-2 py-1 text-[0.7rem] font-medium" :class="tone.badge">{{ node.data.status }}</span>
       </div>
       <div>
-        <h3 class="text-lg font-semibold tracking-tight text-slate-950">
+        <h3 class="text-lg font-semibold tracking-tight text-highlighted">
           {{ node.data.label }}
         </h3>
-        <p class="mt-2 text-sm leading-6 text-slate-600">
+        <p class="mt-2 text-sm leading-6 text-muted">
           {{ node.data.summary }}
         </p>
       </div>

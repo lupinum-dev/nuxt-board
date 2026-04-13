@@ -101,15 +101,17 @@ Start from a runnable board, then pull in the pattern you actually need.
 ::tabs
 
 :::tabs-item{label="Workflow" icon="i-lucide-workflow"}
-::workflow-builder-demo
-::
+
+::::workflow-builder-demo
+::::
 
 [Open the workflow builder](/examples/workflow-builder)
 :::
 
 :::tabs-item{label="Connected graph" icon="i-lucide-cable"}
-::connections-board-demo
-::
+
+::::connections-board-demo
+::::
 
 [Open the connections example](/examples/connections-and-minimap)
 :::
