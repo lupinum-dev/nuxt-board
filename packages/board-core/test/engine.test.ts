@@ -136,6 +136,110 @@ describe('board engine', () => {
     expect(engine.getSelection()).toEqual([first.id])
   })
 
+  it('uses AutoCAD-style box selection by default', () => {
+    const engine = createBoardEngine()
+    const contained = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Contained' },
+    })
+    const crossing = engine.createNode({
+      type: 'text',
+      x: 180,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Crossing' },
+    })
+
+    engine.beginBoxSelect(1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 200, y: 160 })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'box-select',
+      selectionMode: 'window',
+    })
+    engine.endInteraction(1)
+
+    expect(engine.getSelection()).toEqual([contained.id])
+
+    engine.beginBoxSelect(2, { x: 200, y: 160 })
+    engine.updatePointer(2, { x: 0, y: 0 })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'box-select',
+      selectionMode: 'crossing',
+    })
+    engine.endInteraction(2)
+
+    expect(engine.getSelection()).toEqual([contained.id, crossing.id])
+  })
+
+  it('allows forcing contain-only box selection via config', () => {
+    const engine = createBoardEngine({
+      boxSelect: { behavior: 'contain' },
+    })
+    const contained = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Contained' },
+    })
+    engine.createNode({
+      type: 'text',
+      x: 180,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Crossing' },
+    })
+
+    engine.beginBoxSelect(1, { x: 200, y: 160 })
+    engine.updatePointer(1, { x: 0, y: 0 })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'box-select',
+      selectionMode: 'window',
+    })
+    engine.endInteraction(1)
+
+    expect(engine.getSelection()).toEqual([contained.id])
+  })
+
+  it('allows forcing intersecting box selection via config', () => {
+    const engine = createBoardEngine({
+      boxSelect: { behavior: 'intersect' },
+    })
+    const contained = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Contained' },
+    })
+    const crossing = engine.createNode({
+      type: 'text',
+      x: 180,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'Crossing' },
+    })
+
+    engine.beginBoxSelect(1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 200, y: 160 })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'box-select',
+      selectionMode: 'crossing',
+    })
+    engine.endInteraction(1)
+
+    expect(engine.getSelection()).toEqual([contained.id, crossing.id])
+  })
+
   it('prevents locked nodes from moving, resizing, and deleting', () => {
     const engine = createBoardEngine()
     const locked = engine.createNode({

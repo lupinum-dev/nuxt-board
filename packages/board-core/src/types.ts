@@ -132,6 +132,12 @@ export type NodePatch<
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
+export type BoxSelectBehavior = 'autocad' | 'contain' | 'intersect'
+export type BoxSelectMode = 'window' | 'crossing'
+
+export interface BoxSelectSettings {
+  behavior: BoxSelectBehavior
+}
 
 /** High-level interaction state for the active pointer or keyboard gesture. */
 export type InteractionMode =
@@ -173,6 +179,7 @@ export interface ResizeInteractionState {
 export interface BoxSelectInteractionState {
   mode: 'box-select'
   pointerId: number
+  selectionMode: BoxSelectMode
   startScreenPoint: Point
   currentScreenPoint: Point
   startWorldPoint: Point
@@ -228,6 +235,7 @@ export interface BoardEngineOptions<
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
+  boxSelect?: Partial<BoxSelectSettings>
   plugins?: BoardPlugin<R>[]
   diagnostics?: boolean | { traceLimit?: number }
   invariants?: InvariantMode

@@ -50,6 +50,7 @@ export function cloneInteraction(
       return {
         mode: 'box-select',
         pointerId: interaction.pointerId,
+        selectionMode: interaction.selectionMode,
         startScreenPoint: { ...interaction.startScreenPoint },
         currentScreenPoint: { ...interaction.currentScreenPoint },
         startWorldPoint: { ...interaction.startWorldPoint },

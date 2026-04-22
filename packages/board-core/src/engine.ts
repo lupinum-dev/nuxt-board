@@ -1,4 +1,5 @@
 import {
+  boundsContain,
   boundsIntersect,
   clamp,
   getBoundsFromPoints,
@@ -70,6 +71,8 @@ import { createReactiveLayer } from './engine/subscribables'
 import { createDispatcher } from './engine/dispatcher'
 import { invertAction } from './engine/invert'
 import type {
+  BoxSelectBehavior,
+  BoxSelectMode,
   BoardSnapshot,
   BoardState,
   Bounds,
@@ -110,6 +113,8 @@ export function createBoardEngine<
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
   const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
+  const boxSelectBehavior: BoxSelectBehavior =
+    options.boxSelect?.behavior ?? 'autocad'
   const nodeConstraints: NodeConstraints = {
     ...DEFAULT_NODE_CONSTRAINTS,
     ...options.nodes,
@@ -195,6 +200,19 @@ export function createBoardEngine<
 
   function getGridSettings(): GridSettings {
     return freezeClone({ ...grid })
+  }
+
+  function resolveBoxSelectMode(
+    startScreenPoint: Point,
+    currentScreenPoint: Point,
+  ): BoxSelectMode {
+    if (boxSelectBehavior === 'contain') {
+      return 'window'
+    }
+    if (boxSelectBehavior === 'intersect') {
+      return 'crossing'
+    }
+    return currentScreenPoint.x >= startScreenPoint.x ? 'window' : 'crossing'
   }
 
   function getViewportSize(): Point {
@@ -1387,6 +1405,7 @@ export function createBoardEngine<
           setInteraction({
             mode: 'box-select',
             pointerId,
+            selectionMode: resolveBoxSelectMode(screenPoint, screenPoint),
             startScreenPoint: { ...screenPoint },
             currentScreenPoint: { ...screenPoint },
             startWorldPoint: worldPoint,
@@ -1658,13 +1677,22 @@ export function createBoardEngine<
             interaction.startWorldPoint,
             currentWorldPoint,
           )
-          const matches = engine
-            .getNodesInBounds(bounds)
+          const selectionMode = resolveBoxSelectMode(
+            interaction.startScreenPoint,
+            screenPoint,
+          )
+          const matches = Array.from(state.nodes.values())
             .filter((node) => node.visible)
+            .filter((node) =>
+              selectionMode === 'window'
+                ? boundsContain(bounds, getBoundsFromNode(node))
+                : boundsIntersect(getBoundsFromNode(node), bounds),
+            )
             .map((node) => node.id)
           setSelection(matches)
           setInteraction({
             ...interaction,
+            selectionMode,
             currentScreenPoint: { ...screenPoint },
             currentWorldPoint,
           })

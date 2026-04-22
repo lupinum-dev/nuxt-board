@@ -250,6 +250,23 @@ describe('BoardRoot', () => {
     expect(engine.getSelection()).toEqual([first.id])
   })
 
+  it('switches the default box-select overlay style by drag direction', async () => {
+    const engine = createBoardEngine()
+    engine.beginBoxSelect(8, { x: 200, y: 160 })
+    engine.updatePointer(8, { x: 0, y: 0 })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    await nextTick()
+
+    const overlay = wrapper.find('.board-box-select')
+    expect(overlay.exists()).toBe(true)
+    expect(overlay.classes()).toContain('board-box-select--crossing')
+    expect(overlay.attributes('data-mode')).toBe('crossing')
+  })
+
   it('supports keyboard duplicate and delete shortcuts', async () => {
     const engine = createBoardEngine()
     engine.createNode({

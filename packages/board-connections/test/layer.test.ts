@@ -180,6 +180,63 @@ describe('BoardConnectionLayer', () => {
     wrapper.unmount()
   })
 
+  it('scales arrowhead markers with the zoom level', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+    engine.ext.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      toEnd: 'arrow',
+      data: {},
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+
+    const marker = query('.board-connection-layer defs marker')
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(6, 6)
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(6, 6)
+
+    await engine.zoomTo(0.5)
+    await nextTick()
+    await nextTick()
+
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(12, 6)
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(12, 6)
+
+    await engine.zoomTo(2)
+    await nextTick()
+    await nextTick()
+
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(3, 6)
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(3, 6)
+    wrapper.unmount()
+  })
+
   it('exposes resolved endpoints and route metadata to the edge slot', async () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin()],

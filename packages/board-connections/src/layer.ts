@@ -79,6 +79,7 @@ const EDGE_LABEL_LOD_FADE_START = 0.85
 const EDGE_LABEL_LOD_HIDE_AT = 0.55
 const EDGE_STROKE_LOD_FADE_START = 0.95
 const EDGE_STROKE_LOD_SOFTEN_AT = 0.45
+const EDGE_ARROW_MARKER_SIZE = 6
 
 let markerCounter = 0
 
@@ -1613,6 +1614,9 @@ export const BoardConnectionLayer = defineComponent({
     }
 
     function renderSvg() {
+      const zoom = Math.max(injected.$camera.value.z, 0.25)
+      const markerSize = EDGE_ARROW_MARKER_SIZE / zoom
+
       return h(
         'svg',
         {
@@ -1636,13 +1640,13 @@ export const BoardConnectionLayer = defineComponent({
               'marker',
               {
                 id: markerId,
-                markerWidth: 6,
-                markerHeight: 6,
+                markerWidth: markerSize,
+                markerHeight: markerSize,
                 refX: 4.6,
                 refY: 3,
                 orient: 'auto-start-reverse',
                 markerUnits: 'strokeWidth',
-                viewBox: '0 0 6 6',
+                viewBox: `0 0 ${EDGE_ARROW_MARKER_SIZE} ${EDGE_ARROW_MARKER_SIZE}`,
               },
               [
                 h('path', {

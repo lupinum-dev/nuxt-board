@@ -58,6 +58,9 @@ export {
 
 /** Core engine, snapshot, geometry, plugin, and node model types. */
 export type {
+  BoxSelectBehavior,
+  BoxSelectMode,
+  BoxSelectSettings,
   BoardSnapshot,
   BoardState,
   Bounds,

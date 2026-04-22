@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoxSelectBounds } from '../useBoardEngine'
+import { useBoxSelectBounds, useInteraction } from '../useBoardEngine'
 
 const bounds = useBoxSelectBounds()
+const interaction = useInteraction()
+
+const selectionMode = computed(() => {
+  if (interaction.value.mode !== 'box-select') {
+    return 'window'
+  }
+  return interaction.value.selectionMode
+})
 
 const style = computed(() => {
   if (!bounds.value) {
@@ -18,18 +26,34 @@ const style = computed(() => {
 </script>
 
 <template>
-  <slot v-if="bounds" :bounds="bounds">
-    <div v-if="bounds" class="board-box-select" :style="style" />
+  <slot v-if="bounds" :bounds="bounds" :mode="selectionMode">
+    <div
+      v-if="bounds"
+      class="board-box-select"
+      :class="`board-box-select--${selectionMode}`"
+      :data-mode="selectionMode"
+      :style="style"
+    />
   </slot>
 </template>
 
 <style scoped>
 .board-box-select {
   position: absolute;
-  border: 1.5px solid var(--board-box-select-stroke, rgba(15, 118, 110, 0.64));
   border-radius: 6px;
-  background: var(--board-box-select-fill, rgba(15, 118, 110, 0.1));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   pointer-events: none;
+}
+
+.board-box-select--window {
+  border: 1.5px solid
+    var(--board-box-select-window-stroke, rgba(37, 99, 235, 0.72));
+  background: var(--board-box-select-window-fill, rgba(37, 99, 235, 0.1));
+}
+
+.board-box-select--crossing {
+  border: 1.5px dashed
+    var(--board-box-select-crossing-stroke, rgba(15, 118, 110, 0.8));
+  background: var(--board-box-select-crossing-fill, rgba(15, 118, 110, 0.12));
 }
 </style>
