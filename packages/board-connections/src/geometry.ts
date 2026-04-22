@@ -14,6 +14,7 @@ import type {
   ConnectionRouting,
   ResolvedConnectionEndpoint
 } from './types'
+import { buildArcRoute } from './routing/arc'
 
 const AUTO_SIDE_DEADBAND = 24
 const AUTO_ANCHOR_OFFSET = 0.5
@@ -264,11 +265,16 @@ function getBezierEdgeCenter(params: {
   }
 }
 
+const SHORT_BOW_KNEE = 400
+const SHORT_BOW_BOOST = 0.35
+
 function calculateControlOffset(distance: number, curvature: number): number {
+  const t = clamp(1 - Math.abs(distance) / SHORT_BOW_KNEE, 0, 1)
+  const bowBoost = t * t * SHORT_BOW_BOOST
   if (distance >= 0) {
-    return 0.5 * distance
+    return (0.5 + bowBoost) * distance
   }
-  return curvature * 25 * Math.sqrt(-distance)
+  return (curvature + bowBoost) * 25 * Math.sqrt(-distance)
 }
 
 function getControlWithCurvature(params: {
@@ -592,6 +598,8 @@ export function buildConnectionRoute(params: {
       return buildStepLikeRoute(params.source, params.target, 'step')
     case 'smooth-step':
       return buildStepLikeRoute(params.source, params.target, 'smooth-step')
+    case 'arc':
+      return buildArcRoute(params.source, params.target)
     case 'bezier':
     default:
       return buildBezierRoute(params.source, params.target)

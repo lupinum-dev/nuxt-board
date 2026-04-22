@@ -1,7 +1,7 @@
 import type { Bounds, BoardNode, EdgeId, NodeId, Point } from '@lupinum/board-core'
 
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'
-export type ConnectionRouting = 'bezier' | 'smooth-step' | 'step' | 'straight'
+export type ConnectionRouting = 'bezier' | 'smooth-step' | 'step' | 'straight' | 'arc'
 export type EdgeEnd = 'none' | 'arrow'
 export type EndpointResolutionKind = 'explicit' | 'auto'
 

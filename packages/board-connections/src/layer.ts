@@ -1,12 +1,14 @@
-import { Teleport, computed, defineComponent, h, shallowRef, watch, type PropType } from 'vue'
-import { type BoardEngine, type BoardNode, type NodeId, type Point } from '@lupinum/board-core'
+import { Teleport, computed, defineComponent, h, nextTick, shallowRef, watch, type PropType } from 'vue'
+import { type BoardEngine, type BoardNode, type EdgeId, type NodeId, type Point } from '@lupinum/board-core'
 import { useBoardEngine } from '@lupinum/vue-board'
 import { buildConnectionRoute, resolveAnchorPoint, resolveConnectionEndpoint, resolveEdgeRenderState, resolveFloatingEndpoint } from './geometry'
+import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors'
 import type {
   AnchorSide,
   BoardEdge,
   ConnectionRouting,
   ConnectionsExtension,
+  EdgeEnd,
   ResolvedConnectionEndpoint
 } from './types'
 
@@ -102,10 +104,13 @@ export const BoardConnectionLayer = defineComponent({
     const markerId = `board-connection-arrow-${markerCounter += 1}`
     const sideCache = new Map<string, { source: AnchorSide; target: AnchorSide }>()
     const hoveredEdgeId = shallowRef<string | null>(null)
+    const hoveredNodeId = shallowRef<NodeId | null>(null)
     const hoveredNodeHandle = shallowRef<HoveredNodeHandle | null>(null)
     const selectedEdgeId = shallowRef<string | null>(null)
     const pendingDrag = shallowRef<PendingDragState | null>(null)
     const dragState = shallowRef<DragState | null>(null)
+    const editingEdgeId = shallowRef<string | null>(null)
+    const labelDraft = shallowRef<string>('')
 
     let versionDirty = false
     function scheduleVersion(): void {
@@ -154,6 +159,7 @@ export const BoardConnectionLayer = defineComponent({
           selectedEdgeId.value = null
           hoveredEdgeId.value = null
           hoveredNodeHandle.value = null
+          commitLabelEdit()
         }
 
         const handleRootPointerMove = (event: PointerEvent) => {
@@ -164,6 +170,11 @@ export const BoardConnectionLayer = defineComponent({
           const nodeHandle = nodeHandleFromTarget(event.target)
           hoveredEdgeId.value = edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
           hoveredNodeHandle.value = nodeHandle
+
+          const currentEngine = engine.value
+          const worldPoint = worldPointFromClient(injected, currentEngine, event.clientX, event.clientY)
+          const nodeUnderCursor = currentEngine.getNodeAt(worldPoint)
+          hoveredNodeId.value = nodeUnderCursor?.id ?? null
         }
 
         const handleRootPointerLeave = () => {
@@ -171,6 +182,7 @@ export const BoardConnectionLayer = defineComponent({
             hoveredEdgeId.value = null
             hoveredNodeHandle.value = null
           }
+          hoveredNodeId.value = null
         }
 
         root.addEventListener('pointerdown', handleRootPointerDown)
@@ -357,24 +369,115 @@ export const BoardConnectionLayer = defineComponent({
       }
     })
 
-    const needsArrowMarker = computed(() =>
-      entries.value.some((entry) => entry.edge.fromEnd === 'arrow' || entry.edge.toEnd === 'arrow')
-    )
-
     const handleRadius = computed(() => 5 / Math.max(injected.$camera.value.z, 0.25))
-    const handleHitRadius = computed(() => 11 / Math.max(injected.$camera.value.z, 0.25))
+    const handleHitRadius = computed(() => Math.max(14, 20 / Math.max(injected.$camera.value.z, 0.25)))
     const edgeStrokeWidth = computed(() => 1.85)
-    const edgeHitWidth = computed(() => 18 / Math.max(injected.$camera.value.z, 0.25))
+    const edgeHitWidth = computed(() => Math.max(16, 20 / Math.max(injected.$camera.value.z, 0.25)))
     const previewStrokeWidth = computed(() => 2.5 / Math.max(injected.$camera.value.z, 0.25))
-    const hotspotThickness = computed(() => 16 / Math.max(injected.$camera.value.z, 0.25))
+    const hotspotThickness = computed(() => Math.max(18, 22 / Math.max(injected.$camera.value.z, 0.25)))
     const hotspotCornerClearance = computed(() => 18 / Math.max(injected.$camera.value.z, 0.25))
 
     function onEdgePointerDown(edgeId: string, event: PointerEvent): void {
       event.preventDefault()
       event.stopPropagation()
+      if (editingEdgeId.value && editingEdgeId.value !== edgeId) {
+        commitLabelEdit()
+      }
       selectedEdgeId.value = edgeId
       hoveredEdgeId.value = edgeId
       hoveredNodeHandle.value = null
+    }
+
+    function beginLabelEdit(edgeId: string): void {
+      const entry = entryById.value.get(edgeId)
+      if (!entry) {
+        return
+      }
+      selectedEdgeId.value = edgeId
+      hoveredEdgeId.value = edgeId
+      editingEdgeId.value = edgeId
+      labelDraft.value = entry.edge.label ?? ''
+      nextTick(() => {
+        const input = injected.rootElement.value?.querySelector<HTMLInputElement>(
+          `[data-connection-label-input="${edgeId}"]`
+        )
+        if (input) {
+          input.focus()
+          input.select()
+        }
+      })
+    }
+
+    function commitLabelEdit(): void {
+      const id = editingEdgeId.value
+      if (!id) {
+        return
+      }
+      const entry = entryById.value.get(id)
+      editingEdgeId.value = null
+      if (!entry) {
+        return
+      }
+      const next = labelDraft.value.trim()
+      const current = entry.edge.label ?? ''
+      if (next === current) {
+        return
+      }
+      engine.value.ext.connections.updateEdge(entry.edge.id, {
+        label: next ? next : undefined
+      })
+    }
+
+    function cancelLabelEdit(): void {
+      editingEdgeId.value = null
+      labelDraft.value = ''
+    }
+
+    function cycleDirectionality(edgeId: string): void {
+      const entry = entryById.value.get(edgeId)
+      if (!entry) {
+        return
+      }
+      const from = entry.edge.fromEnd ?? 'none'
+      const to = entry.edge.toEnd ?? 'arrow'
+      let nextFrom: EdgeEnd
+      let nextTo: EdgeEnd
+      if (from === 'none' && to === 'arrow') {
+        nextFrom = 'arrow'
+        nextTo = 'arrow'
+      } else if (from === 'arrow' && to === 'arrow') {
+        nextFrom = 'arrow'
+        nextTo = 'none'
+      } else {
+        nextFrom = 'none'
+        nextTo = 'arrow'
+      }
+      engine.value.ext.connections.updateEdge(entry.edge.id, { fromEnd: nextFrom, toEnd: nextTo })
+    }
+
+    function applyEdgeColor(edgeId: string, color: string | undefined): void {
+      const entry = entryById.value.get(edgeId)
+      if (!entry) {
+        return
+      }
+      engine.value.ext.connections.updateEdge(entry.edge.id, { color })
+    }
+
+    function deleteEdge(edgeId: string): void {
+      const entry = entryById.value.get(edgeId)
+      if (!entry) {
+        return
+      }
+      if (editingEdgeId.value === edgeId) {
+        editingEdgeId.value = null
+      }
+      if (selectedEdgeId.value === edgeId) {
+        selectedEdgeId.value = null
+      }
+      if (hoveredEdgeId.value === edgeId) {
+        hoveredEdgeId.value = null
+      }
+      engine.value.ext.connections.deleteEdge(entry.edge.id as EdgeId)
     }
 
     function commitReconnect(active: ReconnectDragState): void {
@@ -484,6 +587,36 @@ export const BoardConnectionLayer = defineComponent({
         startWorld: nextWorld
       }
     }
+
+    watch(selectedEdgeId, (_next, _prev, onCleanup) => {
+      if (!selectedEdgeId.value) {
+        return
+      }
+      const handleKey = (event: KeyboardEvent) => {
+        const id = selectedEdgeId.value
+        if (!id) {
+          return
+        }
+        if (editingEdgeId.value) {
+          return
+        }
+        const target = event.target
+        if (target instanceof HTMLElement) {
+          const tag = target.tagName
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+            return
+          }
+        }
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault()
+          deleteEdge(id)
+        }
+      }
+      window.addEventListener('keydown', handleKey)
+      onCleanup(() => {
+        window.removeEventListener('keydown', handleKey)
+      })
+    })
 
     watch([pendingDrag, dragState], ([pending, active], _prev, onCleanup) => {
       if (!pending && !active) {
@@ -642,6 +775,7 @@ export const BoardConnectionLayer = defineComponent({
 
     function renderNodeHotspots() {
       const activeCreate = dragState.value?.mode === 'create' ? dragState.value : null
+      const activeReconnect = dragState.value?.mode === 'reconnect' ? dragState.value : null
       const activeHandle =
         activeCreate
           ? renderCreateHandle(activeCreate.sourceNodeId, activeCreate.sourceSide)
@@ -654,8 +788,19 @@ export const BoardConnectionLayer = defineComponent({
           ? renderCreateHandle(hoveredNodeHandle.value.nodeId, hoveredNodeHandle.value.side)
           : null
 
+      const hoverOnlyMode = !activeCreate && !activeReconnect
+      const hoveredId = hoveredNodeId.value ?? hoveredNodeHandle.value?.nodeId ?? null
+
       const hotspots = Array.from(injected.$nodes.value.values())
-        .filter((node) => node.visible)
+        .filter((node) => {
+          if (!node.visible) {
+            return false
+          }
+          if (!hoverOnlyMode) {
+            return true
+          }
+          return hoveredId !== null && node.id === hoveredId
+        })
         .flatMap((node) => {
           const clearance = Math.min(hotspotCornerClearance.value, Math.min(node.width, node.height) / 3)
           const horizontalWidth = Math.max(node.width - clearance * 2, hotspotThickness.value)
@@ -742,12 +887,145 @@ export const BoardConnectionLayer = defineComponent({
       ]
     }
 
+    function renderEdgeLabel(entry: EdgeRenderEntry) {
+      const edgeId = String(entry.edge.id)
+      const isEditing = editingEdgeId.value === edgeId
+      const label = entry.edge.label ?? ''
+      if (!isEditing && !label) {
+        return null
+      }
+
+      const zoom = Math.max(injected.$camera.value.z, 0.25)
+      const stroke = entry.edge.color ?? 'var(--board-edge-color)'
+      const size = 1 / zoom
+      const approxWidth = Math.max(40, ((isEditing ? labelDraft.value : label).length || 1) * 8 + 24)
+      const approxHeight = 22
+      const width = approxWidth * size
+      const height = approxHeight * size
+      const x = entry.route.labelPoint.x - width / 2
+      const y = entry.route.labelPoint.y - height / 2
+
+      const contents = isEditing
+        ? h('input', {
+            'data-connection-label-input': edgeId,
+            'data-board-interactive': 'true',
+            type: 'text',
+            value: labelDraft.value,
+            onInput: (event: Event) => {
+              labelDraft.value = (event.target as HTMLInputElement).value
+            },
+            onKeydown: (event: KeyboardEvent) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                commitLabelEdit()
+              } else if (event.key === 'Escape') {
+                event.preventDefault()
+                cancelLabelEdit()
+              }
+              event.stopPropagation()
+            },
+            onBlur: () => commitLabelEdit(),
+            onPointerdown: (event: PointerEvent) => event.stopPropagation(),
+            style: {
+              width: '100%',
+              height: '100%',
+              boxSizing: 'border-box',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              border: '1px solid currentColor',
+              background: 'var(--board-node-bg, #fff)',
+              color: 'inherit',
+              font: 'inherit',
+              fontSize: '12px',
+              lineHeight: '1',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
+            }
+          })
+        : h(
+            'div',
+            {
+              'data-connection-label': edgeId,
+              'data-board-interactive': 'true',
+              onPointerdown: (event: PointerEvent) => onEdgePointerDown(edgeId, event),
+              onDblclick: (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                beginLabelEdit(edgeId)
+              },
+              style: {
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                border: '1px solid currentColor',
+                background: 'var(--board-node-bg, #fff)',
+                fontSize: '12px',
+                lineHeight: '1',
+                color: 'inherit',
+                cursor: 'text',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
+              }
+            },
+            label || '\u00A0'
+          )
+
+      return h(
+        'foreignObject',
+        {
+          x,
+          y,
+          width,
+          height,
+          color: stroke,
+          style: {
+            overflow: 'visible',
+            pointerEvents: 'auto'
+          }
+        },
+        [
+          h(
+            'div',
+            {
+              xmlns: 'http://www.w3.org/1999/xhtml',
+              style: {
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: `scale(${size})`,
+                transformOrigin: 'center center'
+              }
+            },
+            [
+              h(
+                'div',
+                {
+                  style: {
+                    width: `${approxWidth}px`,
+                    height: `${approxHeight}px`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }
+                },
+                [contents]
+              )
+            ]
+          )
+        ]
+      )
+    }
+
     function renderEdge(entry: EdgeRenderEntry) {
       const edgeId = String(entry.edge.id)
       const isSelected = selectedEdgeId.value === edgeId
       const isHovered = hoveredEdgeId.value === edgeId
       const isDragging = dragState.value?.mode === 'reconnect' && dragState.value.edgeId === edgeId
-      const showHandles = isSelected || isHovered || isDragging
+      const showHandles = isSelected || isDragging
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
       const strokeOpacity = isDragging ? 0.22 : isSelected ? 0.98 : isHovered ? 0.92 : 0.7
       const strokeWidth = isSelected ? edgeStrokeWidth.value + 0.4 : isHovered ? edgeStrokeWidth.value + 0.2 : edgeStrokeWidth.value
@@ -757,7 +1035,7 @@ export const BoardConnectionLayer = defineComponent({
         : h('path', {
             d: entry.route.path,
             stroke,
-            color: entry.edge.color ?? undefined,
+            color: entry.edge.color ?? 'var(--board-edge-color)',
             fill: 'none',
             opacity: strokeOpacity,
             'stroke-width': strokeWidth,
@@ -770,6 +1048,8 @@ export const BoardConnectionLayer = defineComponent({
               pointerEvents: 'none'
             }
           })
+
+      const label = renderEdgeLabel(entry)
 
       return h(
         'g',
@@ -795,6 +1075,11 @@ export const BoardConnectionLayer = defineComponent({
               cursor: 'pointer'
             },
             onPointerdown: (event: PointerEvent) => onEdgePointerDown(edgeId, event),
+            onDblclick: (event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              beginLabelEdit(edgeId)
+            },
             onPointerleave: (event: PointerEvent) => {
               if (
                 !sameEdgeTarget(event.relatedTarget, edgeId) &&
@@ -805,7 +1090,8 @@ export const BoardConnectionLayer = defineComponent({
               }
             }
           }),
-          ...(showHandles ? [renderReconnectHandle(entry, 'from', entry.source), renderReconnectHandle(entry, 'to', entry.target)] : [])
+          ...(showHandles ? [renderReconnectHandle(entry, 'from', entry.source), renderReconnectHandle(entry, 'to', entry.target)] : []),
+          ...(label ? [label] : [])
         ]
       )
     }
@@ -838,8 +1124,8 @@ export const BoardConnectionLayer = defineComponent({
               fill: 'none',
               stroke: 'var(--board-edge-active-color)',
               'stroke-width': 2 / Math.max(injected.$camera.value.z, 0.25),
-              'stroke-dasharray': `${10 / Math.max(injected.$camera.value.z, 0.25)} ${6 / Math.max(injected.$camera.value.z, 0.25)}`,
-              opacity: 0.85,
+              'vector-effect': 'non-scaling-stroke',
+              opacity: 0.9,
               style: {
                 pointerEvents: 'none'
               }
@@ -849,12 +1135,13 @@ export const BoardConnectionLayer = defineComponent({
           d: preview.value.route.path,
           stroke: previewStroke,
           fill: 'none',
-          opacity: 0.9,
+          opacity: 0.55,
           'stroke-width': previewStrokeWidth.value,
-          'stroke-dasharray': `${12 / Math.max(injected.$camera.value.z, 0.25)} ${8 / Math.max(injected.$camera.value.z, 0.25)}`,
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
           'vector-effect': 'non-scaling-stroke',
+          'marker-end': `url(#${markerId})`,
+          color: previewStroke,
           style: {
             pointerEvents: 'none'
           }
@@ -886,6 +1173,177 @@ export const BoardConnectionLayer = defineComponent({
       ]
     }
 
+    function renderToolbar() {
+      const edgeId = selectedEdgeId.value
+      if (!edgeId) {
+        return null
+      }
+      const entry = entryById.value.get(edgeId)
+      if (!entry) {
+        return null
+      }
+      if (dragState.value?.mode === 'reconnect' && dragState.value.edgeId === edgeId) {
+        return null
+      }
+      if (editingEdgeId.value === edgeId) {
+        return null
+      }
+
+      const camera = injected.$camera.value
+      const screen = {
+        x: (entry.route.labelPoint.x + camera.x) * camera.z,
+        y: (entry.route.labelPoint.y + camera.y) * camera.z
+      }
+
+      const currentColor = entry.edge.color
+      const from = entry.edge.fromEnd ?? 'none'
+      const to = entry.edge.toEnd ?? 'arrow'
+      const directionLabel = from === 'none' && to === 'arrow'
+        ? '→'
+        : from === 'arrow' && to === 'arrow'
+          ? '↔'
+          : from === 'arrow' && to === 'none'
+            ? '←'
+            : '—'
+
+      const buttonStyle = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '28px',
+        height: '28px',
+        padding: '0',
+        border: 'none',
+        background: 'transparent',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        lineHeight: '1',
+        color: 'var(--board-fg, #0f172a)'
+      } as const
+
+      const swatchStyle = (hex: string, active: boolean) => ({
+        width: '18px',
+        height: '18px',
+        borderRadius: '50%',
+        background: hex,
+        border: active ? '2px solid var(--board-fg, #0f172a)' : '1px solid rgba(15, 23, 42, 0.15)',
+        cursor: 'pointer',
+        padding: '0',
+        boxSizing: 'border-box'
+      }) as const
+
+      return h(
+        'div',
+        {
+          'data-board-interactive': 'true',
+          'data-connection-toolbar': edgeId,
+          onPointerdown: (event: PointerEvent) => event.stopPropagation(),
+          style: {
+            position: 'absolute',
+            left: `${screen.x}px`,
+            top: `${screen.y}px`,
+            transform: 'translate(-50%, calc(-100% - 14px))',
+            zIndex: '7',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px 6px',
+            background: 'var(--board-node-bg, #ffffff)',
+            border: '1px solid var(--board-node-border, rgba(15,23,42,0.1))',
+            borderRadius: '10px',
+            boxShadow: '0 6px 20px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+            fontSize: '12px',
+            color: 'var(--board-fg, #0f172a)',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'auto',
+            userSelect: 'none'
+          }
+        },
+        [
+          h(
+            'button',
+            {
+              'data-board-interactive': 'true',
+              type: 'button',
+              title: 'Cycle direction',
+              style: buttonStyle,
+              onClick: (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                cycleDirectionality(edgeId)
+              }
+            },
+            directionLabel
+          ),
+          h('span', {
+            style: {
+              display: 'inline-block',
+              width: '1px',
+              height: '18px',
+              background: 'rgba(15,23,42,0.12)',
+              margin: '0 2px'
+            }
+          }),
+          h(
+            'button',
+            {
+              'data-board-interactive': 'true',
+              type: 'button',
+              title: 'Default color',
+              style: {
+                ...swatchStyle('transparent', !currentColor),
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 3px, transparent 3px 6px)'
+              },
+              onClick: (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                applyEdgeColor(edgeId, undefined)
+              }
+            }
+          ),
+          ...EDGE_COLOR_PRESETS.map((option) =>
+            h('button', {
+              'data-board-interactive': 'true',
+              type: 'button',
+              title: option.label,
+              style: swatchStyle(option.hex, resolvePresetColor(currentColor) === option.hex),
+              onClick: (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                applyEdgeColor(edgeId, option.hex)
+              }
+            })
+          ),
+          h('span', {
+            style: {
+              display: 'inline-block',
+              width: '1px',
+              height: '18px',
+              background: 'rgba(15,23,42,0.12)',
+              margin: '0 2px'
+            }
+          }),
+          h(
+            'button',
+            {
+              'data-board-interactive': 'true',
+              type: 'button',
+              title: 'Delete',
+              style: { ...buttonStyle, color: '#b91c1c' },
+              onClick: (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                deleteEdge(edgeId)
+              }
+            },
+            '✕'
+          )
+        ]
+      )
+    }
+
     function renderSvg() {
       return h(
         'svg',
@@ -905,29 +1363,27 @@ export const BoardConnectionLayer = defineComponent({
           }
         },
         [
-          needsArrowMarker.value
-            ? h('defs', [
-                h(
-                  'marker',
-                  {
-                    id: markerId,
-                    markerWidth: 14,
-                    markerHeight: 14,
-                    refX: 12,
-                    refY: 7,
-                    orient: 'auto-start-reverse',
-                    markerUnits: 'userSpaceOnUse',
-                    viewBox: '0 0 14 14'
-                  },
-                  [
-                    h('path', {
-                      d: 'M2,2 L12,7 L2,12 L5.2,7 Z',
-                      fill: 'currentColor'
-                    })
-                  ]
-                )
-              ])
-            : null,
+          h('defs', [
+            h(
+              'marker',
+              {
+                id: markerId,
+                markerWidth: 6,
+                markerHeight: 6,
+                refX: 4.6,
+                refY: 3,
+                orient: 'auto-start-reverse',
+                markerUnits: 'strokeWidth',
+                viewBox: '0 0 6 6'
+              },
+              [
+                h('path', {
+                  d: 'M0.6,0.6 L5.2,3 L0.6,5.4 L2.1,3 Z',
+                  fill: 'currentColor'
+                })
+              ]
+            )
+          ]),
           ...entries.value.map((entry) => renderEdge(entry)),
           ...renderNodeHotspots().filter(Boolean),
           ...renderPreview().filter(Boolean)
@@ -935,9 +1391,14 @@ export const BoardConnectionLayer = defineComponent({
       )
     }
 
-    return () =>
-      injected.rootElement.value
-        ? h(Teleport, { to: injected.rootElement.value }, renderSvg())
-        : renderSvg()
+    return () => {
+      const svg = renderSvg()
+      const toolbar = renderToolbar()
+      const root = injected.rootElement.value
+      if (root) {
+        return h(Teleport, { to: root }, [svg, ...(toolbar ? [toolbar] : [])])
+      }
+      return [svg, ...(toolbar ? [toolbar] : [])]
+    }
   }
 })

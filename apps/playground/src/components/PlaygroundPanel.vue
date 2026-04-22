@@ -81,6 +81,7 @@ const pbtn =
             <option value="smooth-step">Angled smooth</option>
             <option value="step">Angled</option>
             <option value="straight">Straight</option>
+            <option value="arc">Arc</option>
           </select>
         </label>
       </section>
