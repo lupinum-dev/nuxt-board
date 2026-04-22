@@ -175,7 +175,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       const extensions = document['x-canvas']
       return {
         camera: extensions?.camera ?? { x: 0, y: 0, z: 1 },
-        grid: extensions?.grid ?? { size: 10, majorEvery: 5, snap: true, pattern: 'line' },
+        grid: extensions?.grid ?? { size: 10, majorEvery: 5, snap: true, edgeSnap: true, edgeSnapThreshold: 8, pattern: 'line' },
         nodes: nodes.map((node) => {
           const meta = extensions?.nodes?.[node.id]
           return {

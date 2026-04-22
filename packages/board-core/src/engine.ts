@@ -20,10 +20,38 @@ import {
   getBoundsFromNode,
   sortIdsByZIndex
 } from './hierarchy'
-import { cloneInteraction, validateState } from './invariants'
+import { cloneInteraction } from './invariants'
 import { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
 import { collectOtherNodeEdges, collectOtherNodeEdgesExcluding, snapBoundsToEdges, snapPositionToEdges } from './snap'
 import { createBatchController, createSubscribable } from './subscribable'
+import { cloneData, freezeClone, sameArray } from './helpers/clone'
+import { createNodeId } from './helpers/ids'
+import { AnimationCancelled, getAnimationFrameDriver } from './helpers/animation'
+import type { StoredNode } from './state/versioning'
+import { ZERO_VERSIONS, bumpVersions } from './state/versioning'
+import type { MutableBoardState } from './state/types'
+import {
+  DEFAULT_CAMERA,
+  DEFAULT_GRID,
+  DEFAULT_NODE_CONSTRAINTS,
+  DEFAULT_VIEWPORT_SIZE,
+  DEFAULT_ZOOM
+} from './state/types'
+import { defaultNodeData, normalizeExistingNode } from './state/initial'
+import { materializeNode as materializeNodePure } from './helpers/node-shape'
+import { buildPublicNodeMap, buildPublicState, buildSnapshot } from './state/selectors'
+import {
+  duplicateForest as duplicateForestPure,
+  getCopyClosureNodes as getCopyClosureNodesPure,
+  getSelectionNodes as getSelectionNodesPure
+} from './helpers/selection-helpers'
+import { createEventBus } from './engine/events'
+import { createMiddlewareRegistry } from './engine/middleware'
+import { createTransactionController } from './engine/transactions'
+import { createValidator } from './engine/validation'
+import { createReactiveLayer } from './engine/subscribables'
+import { createDispatcher } from './engine/dispatcher'
+import { invertAction } from './engine/invert'
 import type {
   BoardSnapshot,
   BoardState,
@@ -32,16 +60,13 @@ import type {
   BoardEngine,
   BoardEngineExtensions,
   BoardEngineOptions,
-  BoardEventMap,
   BoardNode,
   BoardPlugin,
   BoardPluginContext,
-  CommandMiddleware,
   GridSettings,
   InteractionState,
   InvariantMode,
   NodeConstraints,
-  NodeData,
   NodeId,
   NodeInput,
   NodePatch,
@@ -51,61 +76,8 @@ import type {
   ResizeHandle,
   SnapGuide,
   Subscribable,
-  TraceEntry,
   ZoomSettings
 } from './types'
-
-const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 }
-const DEFAULT_ZOOM: ZoomSettings = { min: 0.1, max: 8 }
-const DEFAULT_GRID: GridSettings = { size: 10, majorEvery: 5, snap: true, edgeSnap: true, edgeSnapThreshold: 8, pattern: 'line' }
-const DEFAULT_NODE_CONSTRAINTS: NodeConstraints = {
-  minWidth: 50,
-  minHeight: 50,
-  defaultWidth: 240,
-  defaultHeight: 160
-}
-const DEFAULT_VIEWPORT_SIZE: Point = { x: 1280, y: 720 }
-
-interface StoredNode<TType extends string = string, TData extends NodeData = NodeData> extends BoardNode<TType, TData> {
-  readonly _version: number
-  readonly _geometryVersion: number
-  readonly _dataVersion: number
-}
-
-interface MutableBoardState<R extends NodeTypeRegistry> {
-  camera: Camera
-  nodes: Map<NodeId, StoredNode>
-  selection: Set<NodeId>
-  interaction: InteractionState
-  snapGuides: SnapGuide[]
-  nextZIndex: number
-}
-
-type ListenerMap<R extends NodeTypeRegistry> = Map<keyof BoardEventMap<R>, Set<(...args: unknown[]) => void>>
-
-function cloneData<T>(value: T): T {
-  return structuredClone(value)
-}
-
-function freezeClone<T>(value: T): T {
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      freezeClone(entry)
-    }
-    return Object.freeze(value)
-  }
-  if (value && typeof value === 'object') {
-    for (const child of Object.values(value as Record<string, unknown>)) {
-      freezeClone(child)
-    }
-    return Object.freeze(value)
-  }
-  return value
-}
-
-function createNodeId(): NodeId {
-  return crypto.randomUUID() as NodeId
-}
 
 export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>(
   options: BoardEngineOptions<R> = {}
@@ -121,10 +93,24 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       ? options.diagnostics.traceLimit
       : 500
 
-  const listeners: ListenerMap<R> = new Map()
-  const trace: TraceEntry[] = []
+  const eventBus = createEventBus<R>({ diagnosticsEnabled, traceLimit })
+  const { emit, on, once, off } = eventBus
+  const middleware = createMiddlewareRegistry()
+  const dispatcher = createDispatcher()
   const pluginCleanups = new Map<string, () => void>()
-  const middlewares: CommandMiddleware[] = []
+  const pluginSlices = new Map<
+    string,
+    {
+      reducer: (state: unknown, action: import('./state/actions').Action) => unknown
+      invert?: (innerAction: unknown) => unknown
+      state: unknown
+    }
+  >()
+  dispatcher.onAction((action) => {
+    for (const slice of pluginSlices.values()) {
+      slice.state = slice.reducer(slice.state, action)
+    }
+  })
   const clipboard: StoredNode[] = []
   const ext = {} as BoardEngineExtensions<R>
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
@@ -145,52 +131,31 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
   }
 
-  const batchCtrl = createBatchController()
-  const $camera = createSubscribable<Camera>(freezeClone({ ...state.camera }), batchCtrl)
-  const $nodes = createSubscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>(new Map(), batchCtrl)
-  const $selection = createSubscribable<ReadonlySet<NodeId>>(new Set(state.selection), batchCtrl)
-  const $interaction = createSubscribable<InteractionState>(cloneInteraction(state.interaction), batchCtrl)
-  const $snapGuides = createSubscribable<readonly SnapGuide[]>(state.snapGuides.map((guide) => freezeClone({ ...guide })), batchCtrl)
+  const reactive = createReactiveLayer<R>({ state, emit, dispatch: dispatcher.dispatch })
+  const {
+    batchCtrl,
+    $camera,
+    $nodes,
+    $selection,
+    $interaction,
+    $snapGuides,
+    getPublicNodeMap,
+    notifyNodesChanged,
+    notifySelectionChanged,
+    notifyInteractionChanged,
+    notifySnapGuidesChanged,
+    setCamera,
+    setSelection,
+    setInteraction,
+    setSnapGuides
+  } = reactive
 
-  let cachedPublicNodeMap: ReadonlyMap<NodeId, ResolvedNode<R>> | null = null
-  let validationPending = false
-  let transactionDepth = 0
-  let transactionStartedAt = 0
-
-  function emit<K extends keyof BoardEventMap<R>>(event: K, ...args: Parameters<BoardEventMap<R>[K]>): void {
-    if (diagnosticsEnabled) {
-      trace.push({ event: String(event), timestamp: Date.now(), args })
-      if (trace.length > traceLimit) {
-        trace.shift()
-      }
-    }
-    for (const handler of listeners.get(event) ?? []) {
-      try {
-        ;(handler as (...payload: Parameters<BoardEventMap<R>[K]>) => void)(...args)
-      } catch (error) {
-        console.error(`[board] handler for "${String(event)}" threw:`, error)
-      }
-    }
-  }
-
-  function on<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]) {
-    const set = listeners.get(event) ?? new Set<(...args: unknown[]) => void>()
-    set.add(handler as (...args: unknown[]) => void)
-    listeners.set(event, set)
-    return () => off(event, handler)
-  }
-
-  function once<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]) {
-    const unsubscribe = on(event, ((...args: unknown[]) => {
-      unsubscribe()
-      ;(handler as (...payload: unknown[]) => void)(...args)
-    }) as BoardEventMap<R>[K])
-    return unsubscribe
-  }
-
-  function off<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]): void {
-    listeners.get(event)?.delete(handler as (...args: unknown[]) => void)
-  }
+  const transactions = createTransactionController({
+    batchCtrl,
+    emitCommandBefore: (name, args) => emit('command:before', name, args),
+    emitCommandAfter: (name, args, duration) => emit('command:after', name, args, duration),
+    validate: (ctx) => validate(ctx)
+  })
 
   function getGridSettings(): GridSettings {
     return freezeClone({ ...grid })
@@ -201,134 +166,33 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
   }
 
   function materializeNode<T extends keyof R = keyof R>(node: StoredNode): ResolvedNode<R, T> {
-    return freezeClone({
-      id: node.id,
-      type: node.type,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
-      data: cloneData(node.data),
-      zIndex: node.zIndex,
-      locked: node.locked,
-      visible: node.visible,
-      ...(node.parentId !== undefined ? { parentId: node.parentId } : {})
-    }) as ResolvedNode<R, T>
-  }
-
-  function getPublicNodeMap(): ReadonlyMap<NodeId, ResolvedNode<R>> {
-    if (!cachedPublicNodeMap) {
-      cachedPublicNodeMap = new Map(
-        Array.from(state.nodes.values(), (node) => [node.id, materializeNode(node)] as const)
-      )
-    }
-    return cachedPublicNodeMap
-  }
-
-  function notifyNodesChanged(): void {
-    cachedPublicNodeMap = null
-    $nodes.set(new Map(getPublicNodeMap()))
-  }
-
-  function notifySelectionChanged(): void {
-    $selection.set(new Set(state.selection))
-  }
-
-  function notifyInteractionChanged(): void {
-    $interaction.set(cloneInteraction(state.interaction))
-  }
-
-  function notifySnapGuidesChanged(): void {
-    $snapGuides.set(state.snapGuides.map((guide) => freezeClone({ ...guide })))
-  }
-
-  function flushBatchNotifications(): void {
-    const pending = [...batchCtrl.pending]
-    batchCtrl.pending.clear()
-    for (const flush of pending) {
-      flush()
-    }
-  }
-
-  function beginTransaction(): void {
-    if (transactionDepth === 0) {
-      transactionStartedAt = performance.now()
-      batchCtrl.depth += 1
-      emit('command:before', 'batch', [])
-    }
-    transactionDepth += 1
-  }
-
-  function endTransaction(): void {
-    transactionDepth -= 1
-    if (transactionDepth !== 0) {
-      return
-    }
-    if (validationPending) {
-      validate('batch')
-      validationPending = false
-    }
-    batchCtrl.depth -= 1
-    flushBatchNotifications()
-    emit('command:after', 'batch', [], performance.now() - transactionStartedAt)
+    return materializeNodePure<R, T>(node)
   }
 
   function getSnapshot(): BoardSnapshot<R> {
-    return freezeClone({
-      camera: { ...state.camera },
-      grid: { ...grid },
-      nodes: Array.from(getPublicNodeMap().values()).sort((a, b) => a.zIndex - b.zIndex),
-      selection: Array.from(state.selection.values()),
-      interaction: cloneInteraction(state.interaction),
-      snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
-      nextZIndex: state.nextZIndex
-    })
+    return buildSnapshot<R>(state, grid, getPublicNodeMap())
   }
 
   function getState(): BoardState<R> {
-    return {
-      camera: freezeClone({ ...state.camera }),
-      nodes: new Map(getPublicNodeMap()),
-      selection: new Set(state.selection),
-      interaction: cloneInteraction(state.interaction),
-      snapGuides: state.snapGuides.map((guide) => freezeClone({ ...guide })),
-      nextZIndex: state.nextZIndex
-    }
-  }
-
-  function runMiddlewareChain(name: string, args: unknown[]): boolean {
-    if (middlewares.length === 0) return true
-    let proceeded = false
-    let i = 0
-    function step(): void {
-      const middleware = middlewares[i++]
-      if (middleware) {
-        middleware(name, args, step)
-      }
-      else {
-        proceeded = true
-      }
-    }
-    step()
-    return proceeded
+    return buildPublicState<R>(state, getPublicNodeMap())
   }
 
   function runCommand<T>(name: string, args: unknown[], fn: () => T, skipValidation = false): T {
     // Middleware runs first — before any events are emitted.
     // If the chain doesn't call next(), the command is silently cancelled.
-    if (!runMiddlewareChain(name, args)) {
+    if (!middleware.run(name, args)) {
       emit('command:blocked', name, args)
       return undefined as unknown as T
     }
     const started = performance.now()
-    const inTransaction = transactionDepth > 0
+    const inTransaction = transactions.isInTransaction()
     if (!inTransaction) {
       emit('command:before', name, args)
     }
     const result = fn()
     if (!skipValidation) {
       if (inTransaction) {
-        validationPending = true
+        transactions.markValidationPending()
       } else {
         validate(name)
       }
@@ -357,61 +221,12 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     }
   }
 
-  function validate(context: string): void {
-    if (invariantMode === 'off') {
-      return
-    }
-    const failures = validateState(getState(), grid, context)
-    for (const failure of failures) {
-      emit('invariant:failed', failure)
-    }
-    if (failures.length > 0 && invariantMode === 'strict') {
-      throw new Error(`Board invariant failed in ${context}: ${failures[0]?.message}`)
-    }
-  }
-
-  function setCamera(next: Camera): void {
-    const prev = { ...state.camera }
-    if (prev.x === next.x && prev.y === next.y && prev.z === next.z) {
-      return
-    }
-    state.camera = next
-    $camera.set(freezeClone({ ...next }))
-    emit('camera:change', freezeClone({ ...next }), freezeClone(prev))
-  }
-
-  function setSelection(nextSelection: Iterable<NodeId>): void {
-    const prev = Array.from(state.selection.values())
-    const next = Array.from(nextSelection)
-    if (sameArray(prev, next)) {
-      return
-    }
-    state.selection = new Set(next)
-    notifySelectionChanged()
-    emit('selection:change', next, prev)
-  }
-
-  function setInteraction(next: InteractionState): void {
-    const prev = state.interaction
-    state.interaction = next
-    notifyInteractionChanged()
-    if (prev.mode === 'idle' && next.mode !== 'idle') {
-      emit('interaction:start', cloneInteraction(next))
-      return
-    }
-    if (prev.mode !== 'idle' && next.mode === 'idle') {
-      emit('interaction:end', cloneInteraction(prev))
-      return
-    }
-    if (prev.mode !== 'idle' && next.mode !== 'idle') {
-      emit('interaction:update', cloneInteraction(next))
-    }
-  }
-
-  function setSnapGuides(next: SnapGuide[]): void {
-    state.snapGuides = next
-    notifySnapGuidesChanged()
-  }
+  const validate = createValidator<R>({
+    invariantMode,
+    getState: () => getState(),
+    getGrid: () => grid,
+    emitFailure: (failure) => emit('invariant:failed', failure)
+  })
 
   function assertStoredNode(id: NodeId): StoredNode {
     const node = state.nodes.get(id)
@@ -419,31 +234,6 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       throw new Error(`Node "${id}" does not exist.`)
     }
     return node
-  }
-
-  function normalizeExistingNode(node: ResolvedNode<R>): StoredNode {
-    const parentId =
-      typeof node.parentId === 'string' && node.parentId.length > 0 ? node.parentId : undefined
-    return {
-      ...node,
-      data: cloneData(node.data),
-      locked: Boolean(node.locked),
-      visible: node.visible !== false,
-      parentId,
-      _version: 0,
-      _geometryVersion: 0,
-      _dataVersion: 0
-    }
-  }
-
-  function defaultNodeData(type: string): NodeData {
-    if (type === 'text') {
-      return { content: '' }
-    }
-    if (type === 'group') {
-      return { title: 'Untitled group', accent: '#0d9488' }
-    }
-    return {}
   }
 
   function normalizeNode<T extends keyof R = keyof R>(input: NodeInput<R, T>): StoredNode {
@@ -471,9 +261,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       locked: Boolean(input.locked),
       visible: input.visible !== false,
       parentId,
-      _version: 0,
-      _geometryVersion: 0,
-      _dataVersion: 0
+      ...ZERO_VERSIONS
     }
   }
 
@@ -495,23 +283,22 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       y,
       width,
       height,
-      _version: node._version,
-      _geometryVersion: node._geometryVersion,
-      _dataVersion: node._dataVersion
+      version: node.version,
+      geometryVersion: node.geometryVersion,
+      dataVersion: node.dataVersion
     }
   }
 
   function replaceStoredNode(node: StoredNode, next: StoredNode): StoredNode {
-    const geometryChanged = node.x !== next.x || node.y !== next.y || node.width !== next.width || node.height !== next.height
-    const dataChanged = node.data !== next.data
-    const stored: StoredNode = {
-      ...next,
-      _version: node._version + 1,
-      _geometryVersion: geometryChanged ? node._geometryVersion + 1 : node._geometryVersion,
-      _dataVersion: dataChanged ? node._dataVersion + 1 : node._dataVersion
-    }
+    const stored = bumpVersions(node, next)
     state.nodes.set(node.id, stored)
     notifyNodesChanged()
+    return stored
+  }
+
+  function replaceStoredNodeAndDispatch(node: StoredNode, next: StoredNode): StoredNode {
+    const stored = replaceStoredNode(node, next)
+    dispatcher.dispatch({ type: 'NODE_UPDATED', id: node.id, before: node, after: stored })
     return stored
   }
 
@@ -524,7 +311,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     if (!node) {
       return
     }
-    const next = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
+    const next = replaceStoredNodeAndDispatch(node, { ...node, zIndex: state.nextZIndex++ })
     emit('node:updated', materializeNode(next), materializeNode(node))
     restackGroupDescendantsAbove(id)
   }
@@ -573,7 +360,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     }
     let current = node
     if (parent && current.zIndex <= parent.zIndex) {
-      current = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
+      current = replaceStoredNodeAndDispatch(node, { ...node, zIndex: state.nextZIndex++ })
     }
     for (const child of getDirectChildren(nodeId)) {
       fixSubtreeZOrderAfter(current, child.id)
@@ -601,71 +388,26 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       if (nextParent === node.parentId) {
         continue
       }
-      const updated = replaceStoredNode(node, { ...node, parentId: nextParent })
+      const updated = replaceStoredNodeAndDispatch(node, { ...node, parentId: nextParent })
       emit('node:updated', materializeNode(updated), materializeNode(node))
       fixSubtreeZOrderAfter(nextParent ? assertStoredNode(nextParent) : null, id)
     }
   }
 
   function getSelectionNodes(): StoredNode[] {
-    return Array.from(state.selection.values())
-      .map((id) => state.nodes.get(id))
-      .filter((node): node is StoredNode => Boolean(node))
+    return getSelectionNodesPure(state)
   }
 
   function getCopyClosureNodes(): StoredNode[] {
-    const selected = getSelectionNodes()
-    const ids = expandGroupDragSeeds(
-      selected.map((node) => node.id),
-      state.nodes as Map<NodeId, BoardNode>
-    )
-    return Array.from(ids)
-      .map((id) => state.nodes.get(id))
-      .filter((node): node is StoredNode => Boolean(node))
-      .sort((a, b) => a.zIndex - b.zIndex)
+    return getCopyClosureNodesPure(state)
   }
 
   function duplicateForest(nodes: StoredNode[], offset: Point): StoredNode[] {
-    const sorted = [...nodes].sort((a, b) => a.zIndex - b.zIndex)
-    const idMap = new Map<NodeId, NodeId>()
-    for (const node of sorted) {
-      idMap.set(node.id, createNodeId())
-    }
-    return sorted.map((node) => ({
-      ...node,
-      id: idMap.get(node.id)!,
-      data: cloneData(node.data),
-      parentId: node.parentId && idMap.has(node.parentId) ? idMap.get(node.parentId) : undefined,
-      x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
-      y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
-      zIndex: state.nextZIndex++,
-      _version: 0,
-      _geometryVersion: 0,
-      _dataVersion: 0
-    }))
+    return duplicateForestPure(state, grid, nodes, offset)
   }
 
   function cleanupSelection(): void {
     setSelection(Array.from(state.selection.values()).filter((id) => state.nodes.has(id)))
-  }
-
-  function getAnimationFrameDriver() {
-    const raf = globalThis.requestAnimationFrame?.bind(globalThis)
-    const caf = globalThis.cancelAnimationFrame?.bind(globalThis)
-    if (typeof raf === 'function' && typeof caf === 'function') {
-      return { raf, caf }
-    }
-    return {
-      raf: (cb: FrameRequestCallback) => globalThis.setTimeout(() => cb(Date.now()), 16) as unknown as number,
-      caf: (handle: number) => globalThis.clearTimeout(handle)
-    }
-  }
-
-  class AnimationCancelled extends Error {
-    constructor() {
-      super('Animation cancelled')
-      this.name = 'AnimationCancelled'
-    }
   }
 
   async function animateCamera(target: Camera): Promise<void> {
@@ -758,6 +500,76 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     notifyNodesChanged()
   }
 
+  function replay(action: import('./state/actions').Action): void {
+    switch (action.type) {
+      case 'NODE_CREATED': {
+        state.nodes.set(action.node.id, action.node)
+        notifyNodesChanged()
+        emit('node:created', materializeNode(action.node))
+        break
+      }
+      case 'NODE_DELETED': {
+        const prev = state.nodes.get(action.node.id)
+        if (!prev) return
+        state.nodes.delete(action.node.id)
+        if (state.selection.has(action.node.id)) {
+          const nextSelection = new Set(state.selection)
+          nextSelection.delete(action.node.id)
+          state.selection = nextSelection
+          reactive.notifySelectionChanged()
+        }
+        notifyNodesChanged()
+        emit('node:deleted', action.node.id, materializeNode(prev))
+        break
+      }
+      case 'NODE_UPDATED': {
+        state.nodes.set(action.id, action.after)
+        notifyNodesChanged()
+        emit('node:updated', materializeNode(action.after), materializeNode(action.before))
+        break
+      }
+      case 'NODES_MOVED': {
+        for (const delta of action.deltas) {
+          const current = state.nodes.get(delta.id)
+          if (!current) continue
+          const next: StoredNode = { ...current, x: delta.after.x, y: delta.after.y }
+          state.nodes.set(delta.id, next)
+          emit('node:moved', materializeNode(next), { x: delta.after.x - delta.before.x, y: delta.after.y - delta.before.y })
+          emit('node:updated', materializeNode(next), materializeNode(current))
+        }
+        if (action.deltas.length > 0) notifyNodesChanged()
+        break
+      }
+      case 'SELECTION_SET': {
+        const prev = Array.from(state.selection.values())
+        state.selection = new Set(action.after)
+        reactive.notifySelectionChanged()
+        emit('selection:change', [...action.after], prev)
+        break
+      }
+      case 'GRID_UPDATED': {
+        Object.assign(grid, action.after)
+        break
+      }
+      case 'NEXT_Z_INDEX_BUMPED': {
+        state.nextZIndex = action.after
+        break
+      }
+      case 'BATCH': {
+        for (const inner of action.actions) replay(inner)
+        return
+      }
+      case 'PLUGIN':
+        // Plugin slice updates and any side-effect listeners run via dispatcher.dispatch below.
+        break
+    }
+    dispatcher.dispatch(action)
+  }
+
+  function invertActionImpl(action: import('./state/actions').Action): import('./state/actions').Action {
+    return invertAction(action, (pluginName) => pluginSlices.get(pluginName)?.invert)
+  }
+
   const engine: BoardPluginContext<R> = {
     ext,
     $camera,
@@ -769,12 +581,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
     },
     batch(fn) {
-      beginTransaction()
-      try {
-        fn()
-      } finally {
-        endTransaction()
-      }
+      transactions.batch(fn)
     },
     getState,
     getSnapshot,
@@ -782,6 +589,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     getViewportSize,
     updateGridSettings(patch) {
       return runCommand('updateGridSettings', [patch], () => {
+        const before = { ...grid }
         if (patch.size !== undefined) {
           grid.size = Math.max(1, Math.round(patch.size))
         }
@@ -800,6 +608,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
         if (patch.pattern !== undefined) {
           grid.pattern = patch.pattern
         }
+        dispatcher.dispatch({ type: 'GRID_UPDATED', before, after: { ...grid } })
         return getGridSettings()
       })
     },
@@ -813,25 +622,40 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     on,
     once,
     off,
-    exportTrace() {
-      return trace.slice()
-    },
+    exportTrace: eventBus.exportTrace,
     use(plugin: BoardPlugin<R>) {
       if (pluginCleanups.has(plugin.name)) {
         return
       }
-      const cleanup = plugin.install(engine)
+      if (plugin.slice) {
+        pluginSlices.set(plugin.name, {
+          reducer: plugin.slice.reducer as (state: unknown, action: import('./state/actions').Action) => unknown,
+          invert: plugin.slice.invert as ((innerAction: unknown) => unknown) | undefined,
+          state: plugin.slice.initial
+        })
+      }
+      const pluginCtx: BoardPluginContext<R> = Object.assign(Object.create(engine) as BoardPluginContext<R>, {
+        getPluginState: <S,>(): S => {
+          const entry = pluginSlices.get(plugin.name)
+          if (!entry) {
+            throw new Error(`Plugin "${plugin.name}" did not register a slice; getPluginState is unavailable.`)
+          }
+          return entry.state as S
+        }
+      })
+      const cleanup = plugin.install(pluginCtx)
       pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
     },
-    addMiddleware(fn: CommandMiddleware) {
-      middlewares.push(fn)
-      return () => {
-        const idx = middlewares.indexOf(fn)
-        if (idx !== -1) middlewares.splice(idx, 1)
-      }
-    },
+    addMiddleware: middleware.add,
     runCommand<T>(name: string, args: unknown[], fn: () => T): T {
       return runCommand(name, args, fn)
+    },
+    dispatch: dispatcher.dispatch,
+    onAction: dispatcher.onAction,
+    replay,
+    invertAction: invertActionImpl,
+    getPluginState<S>(): S {
+      throw new Error('getPluginState is only available inside a plugin install() context.')
     },
     screenToWorld(point) {
       return screenToWorld(point, state.camera)
@@ -939,6 +763,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
         notifyNodesChanged()
+        dispatcher.dispatch({ type: 'NODE_CREATED', node })
         if (input.select !== false) {
           setSelection([node.id])
         }
@@ -951,7 +776,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       return runCommand('updateNode', [id, patch], () => {
         const current = assertStoredNode(id)
         const next = applyNodePatch(current, patch)
-        const stored = replaceStoredNode(current, next)
+        const stored = replaceStoredNodeAndDispatch(current, next)
         const publicNode = materializeNode(stored) as ResolvedNode<R, T>
         emit('node:updated', publicNode, materializeNode(current) as ResolvedNode<R, T>)
         return publicNode
@@ -968,6 +793,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             continue
           }
           state.nodes.delete(deleteId)
+          dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         notifyNodesChanged()
@@ -984,6 +810,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
           return materializeNode(node)
         }
         const targets = collectUniformTranslationTargets([id], state.nodes as Map<NodeId, BoardNode>)
+        const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
           const current = assertStoredNode(targetId)
           const next = {
@@ -993,8 +820,12 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
           }
           const stored = replaceStoredNode(current, next)
           const publicNode = materializeNode(stored)
+          deltas.push({ id: targetId, before: { x: current.x, y: current.y }, after: { x: stored.x, y: stored.y } })
           emit('node:moved', publicNode, { x: publicNode.x - current.x, y: publicNode.y - current.y })
           emit('node:updated', publicNode, materializeNode(current))
+        }
+        if (deltas.length > 0) {
+          dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
         return getPublicNode(id)
@@ -1010,6 +841,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
           return
         }
         const targets = collectUniformTranslationTargets(seeds, state.nodes as Map<NodeId, BoardNode>)
+        const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
           const current = assertStoredNode(targetId)
           const next = {
@@ -1019,8 +851,12 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
           }
           const stored = replaceStoredNode(current, next)
           const publicNode = materializeNode(stored)
+          deltas.push({ id: targetId, before: { x: current.x, y: current.y }, after: { x: stored.x, y: stored.y } })
           emit('node:moved', publicNode, { x: publicNode.x - current.x, y: publicNode.y - current.y })
           emit('node:updated', publicNode, materializeNode(current))
+        }
+        if (deltas.length > 0) {
+          dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
       })
@@ -1041,7 +877,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
               minHeight: nodeConstraints.minHeight
             })
           : raw
-        const stored = replaceStoredNode(node, { ...node, ...nextBounds })
+        const stored = replaceStoredNodeAndDispatch(node, { ...node, ...nextBounds })
         const publicNode = materializeNode(stored)
         emit('node:resized', publicNode, {
           x: node.x,
@@ -1056,7 +892,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     bringToFront(id) {
       runCommand('bringToFront', [id], () => {
         const node = assertStoredNode(id)
-        const stored = replaceStoredNode(node, { ...node, zIndex: state.nextZIndex++ })
+        const stored = replaceStoredNodeAndDispatch(node, { ...node, zIndex: state.nextZIndex++ })
         emit('node:updated', materializeNode(stored), materializeNode(node))
         restackGroupDescendantsAbove(id)
       })
@@ -1065,7 +901,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
       runCommand('sendToBack', [id], () => {
         const node = assertStoredNode(id)
         const minZ = Math.min(...Array.from(state.nodes.values(), (entry) => entry.zIndex))
-        const stored = replaceStoredNode(node, { ...node, zIndex: minZ - 1 })
+        const stored = replaceStoredNodeAndDispatch(node, { ...node, zIndex: minZ - 1 })
         emit('node:updated', materializeNode(stored), materializeNode(node))
         restackGroupDescendantsAbove(id)
       })
@@ -1073,14 +909,14 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
     lockNode(id) {
       runCommand('lockNode', [id], () => {
         const node = assertStoredNode(id)
-        const stored = replaceStoredNode(node, { ...node, locked: true })
+        const stored = replaceStoredNodeAndDispatch(node, { ...node, locked: true })
         emit('node:updated', materializeNode(stored), materializeNode(node))
       })
     },
     unlockNode(id) {
       runCommand('unlockNode', [id], () => {
         const node = assertStoredNode(id)
-        const stored = replaceStoredNode(node, { ...node, locked: false })
+        const stored = replaceStoredNodeAndDispatch(node, { ...node, locked: false })
         emit('node:updated', materializeNode(stored), materializeNode(node))
       })
     },
@@ -1094,6 +930,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
         const created = duplicateForest(source, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
+          dispatcher.dispatch({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
         notifyNodesChanged()
@@ -1118,6 +955,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
         const created = duplicateForest(clipboard, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
+          dispatcher.dispatch({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
         notifyNodesChanged()
@@ -1170,6 +1008,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             continue
           }
           state.nodes.delete(deleteId)
+          dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         if (toDelete.size > 0) {
@@ -1338,6 +1177,7 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
               })()
           setSnapGuides(snapResult.guides)
 
+          const moveDeltas: { id: NodeId; before: Point; after: Point }[] = []
           for (const nodeId of interaction.nodeIds) {
             const current = assertStoredNode(nodeId)
             const preliminary = prelimBounds[nodeId]
@@ -1345,15 +1185,22 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
             if (!preliminary || !origin) {
               continue
             }
+            const before = { x: current.x, y: current.y }
             const stored = replaceStoredNode(current, {
               ...current,
               x: preliminary.x + snapResult.dx,
               y: preliminary.y + snapResult.dy
             })
+            if (stored.x !== before.x || stored.y !== before.y) {
+              moveDeltas.push({ id: nodeId, before, after: { x: stored.x, y: stored.y } })
+            }
             emit('node:moved', materializeNode(stored), {
               x: stored.x - origin.x,
               y: stored.y - origin.y
             })
+          }
+          if (moveDeltas.length > 0) {
+            dispatcher.dispatch({ type: 'NODES_MOVED', deltas: moveDeltas })
           }
         }, true)
         return
@@ -1466,11 +1313,4 @@ export function createBoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry>
   emit('ready')
 
   return engine as BoardEngine<R>
-}
-
-function sameArray(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) {
-    return false
-  }
-  return a.every((value, index) => value === b[index])
 }

@@ -314,6 +314,24 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   syncGroupZOrder(groupId: NodeId): void
   exportJSON(): string
   importJSON(json: string, mode?: 'replace' | 'merge'): void
+  /**
+   * Subscribe to actions dispatched by commands.
+   * Used by plugins (history, connections) to react to state mutations
+   * without polling individual events.
+   */
+  onAction(listener: (action: import('./state/actions').Action) => void): Unsubscribe
+  /**
+   * Apply an action directly to engine state without running middleware or
+   * command lifecycle events. Used by the history plugin to replay inverse
+   * actions during undo/redo.
+   */
+  replay(action: import('./state/actions').Action): void
+  /**
+   * Compute the inverse of an action. Used by the history plugin.
+   * Plugin-tunneled actions are inverted via the registering plugin's
+   * `slice.invert` if present; otherwise an error is thrown.
+   */
+  invertAction(action: import('./state/actions').Action): import('./state/actions').Action
 }
 
 export interface BoardPluginContext<R extends NodeTypeRegistry = NodeTypeRegistry> extends BoardEngine<R> {
@@ -326,9 +344,30 @@ export interface BoardPluginContext<R extends NodeTypeRegistry = NodeTypeRegistr
    * are interceptable by middleware, and are captured by the history plugin.
    */
   runCommand<T>(name: string, args: unknown[], fn: () => T): T
+  /**
+   * Dispatch an action. Called by command implementations to record state mutations
+   * and notify subscribers (history, plugin reducers).
+   */
+  dispatch(action: import('./state/actions').Action): void
+  /**
+   * Read the current slice state for this plugin, as last produced by its reducer.
+   */
+  getPluginState<S>(): S
+}
+
+export interface BoardPluginSlice {
+  initial: unknown
+  reducer: (state: never, action: import('./state/actions').Action) => unknown
+  /**
+   * Optionally invert a plugin-tunneled action so that history can replay its inverse.
+   * Receives the inner action body (i.e. `(action as { type: 'PLUGIN' }).action`).
+   * Must return an inner action shape suitable for re-dispatching as a PLUGIN action.
+   */
+  invert?: (innerAction: never) => unknown
 }
 
 export interface BoardPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {
   name: string
+  slice?: BoardPluginSlice
   install(engine: BoardPluginContext<R>, options?: Record<string, unknown>): void | PluginCleanup
 }

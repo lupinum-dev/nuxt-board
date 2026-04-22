@@ -2,6 +2,7 @@ export { createBoardEngine } from './engine'
 export { createBatchController, createSubscribable } from './subscribable'
 export type { BatchController } from './subscribable'
 export { asEdgeId, asNodeId } from './types'
+export type { Action, NodeMoveDelta } from './state/actions'
 export {
   addDescendants,
   collectSubtreeIds,

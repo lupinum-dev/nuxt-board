@@ -1,4 +1,5 @@
 import { asEdgeId, type BoardPlugin, type EdgeId } from '@lupinum/board-core'
+import { SLICE_NAME, initialState, invert, reducer, type ConnectionsSliceState } from './slice'
 import type {
   BoardEdge,
   BoardEdgePatch,
@@ -50,10 +51,18 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
   const defaults = defaultEnds(defaultArrow)
 
   return {
-    name: 'connections',
+    name: SLICE_NAME,
+    slice: { initial: initialState, reducer, invert: invert as (innerAction: never) => unknown },
     install(engine) {
-      const edges = new Map<EdgeId, BoardEdge>()
-      let nextZIndex = 1
+      const getSlice = (): ConnectionsSliceState => engine.getPluginState<ConnectionsSliceState>()
+
+      function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
+        const edge = getSlice().edges.get(id)
+        if (!edge) {
+          throw new Error(`Cannot ${op} edge: edge "${id}" does not exist.`)
+        }
+        return edge
+      }
 
       const api: ConnectionsExtension = {
         createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -67,6 +76,7 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
               throw new Error(`Cannot create edge: target node "${input.to}" does not exist.`)
             }
 
+            const slice = getSlice()
             const edge: BoardEdge<T> = {
               id: input.id ?? asEdgeId(crypto.randomUUID()),
               from: input.from,
@@ -78,21 +88,19 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
               label: input.label,
               color: input.color,
               data: structuredClone(input.data ?? ({} as T)),
-              zIndex: input.zIndex ?? nextZIndex++
+              zIndex: input.zIndex ?? slice.nextZIndex
             }
 
-            nextZIndex = Math.max(nextZIndex, edge.zIndex + 1)
-            edges.set(edge.id, edge)
-            const cloned = cloneEdge(edge)
-            engine.emit('edge:created', cloned)
-            return cloned
+            engine.dispatch({
+              type: 'PLUGIN',
+              plugin: SLICE_NAME,
+              action: { type: 'EDGE_CREATED', edge: edge as BoardEdge }
+            })
+            return cloneEdge(edge)
           }) as BoardEdge<T>
         },
         updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(id: EdgeId, patch: BoardEdgePatch<T>) {
-          const current = edges.get(id) as BoardEdge<T> | undefined
-          if (!current) {
-            throw new Error(`Cannot update edge: edge "${id}" does not exist.`)
-          }
+          const current = getEdgeOrThrow(id, 'update') as BoardEdge<T>
 
           return engine.runCommand('edge:update', [id, patch], () => {
             const nextFrom = 'from' in patch ? patch.from : current.from
@@ -117,27 +125,31 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
               data: 'data' in patch ? structuredClone((patch.data ?? {}) as T) : structuredClone(current.data)
             }
 
-            edges.set(id, next)
-            const cloned = cloneEdge(next)
-            engine.emit('edge:updated', cloned, cloneEdge(current))
-            return cloned
+            engine.dispatch({
+              type: 'PLUGIN',
+              plugin: SLICE_NAME,
+              action: { type: 'EDGE_UPDATED', id, before: current as BoardEdge, after: next as BoardEdge }
+            })
+            return cloneEdge(next)
           }) as BoardEdge<T>
         },
         deleteEdge(id) {
-          if (!edges.has(id)) {
-            return
-          }
+          const current = getSlice().edges.get(id)
+          if (!current) return
           engine.runCommand('edge:delete', [id], () => {
-            edges.delete(id)
-            engine.emit('edge:deleted', id)
+            engine.dispatch({
+              type: 'PLUGIN',
+              plugin: SLICE_NAME,
+              action: { type: 'EDGE_DELETED', id, edge: current }
+            })
           })
         },
         getEdge(id) {
-          const edge = edges.get(id)
+          const edge = getSlice().edges.get(id)
           return edge ? cloneEdge(edge) : undefined
         },
         getEdges() {
-          return Array.from(edges.values(), (edge) => cloneEdge(edge))
+          return Array.from(getSlice().edges.values(), (edge) => cloneEdge(edge))
         },
         getEdgesFrom(id) {
           return api.getEdges().filter((edge) => edge.from === id)
@@ -156,15 +168,43 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
       ;(engine.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting; __defaultArrow?: ConnectionPluginOptions['defaultArrow'] }).__defaultArrow =
         defaultArrow
 
-      const unsubscribe = engine.on('node:deleted', (id) => {
-        const toDelete = Array.from(edges.values()).filter((edge) => edge.from === id || edge.to === id)
-        for (const edge of toDelete) {
-          edges.delete(edge.id)
-          engine.emit('edge:deleted', edge.id)
+      const cascadeUnsubscribe = engine.onAction((action) => {
+        if (action.type !== 'NODE_DELETED') return
+        const nodeId = action.node.id
+        const edges = getSlice().edges
+        for (const [id, edge] of edges) {
+          if (edge.from === nodeId || edge.to === nodeId) {
+            engine.dispatch({
+              type: 'PLUGIN',
+              plugin: SLICE_NAME,
+              action: { type: 'EDGE_DELETED', id, edge }
+            })
+          }
         }
       })
 
+      let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getSlice().edges
+      const unsubscribe = engine.onAction(() => {
+        const next = getSlice().edges
+        if (next === prevEdges) return
+        for (const [id, edge] of next) {
+          const before = prevEdges.get(id)
+          if (!before) {
+            engine.emit('edge:created', cloneEdge(edge))
+          } else if (before !== edge) {
+            engine.emit('edge:updated', cloneEdge(edge), cloneEdge(before))
+          }
+        }
+        for (const [id] of prevEdges) {
+          if (!next.has(id)) {
+            engine.emit('edge:deleted', id)
+          }
+        }
+        prevEdges = next
+      })
+
       return () => {
+        cascadeUnsubscribe()
         unsubscribe()
       }
     }

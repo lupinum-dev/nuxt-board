@@ -36,7 +36,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --tsconfig tsconfig.build.json"
   },
-  "dependencies": {
-    "@lupinum/board-core": "workspace:*"
+  "peerDependencies": {
+    "@lupinum/board-core": "workspace:^"
   }
 }

@@ -1,4 +1,4 @@
-import type { BoardSnapshot, BoardEngine, BoardPlugin } from '@lupinum/board-core'
+import type { Action, BoardPlugin } from '@lupinum/board-core'
 
 export interface HistoryState {
   undoDepth: number
@@ -8,8 +8,7 @@ export interface HistoryState {
 
 export interface HistoryEntry {
   label: string
-  snapshot: BoardSnapshot
-  extras?: Record<string, unknown>
+  actions: Action[]
   timestamp: number
 }
 
@@ -54,6 +53,35 @@ const DEFAULT_EXCLUDE = new Set([
   'endInteraction'
 ])
 
+function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
+  if (prev.label !== next.label) return false
+  if (prev.actions.length !== 1 || next.actions.length !== 1) return false
+  const a = prev.actions[0]
+  const b = next.actions[0]
+  if (!a || !b) return false
+  if (a.type !== 'NODES_MOVED' || b.type !== 'NODES_MOVED') return false
+  if (a.deltas.length !== b.deltas.length) return false
+  for (let i = 0; i < a.deltas.length; i++) {
+    if (a.deltas[i]!.id !== b.deltas[i]!.id) return false
+  }
+  return true
+}
+
+function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+  const a = prev.actions[0] as Action & { type: 'NODES_MOVED' }
+  const b = next.actions[0] as Action & { type: 'NODES_MOVED' }
+  const merged = a.deltas.map((delta, i) => ({
+    id: delta.id,
+    before: delta.before,
+    after: b.deltas[i]!.after
+  }))
+  return {
+    label: prev.label,
+    actions: [{ type: 'NODES_MOVED', deltas: merged }],
+    timestamp: next.timestamp
+  }
+}
+
 export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)
@@ -62,134 +90,103 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
   return {
     name: 'history',
     install(engine) {
-      const getConnections = (): {
-        getEdges: () => Array<Record<string, unknown>>
-        deleteEdge: (id: string) => void
-        createEdge: (input: Record<string, unknown>) => Record<string, unknown>
-      } | null => {
-        const value = (engine.ext as unknown as { connections?: unknown }).connections
-        if (
-          !value ||
-          typeof (value as { getEdges?: unknown }).getEdges !== 'function' ||
-          typeof (value as { deleteEdge?: unknown }).deleteEdge !== 'function' ||
-          typeof (value as { createEdge?: unknown }).createEdge !== 'function'
-        ) {
-          return null
-        }
-        return value as {
-          getEdges: () => Array<Record<string, unknown>>
-          deleteEdge: (id: string) => void
-          createEdge: (input: Record<string, unknown>) => Record<string, unknown>
-        }
-      }
-
       const undoStack: HistoryEntry[] = []
       const redoStack: HistoryEntry[] = []
-      let previousSnapshot = canonicalSnapshot(engine.getSnapshot())
-      let previousExtras: Record<string, unknown> | undefined
-      let pendingCommand: { name: string; timer: ReturnType<typeof setTimeout> | null } | null = null
+
+      let activeCommand: string | null = null
+      let activeActions: Action[] = []
+      let pending: HistoryEntry | null = null
+      let pendingTimer: ReturnType<typeof setTimeout> | null = null
       let replaying = false
 
-      function cloneSnapshot(snapshot: BoardSnapshot): BoardSnapshot {
-        // Nodes are immutable (new object on every mutation), so we only need
-        // to copy the array — not deep-clone each node's data.
-        return {
-          ...snapshot,
-          camera: { ...snapshot.camera },
-          grid: { ...snapshot.grid },
-          nodes: [...snapshot.nodes],
-          selection: [...snapshot.selection],
-          snapGuides: [...snapshot.snapGuides]
+      function clearPendingTimer(): void {
+        if (pendingTimer !== null) {
+          clearTimeout(pendingTimer)
+          pendingTimer = null
         }
       }
 
-      function captureExtras(): Record<string, unknown> | undefined {
-        const extras: Record<string, unknown> = {}
-        const connections = getConnections()
-        if (connections) {
-          extras.connections = {
-            edges: structuredClone(connections.getEdges())
+      function commitPending(): void {
+        clearPendingTimer()
+        if (!pending) return
+        const entry = pending
+        pending = null
+        const last = undoStack[undoStack.length - 1]
+        if (last && isCoalescableMoves(last, entry)) {
+          undoStack[undoStack.length - 1] = mergeMoves(last, entry)
+        } else {
+          undoStack.push(entry)
+          if (undoStack.length > maxSteps) {
+            undoStack.shift()
           }
         }
-        return Object.keys(extras).length > 0 ? extras : undefined
+        redoStack.length = 0
+        const final = undoStack[undoStack.length - 1]!
+        engine.emit('history:push', final)
       }
 
-      previousExtras = captureExtras()
+      function schedulePending(entry: HistoryEntry): void {
+        if (pending) {
+          if (isCoalescableMoves(pending, entry)) {
+            pending = mergeMoves(pending, entry)
+          } else {
+            commitPending()
+            pending = entry
+          }
+        } else {
+          pending = entry
+        }
+        clearPendingTimer()
+        if (debounceMs > 0) {
+          pendingTimer = setTimeout(commitPending, debounceMs)
+        } else {
+          commitPending()
+        }
+      }
 
-      function commitEntry(commandName: string): void {
-        const label = commandName
-        undoStack.push({
-          label,
-          snapshot: cloneSnapshot(previousSnapshot),
-          extras: previousExtras ? structuredClone(previousExtras) : undefined,
+      const offAction = engine.onAction((action) => {
+        if (replaying) return
+        if (activeCommand === null) return
+        activeActions.push(action)
+      })
+
+      const offBefore = engine.on('command:before', (name) => {
+        if (replaying) return
+        if (excluded.has(name)) return
+        activeCommand = name
+        activeActions = []
+      })
+
+      const offAfter = engine.on('command:after', (name) => {
+        if (replaying) return
+        if (activeCommand !== name) {
+          activeCommand = null
+          activeActions = []
+          return
+        }
+        const captured = activeActions
+        activeCommand = null
+        activeActions = []
+        if (captured.length === 0) return
+        schedulePending({
+          label: name,
+          actions: captured,
           timestamp: Date.now()
         })
-        if (undoStack.length > maxSteps) {
-          undoStack.shift()
-        }
-        redoStack.splice(0, redoStack.length)
-        previousSnapshot = canonicalSnapshot(engine.getSnapshot())
-        previousExtras = captureExtras()
-        const entry = undoStack[undoStack.length - 1]
-        if (entry) {
-          engine.emit('history:push', entry)
-        }
-      }
+      })
 
-      function flushPending(): void {
-        if (!pendingCommand) {
-          return
-        }
-        if (pendingCommand.timer) {
-          clearTimeout(pendingCommand.timer)
-        }
-        const commandName = pendingCommand.name
-        pendingCommand = null
-        commitEntry(commandName)
-      }
-
-      function queuePush(commandName: string): void {
-        if (pendingCommand?.name === commandName && debounceMs > 0) {
-          if (pendingCommand.timer) {
-            clearTimeout(pendingCommand.timer)
-          }
-          pendingCommand.timer = setTimeout(flushPending, debounceMs)
-          return
-        }
-
-        flushPending()
-        pendingCommand = {
-          name: commandName,
-          timer: debounceMs > 0 ? setTimeout(flushPending, debounceMs) : null
-        }
-        if (debounceMs === 0) {
-          flushPending()
-        }
-      }
-
-      function restoreExtras(extras?: Record<string, unknown>): void {
-        const connections = getConnections()
-        if (!extras?.connections || !connections) {
-          return
-        }
-        const currentEdges = connections.getEdges()
-        for (const edge of currentEdges) {
-          connections.deleteEdge(String(edge.id))
-        }
-        const nextEdges = ((extras.connections as { edges?: Array<Record<string, unknown>> }).edges ?? []).map((edge) =>
-          structuredClone(edge)
-        )
-        for (const edge of nextEdges) {
-          connections.createEdge(edge)
-        }
-      }
-
-      function replaceSnapshot(snapshot: BoardSnapshot, extras?: Record<string, unknown>): void {
+      function applyEntry(entry: HistoryEntry, direction: 'undo' | 'redo'): void {
         replaying = true
         try {
-          engine.importJSON(JSON.stringify(snapshot), 'replace')
-          restoreExtras(extras)
-          previousSnapshot = canonicalSnapshot(engine.getSnapshot())
+          if (direction === 'undo') {
+            for (let i = entry.actions.length - 1; i >= 0; i--) {
+              engine.replay(engine.invertAction(entry.actions[i]!))
+            }
+          } else {
+            for (const action of entry.actions) {
+              engine.replay(action)
+            }
+          }
         } finally {
           replaying = false
         }
@@ -197,97 +194,64 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
 
       const api = {
         undo: () => {
-        flushPending()
-        const entry = undoStack.pop() ?? null
-        if (!entry) {
-          return
-        }
-        redoStack.push({
-          label: entry.label,
-          snapshot: cloneSnapshot(engine.getSnapshot()),
-          extras: captureExtras(),
-          timestamp: Date.now()
-        })
-        replaceSnapshot(entry.snapshot, entry.extras)
-        engine.emit('history:undo', entry)
+          commitPending()
+          const entry = undoStack.pop() ?? null
+          if (!entry) {
+            engine.emit('history:undo', null)
+            return
+          }
+          applyEntry(entry, 'undo')
+          redoStack.push(entry)
+          engine.emit('history:undo', entry)
         },
 
         redo: () => {
-        flushPending()
-        const entry = redoStack.pop() ?? null
-        if (!entry) {
-          return
-        }
-        undoStack.push({
-          label: entry.label,
-          snapshot: cloneSnapshot(engine.getSnapshot()),
-          extras: captureExtras(),
-          timestamp: Date.now()
-        })
-        replaceSnapshot(entry.snapshot, entry.extras)
-        engine.emit('history:redo', entry)
+          commitPending()
+          const entry = redoStack.pop() ?? null
+          if (!entry) {
+            engine.emit('history:redo', null)
+            return
+          }
+          applyEntry(entry, 'redo')
+          undoStack.push(entry)
+          engine.emit('history:redo', entry)
         },
 
         canUndo: () => {
-        flushPending()
-        return undoStack.length > 0
+          commitPending()
+          return undoStack.length > 0
         },
 
         canRedo: () => {
-        flushPending()
-        return redoStack.length > 0
+          commitPending()
+          return redoStack.length > 0
         },
 
         clear: () => {
-        undoStack.splice(0, undoStack.length)
-        redoStack.splice(0, redoStack.length)
-        pendingCommand = null
-        previousSnapshot = canonicalSnapshot(engine.getSnapshot())
-        previousExtras = captureExtras()
-        engine.emit('history:clear')
+          undoStack.length = 0
+          redoStack.length = 0
+          pending = null
+          clearPendingTimer()
+          activeCommand = null
+          activeActions = []
+          engine.emit('history:clear')
         },
 
-        getState: () => ({
+        getState: (): HistoryState => ({
           undoDepth: undoStack.length,
           redoDepth: redoStack.length,
-          current: pendingCommand?.name ?? undoStack[undoStack.length - 1]?.label ?? null
+          current: pending?.label ?? undoStack[undoStack.length - 1]?.label ?? null
         })
       }
 
       engine.extend('history', api)
 
-      const unsubscribeBefore = engine.on('command:before', () => {
-        if (!replaying) {
-          previousExtras = captureExtras()
-        }
-      })
-
-      const unsubscribe = engine.on('command:after', (name) => {
-        if (replaying || excluded.has(name)) {
-          flushPending()
-          const current = engine.getSnapshot()
-          previousSnapshot = {
-            ...previousSnapshot,
-            camera: { ...current.camera },
-            interaction: { mode: 'idle' }
-          }
-          return
-        }
-        queuePush(name)
-      })
-
       return () => {
-        unsubscribeBefore()
-        unsubscribe()
-        flushPending()
+        offAction()
+        offBefore()
+        offAfter()
+        clearPendingTimer()
       }
     }
-  }
-}
-
-function canonicalSnapshot(snapshot: BoardSnapshot): BoardSnapshot {
-  return {
-    ...snapshot,
-    interaction: { mode: 'idle' }
   }
 }
