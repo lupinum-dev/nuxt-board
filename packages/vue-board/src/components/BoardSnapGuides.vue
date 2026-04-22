@@ -14,14 +14,14 @@ const screenGuides = computed(() => {
         axis: 'x' as const,
         pos: (guide.position + cx) * z,
         from: (guide.from + cy) * z,
-        to: (guide.to + cy) * z
+        to: (guide.to + cy) * z,
       }
     } else {
       return {
         axis: 'y' as const,
         pos: (guide.position + cy) * z,
         from: (guide.from + cx) * z,
-        to: (guide.to + cx) * z
+        to: (guide.to + cx) * z,
       }
     }
   })
@@ -34,10 +34,23 @@ const screenGuides = computed(() => {
       v-for="(guide, index) in screenGuides"
       :key="index"
       class="board-snap-guide"
-      :class="guide.axis === 'x' ? 'board-snap-guide--vertical' : 'board-snap-guide--horizontal'"
-      :style="guide.axis === 'x'
-        ? { left: guide.pos + 'px', top: guide.from + 'px', height: (guide.to - guide.from) + 'px' }
-        : { top: guide.pos + 'px', left: guide.from + 'px', width: (guide.to - guide.from) + 'px' }
+      :class="
+        guide.axis === 'x'
+          ? 'board-snap-guide--vertical'
+          : 'board-snap-guide--horizontal'
+      "
+      :style="
+        guide.axis === 'x'
+          ? {
+              left: guide.pos + 'px',
+              top: guide.from + 'px',
+              height: guide.to - guide.from + 'px',
+            }
+          : {
+              top: guide.pos + 'px',
+              left: guide.from + 'px',
+              width: guide.to - guide.from + 'px',
+            }
       "
     />
   </div>
@@ -58,12 +71,18 @@ const screenGuides = computed(() => {
 .board-snap-guide--vertical {
   width: var(--board-snap-guide-width, 2px);
   background: var(--board-snap-guide-color, #0f766e);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 var(--board-snap-guide-glow-size, 18px) -4px var(--board-snap-guide-color, #0f766e);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 var(--board-snap-guide-glow-size, 18px) -4px
+      var(--board-snap-guide-color, #0f766e);
 }
 
 .board-snap-guide--horizontal {
   height: var(--board-snap-guide-width, 2px);
   background: var(--board-snap-guide-color, #0f766e);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 var(--board-snap-guide-glow-size, 18px) -4px var(--board-snap-guide-color, #0f766e);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 var(--board-snap-guide-glow-size, 18px) -4px
+      var(--board-snap-guide-color, #0f766e);
 }
 </style>

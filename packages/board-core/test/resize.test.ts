@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from '../src/resize'
+import {
+  applyResizeDelta,
+  applyResizeDeltaLocked,
+  snapResizedBounds,
+  snapResizedBoundsLocked,
+} from '../src/resize'
 import { createBoardEngine } from '../src'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -17,7 +22,7 @@ function round(b: { x: number; y: number; width: number; height: number }) {
     x: Math.round(b.x * 1e6) / 1e6,
     y: Math.round(b.y * 1e6) / 1e6,
     width: Math.round(b.width * 1e6) / 1e6,
-    height: Math.round(b.height * 1e6) / 1e6
+    height: Math.round(b.height * 1e6) / 1e6,
   }
 }
 
@@ -30,22 +35,43 @@ describe('applyResizeDeltaLocked', () => {
 
   it('SE: grows proportionally when width delta is dominant', () => {
     // growX / w = 40/200 = 0.20, growY / h = 10/100 = 0.10 → width dominant
-    const result = applyResizeDeltaLocked(NODE_200_100, 'se', 40, 10, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'se',
+      40,
+      10,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
-    expect(result.height).toBe(120)  // 240 / 2
-    expect(result.x).toBe(100)       // origin unchanged for SE
+    expect(result.height).toBe(120) // 240 / 2
+    expect(result.x).toBe(100) // origin unchanged for SE
     expect(result.y).toBe(100)
   })
 
   it('SE: grows proportionally when height delta is dominant', () => {
     // growX / w = 10/200 = 0.05, growY / h = 40/100 = 0.40 → height dominant
-    const result = applyResizeDeltaLocked(NODE_200_100, 'se', 10, 40, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'se',
+      10,
+      40,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.height).toBe(140)
-    expect(result.width).toBe(280)   // 140 * 2
+    expect(result.width).toBe(280) // 140 * 2
   })
 
   it('SE: shrinks proportionally', () => {
-    const result = applyResizeDeltaLocked(NODE_200_100, 'se', -40, -20, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'se',
+      -40,
+      -20,
+      CONSTRAINTS,
+      2,
+    )
     // growX / w = 40/200 = 0.20, growY / h = 20/100 = 0.20 → equal, width branch wins
     expect(result.width).toBe(160)
     expect(result.height).toBe(80)
@@ -63,7 +89,14 @@ describe('applyResizeDeltaLocked', () => {
     // cdy = ySign*(newH-h) = -1*(80-100) = 20   (positive means move down)
     // applyResizeDelta(node, 'nw', 40, 20): nextWidth=max(50,200-40)=160, x=100+40=140
     //                                       nextHeight=max(50,100-20)=80,  y=100+20=120
-    const result = applyResizeDeltaLocked(NODE_200_100, 'nw', 30, 20, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'nw',
+      30,
+      20,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(160)
     expect(result.height).toBe(80)
     expect(result.x).toBe(140)
@@ -79,7 +112,14 @@ describe('applyResizeDeltaLocked', () => {
     // cdx = -1*(240-200) = -40, cdy = -1*(120-100) = -20
     // applyResizeDelta('nw', -40, -20): nextWidth=max(50,200-(-40))=240, x=100-40=60
     //                                   nextHeight=max(50,100-(-20))=120, y=100-20=80
-    const result = applyResizeDeltaLocked(NODE_200_100, 'nw', -40, -10, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'nw',
+      -40,
+      -10,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
     expect(result.x).toBe(60)
@@ -94,11 +134,18 @@ describe('applyResizeDeltaLocked', () => {
     // |growX/w|=0.20, |growY/h|=0.20 → equal, width branch wins
     // newW=240, newH=120; cdx=40, cdy=-1*(120-100)=-20
     // x unchanged, y moves up
-    const result = applyResizeDeltaLocked(NODE_200_100, 'ne', 40, -20, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'ne',
+      40,
+      -20,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
     expect(result.x).toBe(100)
-    expect(result.y).toBe(80)   // moved up by 20
+    expect(result.y).toBe(80) // moved up by 20
   })
 
   // ── SW corner ──────────────────────────────────────────────────────────────
@@ -109,17 +156,31 @@ describe('applyResizeDeltaLocked', () => {
     // |growX/w|=0.20, |growY/h|=0.20 → equal, width wins
     // newW=240, newH=120; cdx=-1*(240-200)=-40, cdy=1*(120-100)=20
     // applyResizeDelta('sw', -40, 20): w: nextWidth=max(50,200-(-40))=240, x=100-40=60; s: height=120
-    const result = applyResizeDeltaLocked(NODE_200_100, 'sw', -40, 20, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'sw',
+      -40,
+      20,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
     expect(result.x).toBe(60)
-    expect(result.y).toBe(100)   // y unchanged for SW
+    expect(result.y).toBe(100) // y unchanged for SW
   })
 
   // ── E edge ─────────────────────────────────────────────────────────────────
 
   it('E: extends right and derives height from ratio (growing south)', () => {
-    const result = applyResizeDeltaLocked(NODE_200_100, 'e', 40, 0, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'e',
+      40,
+      0,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
     expect(result.x).toBe(100)
@@ -127,7 +188,14 @@ describe('applyResizeDeltaLocked', () => {
   })
 
   it('E: shrinks right and shrinks height from ratio', () => {
-    const result = applyResizeDeltaLocked(NODE_200_100, 'e', -60, 0, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'e',
+      -60,
+      0,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(140)
     expect(result.height).toBe(70)
   })
@@ -136,17 +204,31 @@ describe('applyResizeDeltaLocked', () => {
 
   it('W: extends left, x moves left, height adjusts from ratio', () => {
     // deltaX=-40 means moved left → width grows: newW = max(50, 200-(-40)) = 240
-    const result = applyResizeDeltaLocked(NODE_200_100, 'w', -40, 0, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'w',
+      -40,
+      0,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
-    expect(result.x).toBe(60)    // moved left
+    expect(result.x).toBe(60) // moved left
     expect(result.y).toBe(100)
   })
 
   // ── S edge ─────────────────────────────────────────────────────────────────
 
   it('S: extends down, derives width from ratio (growing east)', () => {
-    const result = applyResizeDeltaLocked(NODE_200_100, 's', 0, 30, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      's',
+      0,
+      30,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.height).toBe(130)
     expect(result.width).toBe(260)
     expect(result.x).toBe(100)
@@ -157,10 +239,17 @@ describe('applyResizeDeltaLocked', () => {
 
   it('N: extends up, y moves up, derives width from ratio (growing east)', () => {
     // deltaY=-30 means moved up → height grows: newH = max(50, 100-(-30)) = 130
-    const result = applyResizeDeltaLocked(NODE_200_100, 'n', 0, -30, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'n',
+      0,
+      -30,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.height).toBe(130)
     expect(result.width).toBe(260)
-    expect(result.y).toBe(70)    // moved up by 30
+    expect(result.y).toBe(70) // moved up by 30
     expect(result.x).toBe(100)
   })
 
@@ -168,13 +257,27 @@ describe('applyResizeDeltaLocked', () => {
 
   it('SE: clamps to minWidth when shrinking below minimum', () => {
     // Shrink far past minimum
-    const result = applyResizeDeltaLocked(NODE_200_100, 'se', -300, -300, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'se',
+      -300,
+      -300,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBeGreaterThanOrEqual(CONSTRAINTS.minWidth)
     expect(result.height).toBeGreaterThanOrEqual(CONSTRAINTS.minHeight)
   })
 
   it('NW: clamps to minHeight and adjusts ratio accordingly', () => {
-    const result = applyResizeDeltaLocked(NODE_200_100, 'nw', 300, 300, CONSTRAINTS, 2)
+    const result = applyResizeDeltaLocked(
+      NODE_200_100,
+      'nw',
+      300,
+      300,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBeGreaterThanOrEqual(CONSTRAINTS.minWidth)
     expect(result.height).toBeGreaterThanOrEqual(CONSTRAINTS.minHeight)
   })
@@ -184,7 +287,14 @@ describe('applyResizeDeltaLocked', () => {
     for (const handle of handles) {
       const dx = handle.includes('e') ? 30 : -30
       const dy = handle.includes('s') ? 20 : -20
-      const result = applyResizeDeltaLocked(NODE_200_100, handle, dx, dy, CONSTRAINTS, 2)
+      const result = applyResizeDeltaLocked(
+        NODE_200_100,
+        handle,
+        dx,
+        dy,
+        CONSTRAINTS,
+        2,
+      )
       expect(ratio(result)).toBeCloseTo(2, 5)
     }
   })
@@ -194,7 +304,14 @@ describe('applyResizeDeltaLocked', () => {
     for (const handle of handles) {
       const dx = handle === 'e' ? 40 : handle === 'w' ? -40 : 0
       const dy = handle === 's' ? 30 : handle === 'n' ? -30 : 0
-      const result = applyResizeDeltaLocked(NODE_200_100, handle, dx, dy, CONSTRAINTS, 2)
+      const result = applyResizeDeltaLocked(
+        NODE_200_100,
+        handle,
+        dx,
+        dy,
+        CONSTRAINTS,
+        2,
+      )
       expect(ratio(result)).toBeCloseTo(2, 5)
     }
   })
@@ -202,7 +319,9 @@ describe('applyResizeDeltaLocked', () => {
   it('handles non-integer aspect ratios (e.g. 16:9)', () => {
     const node = { x: 0, y: 0, width: 160, height: 90 }
     const ar = 160 / 90 // ≈ 1.778
-    const result = round(applyResizeDeltaLocked(node, 'se', 32, 0, CONSTRAINTS, ar))
+    const result = round(
+      applyResizeDeltaLocked(node, 'se', 32, 0, CONSTRAINTS, ar),
+    )
     expect(result.width).toBe(192)
     expect(result.height).toBeCloseTo(108, 4)
     expect(ratio(result)).toBeCloseTo(ar, 5)
@@ -218,9 +337,16 @@ describe('snapResizedBoundsLocked', () => {
   it('SE: snaps width to grid and derives height from ratio', () => {
     // raw from aspect-ratio locked: 240×120
     const raw = { x: 100, y: 100, width: 237, height: 118.5 }
-    const result = snapResizedBoundsLocked(raw, START, 'se', GRID, CONSTRAINTS, 2)
-    expect(result.width).toBe(240)            // snapped up to nearest 20
-    expect(result.height).toBe(120)           // 240 / 2
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'se',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
+    expect(result.width).toBe(240) // snapped up to nearest 20
+    expect(result.height).toBe(120) // 240 / 2
     expect(result.x).toBe(100)
     expect(result.y).toBe(100)
   })
@@ -228,60 +354,109 @@ describe('snapResizedBoundsLocked', () => {
   it('NW: snaps width to grid, keeps right+bottom edges fixed', () => {
     // right = 100+200=300, bottom=100+100=200
     const raw = { x: 58, y: 79, width: 242, height: 121 }
-    const result = snapResizedBoundsLocked(raw, START, 'nw', GRID, CONSTRAINTS, 2)
-    expect(result.width).toBe(240)             // snapped to 240
-    expect(result.height).toBe(120)            // 240 / 2
-    expect(result.x).toBe(60)                  // right - snappedW = 300 - 240
-    expect(result.y).toBe(80)                  // bottom - snappedH = 200 - 120
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'nw',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
+    expect(result.width).toBe(240) // snapped to 240
+    expect(result.height).toBe(120) // 240 / 2
+    expect(result.x).toBe(60) // right - snappedW = 300 - 240
+    expect(result.y).toBe(80) // bottom - snappedH = 200 - 120
   })
 
   it('NE: snaps width to grid, y derived from snapped height', () => {
     // right edge free (E), top edge moves (N)
     // bottom = 100+100 = 200
     const raw = { x: 100, y: 78, width: 243, height: 122 }
-    const result = snapResizedBoundsLocked(raw, START, 'ne', GRID, CONSTRAINTS, 2)
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'ne',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
     expect(result.x).toBe(100)
-    expect(result.y).toBe(80)                  // 200 - 120
+    expect(result.y).toBe(80) // 200 - 120
   })
 
   it('SW: snaps width, x derived from right edge', () => {
     // right = 300
     const raw = { x: 58, y: 100, width: 242, height: 121 }
-    const result = snapResizedBoundsLocked(raw, START, 'sw', GRID, CONSTRAINTS, 2)
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'sw',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBe(240)
     expect(result.height).toBe(120)
-    expect(result.x).toBe(60)                  // 300 - 240
+    expect(result.x).toBe(60) // 300 - 240
     expect(result.y).toBe(100)
   })
 
   it('N: height is primary, snaps height and derives width', () => {
     const raw = { x: 100, y: 72, width: 256, height: 128 }
-    const result = snapResizedBoundsLocked(raw, START, 'n', GRID, CONSTRAINTS, 2)
-    expect(result.height).toBe(120)            // snapped down
-    expect(result.width).toBe(240)             // 120 * 2
-    expect(result.y).toBe(80)                  // bottom - snappedH = 200 - 120
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'n',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
+    expect(result.height).toBe(120) // snapped down
+    expect(result.width).toBe(240) // 120 * 2
+    expect(result.y).toBe(80) // bottom - snappedH = 200 - 120
   })
 
   it('S: height is primary, snaps height and derives width', () => {
     const raw = { x: 100, y: 100, width: 263, height: 131 }
-    const result = snapResizedBoundsLocked(raw, START, 's', GRID, CONSTRAINTS, 2)
-    expect(result.height).toBe(140)            // snapped to nearest 20
-    expect(result.width).toBe(280)             // 140 * 2
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      's',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
+    expect(result.height).toBe(140) // snapped to nearest 20
+    expect(result.width).toBe(280) // 140 * 2
     expect(result.y).toBe(100)
   })
 
   it('respects minWidth constraint after snapping', () => {
     const raw = { x: 140, y: 115, width: 60, height: 30 }
-    const result = snapResizedBoundsLocked(raw, START, 'se', GRID, CONSTRAINTS, 2)
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'se',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
     expect(result.width).toBeGreaterThanOrEqual(CONSTRAINTS.minWidth)
     expect(result.height).toBeGreaterThanOrEqual(CONSTRAINTS.minHeight)
   })
 
   it('preserves exact ratio after snap when dimensions are already on grid', () => {
     const raw = { x: 100, y: 100, width: 240, height: 120 }
-    const result = snapResizedBoundsLocked(raw, START, 'se', GRID, CONSTRAINTS, 2)
+    const result = snapResizedBoundsLocked(
+      raw,
+      START,
+      'se',
+      GRID,
+      CONSTRAINTS,
+      2,
+    )
     expect(ratio(result)).toBeCloseTo(2, 5)
   })
 })
@@ -291,7 +466,14 @@ describe('snapResizedBoundsLocked', () => {
 describe('aspect-ratio resize via engine (Shift key)', () => {
   it('preserves aspect ratio when shift is held during SE resize', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 200, height: 100, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 60, y: 10 }, { shift: true })
@@ -305,7 +487,14 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
   it('preserves aspect ratio when shift is held during NW resize', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 100, y: 100, width: 200, height: 100, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 100,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'nw', 1, { x: 100, y: 100 })
     // Move left and up: shrink both axes
@@ -318,7 +507,14 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
   it('does NOT constrain aspect ratio when shift is not held', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 200, height: 100, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 40, y: 70 }, { shift: false })
@@ -333,11 +529,18 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
   it('switching shift on/off mid-resize produces correct result at release', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 200, height: 100, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 50, y: 90 }, { shift: false }) // free resize
-    engine.updatePointer(1, { x: 50, y: 90 }, { shift: true })  // lock applied at last move
+    engine.updatePointer(1, { x: 50, y: 90 }, { shift: true }) // lock applied at last move
     engine.endInteraction(1)
 
     const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
@@ -346,7 +549,14 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
   it('stores aspectRatio in interaction state at beginResize', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 300, height: 200, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 200,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
 
@@ -359,7 +569,14 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
   it('preserves ratio with snap enabled', () => {
     const engine = createBoardEngine({ grid: { size: 20, snap: true } })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, width: 200, height: 100, data: {} })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      data: {},
+    })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 55, y: 10 }, { shift: true })
@@ -374,19 +591,26 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
   it('all eight handles preserve ratio under shift', () => {
     const handles = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'] as const
     const deltas: Record<string, { x: number; y: number }> = {
-      n:  { x: 0,   y: -30 },
-      ne: { x: 30,  y: -20 },
-      e:  { x: 40,  y: 0 },
-      se: { x: 40,  y: 20 },
-      s:  { x: 0,   y: 30 },
+      n: { x: 0, y: -30 },
+      ne: { x: 30, y: -20 },
+      e: { x: 40, y: 0 },
+      se: { x: 40, y: 20 },
+      s: { x: 0, y: 30 },
       sw: { x: -40, y: 20 },
-      w:  { x: -40, y: 0 },
-      nw: { x: -30, y: -20 }
+      w: { x: -40, y: 0 },
+      nw: { x: -30, y: -20 },
     }
 
     for (const handle of handles) {
       const engine = createBoardEngine({ grid: { snap: false } })
-      const node = engine.createNode({ type: 'text', x: 100, y: 100, width: 200, height: 100, data: {} })
+      const node = engine.createNode({
+        type: 'text',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        data: {},
+      })
       const d = deltas[handle]!
 
       engine.beginResize(node.id, handle, 1, { x: 0, y: 0 })

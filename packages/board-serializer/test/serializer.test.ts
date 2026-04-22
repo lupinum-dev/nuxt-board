@@ -6,7 +6,12 @@ import { jsonCanvasSerializer } from '../src'
 describe('json canvas serializer', () => {
   it('round-trips text nodes through the json canvas format', () => {
     const engine = createBoardEngine()
-    engine.createNode({ type: 'text', x: 10, y: 20, data: { content: 'Hello' } })
+    engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      data: { content: 'Hello' },
+    })
 
     const json = jsonCanvasSerializer.export(engine.getSnapshot())
     const document = jsonCanvasSerializer.parse(json)
@@ -14,45 +19,57 @@ describe('json canvas serializer', () => {
 
     expect(snapshot.nodes[0]).toMatchObject({
       type: 'text',
-      data: { content: 'Hello' }
+      data: { content: 'Hello' },
     })
   })
 
   it('uses custom type handlers when registered', () => {
     jsonCanvasSerializer.registerType('image', {
       serialize: (node) => ({ src: node.data.src, alt: node.data.alt }),
-      deserialize: (raw) => ({ src: raw.src, alt: raw.alt })
+      deserialize: (raw) => ({ src: raw.src, alt: raw.alt }),
     })
 
     const engine = createBoardEngine()
-    engine.createNode({ type: 'image', x: 0, y: 0, data: { src: '/asset.png', alt: 'Asset' } })
+    engine.createNode({
+      type: 'image',
+      x: 0,
+      y: 0,
+      data: { src: '/asset.png', alt: 'Asset' },
+    })
 
     const json = jsonCanvasSerializer.export(engine.getSnapshot())
-    const snapshot = jsonCanvasSerializer.toSnapshot(jsonCanvasSerializer.parse(json))
+    const snapshot = jsonCanvasSerializer.toSnapshot(
+      jsonCanvasSerializer.parse(json),
+    )
 
     expect(snapshot.nodes[0]).toMatchObject({
       type: 'image',
-      data: { src: '/asset.png', alt: 'Asset' }
+      data: { src: '/asset.png', alt: 'Asset' },
     })
   })
 
   it('round-trips custom node types without a registered handler via x-canvas:data', () => {
     const serializer = jsonCanvasSerializer
     const engine = createBoardEngine()
-    engine.createNode({ type: 'video', x: 50, y: 50, data: { src: '/clip.mp4', duration: 42 } })
+    engine.createNode({
+      type: 'video',
+      x: 50,
+      y: 50,
+      data: { src: '/clip.mp4', duration: 42 },
+    })
 
     const json = serializer.export(engine.getSnapshot())
     const snapshot = serializer.toSnapshot(serializer.parse(json))
 
     expect(snapshot.nodes[0]).toMatchObject({
       type: 'video',
-      data: { src: '/clip.mp4', duration: 42 }
+      data: { src: '/clip.mp4', duration: 42 },
     })
   })
 
   it('preserves engine metadata and connection edges through the extension namespace', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()]
+      plugins: [connectionPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -60,13 +77,13 @@ describe('json canvas serializer', () => {
       y: 20,
       locked: true,
       visible: false,
-      data: { content: 'Hidden' }
+      data: { content: 'Hidden' },
     })
     const second = engine.createNode({
       type: 'text',
       x: 240,
       y: 120,
-      data: { content: 'Visible' }
+      data: { content: 'Visible' },
     })
     engine.sendToBack(first.id)
     engine.ext.connections.createEdge({
@@ -78,10 +95,12 @@ describe('json canvas serializer', () => {
       toEnd: 'arrow',
       color: '#0f766e',
       label: 'Link',
-      data: {}
+      data: {},
     })
 
-    const document = jsonCanvasSerializer.parse(jsonCanvasSerializer.export(engine))
+    const document = jsonCanvasSerializer.parse(
+      jsonCanvasSerializer.export(engine),
+    )
     const snapshot = jsonCanvasSerializer.toSnapshot(document)
 
     expect(document['x-canvas']?.edges).toHaveLength(1)
@@ -90,43 +109,74 @@ describe('json canvas serializer', () => {
       toSide: 'left',
       toEnd: 'arrow',
       color: '#0f766e',
-      label: 'Link'
+      label: 'Link',
     })
     expect(snapshot.camera).toEqual(engine.getSnapshot().camera)
     expect(snapshot.grid).toEqual(engine.getSnapshot().grid)
     expect(snapshot.nodes.find((node) => node.id === first.id)).toMatchObject({
       locked: true,
       visible: false,
-      zIndex: engine.getSnapshot().nodes.find((node) => node.id === first.id)?.zIndex
+      zIndex: engine.getSnapshot().nodes.find((node) => node.id === first.id)
+        ?.zIndex,
     })
   })
 
   it('hydrates connections back into an engine from json canvas edges', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()]
+      plugins: [connectionPlugin()],
     })
-    engine.createNode({ id: 'source' as never, type: 'text', x: 0, y: 0, data: { content: 'A' } })
-    engine.createNode({ id: 'target' as never, type: 'text', x: 240, y: 0, data: { content: 'B' } })
+    engine.createNode({
+      id: 'source' as never,
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'A' },
+    })
+    engine.createNode({
+      id: 'target' as never,
+      type: 'text',
+      x: 240,
+      y: 0,
+      data: { content: 'B' },
+    })
 
-    const document = jsonCanvasSerializer.parse(JSON.stringify({
-      nodes: [
-        { id: 'source', type: 'text', x: 0, y: 0, width: 180, height: 120, text: 'A' },
-        { id: 'target', type: 'text', x: 240, y: 0, width: 180, height: 120, text: 'B' }
-      ],
-      edges: [
-        {
-          id: 'edge-1',
-          fromNode: 'source',
-          toNode: 'target',
-          fromSide: 'right',
-          toSide: 'left',
-          fromEnd: 'none',
-          toEnd: 'arrow',
-          color: '#0f766e',
-          label: 'Link'
-        }
-      ]
-    }))
+    const document = jsonCanvasSerializer.parse(
+      JSON.stringify({
+        nodes: [
+          {
+            id: 'source',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 180,
+            height: 120,
+            text: 'A',
+          },
+          {
+            id: 'target',
+            type: 'text',
+            x: 240,
+            y: 0,
+            width: 180,
+            height: 120,
+            text: 'B',
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-1',
+            fromNode: 'source',
+            toNode: 'target',
+            fromSide: 'right',
+            toSide: 'left',
+            fromEnd: 'none',
+            toEnd: 'arrow',
+            color: '#0f766e',
+            label: 'Link',
+          },
+        ],
+      }),
+    )
 
     jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
 
@@ -136,7 +186,7 @@ describe('json canvas serializer', () => {
       color: '#0f766e',
       toEnd: 'arrow',
       fromAnchor: { side: 'right', offset: 0.5 },
-      toAnchor: { side: 'left', offset: 0.5 }
+      toAnchor: { side: 'left', offset: 0.5 },
     })
   })
 
@@ -148,7 +198,7 @@ describe('json canvas serializer', () => {
       y: 0,
       width: 200,
       height: 200,
-      select: false
+      select: false,
     })
     engine.createNode({
       type: 'text',
@@ -158,14 +208,18 @@ describe('json canvas serializer', () => {
       height: 60,
       parentId: group.id,
       select: false,
-      data: { content: 'in group' }
+      data: { content: 'in group' },
     })
     engine.syncGroupZOrder(group.id)
 
     const json = jsonCanvasSerializer.export(engine.getSnapshot())
-    const snapshot = jsonCanvasSerializer.toSnapshot(jsonCanvasSerializer.parse(json))
+    const snapshot = jsonCanvasSerializer.toSnapshot(
+      jsonCanvasSerializer.parse(json),
+    )
     const child = snapshot.nodes.find((n) => n.type === 'text')
     expect(child?.parentId).toBe(group.id)
-    expect(snapshot.nodes.some((n) => n.type === 'group' && n.id === group.id)).toBe(true)
+    expect(
+      snapshot.nodes.some((n) => n.type === 'group' && n.id === group.id),
+    ).toBe(true)
   })
 })

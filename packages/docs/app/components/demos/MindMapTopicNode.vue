@@ -20,7 +20,7 @@ const style = computed(() => {
       border: '#14b8a6',
       text: 'text-teal-950',
       label: 'ROOT',
-      labelColor: 'text-teal-600'
+      labelColor: 'text-teal-600',
     }
   }
   if (depth.value === 1) {
@@ -33,7 +33,7 @@ const style = computed(() => {
       border: '#0ea5e9',
       text: 'text-sky-950',
       label: 'BRANCH',
-      labelColor: 'text-sky-500'
+      labelColor: 'text-sky-500',
     }
   }
   return {
@@ -45,7 +45,7 @@ const style = computed(() => {
     border: '#94a3b8',
     text: 'text-default',
     label: 'LEAF',
-    labelColor: 'text-dimmed'
+    labelColor: 'text-dimmed',
   }
 })
 </script>
@@ -57,7 +57,7 @@ const style = computed(() => {
     :style="{
       borderLeft: `4px solid ${style.border}`,
       background: style.surface,
-      boxShadow: style.glow
+      boxShadow: style.glow,
     }"
   >
     <div class="flex h-full flex-col justify-between gap-2">
@@ -65,7 +65,10 @@ const style = computed(() => {
         class="flex items-center gap-1.5 text-[0.6rem] font-semibold uppercase tracking-[0.28em]"
         :class="style.labelColor"
       >
-        <span class="inline-block size-1.5 rounded-full" :style="{ background: style.border }"></span>
+        <span
+          class="inline-block size-1.5 rounded-full"
+          :style="{ background: style.border }"
+        ></span>
         {{ style.label }}
       </span>
       <div>

@@ -1,5 +1,10 @@
 import { computed, inject } from 'vue'
-import { getBoundsFromPoints, getVisibleBounds, type NodeId, type ResizeHandle } from '@lupinum/board-core'
+import {
+  getBoundsFromPoints,
+  getVisibleBounds,
+  type NodeId,
+  type ResizeHandle,
+} from '@lupinum/board-core'
 import { boardEngineKey } from './context'
 
 export function useBoardEngine() {
@@ -32,14 +37,22 @@ export function useInteraction() {
 
 export function useVisibleBounds() {
   const { $camera, viewportSize } = useBoardEngine()
-  return computed(() => getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value))
+  return computed(() =>
+    getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value),
+  )
 }
 
 export function useVisibleNodes(margin = 200) {
   const { $nodes, viewportSize, $camera } = useBoardEngine()
   return computed(() => {
     const canCull = viewportSize.value.x > 0 && viewportSize.value.y > 0
-    const bounds = canCull ? getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value) : null
+    const bounds = canCull
+      ? getVisibleBounds(
+          viewportSize.value.x,
+          viewportSize.value.y,
+          $camera.value,
+        )
+      : null
     return Array.from($nodes.value.values()).filter((node) => {
       if (!node.visible) {
         return false
@@ -67,15 +80,22 @@ export function useGridStyle() {
   return computed(() => {
     const zoom = $camera.value.z
     const minorWorldStep = resolvedGrid.value.size
-    const majorWorldStep = resolvedGrid.value.size * resolvedGrid.value.majorEvery
+    const majorWorldStep =
+      resolvedGrid.value.size * resolvedGrid.value.majorEvery
     const minorScreenStep = minorWorldStep * zoom
     const majorScreenStep = majorWorldStep * zoom
     const cameraScreenX = $camera.value.x * zoom
     const cameraScreenY = $camera.value.y * zoom
     const minorAlpha =
-      minorScreenStep < 6 ? 0 : minorScreenStep < 12 ? resolvedGrid.value.minorOpacity * 0.57 : resolvedGrid.value.minorOpacity
+      minorScreenStep < 6
+        ? 0
+        : minorScreenStep < 12
+          ? resolvedGrid.value.minorOpacity * 0.57
+          : resolvedGrid.value.minorOpacity
     const majorAlpha =
-      majorScreenStep < 8 ? resolvedGrid.value.majorOpacity * 0.44 : resolvedGrid.value.majorOpacity
+      majorScreenStep < 8
+        ? resolvedGrid.value.majorOpacity * 0.44
+        : resolvedGrid.value.majorOpacity
 
     return {
       '--grid-minor-size': `${minorScreenStep}px`,
@@ -88,13 +108,14 @@ export function useGridStyle() {
       '--grid-major-color': `rgba(var(--board-grid-major-rgb, 71 85 105) / ${majorAlpha})`,
       '--grid-mask-image': resolvedGrid.value.fadeEdges
         ? 'radial-gradient(circle at center, black 68%, transparent 100%)'
-        : 'none'
+        : 'none',
     }
   })
 }
 
 export function useNode(id: NodeId) {
-  const { engine, $nodes, $selection, $interaction, toLocalPoint } = useBoardEngine()
+  const { engine, $nodes, $selection, $interaction, toLocalPoint } =
+    useBoardEngine()
 
   const node = computed(() => {
     const current = $nodes.value.get(id)
@@ -106,7 +127,9 @@ export function useNode(id: NodeId) {
 
   const selected = computed(() => $selection.value.has(id))
   const editing = computed(
-    () => $interaction.value.mode === 'editing-text' && $interaction.value.nodeId === id
+    () =>
+      $interaction.value.mode === 'editing-text' &&
+      $interaction.value.nodeId === id,
   )
   const locked = computed(() => node.value.locked)
 
@@ -115,7 +138,7 @@ export function useNode(id: NodeId) {
     top: `${node.value.y}px`,
     width: `${node.value.width}px`,
     height: `${node.value.height}px`,
-    zIndex: String(node.value.zIndex)
+    zIndex: String(node.value.zIndex),
   }))
 
   return {
@@ -126,9 +149,19 @@ export function useNode(id: NodeId) {
     style,
     beginEdit: () => engine.beginTextEdit(id),
     commitText: (text: string) => engine.commitTextEdit(id, text),
-    startDrag: (event: PointerEvent) => engine.beginNodeDrag(id, event.pointerId, toLocalPoint(event.clientX, event.clientY)),
+    startDrag: (event: PointerEvent) =>
+      engine.beginNodeDrag(
+        id,
+        event.pointerId,
+        toLocalPoint(event.clientX, event.clientY),
+      ),
     startResize: (handle: ResizeHandle, event: PointerEvent) =>
-      engine.beginResize(id, handle, event.pointerId, toLocalPoint(event.clientX, event.clientY))
+      engine.beginResize(
+        id,
+        handle,
+        event.pointerId,
+        toLocalPoint(event.clientX, event.clientY),
+      ),
   }
 }
 
@@ -139,6 +172,9 @@ export function useBoxSelectBounds() {
     if (interaction.mode !== 'box-select') {
       return null
     }
-    return getBoundsFromPoints(interaction.startScreenPoint, interaction.currentScreenPoint)
+    return getBoundsFromPoints(
+      interaction.startScreenPoint,
+      interaction.currentScreenPoint,
+    )
   })
 }

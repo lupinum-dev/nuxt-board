@@ -2,8 +2,13 @@
 import type { ConnectionRouting } from '@lupinum/board-connections'
 
 const gridSize = defineModel<10 | 20 | 40>('gridSize', { required: true })
-const gridPattern = defineModel<'line' | 'dot' | 'cross' | 'none'>('gridPattern', { required: true })
-const connectionRouting = defineModel<ConnectionRouting>('connectionRouting', { required: true })
+const gridPattern = defineModel<'line' | 'dot' | 'cross' | 'none'>(
+  'gridPattern',
+  { required: true },
+)
+const connectionRouting = defineModel<ConnectionRouting>('connectionRouting', {
+  required: true,
+})
 
 defineProps<{
   benchmarkResult: string
@@ -27,13 +32,23 @@ const pbtn =
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 pt-3.5">
-      <h2 class="text-[13px] font-semibold tracking-tight text-stone-900">Settings</h2>
+      <h2 class="text-[13px] font-semibold tracking-tight text-stone-900">
+        Settings
+      </h2>
       <button
         class="flex items-center justify-center w-6 h-6 border-none bg-transparent text-stone-400 rounded-md cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900"
         aria-label="Close settings"
         @click="emit('close')"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
           <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
         </svg>
       </button>
@@ -43,7 +58,11 @@ const pbtn =
     <div class="divide-y divide-black/6">
       <!-- Grid -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
-        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Grid</h3>
+        <h3
+          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+        >
+          Grid
+        </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
           <span class="text-[13px] text-stone-600">Size</span>
           <select
@@ -70,7 +89,11 @@ const pbtn =
       </section>
 
       <section class="flex flex-col gap-2 px-4 py-3.5">
-        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Connections</h3>
+        <h3
+          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+        >
+          Connections
+        </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
           <span class="text-[13px] text-stone-600">Style</span>
           <select
@@ -88,14 +111,26 @@ const pbtn =
 
       <!-- Benchmark -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
-        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Benchmark</h3>
+        <h3
+          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+        >
+          Benchmark
+        </h3>
         <button :class="pbtn" @click="emit('benchmark')">Run benchmark</button>
-        <p class="font-mono text-[11px] leading-relaxed text-stone-400 break-all">{{ benchmarkResult }}</p>
+        <p
+          class="font-mono text-[11px] leading-relaxed text-stone-400 break-all"
+        >
+          {{ benchmarkResult }}
+        </p>
       </section>
 
       <!-- Data -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
-        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Data</h3>
+        <h3
+          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+        >
+          Data
+        </h3>
         <div class="flex gap-1.5">
           <button :class="pbtn" @click="emit('export')">Export</button>
           <button :class="pbtn" @click="emit('import')">Import</button>
@@ -103,16 +138,30 @@ const pbtn =
         <pre
           v-if="exportedJson"
           class="p-2.5 bg-black/[0.025] rounded-lg font-mono text-[11px] leading-snug text-stone-400 whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto"
-        >{{ exportedJson.slice(0, 300) }}</pre>
+          >{{ exportedJson.slice(0, 300) }}</pre
+        >
       </section>
 
       <!-- Shortcuts -->
       <section class="flex flex-col gap-2 px-4 py-3.5 pb-4">
-        <h3 class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5">Shortcuts</h3>
+        <h3
+          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+        >
+          Shortcuts
+        </h3>
         <dl class="flex flex-col gap-[5px]">
-          <div v-for="shortcut in shortcuts" :key="shortcut.keys" class="flex items-center justify-between gap-3">
-            <dt class="text-xs text-stone-600 whitespace-nowrap" v-html="shortcut.keys" />
-            <dd class="text-xs text-stone-400 text-right">{{ shortcut.action }}</dd>
+          <div
+            v-for="shortcut in shortcuts"
+            :key="shortcut.keys"
+            class="flex items-center justify-between gap-3"
+          >
+            <dt
+              class="text-xs text-stone-600 whitespace-nowrap"
+              v-html="shortcut.keys"
+            />
+            <dd class="text-xs text-stone-400 text-right">
+              {{ shortcut.action }}
+            </dd>
           </div>
         </dl>
       </section>
@@ -134,6 +183,6 @@ const shortcuts = [
   { keys: `${kbd('Ctrl')} ${kbd('0')}`, action: 'Reset zoom' },
   { keys: `${kbd('Ctrl')} ${kbd('1')}`, action: 'Zoom to fit' },
   { keys: kbd('Del'), action: 'Delete' },
-  { keys: 'Arrows', action: 'Nudge selection' }
+  { keys: 'Arrows', action: 'Nudge selection' },
 ]
 </script>

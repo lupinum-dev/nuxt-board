@@ -15,22 +15,26 @@ export function defaultNodeData(type: string): NodeData {
   return {}
 }
 
-export function normalizeExistingNode<R extends NodeTypeRegistry>(node: ResolvedNode<R>): StoredNode {
+export function normalizeExistingNode<R extends NodeTypeRegistry>(
+  node: ResolvedNode<R>,
+): StoredNode {
   const parentId =
-    typeof node.parentId === 'string' && node.parentId.length > 0 ? node.parentId : undefined
+    typeof node.parentId === 'string' && node.parentId.length > 0
+      ? node.parentId
+      : undefined
   return {
     ...node,
     data: cloneData(node.data),
     locked: Boolean(node.locked),
     visible: node.visible !== false,
     parentId,
-    ...ZERO_VERSIONS
+    ...ZERO_VERSIONS,
   }
 }
 
 export function createInitialState<R extends NodeTypeRegistry>(
   initialNodes: ReadonlyArray<ResolvedNode<R>> = [],
-  cameraOverrides?: Partial<typeof DEFAULT_CAMERA>
+  cameraOverrides?: Partial<typeof DEFAULT_CAMERA>,
 ): MutableBoardState<R> {
   const state: MutableBoardState<R> = {
     camera: { ...DEFAULT_CAMERA, ...cameraOverrides },
@@ -38,7 +42,7 @@ export function createInitialState<R extends NodeTypeRegistry>(
     selection: new Set(),
     interaction: { mode: 'idle' },
     snapGuides: [],
-    nextZIndex: 1
+    nextZIndex: 1,
   }
   for (const node of initialNodes) {
     const normalized = normalizeExistingNode<R>(node)

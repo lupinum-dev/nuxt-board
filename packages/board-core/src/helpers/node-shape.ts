@@ -2,9 +2,10 @@ import type { NodeTypeRegistry, ResolvedNode } from '../types'
 import { cloneData, freezeClone } from './clone'
 import type { StoredNode } from '../state/versioning'
 
-export function materializeNode<R extends NodeTypeRegistry, T extends keyof R = keyof R>(
-  node: StoredNode
-): ResolvedNode<R, T> {
+export function materializeNode<
+  R extends NodeTypeRegistry,
+  T extends keyof R = keyof R,
+>(node: StoredNode): ResolvedNode<R, T> {
   return freezeClone({
     id: node.id,
     type: node.type,
@@ -16,6 +17,6 @@ export function materializeNode<R extends NodeTypeRegistry, T extends keyof R = 
     zIndex: node.zIndex,
     locked: node.locked,
     visible: node.visible,
-    ...(node.parentId !== undefined ? { parentId: node.parentId } : {})
+    ...(node.parentId !== undefined ? { parentId: node.parentId } : {}),
   }) as ResolvedNode<R, T>
 }

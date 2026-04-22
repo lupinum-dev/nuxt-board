@@ -6,7 +6,7 @@ const camera = useCamera()
 
 const style = computed(() => ({
   transform: `scale(${camera.value.z}) translate(${camera.value.x}px, ${camera.value.y}px)`,
-  '--board-zoom': camera.value.z
+  '--board-zoom': camera.value.z,
 }))
 </script>
 

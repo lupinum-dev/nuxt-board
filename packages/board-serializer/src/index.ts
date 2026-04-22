@@ -1,4 +1,9 @@
-import { asNodeId, type BoardSnapshot, type BoardEngine, type BoardNode } from '@lupinum/board-core'
+import {
+  asNodeId,
+  type BoardSnapshot,
+  type BoardEngine,
+  type BoardNode,
+} from '@lupinum/board-core'
 import type { AnchorSide, BoardEdge, EdgeEnd } from '@lupinum/board-connections'
 
 export interface JsonCanvasNode {
@@ -54,11 +59,15 @@ export interface JsonCanvasSerializer {
   registerType(type: string, handler: TypeHandler): void
   export(
     input: BoardSnapshot | BoardEngine,
-    extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] }
+    extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] },
   ): string
   parse(json: string): JsonCanvasDocument
   toSnapshot(document: JsonCanvasDocument): BoardSnapshot
-  hydrateEngine(engine: BoardEngine, document: JsonCanvasDocument, mode?: 'replace' | 'merge'): void
+  hydrateEngine(
+    engine: BoardEngine,
+    document: JsonCanvasDocument,
+    mode?: 'replace' | 'merge',
+  ): void
 }
 
 export function createJsonCanvasSerializer(): JsonCanvasSerializer {
@@ -71,20 +80,21 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       x: node.x,
       y: node.y,
       width: node.width,
-      height: node.height
+      height: node.height,
     }
 
     if (node.type === 'text') {
-      base.text = typeof (node.data as { content?: unknown }).content === 'string'
-        ? ((node.data as { content: string }).content)
-        : ''
+      base.text =
+        typeof (node.data as { content?: unknown }).content === 'string'
+          ? (node.data as { content: string }).content
+          : ''
     }
 
     const handler = typeHandlers.get(node.type)
     const extra = handler?.serialize?.(node) ?? { 'x-canvas:data': node.data }
     return {
       ...base,
-      ...extra
+      ...extra,
     }
   }
 
@@ -106,7 +116,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       data,
       zIndex: index + 1,
       locked: false,
-      visible: true
+      visible: true,
     }
   }
 
@@ -116,27 +126,35 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
     },
     export(
       input: BoardSnapshot | BoardEngine,
-      extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] }
+      extras?: { edges?: JsonCanvasEdge[] | BoardEdge[] },
     ): string {
-      const snapshot = typeof (input as BoardEngine).getSnapshot === 'function'
-        ? (input as BoardEngine).getSnapshot()
-        : (input as BoardSnapshot)
-      const engineRef = typeof (input as BoardEngine).getSnapshot === 'function'
-        ? (input as BoardEngine)
-        : null
+      const snapshot =
+        typeof (input as BoardEngine).getSnapshot === 'function'
+          ? (input as BoardEngine).getSnapshot()
+          : (input as BoardSnapshot)
+      const engineRef =
+        typeof (input as BoardEngine).getSnapshot === 'function'
+          ? (input as BoardEngine)
+          : null
       const nodes = snapshot.nodes.map((node) => serializeNodeEntry(node))
       const connectionEdges =
         extras?.edges ??
-        ((((engineRef as BoardEngine & {
-          ext?: {
-            connections?: {
-              getEdges: () => BoardEdge[]
-            }
-          }
-        } | null)?.ext?.connections?.getEdges() as
-          BoardEdge[] | undefined) ??
-          [])) as JsonCanvasEdge[] | BoardEdge[]
-      const serializedEdges = connectionEdges.map((edge) => serializeEdgeEntry(edge))
+        ((((
+          engineRef as
+            | (BoardEngine & {
+                ext?: {
+                  connections?: {
+                    getEdges: () => BoardEdge[]
+                  }
+                }
+              })
+            | null
+        )?.ext?.connections?.getEdges() as BoardEdge[] | undefined) ?? []) as
+          | JsonCanvasEdge[]
+          | BoardEdge[])
+      const serializedEdges = connectionEdges.map((edge) =>
+        serializeEdgeEntry(edge),
+      )
       return JSON.stringify(
         {
           nodes,
@@ -152,15 +170,17 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
                   zIndex: node.zIndex,
                   locked: node.locked,
                   visible: node.visible,
-                  ...(node.parentId !== undefined ? { parentId: node.parentId } : {})
-                }
-              ])
+                  ...(node.parentId !== undefined
+                    ? { parentId: node.parentId }
+                    : {}),
+                },
+              ]),
             ),
-            edges: serializedEdges
-          }
+            edges: serializedEdges,
+          },
         },
         null,
-        2
+        2,
       )
     },
     parse(json: string): JsonCanvasDocument {
@@ -171,11 +191,20 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       return parsed as JsonCanvasDocument
     },
     toSnapshot(document: JsonCanvasDocument): BoardSnapshot {
-      const nodes = document.nodes.map((node, index) => deserializeNodeEntry(node, index))
+      const nodes = document.nodes.map((node, index) =>
+        deserializeNodeEntry(node, index),
+      )
       const extensions = document['x-canvas']
       return {
         camera: extensions?.camera ?? { x: 0, y: 0, z: 1 },
-        grid: extensions?.grid ?? { size: 10, majorEvery: 5, snap: true, edgeSnap: true, edgeSnapThreshold: 8, pattern: 'line' },
+        grid: extensions?.grid ?? {
+          size: 10,
+          majorEvery: 5,
+          snap: true,
+          edgeSnap: true,
+          edgeSnapThreshold: 8,
+          pattern: 'line',
+        },
         nodes: nodes.map((node) => {
           const meta = extensions?.nodes?.[node.id]
           return {
@@ -183,7 +212,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
             zIndex: meta?.zIndex ?? node.zIndex,
             locked: meta?.locked ?? node.locked,
             visible: meta?.visible ?? node.visible,
-            parentId: meta?.parentId ? asNodeId(meta.parentId) : node.parentId
+            parentId: meta?.parentId ? asNodeId(meta.parentId) : node.parentId,
           }
         }),
         selection: [],
@@ -191,20 +220,28 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
         snapGuides: [],
         nextZIndex:
           extensions?.nextZIndex ??
-          nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1
+          nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1,
       }
     },
-    hydrateEngine(engine: BoardEngine, document: JsonCanvasDocument, mode: 'replace' | 'merge' = 'replace'): void {
+    hydrateEngine(
+      engine: BoardEngine,
+      document: JsonCanvasDocument,
+      mode: 'replace' | 'merge' = 'replace',
+    ): void {
       const snapshot = this.toSnapshot(document)
       engine.importJSON(JSON.stringify(snapshot), mode)
 
-      const connections = (engine.ext as BoardEngine['ext'] & {
-        connections?: {
-          getEdges: () => BoardEdge[]
-          deleteEdge: (id: string) => void
-          createEdge: (input: Omit<BoardEdge, 'zIndex'> & { zIndex?: number }) => BoardEdge
+      const connections = (
+        engine.ext as BoardEngine['ext'] & {
+          connections?: {
+            getEdges: () => BoardEdge[]
+            deleteEdge: (id: string) => void
+            createEdge: (
+              input: Omit<BoardEdge, 'zIndex'> & { zIndex?: number },
+            ) => BoardEdge
+          }
         }
-      }).connections
+      ).connections
 
       if (!connections) {
         return
@@ -218,12 +255,13 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       for (const edge of rawEdges) {
         connections.createEdge(deserializeEdgeEntry(edge))
       }
-    }
+    },
   }
 }
 
 /** Default serializer instance for convenience. */
-export const jsonCanvasSerializer: JsonCanvasSerializer = createJsonCanvasSerializer()
+export const jsonCanvasSerializer: JsonCanvasSerializer =
+  createJsonCanvasSerializer()
 
 function serializeEdgeEntry(edge: JsonCanvasEdge | BoardEdge): JsonCanvasEdge {
   if ('fromNode' in edge && 'toNode' in edge) {
@@ -239,21 +277,25 @@ function serializeEdgeEntry(edge: JsonCanvasEdge | BoardEdge): JsonCanvasEdge {
     fromEnd: edge.fromEnd,
     toEnd: edge.toEnd,
     color: edge.color,
-    label: edge.label
+    label: edge.label,
   }
 }
 
-function deserializeEdgeEntry(edge: JsonCanvasEdge): Omit<BoardEdge, 'zIndex'> & { zIndex?: number } {
+function deserializeEdgeEntry(
+  edge: JsonCanvasEdge,
+): Omit<BoardEdge, 'zIndex'> & { zIndex?: number } {
   return {
     id: edge.id as BoardEdge['id'],
     from: asNodeId(edge.fromNode),
     to: asNodeId(edge.toNode),
-    fromAnchor: edge.fromSide ? { side: edge.fromSide, offset: 0.5 } : undefined,
+    fromAnchor: edge.fromSide
+      ? { side: edge.fromSide, offset: 0.5 }
+      : undefined,
     toAnchor: edge.toSide ? { side: edge.toSide, offset: 0.5 } : undefined,
     fromEnd: edge.fromEnd,
     toEnd: edge.toEnd,
     color: typeof edge.color === 'string' ? edge.color : undefined,
     label: typeof edge.label === 'string' ? edge.label : undefined,
-    data: {}
+    data: {},
   }
 }

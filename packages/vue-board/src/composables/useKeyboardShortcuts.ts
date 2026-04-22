@@ -27,7 +27,11 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
     const mod = event.metaKey || event.ctrlKey
     const selection = engine.getSelection()
-    const history = (engine.ext as unknown as { history?: { undo: () => void; redo: () => void } }).history
+    const history = (
+      engine.ext as unknown as {
+        history?: { undo: () => void; redo: () => void }
+      }
+    ).history
     if (event.key === 'Escape') {
       engine.clearSelection()
       engine.endInteraction()

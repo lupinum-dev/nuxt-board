@@ -59,17 +59,26 @@ const engineMethods = [
   'getUniformTranslationTargets',
   'syncGroupZOrder',
   'exportJSON',
-  'importJSON'
+  'importJSON',
 ] as const satisfies ReadonlyArray<keyof BoardEngine>
 
-const subscribableProps = ['$camera', '$nodes', '$selection', '$interaction', '$snapGuides'] as const
+const subscribableProps = [
+  '$camera',
+  '$nodes',
+  '$selection',
+  '$interaction',
+  '$snapGuides',
+] as const
 
 describe('BoardEngine public API contract', () => {
   it('exposes every documented method and subscribable', () => {
     const engine = createBoardEngine()
 
     for (const method of engineMethods) {
-      expect(typeof engine[method], `engine.${method} should be a function`).toBe('function')
+      expect(
+        typeof engine[method],
+        `engine.${method} should be a function`,
+      ).toBe('function')
     }
     for (const prop of subscribableProps) {
       const sub = engine[prop]
@@ -84,16 +93,28 @@ describe('BoardEngine public API contract', () => {
     const engine = createBoardEngine()
     const snapshot = engine.getSnapshot()
     expect(Object.keys(snapshot).sort()).toEqual(
-      ['camera', 'grid', 'interaction', 'nextZIndex', 'nodes', 'selection', 'snapGuides'].sort()
+      [
+        'camera',
+        'grid',
+        'interaction',
+        'nextZIndex',
+        'nodes',
+        'selection',
+        'snapGuides',
+      ].sort(),
     )
-    expect(snapshot.camera).toMatchObject({ x: expect.any(Number), y: expect.any(Number), z: expect.any(Number) })
+    expect(snapshot.camera).toMatchObject({
+      x: expect.any(Number),
+      y: expect.any(Number),
+      z: expect.any(Number),
+    })
     expect(snapshot.grid).toMatchObject({
       size: expect.any(Number),
       majorEvery: expect.any(Number),
       snap: expect.any(Boolean),
       edgeSnap: expect.any(Boolean),
       edgeSnapThreshold: expect.any(Number),
-      pattern: expect.any(String)
+      pattern: expect.any(String),
     })
     expect(Array.isArray(snapshot.nodes)).toBe(true)
     expect(Array.isArray(snapshot.selection)).toBe(true)
@@ -106,7 +127,14 @@ describe('BoardEngine public API contract', () => {
     const engine = createBoardEngine()
     const state = engine.getState()
     expect(Object.keys(state).sort()).toEqual(
-      ['camera', 'interaction', 'nextZIndex', 'nodes', 'selection', 'snapGuides'].sort()
+      [
+        'camera',
+        'interaction',
+        'nextZIndex',
+        'nodes',
+        'selection',
+        'snapGuides',
+      ].sort(),
     )
     expect(state.nodes).toBeInstanceOf(Map)
     expect(state.selection).toBeInstanceOf(Set)
@@ -114,9 +142,25 @@ describe('BoardEngine public API contract', () => {
 
   it('createNode returns a node with the documented shape', () => {
     const engine = createBoardEngine()
-    const node = engine.createNode({ type: 'text', x: 10, y: 20, data: { content: 'hi' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      data: { content: 'hi' },
+    })
     expect(Object.keys(node).sort()).toEqual(
-      ['data', 'height', 'id', 'locked', 'type', 'visible', 'width', 'x', 'y', 'zIndex'].sort()
+      [
+        'data',
+        'height',
+        'id',
+        'locked',
+        'type',
+        'visible',
+        'width',
+        'x',
+        'y',
+        'zIndex',
+      ].sort(),
     )
     expect(node).toMatchObject({
       type: 'text',
@@ -126,7 +170,7 @@ describe('BoardEngine public API contract', () => {
       height: expect.any(Number),
       locked: false,
       visible: true,
-      zIndex: expect.any(Number)
+      zIndex: expect.any(Number),
     })
     expect(typeof node.id).toBe('string')
   })
@@ -160,7 +204,12 @@ describe('BoardEngine public API contract', () => {
 
   it('exportJSON / importJSON round-trip preserves persistent state', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 5, y: 5, data: { content: 'r' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 5,
+      y: 5,
+      data: { content: 'r' },
+    })
     engine.select([node.id])
     const json = engine.exportJSON()
 

@@ -14,7 +14,7 @@ export function useViewportSize(options: UseViewportSizeOptions) {
     const rect = options.rootElement.value?.getBoundingClientRect()
     viewportSize.value = {
       x: rect?.width ?? 0,
-      y: rect?.height ?? 0
+      y: rect?.height ?? 0,
     }
     options.engine.setViewportSize(viewportSize.value)
   }

@@ -1,11 +1,22 @@
 import { shallowRef, type Ref } from 'vue'
-import { asNodeId, type BoardEngine, type Point, type ResizeHandle } from '@lupinum/board-core'
+import {
+  asNodeId,
+  type BoardEngine,
+  type Point,
+  type ResizeHandle,
+} from '@lupinum/board-core'
 
 const POINTER_DRAG_THRESHOLD = 6
 
 type PendingPointerInteraction =
   | { kind: 'drag'; pointerId: number; startPoint: Point; nodeId: string }
-  | { kind: 'resize'; pointerId: number; startPoint: Point; nodeId: string; handle: ResizeHandle }
+  | {
+      kind: 'resize'
+      pointerId: number
+      startPoint: Point
+      nodeId: string
+      handle: ResizeHandle
+    }
   | { kind: 'box-select'; pointerId: number; startPoint: Point }
 
 export interface UsePointerInteractionOptions {
@@ -16,21 +27,31 @@ export interface UsePointerInteractionOptions {
 }
 
 function findNodeId(target: EventTarget | null): string | undefined {
-  return target instanceof HTMLElement ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId : undefined
+  return target instanceof HTMLElement
+    ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId
+    : undefined
 }
 
 function findHandle(target: EventTarget | null): ResizeHandle | undefined {
   return target instanceof HTMLElement
-    ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as ResizeHandle | undefined)
+    ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as
+        | ResizeHandle
+        | undefined)
     : undefined
 }
 
 function isEditorTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && Boolean(target.closest('[data-editor="true"]'))
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest('[data-editor="true"]'))
+  )
 }
 
 function isBoardInteractiveTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && Boolean(target.closest('[data-board-interactive="true"]'))
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest('[data-board-interactive="true"]'))
+  )
 }
 
 export function usePointerInteraction(options: UsePointerInteractionOptions) {
@@ -40,7 +61,12 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   const activePointers = new Map<number, Point>()
   let pinchActive = false
   let pinchPrevDistance = 0
-  let pendingPointer: { id: number; point: Point; shift: boolean; space: boolean } | null = null
+  let pendingPointer: {
+    id: number
+    point: Point
+    shift: boolean
+    space: boolean
+  } | null = null
   let rafScheduled = false
 
   function findNodeIdAtPoint(screenPoint: Point): string | undefined {
@@ -69,7 +95,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     point: Point,
     kind: 'pan' | 'drag' | 'resize' | 'box-select',
     nodeId?: string,
-    handle?: ResizeHandle
+    handle?: ResizeHandle,
   ): void {
     if (kind === 'pan') {
       engine.beginPan(pointerId, point)
@@ -85,22 +111,42 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
   function clearPendingInteraction(pointerId?: number): void {
     if (!pendingInteraction.value) return
-    if (pointerId !== undefined && pendingInteraction.value.pointerId !== pointerId) return
+    if (
+      pointerId !== undefined &&
+      pendingInteraction.value.pointerId !== pointerId
+    )
+      return
     pendingInteraction.value = null
   }
 
-  function exceedsPointerThreshold(startPoint: Point, nextPoint: Point): boolean {
-    return Math.hypot(nextPoint.x - startPoint.x, nextPoint.y - startPoint.y) >= POINTER_DRAG_THRESHOLD
+  function exceedsPointerThreshold(
+    startPoint: Point,
+    nextPoint: Point,
+  ): boolean {
+    return (
+      Math.hypot(nextPoint.x - startPoint.x, nextPoint.y - startPoint.y) >=
+      POINTER_DRAG_THRESHOLD
+    )
   }
 
-  function beginDeferredInteraction(event: PointerEvent, nodeId?: string, handle?: ResizeHandle): void {
+  function beginDeferredInteraction(
+    event: PointerEvent,
+    nodeId?: string,
+    handle?: ResizeHandle,
+  ): void {
     const point = toLocalPoint(event.clientX, event.clientY)
     rootElement.value?.setPointerCapture(event.pointerId)
     rootElement.value?.focus()
 
     if (handle && nodeId) {
       engine.select(asNodeId(nodeId))
-      pendingInteraction.value = { kind: 'resize', pointerId: event.pointerId, startPoint: point, nodeId, handle }
+      pendingInteraction.value = {
+        kind: 'resize',
+        pointerId: event.pointerId,
+        startPoint: point,
+        nodeId,
+        handle,
+      }
       return
     }
 
@@ -109,24 +155,38 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       if (!selection.includes(asNodeId(nodeId))) {
         engine.select(asNodeId(nodeId))
       }
-      pendingInteraction.value = { kind: 'drag', pointerId: event.pointerId, startPoint: point, nodeId }
+      pendingInteraction.value = {
+        kind: 'drag',
+        pointerId: event.pointerId,
+        startPoint: point,
+        nodeId,
+      }
       return
     }
 
     engine.clearSelection()
-    pendingInteraction.value = { kind: 'box-select', pointerId: event.pointerId, startPoint: point }
+    pendingInteraction.value = {
+      kind: 'box-select',
+      pointerId: event.pointerId,
+      startPoint: point,
+    }
   }
 
   function startPendingInteraction(event: PointerEvent, point: Point): boolean {
     const pending = pendingInteraction.value
-    if (!pending || pending.pointerId !== event.pointerId || !exceedsPointerThreshold(pending.startPoint, point)) {
+    if (
+      !pending ||
+      pending.pointerId !== event.pointerId ||
+      !exceedsPointerThreshold(pending.startPoint, point)
+    ) {
       return false
     }
 
     if (pending.kind === 'drag') {
       if (event.altKey) {
         const sourceNode = engine.findNode(asNodeId(pending.nodeId))
-        const created = engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 }) ?? []
+        const created =
+          engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 }) ?? []
         const dragNode =
           (sourceNode &&
             created.find(
@@ -135,17 +195,33 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
                 node.x === sourceNode.x &&
                 node.y === sourceNode.y &&
                 node.width === sourceNode.width &&
-                node.height === sourceNode.height
+                node.height === sourceNode.height,
             )) ??
           created[0]
         if (dragNode) {
-          startPointerInteraction(event.pointerId, pending.startPoint, 'drag', String(dragNode.id))
+          startPointerInteraction(
+            event.pointerId,
+            pending.startPoint,
+            'drag',
+            String(dragNode.id),
+          )
         }
       } else {
-        startPointerInteraction(event.pointerId, pending.startPoint, 'drag', pending.nodeId)
+        startPointerInteraction(
+          event.pointerId,
+          pending.startPoint,
+          'drag',
+          pending.nodeId,
+        )
       }
     } else if (pending.kind === 'resize') {
-      startPointerInteraction(event.pointerId, pending.startPoint, 'resize', pending.nodeId, pending.handle)
+      startPointerInteraction(
+        event.pointerId,
+        pending.startPoint,
+        'resize',
+        pending.nodeId,
+        pending.handle,
+      )
     } else {
       startPointerInteraction(event.pointerId, pending.startPoint, 'box-select')
     }
@@ -158,7 +234,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     if (pendingPointer) {
       engine.updatePointer(pendingPointer.id, pendingPointer.point, {
         shift: pendingPointer.shift,
-        space: pendingPointer.space
+        space: pendingPointer.space,
       })
       pendingPointer = null
       rafScheduled = false
@@ -208,18 +284,26 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
 
     const startedPendingInteraction = startPendingInteraction(event, localPoint)
-    if (!startedPendingInteraction && pendingInteraction.value?.pointerId === event.pointerId) {
+    if (
+      !startedPendingInteraction &&
+      pendingInteraction.value?.pointerId === event.pointerId
+    ) {
       return
     }
 
-    pendingPointer = { id: event.pointerId, point: localPoint, shift: event.shiftKey, space: spacePressed.value }
+    pendingPointer = {
+      id: event.pointerId,
+      point: localPoint,
+      shift: event.shiftKey,
+      space: spacePressed.value,
+    }
     if (!rafScheduled) {
       rafScheduled = true
       requestAnimationFrame(() => {
         if (pendingPointer) {
           engine.updatePointer(pendingPointer.id, pendingPointer.point, {
             shift: pendingPointer.shift,
-            space: pendingPointer.space
+            space: pendingPointer.space,
           })
         }
         rafScheduled = false
@@ -266,7 +350,11 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onDoubleClick(event: MouseEvent): void {
-    if (isEditorTarget(event.target) || findHandle(event.target) || isBoardInteractiveTarget(event.target)) {
+    if (
+      isEditorTarget(event.target) ||
+      findHandle(event.target) ||
+      isBoardInteractiveTarget(event.target)
+    ) {
       return
     }
     const screenPoint = toLocalPoint(event.clientX, event.clientY)
@@ -280,7 +368,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       type: 'text',
       x: world.x,
       y: world.y,
-      data: { content: 'New node' }
+      data: { content: 'New node' },
     })
     if (node) {
       engine.beginTextEdit(node.id)
@@ -292,6 +380,6 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     onPointerMove,
     onPointerUp,
     onWheel,
-    onDoubleClick
+    onDoubleClick,
   }
 }

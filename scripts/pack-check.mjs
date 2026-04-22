@@ -19,20 +19,20 @@ rmSync(outputDir, { recursive: true, force: true })
 mkdirSync(outputDir, { recursive: true })
 
 for (const packageDir of packageDirs) {
-  execFileSync(
-    'pnpm',
-    ['pack', '--pack-destination', outputDir],
-    {
-      cwd: join(rootDir, packageDir),
-      stdio: 'inherit',
-      env: process.env,
-    },
-  )
+  execFileSync('pnpm', ['pack', '--pack-destination', outputDir], {
+    cwd: join(rootDir, packageDir),
+    stdio: 'inherit',
+    env: process.env,
+  })
 }
 
-const tarballs = readdirSync(outputDir).filter((entry) => entry.endsWith('.tgz'))
+const tarballs = readdirSync(outputDir).filter((entry) =>
+  entry.endsWith('.tgz'),
+)
 if (tarballs.length !== packageDirs.length) {
-  throw new Error(`Expected ${packageDirs.length} tarballs, found ${tarballs.length}.`)
+  throw new Error(
+    `Expected ${packageDirs.length} tarballs, found ${tarballs.length}.`,
+  )
 }
 
 rmSync(outputDir, { recursive: true, force: true })

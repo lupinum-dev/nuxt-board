@@ -37,10 +37,10 @@ A named region of state. The core owns slices for `nodes`, `selection`, `grid`, 
 
 ### Ephemeral vs persistent state
 
-| Kind        | Stored in                | Goes through reducer? | In history? | Serialized? |
-|-------------|--------------------------|-----------------------|-------------|-------------|
-| Persistent  | `state.nodes`, `state.selection`, `state.grid`, plugin slices | yes | yes | yes |
-| Ephemeral   | `state.camera`, `state.interaction`, `state.snapGuides`, viewport size | no — direct subscribable updates | no | no |
+| Kind       | Stored in                                                              | Goes through reducer?            | In history? | Serialized? |
+| ---------- | ---------------------------------------------------------------------- | -------------------------------- | ----------- | ----------- |
+| Persistent | `state.nodes`, `state.selection`, `state.grid`, plugin slices          | yes                              | yes         | yes         |
+| Ephemeral  | `state.camera`, `state.interaction`, `state.snapGuides`, viewport size | no — direct subscribable updates | no          | no          |
 
 Ephemeral state lives in `Subscribable<T>` instances driven by the reactive layer ([`packages/board-core/src/engine/subscribables.ts`](packages/board-core/src/engine/subscribables.ts)). Pan, zoom and drag-in-progress state never enter the action log.
 

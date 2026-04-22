@@ -10,14 +10,14 @@ const backgroundImage = computed(() => {
     case 'dot':
       return [
         'radial-gradient(circle, var(--grid-major-color) 1px, transparent 1px)',
-        'radial-gradient(circle, var(--grid-minor-color) 1px, transparent 1px)'
+        'radial-gradient(circle, var(--grid-minor-color) 1px, transparent 1px)',
       ].join(', ')
     case 'cross':
       return [
         'linear-gradient(to right, var(--grid-major-color) 1px, transparent 1px)',
         'linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px)',
         'linear-gradient(to right, var(--grid-minor-color) 1px, transparent 1px)',
-        'linear-gradient(to bottom, var(--grid-minor-color) 1px, transparent 1px)'
+        'linear-gradient(to bottom, var(--grid-minor-color) 1px, transparent 1px)',
       ].join(', ')
     case 'none':
       return 'none'
@@ -26,7 +26,7 @@ const backgroundImage = computed(() => {
         'linear-gradient(to right, var(--grid-minor-color) 1px, transparent 1px)',
         'linear-gradient(to bottom, var(--grid-minor-color) 1px, transparent 1px)',
         'linear-gradient(to right, var(--grid-major-color) 1px, transparent 1px)',
-        'linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px)'
+        'linear-gradient(to bottom, var(--grid-major-color) 1px, transparent 1px)',
       ].join(', ')
   }
 })
@@ -35,14 +35,14 @@ const backgroundSize = computed(() => {
   if (resolvedGrid.value.pattern === 'dot') {
     return [
       'var(--grid-major-size) var(--grid-major-size)',
-      'var(--grid-minor-size) var(--grid-minor-size)'
+      'var(--grid-minor-size) var(--grid-minor-size)',
     ].join(', ')
   }
   return [
     'var(--grid-minor-size) var(--grid-minor-size)',
     'var(--grid-minor-size) var(--grid-minor-size)',
     'var(--grid-major-size) var(--grid-major-size)',
-    'var(--grid-major-size) var(--grid-major-size)'
+    'var(--grid-major-size) var(--grid-major-size)',
   ].join(', ')
 })
 
@@ -50,14 +50,14 @@ const backgroundPosition = computed(() => {
   if (resolvedGrid.value.pattern === 'dot') {
     return [
       'var(--grid-major-x) var(--grid-major-y)',
-      'var(--grid-minor-x) var(--grid-minor-y)'
+      'var(--grid-minor-x) var(--grid-minor-y)',
     ].join(', ')
   }
   return [
     'var(--grid-minor-x) var(--grid-minor-y)',
     'var(--grid-minor-x) var(--grid-minor-y)',
     'var(--grid-major-x) var(--grid-major-y)',
-    'var(--grid-major-x) var(--grid-major-y)'
+    'var(--grid-major-x) var(--grid-major-y)',
   ].join(', ')
 })
 </script>
@@ -70,7 +70,7 @@ const backgroundPosition = computed(() => {
       ...style,
       backgroundImage,
       backgroundSize,
-      backgroundPosition
+      backgroundPosition,
     }"
   />
 </template>

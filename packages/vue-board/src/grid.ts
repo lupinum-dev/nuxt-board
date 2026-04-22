@@ -37,5 +37,5 @@ export const DEFAULT_BOARD_GRID_OPTIONS: Pick<
   pattern: 'line',
   minorOpacity: 0.14,
   majorOpacity: 0.18,
-  fadeEdges: true
+  fadeEdges: true,
 }

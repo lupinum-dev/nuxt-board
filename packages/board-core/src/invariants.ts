@@ -6,10 +6,12 @@ import type {
   InvariantFailure,
   InteractionState,
   NodeId,
-  NodeTypeRegistry
+  NodeTypeRegistry,
 } from './types'
 
-export function cloneInteraction(interaction: InteractionState): InteractionState {
+export function cloneInteraction(
+  interaction: InteractionState,
+): InteractionState {
   switch (interaction.mode) {
     case 'idle':
       return { mode: 'idle' }
@@ -19,7 +21,7 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
       return {
         mode: 'panning',
         pointerId: interaction.pointerId,
-        lastScreenPoint: { ...interaction.lastScreenPoint }
+        lastScreenPoint: { ...interaction.lastScreenPoint },
       }
     case 'dragging-nodes':
       return {
@@ -28,8 +30,11 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
         nodeIds: [...interaction.nodeIds],
         startScreenPoint: { ...interaction.startScreenPoint },
         startNodePositions: Object.fromEntries(
-          Object.entries(interaction.startNodePositions).map(([key, value]) => [key, { ...value }])
-        )
+          Object.entries(interaction.startNodePositions).map(([key, value]) => [
+            key,
+            { ...value },
+          ]),
+        ),
       }
     case 'resizing-node':
       return {
@@ -39,7 +44,7 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
         handle: interaction.handle,
         startScreenPoint: { ...interaction.startScreenPoint },
         startNodeBounds: { ...interaction.startNodeBounds },
-        aspectRatio: interaction.aspectRatio
+        aspectRatio: interaction.aspectRatio,
       }
     case 'box-select':
       return {
@@ -48,12 +53,15 @@ export function cloneInteraction(interaction: InteractionState): InteractionStat
         startScreenPoint: { ...interaction.startScreenPoint },
         currentScreenPoint: { ...interaction.currentScreenPoint },
         startWorldPoint: { ...interaction.startWorldPoint },
-        currentWorldPoint: { ...interaction.currentWorldPoint }
+        currentWorldPoint: { ...interaction.currentWorldPoint },
       }
   }
 }
 
-export function createSnapshot<R extends NodeTypeRegistry>(state: BoardState<R>, grid: GridSettings): BoardSnapshot<R> {
+export function createSnapshot<R extends NodeTypeRegistry>(
+  state: BoardState<R>,
+  grid: GridSettings,
+): BoardSnapshot<R> {
   return {
     camera: { ...state.camera },
     grid: { ...grid },
@@ -63,7 +71,7 @@ export function createSnapshot<R extends NodeTypeRegistry>(state: BoardState<R>,
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
     snapGuides: [...state.snapGuides],
-    nextZIndex: state.nextZIndex
+    nextZIndex: state.nextZIndex,
   }
 }
 
@@ -74,17 +82,22 @@ function cloneData<T>(data: T): T {
 export function validateState<R extends NodeTypeRegistry>(
   state: BoardState<R>,
   grid: GridSettings,
-  context: string
+  context: string,
 ): InvariantFailure<R>[] {
   const failures: InvariantFailure<R>[] = []
   let snapshot: BoardSnapshot<R> | null = null
-  const lazySnapshot = () => snapshot ?? (snapshot = createSnapshot(state, grid))
+  const lazySnapshot = () =>
+    snapshot ?? (snapshot = createSnapshot(state, grid))
 
   const push = (name: string, message: string) => {
     failures.push({ name, message, context, snapshot: lazySnapshot() })
   }
 
-  if (!Number.isFinite(state.camera.x) || !Number.isFinite(state.camera.y) || !Number.isFinite(state.camera.z)) {
+  if (
+    !Number.isFinite(state.camera.x) ||
+    !Number.isFinite(state.camera.y) ||
+    !Number.isFinite(state.camera.z)
+  ) {
     push('camera.finite', 'Camera values must be finite numbers.')
   }
 
@@ -92,7 +105,10 @@ export function validateState<R extends NodeTypeRegistry>(
     push('grid.size', 'Grid size must be a finite number greater than 0.')
   }
   if (grid.majorEvery < 1 || !Number.isFinite(grid.majorEvery)) {
-    push('grid.majorEvery', 'Grid majorEvery must be a finite number greater than or equal to 1.')
+    push(
+      'grid.majorEvery',
+      'Grid majorEvery must be a finite number greater than or equal to 1.',
+    )
   }
 
   const zIndexes = new Set<number>()
@@ -100,7 +116,10 @@ export function validateState<R extends NodeTypeRegistry>(
     validateNode(node, push)
     validateNodeParent(node, state, push)
     if (zIndexes.has(node.zIndex)) {
-      push('node.zIndex.unique', `Node ${node.id} shares a z-index with another node.`)
+      push(
+        'node.zIndex.unique',
+        `Node ${node.id} shares a z-index with another node.`,
+      )
     }
     zIndexes.add(node.zIndex)
   }
@@ -111,11 +130,23 @@ export function validateState<R extends NodeTypeRegistry>(
     }
   }
 
-  if (state.interaction.mode === 'editing-text' && !state.nodes.has(state.interaction.nodeId)) {
-    push('interaction.node', `Editing node ${state.interaction.nodeId} does not exist.`)
+  if (
+    state.interaction.mode === 'editing-text' &&
+    !state.nodes.has(state.interaction.nodeId)
+  ) {
+    push(
+      'interaction.node',
+      `Editing node ${state.interaction.nodeId} does not exist.`,
+    )
   }
-  if (state.interaction.mode === 'resizing-node' && !state.nodes.has(state.interaction.nodeId)) {
-    push('interaction.node', `Resizing node ${state.interaction.nodeId} does not exist.`)
+  if (
+    state.interaction.mode === 'resizing-node' &&
+    !state.nodes.has(state.interaction.nodeId)
+  ) {
+    push(
+      'interaction.node',
+      `Resizing node ${state.interaction.nodeId} does not exist.`,
+    )
   }
   if (state.interaction.mode === 'dragging-nodes') {
     for (const id of state.interaction.nodeIds) {
@@ -128,7 +159,10 @@ export function validateState<R extends NodeTypeRegistry>(
   return failures
 }
 
-function validateNode(node: BoardNode, push: (name: string, message: string) => void): void {
+function validateNode(
+  node: BoardNode,
+  push: (name: string, message: string) => void,
+): void {
   if (
     !Number.isFinite(node.x) ||
     !Number.isFinite(node.y) ||
@@ -148,7 +182,7 @@ function validateNode(node: BoardNode, push: (name: string, message: string) => 
 function validateNodeParent<R extends NodeTypeRegistry>(
   node: BoardNode,
   state: BoardState<R>,
-  push: (name: string, message: string) => void
+  push: (name: string, message: string) => void,
 ): void {
   if (node.parentId === undefined) {
     return
@@ -159,22 +193,34 @@ function validateNodeParent<R extends NodeTypeRegistry>(
   }
   const parent = state.nodes.get(node.parentId)
   if (!parent) {
-    push('node.parentId', `Node ${node.id} references missing parent ${node.parentId}.`)
+    push(
+      'node.parentId',
+      `Node ${node.id} references missing parent ${node.parentId}.`,
+    )
     return
   }
   if (parent.type !== 'group') {
-    push('node.parentId', `Node ${node.id} parent must be type "group", got "${parent.type}".`)
+    push(
+      'node.parentId',
+      `Node ${node.id} parent must be type "group", got "${parent.type}".`,
+    )
   }
   let walk: BoardNode | undefined = parent
   const seen = new Set<NodeId>()
   while (walk) {
     if (seen.has(walk.id)) {
-      push('node.parentId', `Cycle detected in parent chain for node ${node.id}.`)
+      push(
+        'node.parentId',
+        `Cycle detected in parent chain for node ${node.id}.`,
+      )
       return
     }
     seen.add(walk.id)
     if (walk.id === node.id) {
-      push('node.parentId', `Node ${node.id} would create a cycle in the parent chain.`)
+      push(
+        'node.parentId',
+        `Node ${node.id} would create a cycle in the parent chain.`,
+      )
       return
     }
     if (!walk.parentId) {

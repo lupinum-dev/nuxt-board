@@ -5,6 +5,7 @@ import {
   type BoardSnapshot,
   type BoardEngine,
   type BoardNode,
+  type GridSettings,
   type GridPattern,
   type Point,
 } from '@lupinum/board-core'
@@ -30,10 +31,12 @@ interface DemoScene {
 
 type DemoNode = BoardSnapshot['nodes'][number]
 
-const DEFAULT_GRID = {
+const DEFAULT_GRID: GridSettings = {
   size: 24,
   majorEvery: 4,
   snap: true,
+  edgeSnap: true,
+  edgeSnapThreshold: 8,
   pattern: 'line' as GridPattern,
 }
 
@@ -41,12 +44,14 @@ export const DEMO_SCENES: DemoSceneOption[] = [
   {
     id: 'workflow',
     label: 'Workflow Board',
-    summary: 'A product-delivery board with groups, notes, and handoff connections.',
+    summary:
+      'A product-delivery board with groups, notes, and handoff connections.',
   },
   {
     id: 'systems',
     label: 'System Map',
-    summary: 'A service topology showing ownership, queues, and deployment flow.',
+    summary:
+      'A service topology showing ownership, queues, and deployment flow.',
   },
   {
     id: 'dense',
@@ -56,7 +61,8 @@ export const DEMO_SCENES: DemoSceneOption[] = [
   {
     id: 'polish',
     label: 'Polish Pass',
-    summary: 'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
+    summary:
+      'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
   },
 ]
 
@@ -170,15 +176,96 @@ function createWorkflowScene(): DemoScene {
     groupNode('workflow-intake', 48, 56, 340, 320, 'Discovery', '#ef4444', 1),
     groupNode('workflow-build', 430, 36, 430, 360, 'Delivery', '#0f766e', 2),
     groupNode('workflow-launch', 910, 76, 300, 280, 'Launch', '#2563eb', 3),
-    textNode('brief', 88, 108, 220, 100, 'Clarify scope\nStakeholders + risks', 10, 'workflow-intake'),
-    textNode('research', 104, 232, 200, 88, 'User interviews\nThree blockers', 11, 'workflow-intake'),
-    imageNode('moodboard', 242, 118, 120, 162, 'Visual direction', 12, 'workflow-intake'),
-    textNode('prototype', 478, 96, 190, 100, 'Prototype critical flow', 20, 'workflow-build'),
-    textNode('spec', 700, 88, 120, 86, 'API + schema lock', 21, 'workflow-build'),
-    textNode('qa', 490, 240, 160, 88, 'QA matrix\nEdge cases', 22, 'workflow-build'),
-    textNode('release', 692, 220, 130, 92, 'Release train\nCanary', 23, 'workflow-build'),
-    textNode('notes', 950, 122, 214, 88, 'Customer notes\nRollout plan', 30, 'workflow-launch'),
-    textNode('metrics', 968, 242, 188, 84, 'Watch activation\n+ latency', 31, 'workflow-launch'),
+    textNode(
+      'brief',
+      88,
+      108,
+      220,
+      100,
+      'Clarify scope\nStakeholders + risks',
+      10,
+      'workflow-intake',
+    ),
+    textNode(
+      'research',
+      104,
+      232,
+      200,
+      88,
+      'User interviews\nThree blockers',
+      11,
+      'workflow-intake',
+    ),
+    imageNode(
+      'moodboard',
+      242,
+      118,
+      120,
+      162,
+      'Visual direction',
+      12,
+      'workflow-intake',
+    ),
+    textNode(
+      'prototype',
+      478,
+      96,
+      190,
+      100,
+      'Prototype critical flow',
+      20,
+      'workflow-build',
+    ),
+    textNode(
+      'spec',
+      700,
+      88,
+      120,
+      86,
+      'API + schema lock',
+      21,
+      'workflow-build',
+    ),
+    textNode(
+      'qa',
+      490,
+      240,
+      160,
+      88,
+      'QA matrix\nEdge cases',
+      22,
+      'workflow-build',
+    ),
+    textNode(
+      'release',
+      692,
+      220,
+      130,
+      92,
+      'Release train\nCanary',
+      23,
+      'workflow-build',
+    ),
+    textNode(
+      'notes',
+      950,
+      122,
+      214,
+      88,
+      'Customer notes\nRollout plan',
+      30,
+      'workflow-launch',
+    ),
+    textNode(
+      'metrics',
+      968,
+      242,
+      188,
+      84,
+      'Watch activation\n+ latency',
+      31,
+      'workflow-launch',
+    ),
   ]
 
   const edges = [
@@ -193,7 +280,8 @@ function createWorkflowScene(): DemoScene {
   return {
     id: 'workflow',
     label: 'Workflow Board',
-    summary: 'A product-delivery board with groups, notes, and handoff connections.',
+    summary:
+      'A product-delivery board with groups, notes, and handoff connections.',
     snapshot: snapshotFrom(nodes, { x: 24, y: 28, z: 0.78 }),
     edges,
   }
@@ -204,13 +292,49 @@ function createSystemsScene(): DemoScene {
     groupNode('sys-web', 80, 100, 270, 270, 'Surface', '#7c3aed', 1),
     groupNode('sys-platform', 410, 56, 420, 360, 'Platform', '#0f766e', 2),
     groupNode('sys-ops', 876, 92, 330, 304, 'Ops', '#f59e0b', 3),
-    textNode('landing', 116, 140, 182, 82, 'Nuxt app\nSSR + hydration', 10, 'sys-web'),
-    textNode('editor', 142, 246, 164, 86, 'Canvas editor\nClient events', 11, 'sys-web'),
+    textNode(
+      'landing',
+      116,
+      140,
+      182,
+      82,
+      'Nuxt app\nSSR + hydration',
+      10,
+      'sys-web',
+    ),
+    textNode(
+      'editor',
+      142,
+      246,
+      164,
+      86,
+      'Canvas editor\nClient events',
+      11,
+      'sys-web',
+    ),
     textNode('api', 458, 108, 156, 82, 'API gateway', 20, 'sys-platform'),
     textNode('queue', 656, 112, 124, 82, 'Queue', 21, 'sys-platform'),
-    textNode('worker', 470, 244, 172, 90, 'Render worker\nSnapshots + export', 22, 'sys-platform'),
+    textNode(
+      'worker',
+      470,
+      244,
+      172,
+      90,
+      'Render worker\nSnapshots + export',
+      22,
+      'sys-platform',
+    ),
     textNode('store', 676, 246, 120, 88, 'Blob store', 23, 'sys-platform'),
-    textNode('alerts', 920, 142, 198, 88, 'Observability\nAlerts + traces', 30, 'sys-ops'),
+    textNode(
+      'alerts',
+      920,
+      142,
+      198,
+      88,
+      'Observability\nAlerts + traces',
+      30,
+      'sys-ops',
+    ),
     textNode('deploy', 956, 260, 164, 76, 'Canary deploy', 31, 'sys-ops'),
     imageNode('ops-board', 1038, 168, 120, 128, 'Runbook board', 32, 'sys-ops'),
   ]
@@ -228,8 +352,13 @@ function createSystemsScene(): DemoScene {
   return {
     id: 'systems',
     label: 'System Map',
-    summary: 'A service topology showing ownership, queues, and deployment flow.',
-    snapshot: snapshotFrom(nodes, { x: 34, y: 42, z: 0.82 }, { ...DEFAULT_GRID, pattern: 'dot' }),
+    summary:
+      'A service topology showing ownership, queues, and deployment flow.',
+    snapshot: snapshotFrom(
+      nodes,
+      { x: 34, y: 42, z: 0.82 },
+      { ...DEFAULT_GRID, pattern: 'dot' },
+    ),
     edges,
   }
 }
@@ -242,7 +371,18 @@ function createDenseScene(): DemoScene {
   const laneAccents = ['#dc2626', '#059669', '#2563eb']
 
   for (let lane = 0; lane < laneIds.length; lane += 1) {
-    nodes.push(groupNode(laneIds[lane]!, 84 + lane * 420, 60, 360, 760, laneTitles[lane]!, laneAccents[lane]!, lane + 1))
+    nodes.push(
+      groupNode(
+        laneIds[lane]!,
+        84 + lane * 420,
+        60,
+        360,
+        760,
+        laneTitles[lane]!,
+        laneAccents[lane]!,
+        lane + 1,
+      ),
+    )
   }
 
   let zIndex = 10
@@ -271,20 +411,40 @@ function createDenseScene(): DemoScene {
     for (let row = 0; row < 7; row += 1) {
       const source = `dense-${lane}-${row}-0`
       const target = `dense-${lane}-${row + 1}-1`
-      edges.push(connection(`dense-lane-${lane}-${row}`, source, target, 'flow'))
+      edges.push(
+        connection(`dense-lane-${lane}-${row}`, source, target, 'flow'),
+      )
     }
   }
 
   for (let row = 0; row < 6; row += 1) {
-    edges.push(connection(`dense-cross-a-${row}`, `dense-0-${row}-1`, `dense-1-${row + 1}-0`, 'handoff'))
-    edges.push(connection(`dense-cross-b-${row}`, `dense-1-${row}-1`, `dense-2-${row + 1}-0`, 'handoff'))
+    edges.push(
+      connection(
+        `dense-cross-a-${row}`,
+        `dense-0-${row}-1`,
+        `dense-1-${row + 1}-0`,
+        'handoff',
+      ),
+    )
+    edges.push(
+      connection(
+        `dense-cross-b-${row}`,
+        `dense-1-${row}-1`,
+        `dense-2-${row + 1}-0`,
+        'handoff',
+      ),
+    )
   }
 
   return {
     id: 'dense',
     label: 'Dense Dataset',
     summary: 'A larger seeded board for zoom, culling, and interaction stress.',
-    snapshot: snapshotFrom(nodes, { x: 20, y: 14, z: 0.6 }, { ...DEFAULT_GRID, size: 20, majorEvery: 5 }),
+    snapshot: snapshotFrom(
+      nodes,
+      { x: 20, y: 14, z: 0.6 },
+      { ...DEFAULT_GRID, size: 20, majorEvery: 5 },
+    ),
     edges,
   }
 }
@@ -292,11 +452,56 @@ function createDenseScene(): DemoScene {
 function createPolishScene(): DemoScene {
   const nodes: DemoNode[] = [
     groupNode('polish-flow', 56, 52, 1120, 520, 'Canvas Polish', '#0f766e', 1),
-    textNode('polish-brief', 104, 120, 230, 112, 'Brief\nNeed calmer chrome\n+ cleaner edge cadence', 10, 'polish-flow'),
-    textNode('polish-parse', 438, 86, 244, 124, 'Parse input\nPreserve structure', 11, 'polish-flow'),
-    textNode('polish-score', 456, 300, 236, 118, 'Score signals\nWeight confidence', 12, 'polish-flow'),
-    textNode('polish-output', 820, 176, 248, 130, 'Output\nReadable + stable', 13, 'polish-flow'),
-    textNode('polish-notes', 820, 352, 214, 96, 'Alt-drag to duplicate\nDrag from card edge to connect', 14, 'polish-flow'),
+    textNode(
+      'polish-brief',
+      104,
+      120,
+      230,
+      112,
+      'Brief\nNeed calmer chrome\n+ cleaner edge cadence',
+      10,
+      'polish-flow',
+    ),
+    textNode(
+      'polish-parse',
+      438,
+      86,
+      244,
+      124,
+      'Parse input\nPreserve structure',
+      11,
+      'polish-flow',
+    ),
+    textNode(
+      'polish-score',
+      456,
+      300,
+      236,
+      118,
+      'Score signals\nWeight confidence',
+      12,
+      'polish-flow',
+    ),
+    textNode(
+      'polish-output',
+      820,
+      176,
+      248,
+      130,
+      'Output\nReadable + stable',
+      13,
+      'polish-flow',
+    ),
+    textNode(
+      'polish-notes',
+      820,
+      352,
+      214,
+      96,
+      'Alt-drag to duplicate\nDrag from card edge to connect',
+      14,
+      'polish-flow',
+    ),
   ]
 
   const edges = [
@@ -310,8 +515,13 @@ function createPolishScene(): DemoScene {
   return {
     id: 'polish',
     label: 'Polish Pass',
-    summary: 'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
-    snapshot: snapshotFrom(nodes, { x: 18, y: 24, z: 0.82 }, { ...DEFAULT_GRID, pattern: 'dot' }),
+    summary:
+      'A staggered board for edge creation, reconnects, duplication, and zoom polish.',
+    snapshot: snapshotFrom(
+      nodes,
+      { x: 18, y: 24, z: 0.82 },
+      { ...DEFAULT_GRID, pattern: 'dot' },
+    ),
     edges,
   }
 }
@@ -340,7 +550,10 @@ function getConnections(engine: BoardEngine): ConnectionApi {
   return engine.ext.connections as unknown as ConnectionApi
 }
 
-function replaceEdges(engine: BoardEngine, edges: Array<Record<string, unknown>>): void {
+function replaceEdges(
+  engine: BoardEngine,
+  edges: Array<Record<string, unknown>>,
+): void {
   const connections = getConnections(engine)
   for (const edge of connections.getEdges()) {
     connections.deleteEdge(String(edge.id))
@@ -364,7 +577,10 @@ export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
   return { engine, scene }
 }
 
-export function loadDemoScene(engine: BoardEngine, sceneId: DemoSceneId): DemoSceneOption {
+export function loadDemoScene(
+  engine: BoardEngine,
+  sceneId: DemoSceneId,
+): DemoSceneOption {
   const scene = getScene(sceneId)
   engine.importJSON(JSON.stringify(scene.snapshot), 'replace')
   replaceEdges(engine, scene.edges)
@@ -414,7 +630,10 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
 
   if (selection.length === 0) {
     const viewport = engine.getViewportSize()
-    const center = engine.screenToWorld({ x: viewport.x / 2, y: viewport.y / 2 })
+    const center = engine.screenToWorld({
+      x: viewport.x / 2,
+      y: viewport.y / 2,
+    })
     const group = engine.createNode({
       id: asNodeId(groupId),
       type: 'group',
@@ -430,7 +649,9 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
     return
   }
 
-  const selectedNodes = snapshot.nodes.filter(node => selection.includes(node.id))
+  const selectedNodes = snapshot.nodes.filter((node) =>
+    selection.includes(node.id),
+  )
   if (selectedNodes.length === 0) {
     return
   }
@@ -465,7 +686,7 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
     }
   }
   engine.syncGroupZOrder(group.id)
-  engine.select([group.id, ...selection.filter(id => id !== group.id)])
+  engine.select([group.id, ...selection.filter((id) => id !== group.id)])
 }
 
 export function getSceneSummary(id: DemoSceneId): DemoSceneOption {

@@ -27,7 +27,8 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'A Nuxt SSR demo for @lupinum/nuxt-board with deterministic seeded scenes, plugins, minimap, and JSON import/export.',
+      content:
+        'A Nuxt SSR demo for @lupinum/nuxt-board with deterministic seeded scenes, plugins, minimap, and JSON import/export.',
     },
   ],
 })
@@ -107,9 +108,13 @@ watch(sceneId, (next, prev) => {
   }
 })
 
-watch(version, () => {
-  stats.value = getDemoCounts(engine)
-}, { immediate: true })
+watch(
+  version,
+  () => {
+    stats.value = getDemoCounts(engine)
+  },
+  { immediate: true },
+)
 
 function exportDocument(): void {
   documentText.value = exportDemoDocument(engine)
@@ -129,8 +134,7 @@ function importDocument(): void {
     snapToGrid.value = grid.snap
     status.value = 'Imported JSON Canvas into the live engine.'
     version.value += 1
-  }
-  catch (error) {
+  } catch (error) {
     status.value = error instanceof Error ? error.message : 'Import failed.'
   }
 }
@@ -144,12 +148,13 @@ async function runBenchmark(): Promise<void> {
     const t0 = performance.now()
     engine.panBy(step % 2 === 0 ? 18 : -12, 10)
     engine.zoomAt({ x: 520, y: 260 }, step % 2 === 0 ? -0.6 : 0.42)
-    await new Promise(resolve => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
     samples.push(performance.now() - t0)
   }
 
   const total = performance.now() - start
-  const average = samples.reduce((sum, sample) => sum + sample, 0) / samples.length
+  const average =
+    samples.reduce((sum, sample) => sum + sample, 0) / samples.length
   benchmarkResult.value = `total ${total.toFixed(1)}ms · avg ${average.toFixed(2)}ms · max ${Math.max(...samples).toFixed(2)}ms`
   status.value = 'Benchmark finished on the current scene.'
 }
@@ -169,13 +174,14 @@ function groupSelection(): void {
   <main class="demo-shell">
     <section class="demo-hero">
       <div class="demo-hero__copy">
-        <p class="demo-hero__eyebrow">
-          Nuxt SSR Playground
-        </p>
-        <h1>Interactive board markup, rendered on the server before hydration.</h1>
+        <p class="demo-hero__eyebrow">Nuxt SSR Playground</p>
+        <h1>
+          Interactive board markup, rendered on the server before hydration.
+        </h1>
         <p class="demo-hero__lede">
-          This playground uses deterministic scene data so Nuxt can server-render the board, then hydrate into the same
-          live engine with history, connections, minimap, and JSON import/export intact.
+          This playground uses deterministic scene data so Nuxt can
+          server-render the board, then hydrate into the same live engine with
+          history, connections, minimap, and JSON import/export intact.
         </p>
       </div>
 
@@ -251,14 +257,8 @@ function groupSelection(): void {
                 :trace="getLastTraceLabel(engine)"
               />
 
-              <div
-                v-if="showMinimap"
-                class="demo-minimap"
-              >
-                <BoardMinimap
-                  :width="208"
-                  :height="148"
-                />
+              <div v-if="showMinimap" class="demo-minimap">
+                <BoardMinimap :width="208" :height="148" />
               </div>
             </template>
           </BoardRoot>
@@ -348,8 +348,11 @@ function groupSelection(): void {
 .demo-stats__card {
   padding: 1rem;
   border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.9));
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 252, 0.96),
+    rgba(241, 245, 249, 0.9)
+  );
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
@@ -401,7 +404,11 @@ function groupSelection(): void {
   border: 1px solid var(--playground-border);
   border-radius: 30px;
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.58)),
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.76),
+      rgba(255, 255, 255, 0.58)
+    ),
     rgba(248, 250, 252, 0.86);
   box-shadow: var(--playground-shadow);
 }
@@ -440,7 +447,11 @@ function groupSelection(): void {
   --board-node-bg: #ffffff;
   --board-node-border: rgba(15, 23, 42, 0.08);
   background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 32%),
+    radial-gradient(
+      circle at top left,
+      rgba(14, 165, 233, 0.12),
+      transparent 32%
+    ),
     linear-gradient(180deg, #f8fafc, #eef5f8);
 }
 

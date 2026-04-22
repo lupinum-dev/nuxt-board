@@ -1,4 +1,10 @@
-import type { BoardNode, NodeId, ResizeHandle, SnapAxis, SnapGuide } from './types'
+import type {
+  BoardNode,
+  NodeId,
+  ResizeHandle,
+  SnapAxis,
+  SnapGuide,
+} from './types'
 
 interface EdgeCandidate {
   axis: SnapAxis
@@ -19,7 +25,7 @@ export interface DragSnapResult {
 }
 
 export function collectNodeEdges(
-  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>
+  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
 ): EdgeCandidate[] {
   const right = node.x + node.width
   const bottom = node.y + node.height
@@ -27,13 +33,13 @@ export function collectNodeEdges(
     { axis: 'x', value: node.x, extentMin: node.y, extentMax: bottom },
     { axis: 'x', value: right, extentMin: node.y, extentMax: bottom },
     { axis: 'y', value: node.y, extentMin: node.x, extentMax: right },
-    { axis: 'y', value: bottom, extentMin: node.x, extentMax: right }
+    { axis: 'y', value: bottom, extentMin: node.x, extentMax: right },
   ]
 }
 
 export function collectOtherNodeEdges(
   nodes: Iterable<BoardNode>,
-  excludeId: NodeId
+  excludeId: NodeId,
 ): EdgeCandidate[] {
   const edges: EdgeCandidate[] = []
   for (const node of nodes) {
@@ -45,7 +51,7 @@ export function collectOtherNodeEdges(
 
 export function collectOtherNodeEdgesExcluding(
   nodes: Iterable<BoardNode>,
-  excludeIds: Set<NodeId>
+  excludeIds: Set<NodeId>,
 ): EdgeCandidate[] {
   const edges: EdgeCandidate[] = []
   for (const node of nodes) {
@@ -61,7 +67,7 @@ function findBestSnap(
   activeExtentMax: number,
   axis: SnapAxis,
   candidates: EdgeCandidate[],
-  threshold: number
+  threshold: number,
 ): { snappedValue: number; guide: SnapGuide } | null {
   let bestDist = threshold
   let bestCandidate: EdgeCandidate | null = null
@@ -86,8 +92,8 @@ function findBestSnap(
       axis,
       position: bestCandidate.value,
       from: guideFrom,
-      to: guideTo
-    }
+      to: guideTo,
+    },
   }
 }
 
@@ -95,7 +101,7 @@ export function snapBoundsToEdges(
   bounds: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   handle: ResizeHandle,
   otherEdges: EdgeCandidate[],
-  threshold: number
+  threshold: number,
 ): SnapResult {
   let { x, y, width, height } = bounds
   const guides: SnapGuide[] = []
@@ -145,7 +151,7 @@ export function snapBoundsToEdges(
 export function snapPositionToEdges(
   bounds: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   otherEdges: EdgeCandidate[],
-  threshold: number
+  threshold: number,
 ): DragSnapResult {
   let dx = 0
   let dy = 0
@@ -178,8 +184,22 @@ export function snapPositionToEdges(
   }
 
   // Snap Y axis: check top and bottom edges, pick closest
-  const snapTop = findBestSnap(y, x + dx, right + dx, 'y', otherEdges, threshold)
-  const snapBottom = findBestSnap(bottom, x + dx, right + dx, 'y', otherEdges, threshold)
+  const snapTop = findBestSnap(
+    y,
+    x + dx,
+    right + dx,
+    'y',
+    otherEdges,
+    threshold,
+  )
+  const snapBottom = findBestSnap(
+    bottom,
+    x + dx,
+    right + dx,
+    'y',
+    otherEdges,
+    threshold,
+  )
 
   if (snapTop && snapBottom) {
     const distTop = Math.abs(snapTop.snappedValue - y)

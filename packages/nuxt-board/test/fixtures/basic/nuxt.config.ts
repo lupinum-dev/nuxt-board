@@ -1,8 +1,4 @@
-import BoardModule from '../../../src/module'
-
 export default defineNuxtConfig({
-  modules: [
-    BoardModule,
-  ],
+  modules: ['@lupinum/nuxt-board'],
   board: {},
 })

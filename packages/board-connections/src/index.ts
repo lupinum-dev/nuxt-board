@@ -7,7 +7,7 @@ export {
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
   resolveFloatingEndpoint,
-  resolveEdgeRenderState
+  resolveEdgeRenderState,
 } from './geometry'
 export { buildArcRoute } from './routing/arc'
 export type { ArcOptions } from './routing/arc'
@@ -15,7 +15,7 @@ export {
   EDGE_COLOR_PRESETS,
   colorForPreset,
   presetForColor,
-  resolvePresetColor
+  resolvePresetColor,
 } from './colors'
 export type { EdgeColorOption, EdgeColorPreset } from './colors'
 export type {
@@ -29,5 +29,5 @@ export type {
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
-  ResolvedConnectionEndpoint
+  ResolvedConnectionEndpoint,
 } from './types'

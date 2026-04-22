@@ -7,22 +7,25 @@ import type {
   GridSettings,
   NodeId,
   NodeTypeRegistry,
-  ResolvedNode
+  ResolvedNode,
 } from '../types'
 import type { MutableBoardState } from './types'
 
 export function buildPublicNodeMap<R extends NodeTypeRegistry>(
-  state: MutableBoardState<R>
+  state: MutableBoardState<R>,
 ): ReadonlyMap<NodeId, ResolvedNode<R>> {
   return new Map(
-    Array.from(state.nodes.values(), (node) => [node.id, materializeNode<R>(node)] as const)
+    Array.from(
+      state.nodes.values(),
+      (node) => [node.id, materializeNode<R>(node)] as const,
+    ),
   )
 }
 
 export function buildSnapshot<R extends NodeTypeRegistry>(
   state: MutableBoardState<R>,
   grid: GridSettings,
-  publicNodes: ReadonlyMap<NodeId, ResolvedNode<R>>
+  publicNodes: ReadonlyMap<NodeId, ResolvedNode<R>>,
 ): BoardSnapshot<R> {
   return freezeClone({
     camera: { ...state.camera },
@@ -31,13 +34,13 @@ export function buildSnapshot<R extends NodeTypeRegistry>(
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
     snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
-    nextZIndex: state.nextZIndex
+    nextZIndex: state.nextZIndex,
   })
 }
 
 export function buildPublicState<R extends NodeTypeRegistry>(
   state: MutableBoardState<R>,
-  publicNodes: ReadonlyMap<NodeId, ResolvedNode<R>>
+  publicNodes: ReadonlyMap<NodeId, ResolvedNode<R>>,
 ): BoardState<R> {
   return {
     camera: freezeClone({ ...state.camera }),
@@ -45,6 +48,6 @@ export function buildPublicState<R extends NodeTypeRegistry>(
     selection: new Set(state.selection),
     interaction: cloneInteraction(state.interaction),
     snapGuides: state.snapGuides.map((guide) => freezeClone({ ...guide })),
-    nextZIndex: state.nextZIndex
+    nextZIndex: state.nextZIndex,
   }
 }

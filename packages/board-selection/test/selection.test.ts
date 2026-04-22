@@ -5,8 +5,22 @@ import { getSelectionBounds, toggleIds } from '../src'
 describe('selection helpers', () => {
   it('computes selection bounds from the current engine snapshot', () => {
     const engine = createBoardEngine()
-    const first = engine.createNode({ type: 'text', x: 10, y: 20, width: 100, height: 80, data: { content: 'A' } })
-    const second = engine.createNode({ type: 'text', x: 220, y: 60, width: 120, height: 90, data: { content: 'B' } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 220,
+      y: 60,
+      width: 120,
+      height: 90,
+      data: { content: 'B' },
+    })
 
     engine.select([first.id, second.id])
 
@@ -14,14 +28,16 @@ describe('selection helpers', () => {
       minX: 10,
       minY: 20,
       maxX: 340,
-      maxY: 150
+      maxY: 150,
     })
   })
 
   it('toggles ids in and out of a selection array', () => {
-    expect(toggleIds([asNodeId('a'), asNodeId('b')], [asNodeId('b'), asNodeId('c')]).sort()).toEqual([
-      asNodeId('a'),
-      asNodeId('c')
-    ])
+    expect(
+      toggleIds(
+        [asNodeId('a'), asNodeId('b')],
+        [asNodeId('b'), asNodeId('c')],
+      ).sort(),
+    ).toEqual([asNodeId('a'), asNodeId('c')])
   })
 })

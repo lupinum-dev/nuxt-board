@@ -1,4 +1,13 @@
-import type { BoardSnapshot, Camera, BoardEngine, BoardNode, InteractionState, NodeId, Point, SnapGuide } from '@lupinum/board-core'
+import type {
+  BoardSnapshot,
+  Camera,
+  BoardEngine,
+  BoardNode,
+  InteractionState,
+  NodeId,
+  Point,
+  SnapGuide,
+} from '@lupinum/board-core'
 import type { ComputedRef, InjectionKey, Ref, ShallowRef } from 'vue'
 import type { BoardRendererRegistry, ResolvedBoardGridOptions } from './grid'
 
@@ -19,4 +28,5 @@ export interface BoardEngineContext {
   $snapGuides: ShallowRef<readonly SnapGuide[]>
 }
 
-export const boardEngineKey: InjectionKey<BoardEngineContext> = Symbol('board-engine')
+export const boardEngineKey: InjectionKey<BoardEngineContext> =
+  Symbol('board-engine')

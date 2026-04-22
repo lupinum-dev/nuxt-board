@@ -10,8 +10,9 @@ export function getAnimationFrameDriver(): AnimationFrameDriver {
     return { raf, caf }
   }
   return {
-    raf: (cb: FrameRequestCallback) => globalThis.setTimeout(() => cb(Date.now()), 16) as unknown as number,
-    caf: (handle: number) => globalThis.clearTimeout(handle)
+    raf: (cb: FrameRequestCallback) =>
+      globalThis.setTimeout(() => cb(Date.now()), 16) as unknown as number,
+    caf: (handle: number) => globalThis.clearTimeout(handle),
   }
 }
 

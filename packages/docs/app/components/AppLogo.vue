@@ -6,14 +6,7 @@
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <rect
-      x="2"
-      y="7"
-      width="18"
-      height="18"
-      rx="6"
-      fill="var(--ui-primary)"
-    />
+    <rect x="2" y="7" width="18" height="18" rx="6" fill="var(--ui-primary)" />
     <rect
       x="8"
       y="1"
@@ -38,6 +31,8 @@
       font-size="16"
       font-weight="700"
       letter-spacing="-0.03em"
-    >Vue Board</text>
+    >
+      Vue Board
+    </text>
   </svg>
 </template>

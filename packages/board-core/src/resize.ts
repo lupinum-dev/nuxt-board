@@ -13,7 +13,7 @@ export function applyResizeDelta(
   handle: ResizeHandle,
   deltaX: number,
   deltaY: number,
-  constraints: ResizeConstraints
+  constraints: ResizeConstraints,
 ): NodeBounds {
   let { x, y, width, height } = node
 
@@ -43,7 +43,7 @@ export function snapResizedBounds(
   bounds: NodeBounds,
   handle: ResizeHandle,
   gridSize: number,
-  constraints: ResizeConstraints
+  constraints: ResizeConstraints,
 ): NodeBounds {
   let { x, y, width, height } = bounds
   const right = bounds.x + bounds.width
@@ -90,7 +90,7 @@ export function applyResizeDeltaLocked(
   deltaX: number,
   deltaY: number,
   constraints: ResizeConstraints,
-  aspectRatio: number
+  aspectRatio: number,
 ): NodeBounds {
   const { width: w, height: h } = node
 
@@ -155,7 +155,7 @@ export function snapResizedBoundsLocked(
   handle: ResizeHandle,
   gridSize: number,
   constraints: ResizeConstraints,
-  aspectRatio: number
+  aspectRatio: number,
 ): NodeBounds {
   const right = startBounds.x + startBounds.width
   const bottom = startBounds.y + startBounds.height

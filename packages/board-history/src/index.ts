@@ -26,7 +26,10 @@ declare module '@lupinum/board-core' {
     'history:clear': () => void
   }
 
-  interface BoardEngineExtensions<R extends import('@lupinum/board-core').NodeTypeRegistry = import('@lupinum/board-core').NodeTypeRegistry> {
+  interface BoardEngineExtensions<
+    R extends import('@lupinum/board-core').NodeTypeRegistry =
+      import('@lupinum/board-core').NodeTypeRegistry,
+  > {
     history: {
       undo: () => void
       redo: () => void
@@ -50,7 +53,7 @@ const DEFAULT_EXCLUDE = new Set([
   'beginResize',
   'beginBoxSelect',
   'beginTextEdit',
-  'endInteraction'
+  'endInteraction',
 ])
 
 function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
@@ -73,13 +76,43 @@ function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
   const merged = a.deltas.map((delta, i) => ({
     id: delta.id,
     before: delta.before,
-    after: b.deltas[i]!.after
+    after: b.deltas[i]!.after,
   }))
   return {
     label: prev.label,
     actions: [{ type: 'NODES_MOVED', deltas: merged }],
-    timestamp: next.timestamp
+    timestamp: next.timestamp,
   }
+}
+
+function undoReplayPriority(action: Action): number {
+  switch (action.type) {
+    case 'NODE_CREATED':
+      return 0
+    case 'NODE_UPDATED':
+    case 'NODES_MOVED':
+    case 'GRID_UPDATED':
+    case 'NEXT_Z_INDEX_BUMPED':
+      return 1
+    case 'PLUGIN':
+      return 2
+    case 'SELECTION_SET':
+      return 3
+    case 'NODE_DELETED':
+      return 4
+    case 'BATCH':
+      return 5
+  }
+}
+
+function getUndoReplayActions(
+  engine: import('@lupinum/board-core').BoardEngine,
+  entry: HistoryEntry,
+): Action[] {
+  return [...entry.actions]
+    .reverse()
+    .map((action) => engine.invertAction(action))
+    .sort((left, right) => undoReplayPriority(left) - undoReplayPriority(right))
 }
 
 export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
@@ -171,22 +204,25 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
         schedulePending({
           label: name,
           actions: captured,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         })
       })
 
-      function applyEntry(entry: HistoryEntry, direction: 'undo' | 'redo'): void {
+      function applyEntry(
+        entry: HistoryEntry,
+        direction: 'undo' | 'redo',
+      ): void {
         replaying = true
         try {
-          if (direction === 'undo') {
-            for (let i = entry.actions.length - 1; i >= 0; i--) {
-              engine.replay(engine.invertAction(entry.actions[i]!))
-            }
-          } else {
-            for (const action of entry.actions) {
+          const actions =
+            direction === 'undo'
+              ? getUndoReplayActions(engine, entry)
+              : entry.actions
+          engine.batch(() => {
+            for (const action of actions) {
               engine.replay(action)
             }
-          }
+          })
         } finally {
           replaying = false
         }
@@ -240,8 +276,9 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
         getState: (): HistoryState => ({
           undoDepth: undoStack.length,
           redoDepth: redoStack.length,
-          current: pending?.label ?? undoStack[undoStack.length - 1]?.label ?? null
-        })
+          current:
+            pending?.label ?? undoStack[undoStack.length - 1]?.label ?? null,
+        }),
       }
 
       engine.extend('history', api)
@@ -252,6 +289,6 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
         offAfter()
         clearPendingTimer()
       }
-    }
+    },
   }
 }

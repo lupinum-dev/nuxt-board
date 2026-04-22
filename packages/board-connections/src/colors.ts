@@ -12,19 +12,27 @@ export const EDGE_COLOR_PRESETS: readonly EdgeColorOption[] = [
   { preset: '3', hex: '#d6b64a', label: 'Yellow' },
   { preset: '4', hex: '#4ea371', label: 'Green' },
   { preset: '5', hex: '#4ea8c4', label: 'Cyan' },
-  { preset: '6', hex: '#9a6fc4', label: 'Purple' }
+  { preset: '6', hex: '#9a6fc4', label: 'Purple' },
 ] as const
 
 export function colorForPreset(preset: EdgeColorPreset): string {
-  return EDGE_COLOR_PRESETS.find((option) => option.preset === preset)?.hex ?? EDGE_COLOR_PRESETS[0]!.hex
+  return (
+    EDGE_COLOR_PRESETS.find((option) => option.preset === preset)?.hex ??
+    EDGE_COLOR_PRESETS[0]!.hex
+  )
 }
 
-export function presetForColor(color: string | undefined): EdgeColorPreset | null {
+export function presetForColor(
+  color: string | undefined,
+): EdgeColorPreset | null {
   if (!color) {
     return null
   }
   const normalized = color.toLowerCase()
-  return EDGE_COLOR_PRESETS.find((option) => option.hex.toLowerCase() === normalized)?.preset ?? null
+  return (
+    EDGE_COLOR_PRESETS.find((option) => option.hex.toLowerCase() === normalized)
+      ?.preset ?? null
+  )
 }
 
 export function resolvePresetColor(color: string | undefined): string {

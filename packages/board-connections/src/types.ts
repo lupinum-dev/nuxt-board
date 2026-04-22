@@ -1,7 +1,18 @@
-import type { Bounds, BoardNode, EdgeId, NodeId, Point } from '@lupinum/board-core'
+import type {
+  Bounds,
+  BoardNode,
+  EdgeId,
+  NodeId,
+  Point,
+} from '@lupinum/board-core'
 
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'
-export type ConnectionRouting = 'bezier' | 'smooth-step' | 'step' | 'straight' | 'arc'
+export type ConnectionRouting =
+  | 'bezier'
+  | 'smooth-step'
+  | 'step'
+  | 'straight'
+  | 'arc'
 export type EdgeEnd = 'none' | 'arrow'
 export type EndpointResolutionKind = 'explicit' | 'auto'
 
@@ -44,9 +55,15 @@ export interface ConnectionPluginOptions {
 
 export interface ConnectionsExtension {
   createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
-    input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
+    input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
+      id?: EdgeId
+      zIndex?: number
+    },
   ): BoardEdge<T>
-  updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(id: EdgeId, patch: BoardEdgePatch<T>): BoardEdge<T>
+  updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+    id: EdgeId,
+    patch: BoardEdgePatch<T>,
+  ): BoardEdge<T>
   deleteEdge(id: EdgeId): void
   getEdge(id: EdgeId): BoardEdge | undefined
   getEdges(): BoardEdge[]

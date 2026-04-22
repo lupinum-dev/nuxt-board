@@ -1,6 +1,14 @@
 import { computed, watch, type ComputedRef, type Ref } from 'vue'
-import type { BoardEngine, BoardSnapshot, GridSettings } from '@lupinum/board-core'
-import { DEFAULT_BOARD_GRID_OPTIONS, type BoardGridOptions, type ResolvedBoardGridOptions } from '../grid'
+import type {
+  BoardEngine,
+  BoardSnapshot,
+  GridSettings,
+} from '@lupinum/board-core'
+import {
+  DEFAULT_BOARD_GRID_OPTIONS,
+  type BoardGridOptions,
+  type ResolvedBoardGridOptions,
+} from '../grid'
 
 export interface UseResolvedGridOptions {
   engine: BoardEngine
@@ -10,7 +18,7 @@ export interface UseResolvedGridOptions {
 
 function resolveGridOptions(
   input: boolean | BoardGridOptions,
-  engineGrid: GridSettings
+  engineGrid: GridSettings,
 ): ResolvedBoardGridOptions {
   if (input === false) {
     return {
@@ -21,7 +29,7 @@ function resolveGridOptions(
       snap: engineGrid.snap,
       edgeSnap: engineGrid.edgeSnap,
       edgeSnapThreshold: engineGrid.edgeSnapThreshold,
-      pattern: engineGrid.pattern
+      pattern: engineGrid.pattern,
     }
   }
 
@@ -33,16 +41,23 @@ function resolveGridOptions(
     majorEvery: overrides.majorEvery ?? engineGrid.majorEvery,
     snap: overrides.snap ?? engineGrid.snap,
     edgeSnap: overrides.edgeSnap ?? engineGrid.edgeSnap,
-    edgeSnapThreshold: overrides.edgeSnapThreshold ?? engineGrid.edgeSnapThreshold,
+    edgeSnapThreshold:
+      overrides.edgeSnapThreshold ?? engineGrid.edgeSnapThreshold,
     pattern: overrides.pattern ?? engineGrid.pattern,
-    minorOpacity: overrides.minorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.minorOpacity,
-    majorOpacity: overrides.majorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.majorOpacity,
-    fadeEdges: overrides.fadeEdges ?? DEFAULT_BOARD_GRID_OPTIONS.fadeEdges
+    minorOpacity:
+      overrides.minorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.minorOpacity,
+    majorOpacity:
+      overrides.majorOpacity ?? DEFAULT_BOARD_GRID_OPTIONS.majorOpacity,
+    fadeEdges: overrides.fadeEdges ?? DEFAULT_BOARD_GRID_OPTIONS.fadeEdges,
   }
 }
 
-export function useResolvedGrid(options: UseResolvedGridOptions): ComputedRef<ResolvedBoardGridOptions> {
-  const resolvedGrid = computed(() => resolveGridOptions(options.gridProp.value, options.snapshot.value.grid))
+export function useResolvedGrid(
+  options: UseResolvedGridOptions,
+): ComputedRef<ResolvedBoardGridOptions> {
+  const resolvedGrid = computed(() =>
+    resolveGridOptions(options.gridProp.value, options.snapshot.value.grid),
+  )
 
   watch(
     options.gridProp,
@@ -53,14 +68,15 @@ export function useResolvedGrid(options: UseResolvedGridOptions): ComputedRef<Re
         if (value.majorEvery !== undefined) patch.majorEvery = value.majorEvery
         if (value.snap !== undefined) patch.snap = value.snap
         if (value.edgeSnap !== undefined) patch.edgeSnap = value.edgeSnap
-        if (value.edgeSnapThreshold !== undefined) patch.edgeSnapThreshold = value.edgeSnapThreshold
+        if (value.edgeSnapThreshold !== undefined)
+          patch.edgeSnapThreshold = value.edgeSnapThreshold
         if (value.pattern !== undefined) patch.pattern = value.pattern
         if (Object.keys(patch).length > 0) {
           options.engine.updateGridSettings(patch)
         }
       }
     },
-    { immediate: true, deep: true }
+    { immediate: true, deep: true },
   )
 
   return resolvedGrid

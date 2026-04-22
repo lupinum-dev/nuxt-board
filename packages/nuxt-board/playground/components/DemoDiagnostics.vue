@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  camera: { x: number, y: number, z: number }
+  camera: { x: number; y: number; z: number }
   nodes: number
   edges: number
   selection: number
@@ -13,7 +13,10 @@ defineProps<{
   <aside class="diagnostics">
     <div class="diagnostics__item">
       <span>Camera</span>
-      <strong>{{ camera.x.toFixed(1) }}, {{ camera.y.toFixed(1) }}, {{ camera.z.toFixed(2) }}</strong>
+      <strong
+        >{{ camera.x.toFixed(1) }}, {{ camera.y.toFixed(1) }},
+        {{ camera.z.toFixed(2) }}</strong
+      >
     </div>
     <div class="diagnostics__item">
       <span>Nodes</span>

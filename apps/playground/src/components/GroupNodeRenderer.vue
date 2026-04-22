@@ -18,13 +18,13 @@ const data = computed((): GroupData => (props.node.data ?? {}) as GroupData)
 const title = computed(() =>
   typeof data.value.title === 'string' && data.value.title.length > 0
     ? data.value.title
-    : 'Untitled group'
+    : 'Untitled group',
 )
 
 const accent = computed(() =>
   typeof data.value.accent === 'string' && data.value.accent.length > 0
     ? data.value.accent
-    : '#0d9488'
+    : '#0d9488',
 )
 
 const draft = ref(title.value)
@@ -40,7 +40,7 @@ watch(
         inputRef.value?.select()
       })
     }
-  }
+  },
 )
 
 watch(title, (v) => {
@@ -52,7 +52,7 @@ watch(title, (v) => {
 function commit(): void {
   const trimmed = draft.value.trim()
   engine.updateNode(props.node.id, {
-    data: { ...props.node.data, title: trimmed || 'Untitled group' }
+    data: { ...props.node.data, title: trimmed || 'Untitled group' },
   })
   engine.endInteraction()
 }
@@ -66,12 +66,14 @@ function cancel(): void {
 <template>
   <div
     class="group-node"
-    :style="{
-      '--accent': accent,
-      '--accent-bg': accent + '0a',
-      '--accent-border': accent + '55',
-      '--accent-glow': accent + '30'
-    } as any"
+    :style="
+      {
+        '--accent': accent,
+        '--accent-bg': accent + '0a',
+        '--accent-border': accent + '55',
+        '--accent-glow': accent + '30',
+      } as any
+    "
     :class="{ 'is-selected': selected }"
   >
     <div class="group-node__label">
@@ -123,7 +125,10 @@ function cancel(): void {
   border-radius: 6px 6px 0 0;
   background: var(--accent);
   color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 12px;
   font-weight: 600;
   line-height: 18px;
@@ -143,7 +148,10 @@ function cancel(): void {
   border-radius: 6px 6px 0 0;
   background: var(--accent);
   color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: 12px;
   font-weight: 600;
   line-height: 18px;

@@ -1,8 +1,12 @@
 <script setup lang="ts">
-const selectedScene = defineModel<25 | 100 | 500>('selectedScene', { required: true })
+const selectedScene = defineModel<25 | 100 | 500>('selectedScene', {
+  required: true,
+})
 const showGrid = defineModel<boolean>('showGrid', { required: true })
 const snapToGrid = defineModel<boolean>('snapToGrid', { required: true })
-const showDiagnostics = defineModel<boolean>('showDiagnostics', { required: true })
+const showDiagnostics = defineModel<boolean>('showDiagnostics', {
+  required: true,
+})
 const showMinimap = defineModel<boolean>('showMinimap', { required: true })
 const showPanel = defineModel<boolean>('showPanel', { required: true })
 
@@ -13,10 +17,13 @@ const emit = defineEmits<{
   wrapGroup: []
 }>()
 
-const btn = 'flex items-center justify-center h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
-const btnOff = 'bg-transparent text-stone-600 hover:bg-black/5 hover:text-stone-900'
+const btn =
+  'flex items-center justify-center h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
+const btnOff =
+  'bg-transparent text-stone-600 hover:bg-black/5 hover:text-stone-900'
 const btnOn = 'bg-stone-900 text-white hover:bg-stone-800'
-const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans rounded-[10px] cursor-pointer transition-colors active:scale-[0.97]'
+const sq =
+  'flex items-center justify-center w-8 h-8 border-none font-sans rounded-[10px] cursor-pointer transition-colors active:scale-[0.97]'
 </script>
 
 <template>
@@ -34,7 +41,15 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
         viewBox="0 0 14 14"
         aria-hidden="true"
       >
-        <rect x="2.5" y="2.5" width="9" height="9" rx="2" transform="rotate(45 7 7)" fill="currentColor" />
+        <rect
+          x="2.5"
+          y="2.5"
+          width="9"
+          height="9"
+          rx="2"
+          transform="rotate(45 7 7)"
+          fill="currentColor"
+        />
       </svg>
       <span>board</span>
     </div>
@@ -59,8 +74,18 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
 
     <!-- Grid / Snap -->
     <div class="flex items-center gap-0.5">
-      <button :class="[btn, showGrid ? btnOn : btnOff]" @click="showGrid = !showGrid">Grid</button>
-      <button :class="[btn, snapToGrid ? btnOn : btnOff]" @click="snapToGrid = !snapToGrid">Snap</button>
+      <button
+        :class="[btn, showGrid ? btnOn : btnOff]"
+        @click="showGrid = !showGrid"
+      >
+        Grid
+      </button>
+      <button
+        :class="[btn, snapToGrid ? btnOn : btnOff]"
+        @click="snapToGrid = !snapToGrid"
+      >
+        Snap
+      </button>
     </div>
 
     <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
@@ -80,7 +105,16 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
 
     <!-- Add image -->
     <button :class="[sq, btnOff]" title="Add image" @click="emit('addImage')">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         <rect x="1.5" y="3" width="13" height="10" rx="1.5" />
         <circle cx="5.5" cy="6.5" r="1" />
         <path d="M1.5 11l3.5-3.5 2.5 2.5 2-2 4 4" />
@@ -96,7 +130,16 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
         title="Toggle diagnostics"
         @click="showDiagnostics = !showDiagnostics"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <rect x="2" y="3" width="12" height="10" rx="1.5" />
           <path d="M5 6.5l2 1.5-2 1.5" />
           <line x1="9" y1="10" x2="11" y2="10" />
@@ -108,9 +151,27 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
         title="Toggle minimap"
         @click="showMinimap = !showMinimap"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <rect x="2" y="3" width="12" height="10" rx="1.5" />
-          <rect x="9" y="8.5" width="3.5" height="3" rx="0.5" fill="currentColor" opacity="0.3" stroke="none" />
+          <rect
+            x="9"
+            y="8.5"
+            width="3.5"
+            height="3"
+            rx="0.5"
+            fill="currentColor"
+            opacity="0.3"
+            stroke="none"
+          />
         </svg>
       </button>
 
@@ -119,7 +180,16 @@ const sq = 'flex items-center justify-center w-8 h-8 border-none font-sans round
         title="Toggle settings"
         @click="showPanel = !showPanel"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <rect x="2" y="3" width="12" height="10" rx="1.5" />
           <line x1="10" y1="3" x2="10" y2="13" />
         </svg>

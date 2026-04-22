@@ -7,7 +7,11 @@ defineProps<{
 </script>
 
 <template>
-  <div class="board-node-handle" :class="`is-${handle}`" :data-resize="handle" />
+  <div
+    class="board-node-handle"
+    :class="`is-${handle}`"
+    :data-resize="handle"
+  />
 </template>
 
 <style scoped>
@@ -31,7 +35,8 @@ defineProps<{
   left: 50%;
   width: var(--_size);
   height: var(--_size);
-  border: calc(1.5px / var(--board-zoom, 1)) solid var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
+  border: calc(1.5px / var(--board-zoom, 1)) solid
+    var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
   border-radius: 999px;
   background: var(--board-node-bg, #fff);
   box-shadow:

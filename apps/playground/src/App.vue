@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
-import { connectionPlugin, BoardConnectionLayer, type ConnectionRouting } from '@lupinum/board-connections'
+import {
+  connectionPlugin,
+  BoardConnectionLayer,
+  type ConnectionRouting,
+} from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 import { BoardMinimap } from '@lupinum/board-minimap'
 import { jsonCanvasSerializer } from '@lupinum/board-serializer'
@@ -24,7 +28,7 @@ type PlaygroundApi = {
 const engine = createBoardEngine({
   diagnostics: { traceLimit: 500 },
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
-  plugins: [historyPlugin(), connectionPlugin()]
+  plugins: [historyPlugin(), connectionPlugin()],
 })
 
 // ━━ UI state ━━
@@ -44,7 +48,7 @@ const showMinimap = ref(true)
 // ━━ Renderers ━━
 const renderers: BoardRendererRegistry = {
   image: ImageNodeRenderer,
-  group: GroupNodeRenderer
+  group: GroupNodeRenderer,
 }
 
 const gridOptions = computed(() => ({
@@ -52,7 +56,7 @@ const gridOptions = computed(() => ({
   snap: snapToGrid.value,
   size: gridSize.value,
   majorEvery: 5,
-  pattern: gridPattern.value
+  pattern: gridPattern.value,
 }))
 
 // ━━ Scene management ━━
@@ -79,8 +83,8 @@ async function seedScene(count: number): Promise<void> {
         y: row * 220,
         width: 240,
         height: 140,
-        data: { content: `Node ${i + 1}\n${col}:${row}` }
-      })
+        data: { content: `Node ${i + 1}\n${col}:${row}` },
+      }),
     )
   }
 
@@ -90,12 +94,22 @@ async function seedScene(count: number): Promise<void> {
     y: 120,
     width: 280,
     height: 180,
-    data: { alt: 'Reference tile' }
+    data: { alt: 'Reference tile' },
   })
 
   if (created.length >= 3) {
-    engine.ext.connections.createEdge({ from: created[0]!.id, to: created[1]!.id, label: 'A', data: {} })
-    engine.ext.connections.createEdge({ from: created[1]!.id, to: created[2]!.id, label: 'B', data: {} })
+    engine.ext.connections.createEdge({
+      from: created[0]!.id,
+      to: created[1]!.id,
+      label: 'A',
+      data: {},
+    })
+    engine.ext.connections.createEdge({
+      from: created[1]!.id,
+      to: created[2]!.id,
+      label: 'B',
+      data: {},
+    })
   }
 
   engine.clearSelection()
@@ -141,12 +155,15 @@ const GROUP_PAD = 36
 const DEFAULT_GROUP_W = 400
 const DEFAULT_GROUP_H = 300
 
-function worldCenterForViewportBox(width: number, height: number): { x: number; y: number } {
+function worldCenterForViewportBox(
+  width: number,
+  height: number,
+): { x: number; y: number } {
   const vp = engine.getViewportSize()
   const center = engine.screenToWorld({ x: vp.x / 2, y: vp.y / 2 })
   return {
     x: Math.round(center.x - width / 2),
-    y: Math.round(center.y - height / 2)
+    y: Math.round(center.y - height / 2),
   }
 }
 
@@ -162,7 +179,7 @@ function wrapSelectionInGroup(): void {
       y,
       width: DEFAULT_GROUP_W,
       height: DEFAULT_GROUP_H,
-      select: false
+      select: false,
     })
     engine.sendToBack(group.id)
     engine.select([group.id])
@@ -189,7 +206,7 @@ function wrapSelectionInGroup(): void {
     y: minY - GROUP_PAD,
     width: maxX - minX + GROUP_PAD * 2,
     height: maxY - minY + GROUP_PAD * 2,
-    select: false
+    select: false,
   })
   engine.sendToBack(group.id)
   for (const n of nodes) {
@@ -230,7 +247,7 @@ function onImageFileSelected(event: Event): void {
         y,
         width,
         height,
-        data: { src, alt: file.name }
+        data: { src, alt: file.name },
       })
     }
     img.src = src
@@ -242,12 +259,14 @@ function onImageFileSelected(event: Event): void {
 // ━━ Lifecycle ━━
 onMounted(async () => {
   await seedScene(selectedScene.value)
-  ;(window as Window & { __boardPlayground?: PlaygroundApi }).__boardPlayground = {
+  ;(
+    window as Window & { __boardPlayground?: PlaygroundApi }
+  ).__boardPlayground = {
     engine,
     seedScene,
     runBenchmark,
     exportJsonCanvas,
-    importJsonCanvas
+    importJsonCanvas,
   }
 })
 </script>
@@ -316,14 +335,14 @@ onMounted(async () => {
 
     <!-- Settings panel -->
     <Transition name="panel-slide">
-        <PlaygroundPanel
-          v-if="showPanel"
-          v-model:grid-size="gridSize"
-          v-model:grid-pattern="gridPattern"
-          v-model:connection-routing="connectionRouting"
-          :benchmark-result="benchmarkResult"
-          :exported-json="exportedJson"
-          @close="showPanel = false"
+      <PlaygroundPanel
+        v-if="showPanel"
+        v-model:grid-size="gridSize"
+        v-model:grid-pattern="gridPattern"
+        v-model:connection-routing="connectionRouting"
+        :benchmark-result="benchmarkResult"
+        :exported-json="exportedJson"
+        @close="showPanel = false"
         @benchmark="runBenchmark"
         @export="exportJsonCanvas"
         @import="importJsonCanvas"
@@ -373,7 +392,7 @@ onMounted(async () => {
 }
 
 :deep(.board-node-simple) {
-  border-color: rgba(28, 25, 23, 0.10);
+  border-color: rgba(28, 25, 23, 0.1);
   border-radius: 6px;
 }
 

@@ -1,27 +1,41 @@
 import { asEdgeId, type BoardPlugin, type EdgeId } from '@lupinum/board-core'
-import { SLICE_NAME, initialState, invert, reducer, type ConnectionsSliceState } from './slice'
+import {
+  SLICE_NAME,
+  initialState,
+  invert,
+  reducer,
+  type ConnectionsSliceState,
+} from './slice'
 import type {
   BoardEdge,
   BoardEdgePatch,
   ConnectionPluginOptions,
   ConnectionRouting,
   ConnectionsExtension,
-  EdgeEnd
+  EdgeEnd,
 } from './types'
 
 declare module '@lupinum/board-core' {
-  interface BoardEventMap<R extends import('@lupinum/board-core').NodeTypeRegistry = import('@lupinum/board-core').NodeTypeRegistry> {
+  interface BoardEventMap<
+    R extends import('@lupinum/board-core').NodeTypeRegistry =
+      import('@lupinum/board-core').NodeTypeRegistry,
+  > {
     'edge:created': (edge: BoardEdge) => void
     'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
-  interface BoardEngineExtensions<R extends import('@lupinum/board-core').NodeTypeRegistry = import('@lupinum/board-core').NodeTypeRegistry> {
+  interface BoardEngineExtensions<
+    R extends import('@lupinum/board-core').NodeTypeRegistry =
+      import('@lupinum/board-core').NodeTypeRegistry,
+  > {
     connections: ConnectionsExtension
   }
 }
 
-function defaultEnds(defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>): {
+function defaultEnds(
+  defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>,
+): {
   fromEnd: EdgeEnd
   toEnd: EdgeEnd
 } {
@@ -41,20 +55,27 @@ function defaultEnds(defaultArrow: NonNullable<ConnectionPluginOptions['defaultA
 function cloneEdge<T>(edge: BoardEdge<T>): BoardEdge<T> {
   return {
     ...edge,
-    data: structuredClone(edge.data)
+    data: structuredClone(edge.data),
   }
 }
 
-export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPlugin {
+export function connectionPlugin(
+  options: ConnectionPluginOptions = {},
+): BoardPlugin {
   const routing = options.routing ?? 'bezier'
   const defaultArrow = options.defaultArrow ?? 'end'
   const defaults = defaultEnds(defaultArrow)
 
   return {
     name: SLICE_NAME,
-    slice: { initial: initialState, reducer, invert: invert as (innerAction: never) => unknown },
+    slice: {
+      initial: initialState,
+      reducer,
+      invert: invert as (innerAction: never) => unknown,
+    },
     install(engine) {
-      const getSlice = (): ConnectionsSliceState => engine.getPluginState<ConnectionsSliceState>()
+      const getSlice = (): ConnectionsSliceState =>
+        engine.getPluginState<ConnectionsSliceState>()
 
       function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
         const edge = getSlice().edges.get(id)
@@ -66,14 +87,21 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
 
       const api: ConnectionsExtension = {
         createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
-          input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & { id?: EdgeId; zIndex?: number }
+          input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
+            id?: EdgeId
+            zIndex?: number
+          },
         ) {
           return engine.runCommand('edge:create', [input], () => {
             if (!engine.hasNode(input.from)) {
-              throw new Error(`Cannot create edge: source node "${input.from}" does not exist.`)
+              throw new Error(
+                `Cannot create edge: source node "${input.from}" does not exist.`,
+              )
             }
             if (!engine.hasNode(input.to)) {
-              throw new Error(`Cannot create edge: target node "${input.to}" does not exist.`)
+              throw new Error(
+                `Cannot create edge: target node "${input.to}" does not exist.`,
+              )
             }
 
             const slice = getSlice()
@@ -88,47 +116,63 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
               label: input.label,
               color: input.color,
               data: structuredClone(input.data ?? ({} as T)),
-              zIndex: input.zIndex ?? slice.nextZIndex
+              zIndex: input.zIndex ?? slice.nextZIndex,
             }
 
             engine.dispatch({
               type: 'PLUGIN',
               plugin: SLICE_NAME,
-              action: { type: 'EDGE_CREATED', edge: edge as BoardEdge }
+              action: { type: 'EDGE_CREATED', edge: edge as BoardEdge },
             })
             return cloneEdge(edge)
           }) as BoardEdge<T>
         },
-        updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(id: EdgeId, patch: BoardEdgePatch<T>) {
+        updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+          id: EdgeId,
+          patch: BoardEdgePatch<T>,
+        ) {
           const current = getEdgeOrThrow(id, 'update') as BoardEdge<T>
 
           return engine.runCommand('edge:update', [id, patch], () => {
             const nextFrom = 'from' in patch ? patch.from : current.from
             const nextTo = 'to' in patch ? patch.to : current.to
             if (!nextFrom || !engine.hasNode(nextFrom)) {
-              throw new Error(`Cannot update edge: source node "${nextFrom}" does not exist.`)
+              throw new Error(
+                `Cannot update edge: source node "${nextFrom}" does not exist.`,
+              )
             }
             if (!nextTo || !engine.hasNode(nextTo)) {
-              throw new Error(`Cannot update edge: target node "${nextTo}" does not exist.`)
+              throw new Error(
+                `Cannot update edge: target node "${nextTo}" does not exist.`,
+              )
             }
 
             const next: BoardEdge<T> = {
               ...current,
               from: nextFrom,
               to: nextTo,
-              fromAnchor: 'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
+              fromAnchor:
+                'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
               toAnchor: 'toAnchor' in patch ? patch.toAnchor : current.toAnchor,
               fromEnd: 'fromEnd' in patch ? patch.fromEnd : current.fromEnd,
               toEnd: 'toEnd' in patch ? patch.toEnd : current.toEnd,
               label: 'label' in patch ? patch.label : current.label,
               color: 'color' in patch ? patch.color : current.color,
-              data: 'data' in patch ? structuredClone((patch.data ?? {}) as T) : structuredClone(current.data)
+              data:
+                'data' in patch
+                  ? structuredClone((patch.data ?? {}) as T)
+                  : structuredClone(current.data),
             }
 
             engine.dispatch({
               type: 'PLUGIN',
               plugin: SLICE_NAME,
-              action: { type: 'EDGE_UPDATED', id, before: current as BoardEdge, after: next as BoardEdge }
+              action: {
+                type: 'EDGE_UPDATED',
+                id,
+                before: current as BoardEdge,
+                after: next as BoardEdge,
+              },
             })
             return cloneEdge(next)
           }) as BoardEdge<T>
@@ -140,7 +184,7 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
             engine.dispatch({
               type: 'PLUGIN',
               plugin: SLICE_NAME,
-              action: { type: 'EDGE_DELETED', id, edge: current }
+              action: { type: 'EDGE_DELETED', id, edge: current },
             })
           })
         },
@@ -149,7 +193,9 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
           return edge ? cloneEdge(edge) : undefined
         },
         getEdges() {
-          return Array.from(getSlice().edges.values(), (edge) => cloneEdge(edge))
+          return Array.from(getSlice().edges.values(), (edge) =>
+            cloneEdge(edge),
+          )
         },
         getEdgesFrom(id) {
           return api.getEdges().filter((edge) => edge.from === id)
@@ -158,15 +204,25 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
           return api.getEdges().filter((edge) => edge.to === id)
         },
         getEdgesBetween(from, to) {
-          return api.getEdges().filter((edge) => edge.from === from && edge.to === to)
-        }
+          return api
+            .getEdges()
+            .filter((edge) => edge.from === from && edge.to === to)
+        },
       }
 
       engine.extend('connections', api)
-      ;(engine.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting; __defaultArrow?: ConnectionPluginOptions['defaultArrow'] }).__routing =
-        routing
-      ;(engine.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting; __defaultArrow?: ConnectionPluginOptions['defaultArrow'] }).__defaultArrow =
-        defaultArrow
+      ;(
+        engine.ext.connections as ConnectionsExtension & {
+          __routing?: ConnectionRouting
+          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
+        }
+      ).__routing = routing
+      ;(
+        engine.ext.connections as ConnectionsExtension & {
+          __routing?: ConnectionRouting
+          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
+        }
+      ).__defaultArrow = defaultArrow
 
       const cascadeUnsubscribe = engine.onAction((action) => {
         if (action.type !== 'NODE_DELETED') return
@@ -177,7 +233,7 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
             engine.dispatch({
               type: 'PLUGIN',
               plugin: SLICE_NAME,
-              action: { type: 'EDGE_DELETED', id, edge }
+              action: { type: 'EDGE_DELETED', id, edge },
             })
           }
         }
@@ -207,6 +263,6 @@ export function connectionPlugin(options: ConnectionPluginOptions = {}): BoardPl
         cascadeUnsubscribe()
         unsubscribe()
       }
-    }
+    },
   }
 }

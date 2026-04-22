@@ -16,7 +16,9 @@ export interface TransactionController {
   flushBatchNotifications(): void
 }
 
-export function createTransactionController(deps: TransactionDeps): TransactionController {
+export function createTransactionController(
+  deps: TransactionDeps,
+): TransactionController {
   let depth = 0
   let startedAt = 0
   let validationPending = false
@@ -65,6 +67,6 @@ export function createTransactionController(deps: TransactionDeps): TransactionC
     begin,
     end,
     batch,
-    flushBatchNotifications
+    flushBatchNotifications,
   }
 }

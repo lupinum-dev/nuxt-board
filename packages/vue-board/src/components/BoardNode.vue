@@ -23,7 +23,7 @@ const style = computed(() => ({
   top: `${props.node.y}px`,
   width: `${props.node.width}px`,
   height: `${props.node.height}px`,
-  zIndex: String(props.node.zIndex)
+  zIndex: String(props.node.zIndex),
 }))
 
 const slotProps = computed(() => ({
@@ -31,13 +31,15 @@ const slotProps = computed(() => ({
   selected: props.selected,
   editing: props.editing,
   beginEdit: () => engine.beginTextEdit(props.node.id),
-  commitText: (text: string) => engine.commitTextEdit(props.node.id, text)
+  commitText: (text: string) => engine.commitTextEdit(props.node.id, text),
 }))
 
 // Use the explicit prop when provided (e.g. from BoardRoot); fall back to slot detection
 // for direct/standalone usage of BoardNode.
 const hasCustomRenderer = computed(() =>
-  props.customRenderer !== undefined ? props.customRenderer : Boolean(slots.default)
+  props.customRenderer !== undefined
+    ? props.customRenderer
+    : Boolean(slots.default),
 )
 
 watch(
@@ -45,7 +47,7 @@ watch(
   (node) => {
     draft.value = getTextContent(node)
   },
-  { deep: true }
+  { deep: true },
 )
 
 watch(
@@ -59,7 +61,7 @@ watch(
     } else {
       draft.value = getTextContent(props.node)
     }
-  }
+  },
 )
 
 function commit(): void {
@@ -83,7 +85,12 @@ function getTextContent(node: BoardNode): string {
 <template>
   <article
     class="board-node"
-    :class="{ 'is-selected': selected, 'is-editing': editing, 'is-locked': node.locked, 'is-group': node.type === 'group' }"
+    :class="{
+      'is-selected': selected,
+      'is-editing': editing,
+      'is-locked': node.locked,
+      'is-group': node.type === 'group',
+    }"
     :style="style"
     :data-node-id="node.id"
   >
@@ -132,7 +139,8 @@ function getTextContent(node: BoardNode): string {
   position: absolute;
   box-sizing: border-box;
   overflow: visible;
-  border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border, rgba(148, 163, 184, 0.28));
+  border: calc(1px / var(--board-zoom, 1)) solid
+    var(--board-node-border, rgba(148, 163, 184, 0.28));
   border-radius: calc(var(--board-node-radius, 8px) / var(--board-zoom, 1));
   box-shadow: var(--board-node-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
   background: var(--board-node-bg, #fff);
@@ -153,13 +161,15 @@ function getTextContent(node: BoardNode): string {
 }
 
 .board-node.is-selected {
-  outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
+  outline: calc(2.5px / var(--board-zoom, 1)) solid
+    var(--board-node-ring, rgba(15, 118, 110, 0.38));
   outline-offset: calc(1px / var(--board-zoom, 1));
   box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
 }
 
 .board-node.is-editing {
-  outline: calc(2.5px / var(--board-zoom, 1)) solid var(--board-node-ring, rgba(15, 118, 110, 0.38));
+  outline: calc(2.5px / var(--board-zoom, 1)) solid
+    var(--board-node-ring, rgba(15, 118, 110, 0.38));
   outline-offset: calc(1px / var(--board-zoom, 1));
   box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
 }

@@ -12,7 +12,7 @@ const style = computed(() => {
     left: `${bounds.value.minX}px`,
     top: `${bounds.value.minY}px`,
     width: `${bounds.value.maxX - bounds.value.minX}px`,
-    height: `${bounds.value.maxY - bounds.value.minY}px`
+    height: `${bounds.value.maxY - bounds.value.minY}px`,
   }
 })
 </script>

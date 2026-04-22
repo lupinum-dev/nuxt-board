@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-@import "tailwindcss";
-@import "@nuxt/ui";
+@import 'tailwindcss';
+@import '@nuxt/ui';
 
 @source "../../../content/**/*";
 
@@ -26,8 +26,16 @@
   --ui-container: var(--container-8xl);
   color-scheme: light;
   background:
-    radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 32%),
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.1), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(20, 184, 166, 0.12),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(15, 118, 110, 0.1),
+      transparent 28%
+    ),
     linear-gradient(180deg, #f8fafc 0%, #ffffff 48%, #f3f4f6 100%);
 }
 
@@ -83,7 +91,8 @@ body {
 .demo-toolbar button.demo-primary {
   color: var(--ui-primary);
   background: color-mix(in srgb, var(--ui-primary) 10%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary) 20%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--ui-primary) 20%, transparent);
 }
 
 .demo-toolbar button.demo-primary:hover {

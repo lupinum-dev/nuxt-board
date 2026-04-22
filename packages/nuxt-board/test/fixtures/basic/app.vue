@@ -1,12 +1,7 @@
 <template>
   <div>
-    <p class="board-module-ok">
-      board-module-ok
-    </p>
-    <BoardRoot
-      :engine="engine"
-      style="width: 400px; height: 300px;"
-    />
+    <p class="board-module-ok">board-module-ok</p>
+    <BoardRoot :engine="engine" style="width: 400px; height: 300px" />
   </div>
 </template>
 

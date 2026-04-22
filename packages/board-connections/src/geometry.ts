@@ -3,7 +3,7 @@ import {
   type BoardEngine,
   type BoardNode,
   type Bounds,
-  type Point
+  type Point,
 } from '@lupinum/board-core'
 import type {
   AnchorPosition,
@@ -12,7 +12,7 @@ import type {
   ConnectionRoute,
   ConnectionRouteSegment,
   ConnectionRouting,
-  ResolvedConnectionEndpoint
+  ResolvedConnectionEndpoint,
 } from './types'
 import { buildArcRoute } from './routing/arc'
 
@@ -28,7 +28,7 @@ const DIRECTION_VECTORS: Record<AnchorSide, Point> = {
   top: { x: 0, y: -1 },
   right: { x: 1, y: 0 },
   bottom: { x: 0, y: 1 },
-  left: { x: -1, y: 0 }
+  left: { x: -1, y: 0 },
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -47,16 +47,18 @@ function point(x: number, y: number): Point {
   return { x, y }
 }
 
-function nodeCenter(node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>): Point {
+function nodeCenter(
+  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
+): Point {
   return {
     x: node.x + node.width / 2,
-    y: node.y + node.height / 2
+    y: node.y + node.height / 2,
   }
 }
 
 export function resolveAnchorPoint(
   node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
-  anchor: AnchorPosition
+  anchor: AnchorPosition,
 ): Point {
   const offset = clamp(anchor.offset, 0, 1)
   switch (anchor.side) {
@@ -76,7 +78,7 @@ export function resolveAutoAnchorSide(
   source: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   target: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   _role: 'source' | 'target',
-  previousSide?: AnchorSide
+  previousSide?: AnchorSide,
 ): AnchorSide {
   const from = nodeCenter(source)
   const to = nodeCenter(target)
@@ -112,7 +114,7 @@ export function resolveConnectionEndpoint(
   node: Pick<BoardNode, 'id' | 'x' | 'y' | 'width' | 'height'>,
   otherNode: Pick<BoardNode, 'id' | 'x' | 'y' | 'width' | 'height'>,
   role: 'source' | 'target',
-  previousSide?: AnchorSide
+  previousSide?: AnchorSide,
 ): ResolvedConnectionEndpoint {
   const explicitAnchor = role === 'source' ? edge.fromAnchor : edge.toAnchor
   if (explicitAnchor) {
@@ -122,7 +124,7 @@ export function resolveConnectionEndpoint(
       side: explicitAnchor.side,
       offset: clamp(explicitAnchor.offset, 0, 1),
       point: resolveAnchorPoint(node, explicitAnchor),
-      kind: 'explicit'
+      kind: 'explicit',
     }
   }
   const side = resolveAutoAnchorSide(node, otherNode, role, previousSide)
@@ -133,7 +135,7 @@ export function resolveConnectionEndpoint(
     side,
     offset,
     point: resolveAnchorPoint(node, { side, offset }),
-    kind: 'auto'
+    kind: 'auto',
   }
 }
 
@@ -141,21 +143,21 @@ export function resolveFloatingEndpoint(
   pointValue: Point,
   otherPoint: Point,
   role: 'source' | 'target',
-  previousSide?: AnchorSide
+  previousSide?: AnchorSide,
 ): ResolvedConnectionEndpoint {
   const probeNode = {
     id: `floating-${role}` as BoardNode['id'],
     x: pointValue.x,
     y: pointValue.y,
     width: 0,
-    height: 0
+    height: 0,
   }
   const otherNode = {
     id: `other-${role}` as BoardNode['id'],
     x: otherPoint.x,
     y: otherPoint.y,
     width: 0,
-    height: 0
+    height: 0,
   }
   const side = resolveAutoAnchorSide(probeNode, otherNode, role, previousSide)
 
@@ -165,7 +167,7 @@ export function resolveFloatingEndpoint(
     side,
     offset: 0.5,
     point: pointValue,
-    kind: 'auto'
+    kind: 'auto',
   }
 }
 
@@ -175,18 +177,31 @@ function boundsFromPoints(points: Point[]): Bounds {
       minX: Math.min(acc.minX, current.x),
       minY: Math.min(acc.minY, current.y),
       maxX: Math.max(acc.maxX, current.x),
-      maxY: Math.max(acc.maxY, current.y)
+      maxY: Math.max(acc.maxY, current.y),
     }),
-    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
   )
 }
 
-function cubicAt(p0: number, p1: number, p2: number, p3: number, t: number): number {
+function cubicAt(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+  t: number,
+): number {
   const mt = 1 - t
-  return mt ** 3 * p0 + 3 * mt ** 2 * t * p1 + 3 * mt * t ** 2 * p2 + t ** 3 * p3
+  return (
+    mt ** 3 * p0 + 3 * mt ** 2 * t * p1 + 3 * mt * t ** 2 * p2 + t ** 3 * p3
+  )
 }
 
-function cubicDerivativeRoots(p0: number, p1: number, p2: number, p3: number): number[] {
+function cubicDerivativeRoots(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+): number[] {
   const a = -p0 + 3 * p1 - 3 * p2 + p3
   const b = 2 * (p0 - 2 * p1 + p2)
   const c = p1 - p0
@@ -222,21 +237,31 @@ function cubicBounds(
   from: Point,
   control1: Point,
   control2: Point,
-  to: Point
+  to: Point,
 ): Bounds {
   const ts = new Set<number>([0, 1])
-  for (const root of cubicDerivativeRoots(from.x, control1.x, control2.x, to.x)) {
+  for (const root of cubicDerivativeRoots(
+    from.x,
+    control1.x,
+    control2.x,
+    to.x,
+  )) {
     ts.add(root)
   }
-  for (const root of cubicDerivativeRoots(from.y, control1.y, control2.y, to.y)) {
+  for (const root of cubicDerivativeRoots(
+    from.y,
+    control1.y,
+    control2.y,
+    to.y,
+  )) {
     ts.add(root)
   }
 
   const samples = [...ts].map((t) =>
     point(
       cubicAt(from.x, control1.x, control2.x, to.x, t),
-      cubicAt(from.y, control1.y, control2.y, to.y, t)
-    )
+      cubicAt(from.y, control1.y, control2.y, to.y, t),
+    ),
   )
   return boundsFromPoints(samples)
 }
@@ -261,7 +286,7 @@ function getBezierEdgeCenter(params: {
       params.sourceY * 0.125 +
       params.sourceControlY * 0.375 +
       params.targetControlY * 0.375 +
-      params.targetY * 0.125
+      params.targetY * 0.125,
   }
 }
 
@@ -288,31 +313,35 @@ function getControlWithCurvature(params: {
   switch (params.pos) {
     case 'left':
       return point(
-        params.x1 - calculateControlOffset(params.x1 - params.x2, params.curvature),
-        params.y1
+        params.x1 -
+          calculateControlOffset(params.x1 - params.x2, params.curvature),
+        params.y1,
       )
     case 'right':
       return point(
-        params.x1 + calculateControlOffset(params.x2 - params.x1, params.curvature),
-        params.y1
+        params.x1 +
+          calculateControlOffset(params.x2 - params.x1, params.curvature),
+        params.y1,
       )
     case 'top':
       return point(
         params.x1,
-        params.y1 - calculateControlOffset(params.y1 - params.y2, params.curvature)
+        params.y1 -
+          calculateControlOffset(params.y1 - params.y2, params.curvature),
       )
     case 'bottom':
     default:
       return point(
         params.x1,
-        params.y1 + calculateControlOffset(params.y2 - params.y1, params.curvature)
+        params.y1 +
+          calculateControlOffset(params.y2 - params.y1, params.curvature),
       )
   }
 }
 
 function buildBezierRoute(
   source: ResolvedConnectionEndpoint,
-  target: ResolvedConnectionEndpoint
+  target: ResolvedConnectionEndpoint,
 ): ConnectionRoute {
   const control1 = getControlWithCurvature({
     pos: sideToPosition(source.side),
@@ -320,7 +349,7 @@ function buildBezierRoute(
     y1: source.point.y,
     x2: target.point.x,
     y2: target.point.y,
-    curvature: 0.25
+    curvature: 0.25,
   })
   const control2 = getControlWithCurvature({
     pos: sideToPosition(target.side),
@@ -328,7 +357,7 @@ function buildBezierRoute(
     y1: target.point.y,
     x2: source.point.x,
     y2: source.point.y,
-    curvature: 0.25
+    curvature: 0.25,
   })
 
   return {
@@ -342,7 +371,7 @@ function buildBezierRoute(
       sourceControlX: control1.x,
       sourceControlY: control1.y,
       targetControlX: control2.x,
-      targetControlY: control2.y
+      targetControlY: control2.y,
     }),
     bounds: cubicBounds(source.point, control1, control2, target.point),
     waypoints: [source.point, target.point],
@@ -352,9 +381,9 @@ function buildBezierRoute(
         from: source.point,
         control1,
         control2,
-        to: target.point
-      }
-    ]
+        to: target.point,
+      },
+    ],
   }
 }
 
@@ -376,7 +405,7 @@ function getStepDirection(params: {
 function getEdgeCenter(source: Point, target: Point): Point {
   return {
     x: (source.x + target.x) / 2,
-    y: (source.y + target.y) / 2
+    y: (source.y + target.y) / 2,
   }
 }
 
@@ -392,16 +421,16 @@ function getSmoothStepPoints(params: {
   const targetDir = DIRECTION_VECTORS[params.targetPosition]
   const sourceGapped = point(
     params.source.x + sourceDir.x * params.offset,
-    params.source.y + sourceDir.y * params.offset
+    params.source.y + sourceDir.y * params.offset,
   )
   const targetGapped = point(
     params.target.x + targetDir.x * params.offset,
-    params.target.y + targetDir.y * params.offset
+    params.target.y + targetDir.y * params.offset,
   )
   const dir = getStepDirection({
     source: sourceGapped,
     sourcePosition: params.sourcePosition,
-    target: targetGapped
+    target: targetGapped,
   })
   const dirAccessor = dir.x !== 0 ? 'x' : 'y'
   const currDir = dir[dirAccessor]
@@ -410,23 +439,29 @@ function getSmoothStepPoints(params: {
   const sourceGapOffset = point(0, 0)
   const targetGapOffset = point(0, 0)
 
-  if ((sourceDir as Record<'x' | 'y', number>)[dirAccessor] * (targetDir as Record<'x' | 'y', number>)[dirAccessor] === -1) {
+  if (
+    (sourceDir as Record<'x' | 'y', number>)[dirAccessor] *
+      (targetDir as Record<'x' | 'y', number>)[dirAccessor] ===
+    -1
+  ) {
     const centerX =
       dirAccessor === 'x'
-        ? sourceGapped.x + (targetGapped.x - sourceGapped.x) * params.stepPosition
+        ? sourceGapped.x +
+          (targetGapped.x - sourceGapped.x) * params.stepPosition
         : (sourceGapped.x + targetGapped.x) / 2
     const centerY =
       dirAccessor === 'y'
-        ? sourceGapped.y + (targetGapped.y - sourceGapped.y) * params.stepPosition
+        ? sourceGapped.y +
+          (targetGapped.y - sourceGapped.y) * params.stepPosition
         : (sourceGapped.y + targetGapped.y) / 2
 
     const verticalSplit = [
       point(centerX, sourceGapped.y),
-      point(centerX, targetGapped.y)
+      point(centerX, targetGapped.y),
     ]
     const horizontalSplit = [
       point(sourceGapped.x, centerY),
-      point(targetGapped.x, centerY)
+      point(targetGapped.x, centerY),
     ]
     if ((sourceDir as Record<'x' | 'y', number>)[dirAccessor] === currDir) {
       points = dirAccessor === 'x' ? verticalSplit : horizontalSplit
@@ -445,7 +480,7 @@ function getSmoothStepPoints(params: {
     if (params.sourcePosition === params.targetPosition) {
       const diff = Math.abs(
         (params.source as Record<'x' | 'y', number>)[dirAccessor] -
-          (params.target as Record<'x' | 'y', number>)[dirAccessor]
+          (params.target as Record<'x' | 'y', number>)[dirAccessor],
       )
       if (diff <= params.offset) {
         const gapOffset = Math.min(params.offset - 1, params.offset - diff)
@@ -479,24 +514,32 @@ function getSmoothStepPoints(params: {
 
       const flipSourceTarget =
         ((sourceDir as Record<'x' | 'y', number>)[dirAccessor] === 1 &&
-          ((!isSameDir && sourceGtTargetOpposite) || (isSameDir && sourceLtTargetOpposite))) ||
+          ((!isSameDir && sourceGtTargetOpposite) ||
+            (isSameDir && sourceLtTargetOpposite))) ||
         ((sourceDir as Record<'x' | 'y', number>)[dirAccessor] !== 1 &&
-          ((!isSameDir && sourceLtTargetOpposite) || (isSameDir && sourceGtTargetOpposite)))
+          ((!isSameDir && sourceLtTargetOpposite) ||
+            (isSameDir && sourceGtTargetOpposite)))
 
       if (flipSourceTarget) {
         points = dirAccessor === 'x' ? sourceTarget : targetSource
       }
     }
 
-    const sourceGapPoint = point(sourceGapped.x + sourceGapOffset.x, sourceGapped.y + sourceGapOffset.y)
-    const targetGapPoint = point(targetGapped.x + targetGapOffset.x, targetGapped.y + targetGapOffset.y)
+    const sourceGapPoint = point(
+      sourceGapped.x + sourceGapOffset.x,
+      sourceGapped.y + sourceGapOffset.y,
+    )
+    const targetGapPoint = point(
+      targetGapped.x + targetGapOffset.x,
+      targetGapped.y + targetGapOffset.y,
+    )
     const maxXDistance = Math.max(
       Math.abs(sourceGapPoint.x - points[0]!.x),
-      Math.abs(targetGapPoint.x - points[0]!.x)
+      Math.abs(targetGapPoint.x - points[0]!.x),
     )
     const maxYDistance = Math.max(
       Math.abs(sourceGapPoint.y - points[0]!.y),
-      Math.abs(targetGapPoint.y - points[0]!.y)
+      Math.abs(targetGapPoint.y - points[0]!.y),
     )
     center =
       maxXDistance >= maxYDistance
@@ -504,15 +547,26 @@ function getSmoothStepPoints(params: {
         : point(points[0]!.x, (sourceGapPoint.y + targetGapPoint.y) / 2)
   }
 
-  const gappedSource = point(sourceGapped.x + sourceGapOffset.x, sourceGapped.y + sourceGapOffset.y)
-  const gappedTarget = point(targetGapped.x + targetGapOffset.x, targetGapped.y + targetGapOffset.y)
+  const gappedSource = point(
+    sourceGapped.x + sourceGapOffset.x,
+    sourceGapped.y + sourceGapOffset.y,
+  )
+  const gappedTarget = point(
+    targetGapped.x + targetGapOffset.x,
+    targetGapped.y + targetGapOffset.y,
+  )
 
   const pathPoints = [
     params.source,
-    ...(gappedSource.x !== points[0]!.x || gappedSource.y !== points[0]!.y ? [gappedSource] : []),
+    ...(gappedSource.x !== points[0]!.x || gappedSource.y !== points[0]!.y
+      ? [gappedSource]
+      : []),
     ...points,
-    ...(gappedTarget.x !== points[points.length - 1]!.x || gappedTarget.y !== points[points.length - 1]!.y ? [gappedTarget] : []),
-    params.target
+    ...(gappedTarget.x !== points[points.length - 1]!.x ||
+    gappedTarget.y !== points[points.length - 1]!.y
+      ? [gappedTarget]
+      : []),
+    params.target,
   ]
 
   return [pathPoints, center]
@@ -541,7 +595,7 @@ function getBend(a: Point, b: Point, c: Point, radius: number): string {
 function buildStepLikeRoute(
   source: ResolvedConnectionEndpoint,
   target: ResolvedConnectionEndpoint,
-  routing: 'smooth-step' | 'step'
+  routing: 'smooth-step' | 'step',
 ): ConnectionRoute {
   const [points, labelPoint] = getSmoothStepPoints({
     source: source.point,
@@ -549,12 +603,17 @@ function buildStepLikeRoute(
     target: target.point,
     targetPosition: sideToPosition(target.side),
     offset: STEP_OFFSET,
-    stepPosition: 0.5
+    stepPosition: 0.5,
   })
 
   let path = `M${points[0]!.x} ${points[0]!.y}`
   for (let index = 1; index < points.length - 1; index += 1) {
-    path += getBend(points[index - 1]!, points[index]!, points[index + 1]!, routing === 'smooth-step' ? SMOOTH_STEP_RADIUS : 0)
+    path += getBend(
+      points[index - 1]!,
+      points[index]!,
+      points[index + 1]!,
+      routing === 'smooth-step' ? SMOOTH_STEP_RADIUS : 0,
+    )
   }
   path += `L${points[points.length - 1]!.x} ${points[points.length - 1]!.y}`
 
@@ -567,14 +626,14 @@ function buildStepLikeRoute(
     segments: points.slice(0, -1).map((current, index) => ({
       type: 'line' as const,
       from: current,
-      to: points[index + 1]!
-    }))
+      to: points[index + 1]!,
+    })),
   }
 }
 
 function buildStraightRoute(
   source: ResolvedConnectionEndpoint,
-  target: ResolvedConnectionEndpoint
+  target: ResolvedConnectionEndpoint,
 ): ConnectionRoute {
   return {
     routing: 'straight',
@@ -582,7 +641,7 @@ function buildStraightRoute(
     labelPoint: getEdgeCenter(source.point, target.point),
     bounds: boundsFromPoints([source.point, target.point]),
     waypoints: [source.point, target.point],
-    segments: [{ type: 'line', from: source.point, to: target.point }]
+    segments: [{ type: 'line', from: source.point, to: target.point }],
   }
 }
 
@@ -614,29 +673,41 @@ export function resolveEdgeRenderState(
     routing?: ConnectionRouting
     previousSourceSide?: AnchorSide
     previousTargetSide?: AnchorSide
-  } = {}
+  } = {},
 ): {
   source: ResolvedConnectionEndpoint
   target: ResolvedConnectionEndpoint
   route: ConnectionRoute
 } {
-  const source = resolveConnectionEndpoint(edge, sourceNode, targetNode, 'source', options.previousSourceSide)
-  const target = resolveConnectionEndpoint(edge, targetNode, sourceNode, 'target', options.previousTargetSide)
+  const source = resolveConnectionEndpoint(
+    edge,
+    sourceNode,
+    targetNode,
+    'source',
+    options.previousSourceSide,
+  )
+  const target = resolveConnectionEndpoint(
+    edge,
+    targetNode,
+    sourceNode,
+    'target',
+    options.previousTargetSide,
+  )
   return {
     source,
     target,
     route: buildConnectionRoute({
       source,
       target,
-      routing: options.routing
-    })
+      routing: options.routing,
+    }),
   }
 }
 
 export function getVisibleEdges(
   engine: BoardEngine,
   bounds: Bounds,
-  routing?: ConnectionRouting
+  routing?: ConnectionRouting,
 ): BoardEdge[] {
   const nodes = engine.$nodes.get()
   return engine.ext.connections.getEdges().filter((edge) => {
@@ -645,7 +716,9 @@ export function getVisibleEdges(
     if (!sourceNode || !targetNode) {
       return false
     }
-    const { route } = resolveEdgeRenderState(edge, sourceNode, targetNode, { routing })
+    const { route } = resolveEdgeRenderState(edge, sourceNode, targetNode, {
+      routing,
+    })
     return boundsIntersect(bounds, route.bounds)
   })
 }

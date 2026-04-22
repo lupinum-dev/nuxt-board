@@ -15,10 +15,14 @@ export const SLICE_NAME = 'connections'
 
 export const initialState: ConnectionsSliceState = {
   edges: new Map(),
-  nextZIndex: 1
+  nextZIndex: 1,
 }
 
-function isConnectionsAction(action: Action): action is Action & { type: 'PLUGIN'; plugin: typeof SLICE_NAME; action: ConnectionsAction } {
+function isConnectionsAction(action: Action): action is Action & {
+  type: 'PLUGIN'
+  plugin: typeof SLICE_NAME
+  action: ConnectionsAction
+} {
   return action.type === 'PLUGIN' && action.plugin === SLICE_NAME
 }
 
@@ -29,11 +33,19 @@ export function invert(action: ConnectionsAction): ConnectionsAction {
     case 'EDGE_DELETED':
       return { type: 'EDGE_CREATED', edge: action.edge }
     case 'EDGE_UPDATED':
-      return { type: 'EDGE_UPDATED', id: action.id, before: action.after, after: action.before }
+      return {
+        type: 'EDGE_UPDATED',
+        id: action.id,
+        before: action.after,
+        after: action.before,
+      }
   }
 }
 
-export function reducer(state: ConnectionsSliceState, action: Action): ConnectionsSliceState {
+export function reducer(
+  state: ConnectionsSliceState,
+  action: Action,
+): ConnectionsSliceState {
   if (isConnectionsAction(action)) {
     const inner = action.action
     switch (inner.type) {
@@ -42,7 +54,7 @@ export function reducer(state: ConnectionsSliceState, action: Action): Connectio
         edges.set(inner.edge.id, inner.edge)
         return {
           edges,
-          nextZIndex: Math.max(state.nextZIndex, inner.edge.zIndex + 1)
+          nextZIndex: Math.max(state.nextZIndex, inner.edge.zIndex + 1),
         }
       }
       case 'EDGE_UPDATED': {

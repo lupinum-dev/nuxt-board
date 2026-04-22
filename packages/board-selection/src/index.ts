@@ -1,4 +1,9 @@
-import type { Bounds, BoardEngine, BoardNode, NodeId } from '@lupinum/board-core'
+import type {
+  Bounds,
+  BoardEngine,
+  BoardNode,
+  NodeId,
+} from '@lupinum/board-core'
 
 export function getSelectionNodes(engine: BoardEngine): BoardNode[] {
   const selected = new Set(engine.getSelection())
@@ -14,7 +19,7 @@ export function getSelectionBounds(engine: BoardEngine): Bounds | null {
     minX: Math.min(...nodes.map((node) => node.x)),
     minY: Math.min(...nodes.map((node) => node.y)),
     maxX: Math.max(...nodes.map((node) => node.x + node.width)),
-    maxY: Math.max(...nodes.map((node) => node.y + node.height))
+    maxY: Math.max(...nodes.map((node) => node.y + node.height)),
   }
 }
 
@@ -29,4 +34,3 @@ export function toggleIds(current: NodeId[], ids: NodeId[]): NodeId[] {
   }
   return Array.from(next)
 }
-

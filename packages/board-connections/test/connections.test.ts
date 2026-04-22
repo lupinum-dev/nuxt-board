@@ -5,20 +5,38 @@ import {
   connectionPlugin,
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
-  resolveEdgeRenderState
+  resolveEdgeRenderState,
 } from '../src'
 
 describe('connections plugin', () => {
   it('creates edges, queries them, and removes them with deleted nodes', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()]
+      plugins: [connectionPlugin()],
     })
-    const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
-    const second = engine.createNode({ type: 'text', x: 200, y: 100, data: { content: 'B' } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'A' },
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 200,
+      y: 100,
+      data: { content: 'B' },
+    })
 
-    const edge = engine.ext.connections.createEdge({ from: first.id, to: second.id, label: 'depends on', color: '#0f766e', data: {} })
+    const edge = engine.ext.connections.createEdge({
+      from: first.id,
+      to: second.id,
+      label: 'depends on',
+      color: '#0f766e',
+      data: {},
+    })
     expect(edge).toBeDefined()
-    expect(engine.ext.connections.getEdgesBetween(first.id, second.id)).toHaveLength(1)
+    expect(
+      engine.ext.connections.getEdgesBetween(first.id, second.id),
+    ).toHaveLength(1)
     expect(edge.label).toBe('depends on')
     expect(edge.color).toBe('#0f766e')
 
@@ -29,7 +47,7 @@ describe('connections plugin', () => {
   it('removes edges when deleting a group that still has child nodes', () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin()],
-      grid: { snap: false }
+      grid: { snap: false },
     })
     const group = engine.createNode({
       type: 'group',
@@ -37,7 +55,7 @@ describe('connections plugin', () => {
       y: 0,
       width: 300,
       height: 300,
-      select: false
+      select: false,
     })
     const inner = engine.createNode({
       type: 'text',
@@ -47,7 +65,7 @@ describe('connections plugin', () => {
       height: 60,
       parentId: group.id,
       select: false,
-      data: { content: 'inner' }
+      data: { content: 'inner' },
     })
     const outer = engine.createNode({
       type: 'text',
@@ -56,10 +74,14 @@ describe('connections plugin', () => {
       width: 80,
       height: 60,
       select: false,
-      data: { content: 'outer' }
+      data: { content: 'outer' },
     })
     engine.syncGroupZOrder(group.id)
-    engine.ext.connections.createEdge({ from: inner.id, to: outer.id, data: {} })
+    engine.ext.connections.createEdge({
+      from: inner.id,
+      to: outer.id,
+      data: {},
+    })
     expect(engine.ext.connections.getEdges()).toHaveLength(1)
 
     engine.select([group.id])
@@ -76,28 +98,52 @@ describe('connections plugin', () => {
     expect(resolveAutoAnchorSide(target, source, 'target')).toBe('left')
 
     const nearlyDiagonal = { x: 70, y: 80, width: 100, height: 60 }
-    expect(resolveAutoAnchorSide(source, nearlyDiagonal, 'source', 'right')).toBe('right')
+    expect(
+      resolveAutoAnchorSide(source, nearlyDiagonal, 'source', 'right'),
+    ).toBe('right')
   })
 
   it('locks auto endpoints to the center of the resolved side', () => {
     const left = { id: 'left' as never, x: 0, y: 0, width: 120, height: 80 }
-    const right = { id: 'right' as never, x: 280, y: 120, width: 120, height: 80 }
-    const below = { id: 'below' as never, x: 20, y: 220, width: 120, height: 80 }
+    const right = {
+      id: 'right' as never,
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+    }
+    const below = {
+      id: 'below' as never,
+      x: 20,
+      y: 220,
+      width: 120,
+      height: 80,
+    }
     const edge = {
       id: 'edge' as never,
       from: left.id,
       to: right.id,
       data: {},
-      zIndex: 1
+      zIndex: 1,
     }
 
-    const horizontalSource = resolveConnectionEndpoint(edge, left, right, 'source')
-    const horizontalTarget = resolveConnectionEndpoint(edge, right, left, 'target')
+    const horizontalSource = resolveConnectionEndpoint(
+      edge,
+      left,
+      right,
+      'source',
+    )
+    const horizontalTarget = resolveConnectionEndpoint(
+      edge,
+      right,
+      left,
+      'target',
+    )
     const verticalSource = resolveConnectionEndpoint(
       { ...edge, to: below.id },
       left,
       below,
-      'source'
+      'source',
     )
 
     expect(horizontalSource.side).toBe('right')
@@ -113,7 +159,13 @@ describe('connections plugin', () => {
 
   it('preserves explicit non-center anchors', () => {
     const source = { id: 'source' as never, x: 0, y: 0, width: 120, height: 80 }
-    const target = { id: 'target' as never, x: 280, y: 120, width: 120, height: 80 }
+    const target = {
+      id: 'target' as never,
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+    }
 
     const resolved = resolveConnectionEndpoint(
       {
@@ -122,11 +174,11 @@ describe('connections plugin', () => {
         to: target.id,
         fromAnchor: { side: 'right', offset: 0.2 },
         data: {},
-        zIndex: 1
+        zIndex: 1,
       },
       source,
       target,
-      'source'
+      'source',
     )
 
     expect(resolved.side).toBe('right')
@@ -136,18 +188,46 @@ describe('connections plugin', () => {
   })
 
   it('builds directional routes for bezier, smooth-step, step, and straight paths', () => {
-    const source = { nodeId: 'a' as never, node: { id: 'a' as never, x: 0, y: 0, width: 100, height: 80 }, side: 'right' as const, offset: 0.5, point: { x: 100, y: 40 }, kind: 'explicit' as const }
-    const target = { nodeId: 'b' as never, node: { id: 'b' as never, x: 260, y: 120, width: 100, height: 80 }, side: 'left' as const, offset: 0.5, point: { x: 260, y: 160 }, kind: 'explicit' as const }
+    const source = {
+      nodeId: 'a' as never,
+      node: { id: 'a' as never, x: 0, y: 0, width: 100, height: 80 },
+      side: 'right' as const,
+      offset: 0.5,
+      point: { x: 100, y: 40 },
+      kind: 'explicit' as const,
+    }
+    const target = {
+      nodeId: 'b' as never,
+      node: { id: 'b' as never, x: 260, y: 120, width: 100, height: 80 },
+      side: 'left' as const,
+      offset: 0.5,
+      point: { x: 260, y: 160 },
+      kind: 'explicit' as const,
+    }
 
-    expect(buildConnectionRoute({ source, target, routing: 'straight' }).path).toBe('M100 40 L260 160')
-    expect(buildConnectionRoute({ source, target, routing: 'bezier' }).path).toContain('C')
-    expect(buildConnectionRoute({ source, target, routing: 'smooth-step' }).path).toContain('Q')
-    expect(buildConnectionRoute({ source, target, routing: 'step' }).path).not.toContain('Q')
+    expect(
+      buildConnectionRoute({ source, target, routing: 'straight' }).path,
+    ).toBe('M100 40 L260 160')
+    expect(
+      buildConnectionRoute({ source, target, routing: 'bezier' }).path,
+    ).toContain('C')
+    expect(
+      buildConnectionRoute({ source, target, routing: 'smooth-step' }).path,
+    ).toContain('Q')
+    expect(
+      buildConnectionRoute({ source, target, routing: 'step' }).path,
+    ).not.toContain('Q')
   })
 
   it('resolves edge geometry with explicit anchors and route bounds', () => {
     const source = { id: 'source' as never, x: 0, y: 0, width: 100, height: 80 }
-    const target = { id: 'target' as never, x: 260, y: 80, width: 100, height: 80 }
+    const target = {
+      id: 'target' as never,
+      x: 260,
+      y: 80,
+      width: 100,
+      height: 80,
+    }
     const result = resolveEdgeRenderState(
       {
         id: 'edge' as never,
@@ -159,11 +239,11 @@ describe('connections plugin', () => {
         toEnd: 'arrow',
         label: 'route',
         data: {},
-        zIndex: 1
+        zIndex: 1,
       },
       source,
       target,
-      { routing: 'smooth-step' }
+      { routing: 'smooth-step' },
     )
 
     expect(result.source.side).toBe('bottom')
@@ -174,11 +254,26 @@ describe('connections plugin', () => {
 
   it('updates edges and emits edge:updated while preserving identity fields', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()]
+      plugins: [connectionPlugin()],
     })
-    const first = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
-    const second = engine.createNode({ type: 'text', x: 200, y: 0, data: { content: 'B' } })
-    const third = engine.createNode({ type: 'text', x: 400, y: 0, data: { content: 'C' } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'A' },
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 200,
+      y: 0,
+      data: { content: 'B' },
+    })
+    const third = engine.createNode({
+      type: 'text',
+      x: 400,
+      y: 0,
+      data: { content: 'C' },
+    })
     const updated = vi.fn()
     engine.on('edge:updated', updated)
 
@@ -189,14 +284,14 @@ describe('connections plugin', () => {
       toAnchor: { side: 'left', offset: 0.75 },
       label: 'old',
       color: '#111827',
-      data: { version: 1 }
+      data: { version: 1 },
     })
 
     const next = engine.ext.connections.updateEdge(edge.id, {
       to: third.id,
       toAnchor: undefined,
       label: 'new',
-      data: { version: 2 }
+      data: { version: 2 },
     })
 
     expect(next.id).toBe(edge.id)
@@ -210,24 +305,45 @@ describe('connections plugin', () => {
     expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
       id: edge.id,
       to: third.id,
-      label: 'new'
+      label: 'new',
     })
     expect(updated).toHaveBeenCalledTimes(1)
-    expect(updated.mock.calls[0]?.[0]).toMatchObject({ id: edge.id, to: third.id, label: 'new' })
-    expect(updated.mock.calls[0]?.[1]).toMatchObject({ id: edge.id, to: second.id, label: 'old' })
+    expect(updated.mock.calls[0]?.[0]).toMatchObject({
+      id: edge.id,
+      to: third.id,
+      label: 'new',
+    })
+    expect(updated.mock.calls[0]?.[1]).toMatchObject({
+      id: edge.id,
+      to: second.id,
+      label: 'old',
+    })
   })
 
   it('throws when creating an edge with non-existent nodes', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()]
+      plugins: [connectionPlugin()],
     })
-    const node = engine.createNode({ type: 'text', x: 0, y: 0, data: { content: 'A' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'A' },
+    })
 
-    expect(() => engine.ext.connections.createEdge({ from: node.id, to: asNodeId('non-existent'), data: {} })).toThrow(
-      'target node'
-    )
-    expect(() => engine.ext.connections.createEdge({ from: asNodeId('non-existent'), to: node.id, data: {} })).toThrow(
-      'source node'
-    )
+    expect(() =>
+      engine.ext.connections.createEdge({
+        from: node.id,
+        to: asNodeId('non-existent'),
+        data: {},
+      }),
+    ).toThrow('target node')
+    expect(() =>
+      engine.ext.connections.createEdge({
+        from: asNodeId('non-existent'),
+        to: node.id,
+        data: {},
+      }),
+    ).toThrow('source node')
   })
 })

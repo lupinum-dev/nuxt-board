@@ -2,20 +2,53 @@ import { expect, test, type Page } from '@playwright/test'
 
 type PlaygroundEngine = {
   getSnapshot: () => {
-    nodes: Array<{ id: string; x: number; y: number; width: number; height: number }>
+    nodes: Array<{
+      id: string
+      x: number
+      y: number
+      width: number
+      height: number
+    }>
     selection: string[]
   }
-  getNode: (id: string) => { id: string; x: number; y: number; width: number; height: number }
-  beginNodeDrag: (id: string, pointerId: number, screenPoint: { x: number; y: number }) => void
-  beginBoxSelect: (pointerId: number, screenPoint: { x: number; y: number }) => void
-  updatePointer: (pointerId: number, screenPoint: { x: number; y: number }) => void
+  getNode: (id: string) => {
+    id: string
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  beginNodeDrag: (
+    id: string,
+    pointerId: number,
+    screenPoint: { x: number; y: number },
+  ) => void
+  beginBoxSelect: (
+    pointerId: number,
+    screenPoint: { x: number; y: number },
+  ) => void
+  updatePointer: (
+    pointerId: number,
+    screenPoint: { x: number; y: number },
+  ) => void
   endInteraction: (pointerId?: number) => void
-  createNode: (input: Record<string, unknown>) => { id: string; x: number; y: number; width: number; height: number }
+  createNode: (input: Record<string, unknown>) => {
+    id: string
+    x: number
+    y: number
+    width: number
+    height: number
+  }
   select: (ids: string | string[]) => void
   clearSelection: () => void
   getSelection: () => string[]
   ext: {
-    history?: { undo: () => void; redo: () => void; canUndo: () => boolean; canRedo: () => boolean }
+    history?: {
+      undo: () => void
+      redo: () => void
+      canUndo: () => boolean
+      canRedo: () => boolean
+    }
     connections?: {
       getEdges: () => Array<{ id: string; from: string; to: string }>
       createEdge: (input: Record<string, unknown>) => { id: string }
@@ -32,7 +65,9 @@ const getEngine = async (page: Page): Promise<PlaygroundEngine> => {
 void getEngine
 
 test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pins', () => {
-  test('pointer drag through DOM moves a node by the cursor delta', async ({ page }) => {
+  test('pointer drag through DOM moves a node by the cursor delta', async ({
+    page,
+  }) => {
     await page.goto('/')
 
     const target = page.locator('[data-node-id]').first()
@@ -41,10 +76,12 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
 
     const before = await page.evaluate(
       (nodeId) =>
-        (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground.engine.getNode(
-          nodeId
-        ),
-      id
+        (
+          window as unknown as {
+            __boardPlayground: { engine: PlaygroundEngine }
+          }
+        ).__boardPlayground.engine.getNode(nodeId),
+      id,
     )
 
     const box = await target.boundingBox()
@@ -63,10 +100,12 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
 
     const after = await page.evaluate(
       (nodeId) =>
-        (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground.engine.getNode(
-          nodeId
-        ),
-      id
+        (
+          window as unknown as {
+            __boardPlayground: { engine: PlaygroundEngine }
+          }
+        ).__boardPlayground.engine.getNode(nodeId),
+      id,
     )
 
     // Behavior pin: a DOM mouse drag must result in the node moving.
@@ -83,12 +122,34 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     await page.goto('/')
 
     const result = await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
       engine.clearSelection()
-      const a = engine.createNode({ type: 'text', x: 1000, y: 1000, width: 60, height: 40, data: { content: 'A' } })
-      const b = engine.createNode({ type: 'text', x: 1100, y: 1010, width: 60, height: 40, data: { content: 'B' } })
-      const c = engine.createNode({ type: 'text', x: 2000, y: 2000, width: 60, height: 40, data: { content: 'C' } })
+      const a = engine.createNode({
+        type: 'text',
+        x: 1000,
+        y: 1000,
+        width: 60,
+        height: 40,
+        data: { content: 'A' },
+      })
+      const b = engine.createNode({
+        type: 'text',
+        x: 1100,
+        y: 1010,
+        width: 60,
+        height: 40,
+        data: { content: 'B' },
+      })
+      const c = engine.createNode({
+        type: 'text',
+        x: 2000,
+        y: 2000,
+        width: 60,
+        height: 40,
+        data: { content: 'C' },
+      })
 
       // Drive box-select at the engine layer using world coordinates that
       // translate through whatever camera is active.
@@ -101,16 +162,26 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     })
 
     // The selection should contain A, B, C (and possibly other seeded nodes).
-    expect(result.selection).toEqual(expect.arrayContaining([result.aId, result.bId, result.cId]))
+    expect(result.selection).toEqual(
+      expect.arrayContaining([result.aId, result.bId, result.cId]),
+    )
   })
 
-  test('undo restores a deleted node and redo re-deletes it', async ({ page }) => {
+  test('undo restores a deleted node and redo re-deletes it', async ({
+    page,
+  }) => {
     await page.goto('/')
 
     const created = await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
-      const node = engine.createNode({ type: 'text', x: 500, y: 500, data: { content: 'Undo target' } })
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
+      const node = engine.createNode({
+        type: 'text',
+        x: 500,
+        y: 500,
+        data: { content: 'Undo target' },
+      })
       return { id: node.id }
     })
 
@@ -126,23 +197,28 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     await page.waitForTimeout(450)
 
     await page.evaluate((nodeId) => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
-      ;(engine as unknown as { deleteNode: (id: string) => void }).deleteNode(nodeId)
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
+      ;(engine as unknown as { deleteNode: (id: string) => void }).deleteNode(
+        nodeId,
+      )
     }, created.id)
     await expect(node).toHaveCount(0)
 
     await page.waitForTimeout(450)
     await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
       engine.ext.history?.undo()
     })
     await expect(node).toHaveCount(1)
 
     await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
       engine.ext.history?.redo()
     })
     await expect(node).toHaveCount(0)
@@ -152,9 +228,15 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     await page.goto('/')
 
     const setup = await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
-      const node = engine.createNode({ type: 'text', x: 700, y: 300, data: { content: 'Moveable' } })
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
+      const node = engine.createNode({
+        type: 'text',
+        x: 700,
+        y: 300,
+        data: { content: 'Moveable' },
+      })
       return { id: node.id, x: node.x, y: node.y }
     })
 
@@ -162,17 +244,24 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     await page.waitForTimeout(450)
 
     await page.evaluate((nodeId) => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
-      ;(engine as unknown as { moveNode: (id: string, dx: number, dy: number) => void }).moveNode(nodeId, 80, 60)
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
+      ;(
+        engine as unknown as {
+          moveNode: (id: string, dx: number, dy: number) => void
+        }
+      ).moveNode(nodeId, 80, 60)
     }, setup.id)
 
     const moved = await page.evaluate(
       (nodeId) =>
-        (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground.engine.getNode(
-          nodeId
-        ),
-      setup.id
+        (
+          window as unknown as {
+            __boardPlayground: { engine: PlaygroundEngine }
+          }
+        ).__boardPlayground.engine.getNode(nodeId),
+      setup.id,
     )
     expect(moved.x).not.toBe(setup.x)
 
@@ -188,39 +277,61 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
       .poll(async () =>
         page.evaluate(
           (nodeId) =>
-            (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground.engine.getNode(
-              nodeId
-            ).x,
-          setup.id
-        )
+            (
+              window as unknown as {
+                __boardPlayground: { engine: PlaygroundEngine }
+              }
+            ).__boardPlayground.engine.getNode(nodeId).x,
+          setup.id,
+        ),
       )
       .toBe(setup.x)
 
     const restored = await page.evaluate(
       (nodeId) =>
-        (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground.engine.getNode(
-          nodeId
-        ),
-      setup.id
+        (
+          window as unknown as {
+            __boardPlayground: { engine: PlaygroundEngine }
+          }
+        ).__boardPlayground.engine.getNode(nodeId),
+      setup.id,
     )
     expect(restored.x).toBe(setup.x)
     expect(restored.y).toBe(setup.y)
   })
 
-  test('createEdge via plugin API persists in the engine state', async ({ page }) => {
+  test('createEdge via plugin API persists in the engine state', async ({
+    page,
+  }) => {
     await page.goto('/')
 
     const result = await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
       const connections = engine.ext.connections
       if (!connections) throw new Error('connections plugin not installed')
 
-      const a = engine.createNode({ type: 'text', x: 1500, y: 1500, data: { content: 'edge A' } })
-      const b = engine.createNode({ type: 'text', x: 1700, y: 1500, data: { content: 'edge B' } })
+      const a = engine.createNode({
+        type: 'text',
+        x: 1500,
+        y: 1500,
+        data: { content: 'edge A' },
+      })
+      const b = engine.createNode({
+        type: 'text',
+        x: 1700,
+        y: 1500,
+        data: { content: 'edge B' },
+      })
       const before = connections.getEdges().length
 
-      const edge = connections.createEdge({ from: a.id, to: b.id, label: 'safety', data: {} })
+      const edge = connections.createEdge({
+        from: a.id,
+        to: b.id,
+        label: 'safety',
+        data: {},
+      })
       const after = connections.getEdges().length
 
       return { before, after, edgeId: edge.id, fromId: a.id, toId: b.id }
@@ -230,25 +341,39 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     expect(result.edgeId).toBeTruthy()
   })
 
-  test('cascade-delete removes edges connected to a deleted node', async ({ page }) => {
+  test('cascade-delete removes edges connected to a deleted node', async ({
+    page,
+  }) => {
     await page.goto('/')
 
     const result = await page.evaluate(() => {
-      const engine = (window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }).__boardPlayground
-        .engine
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
       const connections = engine.ext.connections
       if (!connections) throw new Error('connections plugin not installed')
 
       const a = engine.createNode({ type: 'text', x: 2200, y: 2200, data: {} })
       const b = engine.createNode({ type: 'text', x: 2400, y: 2200, data: {} })
-      connections.createEdge({ from: a.id, to: b.id, label: 'cascade', data: {} })
+      connections.createEdge({
+        from: a.id,
+        to: b.id,
+        label: 'cascade',
+        data: {},
+      })
 
       engine.select(a.id)
-      const before = connections.getEdges().filter((e) => e.from === a.id || e.to === a.id).length
+      const before = connections
+        .getEdges()
+        .filter((e) => e.from === a.id || e.to === a.id).length
 
       // delete the node — edges referencing it should be removed
-      ;(engine as unknown as { deleteNode: (id: string) => void }).deleteNode(a.id)
-      const after = connections.getEdges().filter((e) => e.from === a.id || e.to === a.id).length
+      ;(engine as unknown as { deleteNode: (id: string) => void }).deleteNode(
+        a.id,
+      )
+      const after = connections
+        .getEdges()
+        .filter((e) => e.from === a.id || e.to === a.id).length
       return { before, after }
     })
 

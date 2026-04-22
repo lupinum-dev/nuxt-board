@@ -10,7 +10,7 @@ import type {
   NodeTypeRegistry,
   ResolvedNode,
   SnapGuide,
-  Subscribable
+  Subscribable,
 } from '../types'
 import type { MutableBoardState } from '../state/types'
 import { buildPublicNodeMap } from '../state/selectors'
@@ -37,23 +37,38 @@ export interface ReactiveLayer<R extends NodeTypeRegistry> {
 
 export interface ReactiveLayerDeps<R extends NodeTypeRegistry> {
   state: MutableBoardState<R>
-  emit: <K extends keyof BoardEventMap<R>>(event: K, ...args: Parameters<BoardEventMap<R>[K]>) => void
+  emit: <K extends keyof BoardEventMap<R>>(
+    event: K,
+    ...args: Parameters<BoardEventMap<R>[K]>
+  ) => void
   dispatch: (action: Action) => void
 }
 
 export function createReactiveLayer<R extends NodeTypeRegistry>(
-  deps: ReactiveLayerDeps<R>
+  deps: ReactiveLayerDeps<R>,
 ): ReactiveLayer<R> {
   const { state, emit, dispatch } = deps
 
   const batchCtrl = createBatchController()
-  const $camera = createSubscribable<Camera>(freezeClone({ ...state.camera }), batchCtrl)
-  const $nodes = createSubscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>(new Map(), batchCtrl)
-  const $selection = createSubscribable<ReadonlySet<NodeId>>(new Set(state.selection), batchCtrl)
-  const $interaction = createSubscribable<InteractionState>(cloneInteraction(state.interaction), batchCtrl)
+  const $camera = createSubscribable<Camera>(
+    freezeClone({ ...state.camera }),
+    batchCtrl,
+  )
+  const $nodes = createSubscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>(
+    new Map(),
+    batchCtrl,
+  )
+  const $selection = createSubscribable<ReadonlySet<NodeId>>(
+    new Set(state.selection),
+    batchCtrl,
+  )
+  const $interaction = createSubscribable<InteractionState>(
+    cloneInteraction(state.interaction),
+    batchCtrl,
+  )
   const $snapGuides = createSubscribable<readonly SnapGuide[]>(
     state.snapGuides.map((guide) => freezeClone({ ...guide })),
-    batchCtrl
+    batchCtrl,
   )
 
   let cachedPublicNodeMap: ReadonlyMap<NodeId, ResolvedNode<R>> | null = null
@@ -142,6 +157,6 @@ export function createReactiveLayer<R extends NodeTypeRegistry>(
     setCamera,
     setSelection,
     setInteraction,
-    setSnapGuides
+    setSnapGuides,
   }
 }

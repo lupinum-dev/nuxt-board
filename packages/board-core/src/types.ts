@@ -57,7 +57,10 @@ export interface NodeConstraints {
 export type NodeData = Record<string, unknown>
 export type NodeTypeRegistry = Record<string, NodeData>
 
-export interface BoardNode<TType extends string = string, TData extends NodeData = NodeData> {
+export interface BoardNode<
+  TType extends string = string,
+  TData extends NodeData = NodeData,
+> {
   readonly id: NodeId
   readonly type: TType
   readonly x: number
@@ -73,12 +76,12 @@ export interface BoardNode<TType extends string = string, TData extends NodeData
 
 export type ResolvedNode<
   R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R
+  T extends keyof R = keyof R,
 > = T extends keyof R ? BoardNode<T & string, R[T]> : never
 
 export interface NodeInput<
   R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R
+  T extends keyof R = keyof R,
 > {
   id?: NodeId
   type?: T & string
@@ -95,8 +98,13 @@ export interface NodeInput<
 
 export type NodePatch<
   R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R
-> = Partial<Pick<ResolvedNode<R, T>, 'x' | 'y' | 'width' | 'height' | 'data' | 'locked' | 'visible' | 'parentId'>>
+  T extends keyof R = keyof R,
+> = Partial<
+  Pick<
+    ResolvedNode<R, T>,
+    'x' | 'y' | 'width' | 'height' | 'data' | 'locked' | 'visible' | 'parentId'
+  >
+>
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
@@ -179,9 +187,13 @@ export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
 
 export type InvariantMode = 'strict' | 'warn' | 'off'
 
-export interface BoardEngineExtensions<R extends NodeTypeRegistry = NodeTypeRegistry> {}
+export interface BoardEngineExtensions<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+> {}
 
-export interface BoardEngineOptions<R extends NodeTypeRegistry = NodeTypeRegistry> {
+export interface BoardEngineOptions<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+> {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
@@ -192,7 +204,9 @@ export interface BoardEngineOptions<R extends NodeTypeRegistry = NodeTypeRegistr
   initialNodes?: ReadonlyArray<ResolvedNode<R>>
 }
 
-export interface InvariantFailure<R extends NodeTypeRegistry = NodeTypeRegistry> {
+export interface InvariantFailure<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+> {
   name: string
   message: string
   snapshot: BoardSnapshot<R>
@@ -209,11 +223,15 @@ export interface BoardEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
   ready: () => void
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
+  'viewport:change': (size: Point, prev: Point) => void
   'node:created': (node: ResolvedNode<R>) => void
   'node:updated': (node: ResolvedNode<R>, prev: ResolvedNode<R>) => void
   'node:deleted': (id: NodeId, prev: ResolvedNode<R>) => void
   'node:moved': (node: ResolvedNode<R>, delta: Point) => void
-  'node:resized': (node: ResolvedNode<R>, prev: Pick<ResolvedNode<R>, 'x' | 'y' | 'width' | 'height'>) => void
+  'node:resized': (
+    node: ResolvedNode<R>,
+    prev: Pick<ResolvedNode<R>, 'x' | 'y' | 'width' | 'height'>,
+  ) => void
   'selection:change': (selected: NodeId[], prev: NodeId[]) => void
   'interaction:start': (state: InteractionState) => void
   'interaction:update': (state: InteractionState) => void
@@ -237,7 +255,11 @@ export type Unsubscribe = () => void
  *   next()
  * })
  */
-export type CommandMiddleware = (name: string, args: unknown[], next: () => void) => void
+export type CommandMiddleware = (
+  name: string,
+  args: unknown[],
+  next: () => void,
+) => void
 
 export interface Subscribable<T> {
   get(): T
@@ -258,9 +280,18 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  on<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]): Unsubscribe
-  once<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]): Unsubscribe
-  off<K extends keyof BoardEventMap<R>>(event: K, handler: BoardEventMap<R>[K]): void
+  on<K extends keyof BoardEventMap<R>>(
+    event: K,
+    handler: BoardEventMap<R>[K],
+  ): Unsubscribe
+  once<K extends keyof BoardEventMap<R>>(
+    event: K,
+    handler: BoardEventMap<R>[K],
+  ): Unsubscribe
+  off<K extends keyof BoardEventMap<R>>(
+    event: K,
+    handler: BoardEventMap<R>[K],
+  ): void
   exportTrace(): TraceEntry[]
   use(plugin: BoardPlugin<R>): void
   /**
@@ -283,13 +314,27 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   zoomAt(screenPoint: Point, delta: number): void
   zoomTo(level: number, animated?: boolean): Promise<void>
   zoomToFit(padding?: number, animated?: boolean): Promise<void>
-  zoomToNodes(ids: NodeId[], padding?: number, animated?: boolean): Promise<void>
-  createNode<T extends keyof R = keyof R>(input: NodeInput<R, T>): ResolvedNode<R, T>
-  updateNode<T extends keyof R = keyof R>(id: NodeId, patch: NodePatch<R, T>): ResolvedNode<R, T>
+  zoomToNodes(
+    ids: NodeId[],
+    padding?: number,
+    animated?: boolean,
+  ): Promise<void>
+  createNode<T extends keyof R = keyof R>(
+    input: NodeInput<R, T>,
+  ): ResolvedNode<R, T>
+  updateNode<T extends keyof R = keyof R>(
+    id: NodeId,
+    patch: NodePatch<R, T>,
+  ): ResolvedNode<R, T>
   deleteNode(id: NodeId): void
   moveNode(id: NodeId, dx: number, dy: number): ResolvedNode<R>
   translateSelectedNodes(dx: number, dy: number): void
-  resizeNode(id: NodeId, handle: ResizeHandle, dx: number, dy: number): ResolvedNode<R>
+  resizeNode(
+    id: NodeId,
+    handle: ResizeHandle,
+    dx: number,
+    dy: number,
+  ): ResolvedNode<R>
   bringToFront(id: NodeId): void
   sendToBack(id: NodeId): void
   lockNode(id: NodeId): void
@@ -304,11 +349,20 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   getSelection(): NodeId[]
   beginPan(pointerId: number, screenPoint: Point): void
   beginNodeDrag(id: NodeId, pointerId: number, screenPoint: Point): void
-  beginResize(id: NodeId, handle: ResizeHandle, pointerId: number, screenPoint: Point): void
+  beginResize(
+    id: NodeId,
+    handle: ResizeHandle,
+    pointerId: number,
+    screenPoint: Point,
+  ): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
   commitTextEdit(id: NodeId, text?: string): ResolvedNode<R>
-  updatePointer(pointerId: number, screenPoint: Point, modifiers?: { shift?: boolean; space?: boolean }): void
+  updatePointer(
+    pointerId: number,
+    screenPoint: Point,
+    modifiers?: { shift?: boolean; space?: boolean },
+  ): void
   endInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
@@ -319,7 +373,9 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
    * Used by plugins (history, connections) to react to state mutations
    * without polling individual events.
    */
-  onAction(listener: (action: import('./state/actions').Action) => void): Unsubscribe
+  onAction(
+    listener: (action: import('./state/actions').Action) => void,
+  ): Unsubscribe
   /**
    * Apply an action directly to engine state without running middleware or
    * command lifecycle events. Used by the history plugin to replay inverse
@@ -331,12 +387,22 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
    * Plugin-tunneled actions are inverted via the registering plugin's
    * `slice.invert` if present; otherwise an error is thrown.
    */
-  invertAction(action: import('./state/actions').Action): import('./state/actions').Action
+  invertAction(
+    action: import('./state/actions').Action,
+  ): import('./state/actions').Action
 }
 
-export interface BoardPluginContext<R extends NodeTypeRegistry = NodeTypeRegistry> extends BoardEngine<R> {
-  emit<K extends keyof BoardEventMap<R>>(event: K, ...args: Parameters<BoardEventMap<R>[K]>): void
-  extend<K extends keyof BoardEngineExtensions<R> & string>(key: K, value: BoardEngineExtensions<R>[K]): void
+export interface BoardPluginContext<
+  R extends NodeTypeRegistry = NodeTypeRegistry,
+> extends BoardEngine<R> {
+  emit<K extends keyof BoardEventMap<R>>(
+    event: K,
+    ...args: Parameters<BoardEventMap<R>[K]>
+  ): void
+  extend<K extends keyof BoardEngineExtensions<R> & string>(
+    key: K,
+    value: BoardEngineExtensions<R>[K],
+  ): void
   /**
    * Execute a named command through the full engine pipeline:
    * middleware chain → command:before → fn() → invariant validation → command:after.
@@ -369,5 +435,8 @@ export interface BoardPluginSlice {
 export interface BoardPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {
   name: string
   slice?: BoardPluginSlice
-  install(engine: BoardPluginContext<R>, options?: Record<string, unknown>): void | PluginCleanup
+  install(
+    engine: BoardPluginContext<R>,
+    options?: Record<string, unknown>,
+  ): void | PluginCleanup
 }

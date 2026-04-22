@@ -63,11 +63,13 @@ function cancel(): void {
   <div
     class="group-frame"
     :class="{ 'is-selected': selected }"
-    :style="{
-      '--group-accent': accent,
-      '--group-accent-soft': `${accent}18`,
-      '--group-accent-border': `${accent}6b`,
-    } as Record<string, string>"
+    :style="
+      {
+        '--group-accent': accent,
+        '--group-accent-soft': `${accent}18`,
+        '--group-accent-border': `${accent}6b`,
+      } as Record<string, string>
+    "
   >
     <div class="group-frame__label">
       <input
@@ -80,11 +82,8 @@ function cancel(): void {
         @blur="commit"
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="cancel"
-      >
-      <span
-        v-else
-        class="group-frame__title"
-      >{{ title }}</span>
+      />
+      <span v-else class="group-frame__title">{{ title }}</span>
     </div>
   </div>
 </template>

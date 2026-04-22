@@ -1,7 +1,28 @@
-import { Teleport, computed, defineComponent, h, nextTick, shallowRef, watch, type PropType } from 'vue'
-import { type BoardEngine, type BoardNode, type EdgeId, type NodeId, type Point } from '@lupinum/board-core'
+import {
+  Teleport,
+  computed,
+  defineComponent,
+  h,
+  nextTick,
+  shallowRef,
+  watch,
+  type PropType,
+} from 'vue'
+import {
+  type BoardEngine,
+  type BoardNode,
+  type EdgeId,
+  type NodeId,
+  type Point,
+} from '@lupinum/board-core'
 import { useBoardEngine } from '@lupinum/vue-board'
-import { buildConnectionRoute, resolveAnchorPoint, resolveConnectionEndpoint, resolveEdgeRenderState, resolveFloatingEndpoint } from './geometry'
+import {
+  buildConnectionRoute,
+  resolveAnchorPoint,
+  resolveConnectionEndpoint,
+  resolveEdgeRenderState,
+  resolveFloatingEndpoint,
+} from './geometry'
 import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors'
 import type {
   AnchorSide,
@@ -9,10 +30,12 @@ import type {
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
-  ResolvedConnectionEndpoint
+  ResolvedConnectionEndpoint,
 } from './types'
 
-type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & { edge: BoardEdge }
+type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
+  edge: BoardEdge
+}
 type DragEnd = 'from' | 'to'
 type HoveredNodeHandle = {
   nodeId: NodeId
@@ -56,20 +79,27 @@ const CONNECTION_DRAG_THRESHOLD = 6
 let markerCounter = 0
 
 function edgeIdFromTarget(target: EventTarget | null): string | null {
-  return target instanceof Element ? target.closest<HTMLElement>('[data-connection-edge-id]')?.dataset.connectionEdgeId ?? null : null
+  return target instanceof Element
+    ? (target.closest<HTMLElement>('[data-connection-edge-id]')?.dataset
+        .connectionEdgeId ?? null)
+    : null
 }
 
-function nodeHandleFromTarget(target: EventTarget | null): HoveredNodeHandle | null {
+function nodeHandleFromTarget(
+  target: EventTarget | null,
+): HoveredNodeHandle | null {
   if (!(target instanceof Element)) {
     return null
   }
-  const element = target.closest<HTMLElement>('[data-connection-node-id][data-connection-side]')
+  const element = target.closest<HTMLElement>(
+    '[data-connection-node-id][data-connection-side]',
+  )
   if (!element?.dataset.connectionNodeId || !element.dataset.connectionSide) {
     return null
   }
   return {
     nodeId: element.dataset.connectionNodeId as NodeId,
-    side: element.dataset.connectionSide as AnchorSide
+    side: element.dataset.connectionSide as AnchorSide,
   }
 }
 
@@ -77,12 +107,23 @@ function sameEdgeTarget(target: EventTarget | null, edgeId: string): boolean {
   return edgeIdFromTarget(target) === edgeId
 }
 
-function worldPointFromClient(ctx: ReturnType<typeof useBoardEngine>, engine: BoardEngine, clientX: number, clientY: number): Point {
+function worldPointFromClient(
+  ctx: ReturnType<typeof useBoardEngine>,
+  engine: BoardEngine,
+  clientX: number,
+  clientY: number,
+): Point {
   return engine.screenToWorld(ctx.toLocalPoint(clientX, clientY))
 }
 
-function shouldPreserveDraggedAnchor(edge: BoardEdge, end: DragEnd, nodeId: NodeId): boolean {
-  return end === 'from' ? edge.from === nodeId && Boolean(edge.fromAnchor) : edge.to === nodeId && Boolean(edge.toAnchor)
+function shouldPreserveDraggedAnchor(
+  edge: BoardEdge,
+  end: DragEnd,
+  nodeId: NodeId,
+): boolean {
+  return end === 'from'
+    ? edge.from === nodeId && Boolean(edge.fromAnchor)
+    : edge.to === nodeId && Boolean(edge.toAnchor)
 }
 
 export const BoardConnectionLayer = defineComponent({
@@ -90,19 +131,22 @@ export const BoardConnectionLayer = defineComponent({
   props: {
     engine: {
       type: Object as PropType<BoardEngine | null>,
-      default: null
+      default: null,
     },
     routing: {
       type: String as PropType<ConnectionRouting | undefined>,
-      default: undefined
-    }
+      default: undefined,
+    },
   },
   setup(props, { slots }) {
     const injected = useBoardEngine()
     const engine = computed(() => props.engine ?? injected.engine)
     const version = shallowRef(0)
-    const markerId = `board-connection-arrow-${markerCounter += 1}`
-    const sideCache = new Map<string, { source: AnchorSide; target: AnchorSide }>()
+    const markerId = `board-connection-arrow-${(markerCounter += 1)}`
+    const sideCache = new Map<
+      string,
+      { source: AnchorSide; target: AnchorSide }
+    >()
     const hoveredEdgeId = shallowRef<string | null>(null)
     const hoveredNodeId = shallowRef<NodeId | null>(null)
     const hoveredNodeHandle = shallowRef<HoveredNodeHandle | null>(null)
@@ -130,7 +174,7 @@ export const BoardConnectionLayer = defineComponent({
           current.on('edge:created', scheduleVersion),
           current.on('edge:updated', scheduleVersion),
           current.on('edge:deleted', scheduleVersion),
-          current.$nodes.subscribe(() => scheduleVersion())
+          current.$nodes.subscribe(() => scheduleVersion()),
         ]
         onCleanup(() => {
           for (const unsubscribe of unsubscribes) {
@@ -138,7 +182,7 @@ export const BoardConnectionLayer = defineComponent({
           }
         })
       },
-      { immediate: true }
+      { immediate: true },
     )
 
     watch(
@@ -153,7 +197,10 @@ export const BoardConnectionLayer = defineComponent({
             return
           }
           const target = event.target
-          if (target instanceof Element && target.closest('[data-board-interactive="true"]')) {
+          if (
+            target instanceof Element &&
+            target.closest('[data-board-interactive="true"]')
+          ) {
             return
           }
           selectedEdgeId.value = null
@@ -168,11 +215,17 @@ export const BoardConnectionLayer = defineComponent({
           }
           const edgeId = edgeIdFromTarget(event.target)
           const nodeHandle = nodeHandleFromTarget(event.target)
-          hoveredEdgeId.value = edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
+          hoveredEdgeId.value =
+            edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
           hoveredNodeHandle.value = nodeHandle
 
           const currentEngine = engine.value
-          const worldPoint = worldPointFromClient(injected, currentEngine, event.clientX, event.clientY)
+          const worldPoint = worldPointFromClient(
+            injected,
+            currentEngine,
+            event.clientX,
+            event.clientY,
+          )
           const nodeUnderCursor = currentEngine.getNodeAt(worldPoint)
           hoveredNodeId.value = nodeUnderCursor?.id ?? null
         }
@@ -195,7 +248,7 @@ export const BoardConnectionLayer = defineComponent({
           root.removeEventListener('pointerleave', handleRootPointerLeave)
         })
       },
-      { immediate: true }
+      { immediate: true },
     )
 
     const entries = computed<EdgeRenderEntry[]>(() => {
@@ -204,8 +257,16 @@ export const BoardConnectionLayer = defineComponent({
       const currentEngine = engine.value
       const routing =
         props.routing ??
-        ((currentEngine.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting }).__routing ?? 'bezier')
-      const nextCache = new Map<string, { source: AnchorSide; target: AnchorSide }>()
+        (
+          currentEngine.ext.connections as ConnectionsExtension & {
+            __routing?: ConnectionRouting
+          }
+        ).__routing ??
+        'bezier'
+      const nextCache = new Map<
+        string,
+        { source: AnchorSide; target: AnchorSide }
+      >()
 
       const resolved = currentEngine.ext.connections
         .getEdges()
@@ -217,22 +278,27 @@ export const BoardConnectionLayer = defineComponent({
           }
 
           const previous = sideCache.get(String(edge.id))
-          const geometry = resolveEdgeRenderState(edge, sourceNode, targetNode, {
-            routing,
-            previousSourceSide: previous?.source,
-            previousTargetSide: previous?.target
-          })
+          const geometry = resolveEdgeRenderState(
+            edge,
+            sourceNode,
+            targetNode,
+            {
+              routing,
+              previousSourceSide: previous?.source,
+              previousTargetSide: previous?.target,
+            },
+          )
 
           nextCache.set(String(edge.id), {
             source: geometry.source.side,
-            target: geometry.target.side
+            target: geometry.target.side,
           })
 
           return {
             edge,
             source: geometry.source,
             target: geometry.target,
-            route: geometry.route
+            route: geometry.route,
           }
         })
         .filter((entry): entry is EdgeRenderEntry => Boolean(entry))
@@ -245,7 +311,12 @@ export const BoardConnectionLayer = defineComponent({
       return resolved
     })
 
-    const entryById = computed(() => new Map(entries.value.map((entry) => [String(entry.edge.id), entry] as const)))
+    const entryById = computed(
+      () =>
+        new Map(
+          entries.value.map((entry) => [String(entry.edge.id), entry] as const),
+        ),
+    )
 
     watch(entries, (current) => {
       const ids = new Set(current.map((entry) => String(entry.edge.id)))
@@ -255,10 +326,16 @@ export const BoardConnectionLayer = defineComponent({
       if (hoveredEdgeId.value && !ids.has(hoveredEdgeId.value)) {
         hoveredEdgeId.value = null
       }
-      if (pendingDrag.value?.mode === 'reconnect' && !ids.has(pendingDrag.value.edgeId)) {
+      if (
+        pendingDrag.value?.mode === 'reconnect' &&
+        !ids.has(pendingDrag.value.edgeId)
+      ) {
         pendingDrag.value = null
       }
-      if (dragState.value?.mode === 'reconnect' && !ids.has(dragState.value.edgeId)) {
+      if (
+        dragState.value?.mode === 'reconnect' &&
+        !ids.has(dragState.value.edgeId)
+      ) {
         dragState.value = null
       }
     })
@@ -270,10 +347,17 @@ export const BoardConnectionLayer = defineComponent({
       }
 
       const nodes = injected.$nodes.value
-      const candidateNode = active.candidateNodeId ? nodes.get(active.candidateNodeId) : undefined
+      const candidateNode = active.candidateNodeId
+        ? nodes.get(active.candidateNodeId)
+        : undefined
       const routing =
         props.routing ??
-        ((engine.value.ext.connections as ConnectionsExtension & { __routing?: ConnectionRouting }).__routing ?? 'bezier')
+        (
+          engine.value.ext.connections as ConnectionsExtension & {
+            __routing?: ConnectionRouting
+          }
+        ).__routing ??
+        'bezier'
 
       if (active.mode === 'reconnect') {
         const entry = entryById.value.get(active.edgeId)
@@ -288,21 +372,32 @@ export const BoardConnectionLayer = defineComponent({
                 {
                   ...entry.edge,
                   from: candidateNode.id,
-                  fromAnchor: shouldPreserveDraggedAnchor(entry.edge, 'from', candidateNode.id) ? entry.edge.fromAnchor : undefined
+                  fromAnchor: shouldPreserveDraggedAnchor(
+                    entry.edge,
+                    'from',
+                    candidateNode.id,
+                  )
+                    ? entry.edge.fromAnchor
+                    : undefined,
                 },
                 candidateNode,
                 fixed.node,
                 'source',
-                entry.source.side
+                entry.source.side,
               )
-            : resolveFloatingEndpoint(active.pointerWorld, fixed.point, 'source', entry.source.side)
+            : resolveFloatingEndpoint(
+                active.pointerWorld,
+                fixed.point,
+                'source',
+                entry.source.side,
+              )
 
           return {
             edge: entry.edge,
             source,
             target: fixed,
             route: buildConnectionRoute({ source, target: fixed, routing }),
-            candidateNode
+            candidateNode,
           }
         }
 
@@ -312,21 +407,32 @@ export const BoardConnectionLayer = defineComponent({
               {
                 ...entry.edge,
                 to: candidateNode.id,
-                toAnchor: shouldPreserveDraggedAnchor(entry.edge, 'to', candidateNode.id) ? entry.edge.toAnchor : undefined
+                toAnchor: shouldPreserveDraggedAnchor(
+                  entry.edge,
+                  'to',
+                  candidateNode.id,
+                )
+                  ? entry.edge.toAnchor
+                  : undefined,
               },
               candidateNode,
               fixed.node,
               'target',
-              entry.target.side
+              entry.target.side,
             )
-          : resolveFloatingEndpoint(active.pointerWorld, fixed.point, 'target', entry.target.side)
+          : resolveFloatingEndpoint(
+              active.pointerWorld,
+              fixed.point,
+              'target',
+              entry.target.side,
+            )
 
         return {
           edge: entry.edge,
           source: fixed,
           target,
           route: buildConnectionRoute({ source: fixed, target, routing }),
-          candidateNode
+          candidateNode,
         }
       }
 
@@ -340,8 +446,11 @@ export const BoardConnectionLayer = defineComponent({
         node: sourceNode,
         side: active.sourceSide,
         offset: 0.5,
-        point: resolveAnchorPoint(sourceNode, { side: active.sourceSide, offset: 0.5 }),
-        kind: 'explicit'
+        point: resolveAnchorPoint(sourceNode, {
+          side: active.sourceSide,
+          offset: 0.5,
+        }),
+        kind: 'explicit',
       }
 
       const target = candidateNode
@@ -352,11 +461,11 @@ export const BoardConnectionLayer = defineComponent({
               to: candidateNode.id,
               fromAnchor: { side: active.sourceSide, offset: 0.5 },
               data: {},
-              zIndex: 0
+              zIndex: 0,
             },
             candidateNode,
             sourceNode,
-            'target'
+            'target',
           )
         : resolveFloatingEndpoint(active.pointerWorld, source.point, 'target')
 
@@ -365,17 +474,29 @@ export const BoardConnectionLayer = defineComponent({
         source,
         target,
         route: buildConnectionRoute({ source, target, routing }),
-        candidateNode
+        candidateNode,
       }
     })
 
-    const handleRadius = computed(() => 5 / Math.max(injected.$camera.value.z, 0.25))
-    const handleHitRadius = computed(() => Math.max(14, 20 / Math.max(injected.$camera.value.z, 0.25)))
+    const handleRadius = computed(
+      () => 5 / Math.max(injected.$camera.value.z, 0.25),
+    )
+    const handleHitRadius = computed(() =>
+      Math.max(14, 20 / Math.max(injected.$camera.value.z, 0.25)),
+    )
     const edgeStrokeWidth = computed(() => 1.85)
-    const edgeHitWidth = computed(() => Math.max(16, 20 / Math.max(injected.$camera.value.z, 0.25)))
-    const previewStrokeWidth = computed(() => 2.5 / Math.max(injected.$camera.value.z, 0.25))
-    const hotspotThickness = computed(() => Math.max(18, 22 / Math.max(injected.$camera.value.z, 0.25)))
-    const hotspotCornerClearance = computed(() => 18 / Math.max(injected.$camera.value.z, 0.25))
+    const edgeHitWidth = computed(() =>
+      Math.max(16, 20 / Math.max(injected.$camera.value.z, 0.25)),
+    )
+    const previewStrokeWidth = computed(
+      () => 2.5 / Math.max(injected.$camera.value.z, 0.25),
+    )
+    const hotspotThickness = computed(() =>
+      Math.max(18, 22 / Math.max(injected.$camera.value.z, 0.25)),
+    )
+    const hotspotCornerClearance = computed(
+      () => 18 / Math.max(injected.$camera.value.z, 0.25),
+    )
 
     function onEdgePointerDown(edgeId: string, event: PointerEvent): void {
       event.preventDefault()
@@ -398,9 +519,10 @@ export const BoardConnectionLayer = defineComponent({
       editingEdgeId.value = edgeId
       labelDraft.value = entry.edge.label ?? ''
       nextTick(() => {
-        const input = injected.rootElement.value?.querySelector<HTMLInputElement>(
-          `[data-connection-label-input="${edgeId}"]`
-        )
+        const input =
+          injected.rootElement.value?.querySelector<HTMLInputElement>(
+            `[data-connection-label-input="${edgeId}"]`,
+          )
         if (input) {
           input.focus()
           input.select()
@@ -424,7 +546,7 @@ export const BoardConnectionLayer = defineComponent({
         return
       }
       engine.value.ext.connections.updateEdge(entry.edge.id, {
-        label: next ? next : undefined
+        label: next ? next : undefined,
       })
     }
 
@@ -452,7 +574,10 @@ export const BoardConnectionLayer = defineComponent({
         nextFrom = 'none'
         nextTo = 'arrow'
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, { fromEnd: nextFrom, toEnd: nextTo })
+      engine.value.ext.connections.updateEdge(entry.edge.id, {
+        fromEnd: nextFrom,
+        toEnd: nextTo,
+      })
     }
 
     function applyEdgeColor(edgeId: string, color: string | undefined): void {
@@ -489,23 +614,35 @@ export const BoardConnectionLayer = defineComponent({
       const nodeId = active.candidateNodeId
       const connections = engine.value.ext.connections
       if (active.end === 'from') {
-        if (entry.edge.from === nodeId && (!entry.edge.fromAnchor || shouldPreserveDraggedAnchor(entry.edge, 'from', nodeId))) {
+        if (
+          entry.edge.from === nodeId &&
+          (!entry.edge.fromAnchor ||
+            shouldPreserveDraggedAnchor(entry.edge, 'from', nodeId))
+        ) {
           return
         }
         connections.updateEdge(entry.edge.id, {
           from: nodeId,
-          fromAnchor: shouldPreserveDraggedAnchor(entry.edge, 'from', nodeId) ? entry.edge.fromAnchor : undefined
+          fromAnchor: shouldPreserveDraggedAnchor(entry.edge, 'from', nodeId)
+            ? entry.edge.fromAnchor
+            : undefined,
         })
         return
       }
 
-      if (entry.edge.to === nodeId && (!entry.edge.toAnchor || shouldPreserveDraggedAnchor(entry.edge, 'to', nodeId))) {
+      if (
+        entry.edge.to === nodeId &&
+        (!entry.edge.toAnchor ||
+          shouldPreserveDraggedAnchor(entry.edge, 'to', nodeId))
+      ) {
         return
       }
 
       connections.updateEdge(entry.edge.id, {
         to: nodeId,
-        toAnchor: shouldPreserveDraggedAnchor(entry.edge, 'to', nodeId) ? entry.edge.toAnchor : undefined
+        toAnchor: shouldPreserveDraggedAnchor(entry.edge, 'to', nodeId)
+          ? entry.edge.toAnchor
+          : undefined,
       })
     }
 
@@ -517,17 +654,19 @@ export const BoardConnectionLayer = defineComponent({
       }
 
       const targetNode =
-        (active.candidateNodeId ? currentEngine.findNode(active.candidateNodeId) : null) ??
+        (active.candidateNodeId
+          ? currentEngine.findNode(active.candidateNodeId)
+          : null) ??
         (() => {
           const created = currentEngine.createNode({
             type: 'text',
             x: active.pointerWorld.x,
             y: active.pointerWorld.y,
-            data: { content: '' }
+            data: { content: '' },
           })
           const centered = currentEngine.updateNode(created.id, {
             x: created.x - created.width / 2,
-            y: created.y - created.height / 2
+            y: created.y - created.height / 2,
           })
           currentEngine.beginTextEdit(centered.id)
           return centered
@@ -537,7 +676,7 @@ export const BoardConnectionLayer = defineComponent({
         from: sourceNode.id,
         to: targetNode.id,
         fromAnchor: { side: active.sourceSide, offset: 0.5 },
-        data: {}
+        data: {},
       })
 
       selectedEdgeId.value = String(createdEdge.id)
@@ -552,12 +691,21 @@ export const BoardConnectionLayer = defineComponent({
       }
     }
 
-    function beginReconnectDrag(entry: EdgeRenderEntry, end: DragEnd, event: PointerEvent): void {
+    function beginReconnectDrag(
+      entry: EdgeRenderEntry,
+      end: DragEnd,
+      event: PointerEvent,
+    ): void {
       event.preventDefault()
       event.stopPropagation()
 
       const currentEngine = engine.value
-      const nextWorld = worldPointFromClient(injected, currentEngine, event.clientX, event.clientY)
+      const nextWorld = worldPointFromClient(
+        injected,
+        currentEngine,
+        event.clientX,
+        event.clientY,
+      )
       selectedEdgeId.value = String(entry.edge.id)
       hoveredEdgeId.value = String(entry.edge.id)
       hoveredNodeHandle.value = null
@@ -566,16 +714,25 @@ export const BoardConnectionLayer = defineComponent({
         edgeId: String(entry.edge.id),
         end,
         pointerId: event.pointerId,
-        startWorld: nextWorld
+        startWorld: nextWorld,
       }
     }
 
-    function beginCreateDrag(nodeId: NodeId, side: AnchorSide, event: PointerEvent): void {
+    function beginCreateDrag(
+      nodeId: NodeId,
+      side: AnchorSide,
+      event: PointerEvent,
+    ): void {
       event.preventDefault()
       event.stopPropagation()
 
       const currentEngine = engine.value
-      const nextWorld = worldPointFromClient(injected, currentEngine, event.clientX, event.clientY)
+      const nextWorld = worldPointFromClient(
+        injected,
+        currentEngine,
+        event.clientX,
+        event.clientY,
+      )
       hoveredEdgeId.value = null
       selectedEdgeId.value = null
       hoveredNodeHandle.value = { nodeId, side }
@@ -584,7 +741,7 @@ export const BoardConnectionLayer = defineComponent({
         sourceNodeId: nodeId,
         sourceSide: side,
         pointerId: event.pointerId,
-        startWorld: nextWorld
+        startWorld: nextWorld,
       }
     }
 
@@ -603,7 +760,11 @@ export const BoardConnectionLayer = defineComponent({
         const target = event.target
         if (target instanceof HTMLElement) {
           const tag = target.tagName
-          if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          if (
+            tag === 'INPUT' ||
+            tag === 'TEXTAREA' ||
+            target.isContentEditable
+          ) {
             return
           }
         }
@@ -631,12 +792,19 @@ export const BoardConnectionLayer = defineComponent({
           return
         }
         const currentEngine = engine.value
-        const nextWorld = worldPointFromClient(injected, currentEngine, event.clientX, event.clientY)
+        const nextWorld = worldPointFromClient(
+          injected,
+          currentEngine,
+          event.clientX,
+          event.clientY,
+        )
         const candidateNode = currentEngine.getNodeAt(nextWorld)
         if (currentPending) {
           const screenDistance =
-            Math.hypot(nextWorld.x - currentPending.startWorld.x, nextWorld.y - currentPending.startWorld.y) *
-            injected.$camera.value.z
+            Math.hypot(
+              nextWorld.x - currentPending.startWorld.x,
+              nextWorld.y - currentPending.startWorld.y,
+            ) * injected.$camera.value.z
           if (screenDistance < CONNECTION_DRAG_THRESHOLD) {
             return
           }
@@ -648,7 +816,7 @@ export const BoardConnectionLayer = defineComponent({
                   end: currentPending.end,
                   pointerId: currentPending.pointerId,
                   pointerWorld: nextWorld,
-                  candidateNodeId: candidateNode?.id ?? null
+                  candidateNodeId: candidateNode?.id ?? null,
                 }
               : {
                   mode: 'create',
@@ -656,7 +824,7 @@ export const BoardConnectionLayer = defineComponent({
                   sourceSide: currentPending.sourceSide,
                   pointerId: currentPending.pointerId,
                   pointerWorld: nextWorld,
-                  candidateNodeId: candidateNode?.id ?? null
+                  candidateNodeId: candidateNode?.id ?? null,
                 }
           pendingDrag.value = null
           return
@@ -669,12 +837,15 @@ export const BoardConnectionLayer = defineComponent({
         dragState.value = {
           ...currentActive,
           pointerWorld: nextWorld,
-          candidateNodeId: candidateNode?.id ?? null
+          candidateNodeId: candidateNode?.id ?? null,
         }
       }
 
       const handleUp = (event: PointerEvent) => {
-        if (pendingDrag.value && event.pointerId === pendingDrag.value.pointerId) {
+        if (
+          pendingDrag.value &&
+          event.pointerId === pendingDrag.value.pointerId
+        ) {
           pendingDrag.value = null
           return
         }
@@ -696,7 +867,11 @@ export const BoardConnectionLayer = defineComponent({
       })
     })
 
-    function renderReconnectHandle(entry: EdgeRenderEntry, end: DragEnd, endpoint: ResolvedConnectionEndpoint) {
+    function renderReconnectHandle(
+      entry: EdgeRenderEntry,
+      end: DragEnd,
+      endpoint: ResolvedConnectionEndpoint,
+    ) {
       return h(
         'g',
         {
@@ -706,9 +881,10 @@ export const BoardConnectionLayer = defineComponent({
           'data-connection-handle': end,
           style: {
             pointerEvents: 'all',
-            cursor: 'grab'
+            cursor: 'grab',
           },
-          onPointerdown: (event: PointerEvent) => beginReconnectDrag(entry, end, event)
+          onPointerdown: (event: PointerEvent) =>
+            beginReconnectDrag(entry, end, event),
         },
         [
           h('circle', {
@@ -716,7 +892,7 @@ export const BoardConnectionLayer = defineComponent({
             cy: endpoint.point.y,
             r: handleHitRadius.value,
             fill: 'rgba(15, 23, 42, 0.001)',
-            stroke: 'none'
+            stroke: 'none',
           }),
           h('circle', {
             cx: endpoint.point.x,
@@ -725,9 +901,9 @@ export const BoardConnectionLayer = defineComponent({
             fill: '#ffffff',
             stroke: entry.edge.color ?? 'var(--board-edge-active-color)',
             'stroke-width': 1.5 / Math.max(injected.$camera.value.z, 0.25),
-            'vector-effect': 'non-scaling-stroke'
-          })
-        ]
+            'vector-effect': 'non-scaling-stroke',
+          }),
+        ],
       )
     }
 
@@ -748,9 +924,10 @@ export const BoardConnectionLayer = defineComponent({
           'data-connection-side': side,
           style: {
             pointerEvents: 'all',
-            cursor: 'crosshair'
+            cursor: 'crosshair',
           },
-          onPointerdown: (event: PointerEvent) => beginCreateDrag(nodeId, side, event)
+          onPointerdown: (event: PointerEvent) =>
+            beginCreateDrag(nodeId, side, event),
         },
         [
           h('circle', {
@@ -758,7 +935,7 @@ export const BoardConnectionLayer = defineComponent({
             cy: point.y,
             r: handleHitRadius.value,
             fill: 'rgba(15, 23, 42, 0.001)',
-            stroke: 'none'
+            stroke: 'none',
           }),
           h('circle', {
             cx: point.x,
@@ -767,73 +944,81 @@ export const BoardConnectionLayer = defineComponent({
             fill: 'var(--board-edge-active-color)',
             stroke: '#ffffff',
             'stroke-width': 1.25 / Math.max(injected.$camera.value.z, 0.25),
-            'vector-effect': 'non-scaling-stroke'
-          })
-        ]
+            'vector-effect': 'non-scaling-stroke',
+          }),
+        ],
       )
     }
 
     function renderNodeHotspots() {
-      const activeCreate = dragState.value?.mode === 'create' ? dragState.value : null
-      const activeReconnect = dragState.value?.mode === 'reconnect' ? dragState.value : null
-      const activeHandle =
-        activeCreate
-          ? renderCreateHandle(activeCreate.sourceNodeId, activeCreate.sourceSide)
-          : null
+      const activeCreate =
+        dragState.value?.mode === 'create' ? dragState.value : null
+      const activeReconnect =
+        dragState.value?.mode === 'reconnect' ? dragState.value : null
+      const activeHandle = activeCreate
+        ? renderCreateHandle(activeCreate.sourceNodeId, activeCreate.sourceSide)
+        : null
       const hoveredHandle =
         hoveredNodeHandle.value &&
         (!activeCreate ||
           hoveredNodeHandle.value.nodeId !== activeCreate.sourceNodeId ||
           hoveredNodeHandle.value.side !== activeCreate.sourceSide)
-          ? renderCreateHandle(hoveredNodeHandle.value.nodeId, hoveredNodeHandle.value.side)
+          ? renderCreateHandle(
+              hoveredNodeHandle.value.nodeId,
+              hoveredNodeHandle.value.side,
+            )
           : null
 
-      const hoverOnlyMode = !activeCreate && !activeReconnect
-      const hoveredId = hoveredNodeId.value ?? hoveredNodeHandle.value?.nodeId ?? null
-
       const hotspots = Array.from(injected.$nodes.value.values())
-        .filter((node) => {
-          if (!node.visible) {
-            return false
-          }
-          if (!hoverOnlyMode) {
-            return true
-          }
-          return hoveredId !== null && node.id === hoveredId
-        })
+        .filter((node) => node.visible)
         .flatMap((node) => {
-          const clearance = Math.min(hotspotCornerClearance.value, Math.min(node.width, node.height) / 3)
-          const horizontalWidth = Math.max(node.width - clearance * 2, hotspotThickness.value)
-          const verticalHeight = Math.max(node.height - clearance * 2, hotspotThickness.value)
-          const specs: Array<{ side: AnchorSide; x: number; y: number; width: number; height: number }> = [
+          const clearance = Math.min(
+            hotspotCornerClearance.value,
+            Math.min(node.width, node.height) / 3,
+          )
+          const horizontalWidth = Math.max(
+            node.width - clearance * 2,
+            hotspotThickness.value,
+          )
+          const verticalHeight = Math.max(
+            node.height - clearance * 2,
+            hotspotThickness.value,
+          )
+          const specs: Array<{
+            side: AnchorSide
+            x: number
+            y: number
+            width: number
+            height: number
+          }> = [
             {
               side: 'top',
               x: node.x + (node.width - horizontalWidth) / 2,
               y: node.y - hotspotThickness.value / 2,
               width: horizontalWidth,
-              height: hotspotThickness.value
+              height: hotspotThickness.value,
             },
             {
               side: 'right',
               x: node.x + node.width - hotspotThickness.value / 2,
               y: node.y + (node.height - verticalHeight) / 2,
               width: hotspotThickness.value,
-              height: verticalHeight
+              height: verticalHeight,
             },
             {
               side: 'bottom',
               x: node.x + (node.width - horizontalWidth) / 2,
               y: node.y + node.height - hotspotThickness.value / 2,
               width: horizontalWidth,
-              height: hotspotThickness.value
+              height: hotspotThickness.value,
             },
             {
               side: 'left',
               x: node.x - hotspotThickness.value / 2,
               y: node.y + (node.height - verticalHeight) / 2,
               width: hotspotThickness.value,
-              height: verticalHeight
-            }
+              height: verticalHeight,
+            },
           ]
 
           return specs.map((spec) =>
@@ -852,7 +1037,7 @@ export const BoardConnectionLayer = defineComponent({
               'data-connection-side': spec.side,
               style: {
                 pointerEvents: 'all',
-                cursor: 'crosshair'
+                cursor: 'crosshair',
               },
               onPointerenter: () => {
                 if (!dragState.value && !pendingDrag.value) {
@@ -876,14 +1061,15 @@ export const BoardConnectionLayer = defineComponent({
                   hoveredNodeHandle.value = null
                 }
               },
-              onPointerdown: (event: PointerEvent) => beginCreateDrag(node.id, spec.side, event)
-            })
+              onPointerdown: (event: PointerEvent) =>
+                beginCreateDrag(node.id, spec.side, event),
+            }),
           )
         })
       return [
         ...hotspots,
         ...(activeHandle ? [activeHandle] : []),
-        ...(hoveredHandle ? [hoveredHandle] : [])
+        ...(hoveredHandle ? [hoveredHandle] : []),
       ]
     }
 
@@ -898,7 +1084,10 @@ export const BoardConnectionLayer = defineComponent({
       const zoom = Math.max(injected.$camera.value.z, 0.25)
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
       const size = 1 / zoom
-      const approxWidth = Math.max(40, ((isEditing ? labelDraft.value : label).length || 1) * 8 + 24)
+      const approxWidth = Math.max(
+        40,
+        ((isEditing ? labelDraft.value : label).length || 1) * 8 + 24,
+      )
       const approxHeight = 22
       const width = approxWidth * size
       const height = approxHeight * size
@@ -939,15 +1128,16 @@ export const BoardConnectionLayer = defineComponent({
               fontSize: '12px',
               lineHeight: '1',
               outline: 'none',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
-            }
+              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+            },
           })
         : h(
             'div',
             {
               'data-connection-label': edgeId,
               'data-board-interactive': 'true',
-              onPointerdown: (event: PointerEvent) => onEdgePointerDown(edgeId, event),
+              onPointerdown: (event: PointerEvent) =>
+                onEdgePointerDown(edgeId, event),
               onDblclick: (event: MouseEvent) => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -966,10 +1156,10 @@ export const BoardConnectionLayer = defineComponent({
                 color: 'inherit',
                 cursor: 'text',
                 whiteSpace: 'nowrap',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
-              }
+                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+              },
             },
-            label || '\u00A0'
+            label || '\u00A0',
           )
 
       return h(
@@ -982,8 +1172,8 @@ export const BoardConnectionLayer = defineComponent({
           color: stroke,
           style: {
             overflow: 'visible',
-            pointerEvents: 'auto'
-          }
+            pointerEvents: 'auto',
+          },
         },
         [
           h(
@@ -997,8 +1187,8 @@ export const BoardConnectionLayer = defineComponent({
                 alignItems: 'center',
                 justifyContent: 'center',
                 transform: `scale(${size})`,
-                transformOrigin: 'center center'
-              }
+                transformOrigin: 'center center',
+              },
             },
             [
               h(
@@ -1009,14 +1199,14 @@ export const BoardConnectionLayer = defineComponent({
                     height: `${approxHeight}px`,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
-                  }
+                    justifyContent: 'center',
+                  },
                 },
-                [contents]
-              )
-            ]
-          )
-        ]
+                [contents],
+              ),
+            ],
+          ),
+        ],
       )
     }
 
@@ -1024,11 +1214,23 @@ export const BoardConnectionLayer = defineComponent({
       const edgeId = String(entry.edge.id)
       const isSelected = selectedEdgeId.value === edgeId
       const isHovered = hoveredEdgeId.value === edgeId
-      const isDragging = dragState.value?.mode === 'reconnect' && dragState.value.edgeId === edgeId
-      const showHandles = isSelected || isDragging
+      const isDragging =
+        dragState.value?.mode === 'reconnect' &&
+        dragState.value.edgeId === edgeId
+      const showHandles = isSelected || isHovered || isDragging
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
-      const strokeOpacity = isDragging ? 0.22 : isSelected ? 0.98 : isHovered ? 0.92 : 0.7
-      const strokeWidth = isSelected ? edgeStrokeWidth.value + 0.4 : isHovered ? edgeStrokeWidth.value + 0.2 : edgeStrokeWidth.value
+      const strokeOpacity = isDragging
+        ? 0.22
+        : isSelected
+          ? 0.98
+          : isHovered
+            ? 0.92
+            : 0.7
+      const strokeWidth = isSelected
+        ? edgeStrokeWidth.value + 0.4
+        : isHovered
+          ? edgeStrokeWidth.value + 0.2
+          : edgeStrokeWidth.value
 
       const visibleContent = slots.edge
         ? slots.edge(entry)
@@ -1042,11 +1244,13 @@ export const BoardConnectionLayer = defineComponent({
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
             'vector-effect': 'non-scaling-stroke',
-            'marker-start': entry.edge.fromEnd === 'arrow' ? `url(#${markerId})` : undefined,
-            'marker-end': entry.edge.toEnd === 'arrow' ? `url(#${markerId})` : undefined,
+            'marker-start':
+              entry.edge.fromEnd === 'arrow' ? `url(#${markerId})` : undefined,
+            'marker-end':
+              entry.edge.toEnd === 'arrow' ? `url(#${markerId})` : undefined,
             style: {
-              pointerEvents: 'none'
-            }
+              pointerEvents: 'none',
+            },
           })
 
       const label = renderEdgeLabel(entry)
@@ -1054,7 +1258,7 @@ export const BoardConnectionLayer = defineComponent({
       return h(
         'g',
         {
-          'data-connection-edge-id': edgeId
+          'data-connection-edge-id': edgeId,
         },
         [
           visibleContent,
@@ -1072,9 +1276,10 @@ export const BoardConnectionLayer = defineComponent({
             'data-connection-hit': 'true',
             style: {
               pointerEvents: 'stroke',
-              cursor: 'pointer'
+              cursor: 'pointer',
             },
-            onPointerdown: (event: PointerEvent) => onEdgePointerDown(edgeId, event),
+            onPointerdown: (event: PointerEvent) =>
+              onEdgePointerDown(edgeId, event),
             onDblclick: (event: MouseEvent) => {
               event.preventDefault()
               event.stopPropagation()
@@ -1084,15 +1289,23 @@ export const BoardConnectionLayer = defineComponent({
               if (
                 !sameEdgeTarget(event.relatedTarget, edgeId) &&
                 selectedEdgeId.value !== edgeId &&
-                !(dragState.value?.mode === 'reconnect' && dragState.value.edgeId === edgeId)
+                !(
+                  dragState.value?.mode === 'reconnect' &&
+                  dragState.value.edgeId === edgeId
+                )
               ) {
                 hoveredEdgeId.value = null
               }
-            }
+            },
           }),
-          ...(showHandles ? [renderReconnectHandle(entry, 'from', entry.source), renderReconnectHandle(entry, 'to', entry.target)] : []),
-          ...(label ? [label] : [])
-        ]
+          ...(showHandles
+            ? [
+                renderReconnectHandle(entry, 'from', entry.source),
+                renderReconnectHandle(entry, 'to', entry.target),
+              ]
+            : []),
+          ...(label ? [label] : []),
+        ],
       )
     }
 
@@ -1101,7 +1314,8 @@ export const BoardConnectionLayer = defineComponent({
         return []
       }
 
-      const previewStroke = preview.value.edge?.color ?? 'var(--board-edge-active-color)'
+      const previewStroke =
+        preview.value.edge?.color ?? 'var(--board-edge-active-color)'
       const candidateNode = preview.value.candidateNode
       const fixedEnd =
         dragState.value?.mode === 'reconnect' && dragState.value.end === 'from'
@@ -1127,8 +1341,8 @@ export const BoardConnectionLayer = defineComponent({
               'vector-effect': 'non-scaling-stroke',
               opacity: 0.9,
               style: {
-                pointerEvents: 'none'
-              }
+                pointerEvents: 'none',
+              },
             })
           : null,
         h('path', {
@@ -1143,8 +1357,8 @@ export const BoardConnectionLayer = defineComponent({
           'marker-end': `url(#${markerId})`,
           color: previewStroke,
           style: {
-            pointerEvents: 'none'
-          }
+            pointerEvents: 'none',
+          },
         }),
         h('circle', {
           cx: fixedEnd.point.x,
@@ -1155,8 +1369,8 @@ export const BoardConnectionLayer = defineComponent({
           'stroke-width': 1.5 / Math.max(injected.$camera.value.z, 0.25),
           'vector-effect': 'non-scaling-stroke',
           style: {
-            pointerEvents: 'none'
-          }
+            pointerEvents: 'none',
+          },
         }),
         h('circle', {
           cx: dynamicEnd.point.x,
@@ -1167,9 +1381,9 @@ export const BoardConnectionLayer = defineComponent({
           'stroke-width': 1.5 / Math.max(injected.$camera.value.z, 0.25),
           'vector-effect': 'non-scaling-stroke',
           style: {
-            pointerEvents: 'none'
-          }
-        })
+            pointerEvents: 'none',
+          },
+        }),
       ]
     }
 
@@ -1182,7 +1396,10 @@ export const BoardConnectionLayer = defineComponent({
       if (!entry) {
         return null
       }
-      if (dragState.value?.mode === 'reconnect' && dragState.value.edgeId === edgeId) {
+      if (
+        dragState.value?.mode === 'reconnect' &&
+        dragState.value.edgeId === edgeId
+      ) {
         return null
       }
       if (editingEdgeId.value === edgeId) {
@@ -1192,19 +1409,20 @@ export const BoardConnectionLayer = defineComponent({
       const camera = injected.$camera.value
       const screen = {
         x: (entry.route.labelPoint.x + camera.x) * camera.z,
-        y: (entry.route.labelPoint.y + camera.y) * camera.z
+        y: (entry.route.labelPoint.y + camera.y) * camera.z,
       }
 
       const currentColor = entry.edge.color
       const from = entry.edge.fromEnd ?? 'none'
       const to = entry.edge.toEnd ?? 'arrow'
-      const directionLabel = from === 'none' && to === 'arrow'
-        ? '→'
-        : from === 'arrow' && to === 'arrow'
-          ? '↔'
-          : from === 'arrow' && to === 'none'
-            ? '←'
-            : '—'
+      const directionLabel =
+        from === 'none' && to === 'arrow'
+          ? '→'
+          : from === 'arrow' && to === 'arrow'
+            ? '↔'
+            : from === 'arrow' && to === 'none'
+              ? '←'
+              : '—'
 
       const buttonStyle = {
         display: 'inline-flex',
@@ -1219,19 +1437,22 @@ export const BoardConnectionLayer = defineComponent({
         cursor: 'pointer',
         fontSize: '14px',
         lineHeight: '1',
-        color: 'var(--board-fg, #0f172a)'
+        color: 'var(--board-fg, #0f172a)',
       } as const
 
-      const swatchStyle = (hex: string, active: boolean) => ({
-        width: '18px',
-        height: '18px',
-        borderRadius: '50%',
-        background: hex,
-        border: active ? '2px solid var(--board-fg, #0f172a)' : '1px solid rgba(15, 23, 42, 0.15)',
-        cursor: 'pointer',
-        padding: '0',
-        boxSizing: 'border-box'
-      }) as const
+      const swatchStyle = (hex: string, active: boolean) =>
+        ({
+          width: '18px',
+          height: '18px',
+          borderRadius: '50%',
+          background: hex,
+          border: active
+            ? '2px solid var(--board-fg, #0f172a)'
+            : '1px solid rgba(15, 23, 42, 0.15)',
+          cursor: 'pointer',
+          padding: '0',
+          boxSizing: 'border-box',
+        }) as const
 
       return h(
         'div',
@@ -1252,13 +1473,14 @@ export const BoardConnectionLayer = defineComponent({
             background: 'var(--board-node-bg, #ffffff)',
             border: '1px solid var(--board-node-border, rgba(15,23,42,0.1))',
             borderRadius: '10px',
-            boxShadow: '0 6px 20px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+            boxShadow:
+              '0 6px 20px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
             fontSize: '12px',
             color: 'var(--board-fg, #0f172a)',
             whiteSpace: 'nowrap',
             pointerEvents: 'auto',
-            userSelect: 'none'
-          }
+            userSelect: 'none',
+          },
         },
         [
           h(
@@ -1272,9 +1494,9 @@ export const BoardConnectionLayer = defineComponent({
                 event.preventDefault()
                 event.stopPropagation()
                 cycleDirectionality(edgeId)
-              }
+              },
             },
-            directionLabel
+            directionLabel,
           ),
           h('span', {
             style: {
@@ -1282,39 +1504,39 @@ export const BoardConnectionLayer = defineComponent({
               width: '1px',
               height: '18px',
               background: 'rgba(15,23,42,0.12)',
-              margin: '0 2px'
-            }
+              margin: '0 2px',
+            },
           }),
-          h(
-            'button',
-            {
-              'data-board-interactive': 'true',
-              type: 'button',
-              title: 'Default color',
-              style: {
-                ...swatchStyle('transparent', !currentColor),
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 3px, transparent 3px 6px)'
-              },
-              onClick: (event: MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-                applyEdgeColor(edgeId, undefined)
-              }
-            }
-          ),
+          h('button', {
+            'data-board-interactive': 'true',
+            type: 'button',
+            title: 'Default color',
+            style: {
+              ...swatchStyle('transparent', !currentColor),
+              backgroundImage:
+                'repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 3px, transparent 3px 6px)',
+            },
+            onClick: (event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              applyEdgeColor(edgeId, undefined)
+            },
+          }),
           ...EDGE_COLOR_PRESETS.map((option) =>
             h('button', {
               'data-board-interactive': 'true',
               type: 'button',
               title: option.label,
-              style: swatchStyle(option.hex, resolvePresetColor(currentColor) === option.hex),
+              style: swatchStyle(
+                option.hex,
+                resolvePresetColor(currentColor) === option.hex,
+              ),
               onClick: (event: MouseEvent) => {
                 event.preventDefault()
                 event.stopPropagation()
                 applyEdgeColor(edgeId, option.hex)
-              }
-            })
+              },
+            }),
           ),
           h('span', {
             style: {
@@ -1322,8 +1544,8 @@ export const BoardConnectionLayer = defineComponent({
               width: '1px',
               height: '18px',
               background: 'rgba(15,23,42,0.12)',
-              margin: '0 2px'
-            }
+              margin: '0 2px',
+            },
           }),
           h(
             'button',
@@ -1336,11 +1558,11 @@ export const BoardConnectionLayer = defineComponent({
                 event.preventDefault()
                 event.stopPropagation()
                 deleteEdge(edgeId)
-              }
+              },
             },
-            '✕'
-          )
-        ]
+            '✕',
+          ),
+        ],
       )
     }
 
@@ -1359,8 +1581,8 @@ export const BoardConnectionLayer = defineComponent({
             transform: `scale(${injected.$camera.value.z}) translate(${injected.$camera.value.x}px, ${injected.$camera.value.y}px)`,
             transformOrigin: '0 0',
             zIndex: '6',
-            '--board-zoom': String(injected.$camera.value.z)
-          }
+            '--board-zoom': String(injected.$camera.value.z),
+          },
         },
         [
           h('defs', [
@@ -1374,20 +1596,20 @@ export const BoardConnectionLayer = defineComponent({
                 refY: 3,
                 orient: 'auto-start-reverse',
                 markerUnits: 'strokeWidth',
-                viewBox: '0 0 6 6'
+                viewBox: '0 0 6 6',
               },
               [
                 h('path', {
                   d: 'M0.6,0.6 L5.2,3 L0.6,5.4 L2.1,3 Z',
-                  fill: 'currentColor'
-                })
-              ]
-            )
+                  fill: 'currentColor',
+                }),
+              ],
+            ),
           ]),
           ...entries.value.map((entry) => renderEdge(entry)),
           ...renderNodeHotspots().filter(Boolean),
-          ...renderPreview().filter(Boolean)
-        ]
+          ...renderPreview().filter(Boolean),
+        ],
       )
     }
 
@@ -1400,5 +1622,5 @@ export const BoardConnectionLayer = defineComponent({
       }
       return [svg, ...(toolbar ? [toolbar] : [])]
     }
-  }
+  },
 })

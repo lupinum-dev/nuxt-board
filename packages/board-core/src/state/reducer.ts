@@ -17,7 +17,7 @@ function applyNodeUpdate(
   nodes: ReadonlyMap<NodeId, StoredNode>,
   id: NodeId,
   before: StoredNode,
-  after: StoredNode
+  after: StoredNode,
 ): Map<NodeId, StoredNode> {
   const next = new Map(nodes)
   next.set(id, bumpVersions(before, after))
@@ -26,7 +26,7 @@ function applyNodeUpdate(
 
 function nodesReducer(
   state: ReadonlyMap<NodeId, StoredNode>,
-  action: Action
+  action: Action,
 ): ReadonlyMap<NodeId, StoredNode> {
   switch (action.type) {
     case 'NODE_CREATED': {
@@ -46,7 +46,11 @@ function nodesReducer(
       for (const delta of action.deltas) {
         const current = next.get(delta.id)
         if (!current) continue
-        const updated = bumpVersions(current, { ...current, x: delta.after.x, y: delta.after.y })
+        const updated = bumpVersions(current, {
+          ...current,
+          x: delta.after.x,
+          y: delta.after.y,
+        })
         next.set(delta.id, updated)
       }
       return next
@@ -58,7 +62,10 @@ function nodesReducer(
   }
 }
 
-function selectionReducer(state: ReadonlySet<NodeId>, action: Action): ReadonlySet<NodeId> {
+function selectionReducer(
+  state: ReadonlySet<NodeId>,
+  action: Action,
+): ReadonlySet<NodeId> {
   switch (action.type) {
     case 'SELECTION_SET':
       return new Set(action.after)
@@ -105,7 +112,9 @@ export interface RootReducerOptions {
   pluginReducers: ReadonlyMap<string, PluginReducer>
 }
 
-export function createRootReducer(options: RootReducerOptions): Reducer<PersistentBoardState> {
+export function createRootReducer(
+  options: RootReducerOptions,
+): Reducer<PersistentBoardState> {
   return function rootReducer(state, action) {
     const nextNodes = nodesReducer(state.nodes, action)
     const nextSelection = selectionReducer(state.selection, action)
@@ -141,7 +150,7 @@ export function createRootReducer(options: RootReducerOptions): Reducer<Persiste
       selection: nextSelection,
       grid: nextGrid,
       nextZIndex: nextZ,
-      plugins: nextPlugins
+      plugins: nextPlugins,
     }
   }
 }

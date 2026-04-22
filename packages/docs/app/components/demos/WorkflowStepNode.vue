@@ -17,7 +17,7 @@ const tone = computed(() => {
         color-mix(in srgb, #10b981 14%, white),
         color-mix(in srgb, #10b981 4%, white) 60%,
         color-mix(in srgb, #10b981 10%, white))`,
-      glow: 'inset 0 1px 0 0 rgba(16,185,129,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(16,185,129,0.10)'
+      glow: 'inset 0 1px 0 0 rgba(16,185,129,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(16,185,129,0.10)',
     }
   }
   if (status === 'active') {
@@ -28,7 +28,7 @@ const tone = computed(() => {
         color-mix(in srgb, #0ea5e9 14%, white),
         color-mix(in srgb, #0ea5e9 4%, white) 60%,
         color-mix(in srgb, #0ea5e9 10%, white))`,
-      glow: 'inset 0 1px 0 0 rgba(14,165,233,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(14,165,233,0.10)'
+      glow: 'inset 0 1px 0 0 rgba(14,165,233,0.18), 0 18px 60px rgba(15,23,42,0.08), 0 1px 3px rgba(14,165,233,0.10)',
     }
   }
   return {
@@ -38,7 +38,7 @@ const tone = computed(() => {
       color-mix(in srgb, #94a3b8 8%, white),
       white 60%,
       color-mix(in srgb, #94a3b8 6%, white))`,
-    glow: 'inset 0 1px 0 0 rgba(148,163,184,0.14), 0 18px 60px rgba(15,23,42,0.06)'
+    glow: 'inset 0 1px 0 0 rgba(148,163,184,0.14), 0 18px 60px rgba(15,23,42,0.06)',
   }
 })
 </script>
@@ -50,16 +50,25 @@ const tone = computed(() => {
     :style="{
       borderLeft: `5px solid ${tone.border}`,
       background: tone.surface,
-      boxShadow: tone.glow
+      boxShadow: tone.glow,
     }"
   >
     <div class="flex h-full flex-col justify-between gap-3">
       <div class="flex items-center justify-between gap-3">
-        <span class="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed">
-          <span class="inline-block size-1.5 rounded-full" :style="{ background: tone.border }"></span>
+        <span
+          class="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed"
+        >
+          <span
+            class="inline-block size-1.5 rounded-full"
+            :style="{ background: tone.border }"
+          ></span>
           Step
         </span>
-        <span class="rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide" :class="tone.badge">{{ node.data.status }}</span>
+        <span
+          class="rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide"
+          :class="tone.badge"
+          >{{ node.data.status }}</span
+        >
       </div>
       <div>
         <h3 class="text-lg font-semibold tracking-tight text-highlighted">

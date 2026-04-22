@@ -10,7 +10,10 @@ export function createBatchController(): BatchController {
   return { depth: 0, pending: new Set() }
 }
 
-export function createSubscribable<T>(initial: T, batch: BatchController): Subscribable<T> & {
+export function createSubscribable<T>(
+  initial: T,
+  batch: BatchController,
+): Subscribable<T> & {
   set(value: T): void
   notify(): void
 } {
@@ -48,7 +51,9 @@ export function createSubscribable<T>(initial: T, batch: BatchController): Subsc
 
     subscribe(callback: (value: T, prev: T) => void): Unsubscribe {
       listeners.add(callback)
-      return () => { listeners.delete(callback) }
+      return () => {
+        listeners.delete(callback)
+      }
     },
 
     notify,

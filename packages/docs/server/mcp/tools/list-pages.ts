@@ -23,28 +23,30 @@ OUTPUT: Returns a structured list with:
   handler: async () => {
     const event = useEvent()
     const url = getRequestURL(event)
-    const siteUrl = import.meta.dev ? `${url.protocol}//${url.hostname}:${url.port}` : url.origin
+    const siteUrl = import.meta.dev
+      ? `${url.protocol}//${url.hostname}:${url.port}`
+      : url.origin
 
     try {
       const pages = await queryCollection(event, 'docs')
         .select('title', 'path', 'description')
         .all()
 
-      const result = pages.map(page => ({
+      const result = pages.map((page) => ({
         title: page.title,
         path: page.path,
         description: page.description,
-        url: `${siteUrl}${page.path}`
+        url: `${siteUrl}${page.path}`,
       }))
 
       return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       }
     } catch {
       return {
         content: [{ type: 'text', text: 'Failed to list pages' }],
-        isError: true
+        isError: true,
       }
     }
-  }
+  },
 })

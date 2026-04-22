@@ -8,7 +8,7 @@ export { default as BoardSnapGuides } from './components/BoardSnapGuides.vue'
 export type {
   BoardGridOptions,
   BoardRendererRegistry,
-  ResolvedBoardGridOptions
+  ResolvedBoardGridOptions,
 } from './grid'
 export {
   useBoardEngine,
@@ -20,10 +20,14 @@ export {
   useVisibleNodes,
   useGridStyle,
   useNode,
-  useBoxSelectBounds
+  useBoxSelectBounds,
 } from './useBoardEngine'
 export { useViewportSize } from './composables/useViewportSize'
 export { useResolvedGrid } from './composables/useResolvedGrid'
-export { useLodCulling, type LodNode, type NodeLod } from './composables/useLodCulling'
+export {
+  useLodCulling,
+  type LodNode,
+  type NodeLod,
+} from './composables/useLodCulling'
 export { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
 export { usePointerInteraction } from './composables/usePointerInteraction'

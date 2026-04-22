@@ -8,7 +8,7 @@ import type {
   NodeTypeRegistry,
   Point,
   SnapGuide,
-  ZoomSettings
+  ZoomSettings,
 } from '../types'
 import type { StoredNode } from './versioning'
 
@@ -20,13 +20,13 @@ export const DEFAULT_GRID: GridSettings = {
   snap: true,
   edgeSnap: true,
   edgeSnapThreshold: 8,
-  pattern: 'line'
+  pattern: 'line',
 }
 export const DEFAULT_NODE_CONSTRAINTS: NodeConstraints = {
   minWidth: 50,
   minHeight: 50,
   defaultWidth: 240,
-  defaultHeight: 160
+  defaultHeight: 160,
 }
 export const DEFAULT_VIEWPORT_SIZE: Point = { x: 1280, y: 720 }
 

@@ -12,7 +12,7 @@ export {
   getBoundsFromNode,
   groupArea,
   isStrictDescendantOf,
-  sortIdsByZIndex
+  sortIdsByZIndex,
 } from './hierarchy'
 export {
   boundsContain,
@@ -29,10 +29,19 @@ export {
   snapSize,
   snapValue,
   worldToScreen,
-  zoomCameraAtScreenPoint
+  zoomCameraAtScreenPoint,
 } from './math'
-export { applyResizeDelta, applyResizeDeltaLocked, snapResizedBounds, snapResizedBoundsLocked } from './resize'
-export { collectNodeEdges, snapBoundsToEdges, snapPositionToEdges } from './snap'
+export {
+  applyResizeDelta,
+  applyResizeDeltaLocked,
+  snapResizedBounds,
+  snapResizedBoundsLocked,
+} from './resize'
+export {
+  collectNodeEdges,
+  snapBoundsToEdges,
+  snapPositionToEdges,
+} from './snap'
 export type {
   BoardSnapshot,
   BoardState,
@@ -68,6 +77,6 @@ export type {
   Subscribable,
   TraceEntry,
   Unsubscribe,
-  ZoomSettings
+  ZoomSettings,
 } from './types'
 export type { SnapResult, DragSnapResult } from './snap'

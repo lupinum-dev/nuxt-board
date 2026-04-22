@@ -1,12 +1,14 @@
 import { pointInBounds } from './math'
 import type { Bounds, BoardNode, NodeId, Point } from './types'
 
-export function getBoundsFromNode(node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>): Bounds {
+export function getBoundsFromNode(
+  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
+): Bounds {
   return {
     minX: node.x,
     minY: node.y,
     maxX: node.x + node.width,
-    maxY: node.y + node.height
+    maxY: node.y + node.height,
   }
 }
 
@@ -15,7 +17,11 @@ export function groupArea(node: BoardNode): number {
 }
 
 /** Add every descendant of `rootId` into `out` (recursive; includes nested groups). */
-export function addDescendants(rootId: NodeId, nodes: Map<NodeId, BoardNode>, out: Set<NodeId>): void {
+export function addDescendants(
+  rootId: NodeId,
+  nodes: Map<NodeId, BoardNode>,
+  out: Set<NodeId>,
+): void {
   for (const n of nodes.values()) {
     if (n.parentId === rootId && !out.has(n.id)) {
       out.add(n.id)
@@ -26,7 +32,10 @@ export function addDescendants(rootId: NodeId, nodes: Map<NodeId, BoardNode>, ou
   }
 }
 
-export function expandGroupDragSeeds(seedIds: Iterable<NodeId>, nodes: Map<NodeId, BoardNode>): Set<NodeId> {
+export function expandGroupDragSeeds(
+  seedIds: Iterable<NodeId>,
+  nodes: Map<NodeId, BoardNode>,
+): Set<NodeId> {
   const out = new Set<NodeId>()
   for (const id of seedIds) {
     out.add(id)
@@ -38,7 +47,11 @@ export function expandGroupDragSeeds(seedIds: Iterable<NodeId>, nodes: Map<NodeI
   return out
 }
 
-export function collectSubtreeIds(rootId: NodeId, nodes: Map<NodeId, BoardNode>, into: Set<NodeId>): void {
+export function collectSubtreeIds(
+  rootId: NodeId,
+  nodes: Map<NodeId, BoardNode>,
+  into: Set<NodeId>,
+): void {
   into.add(rootId)
   for (const n of nodes.values()) {
     if (n.parentId === rootId) {
@@ -51,7 +64,10 @@ export function collectSubtreeIds(rootId: NodeId, nodes: Map<NodeId, BoardNode>,
  * Seeds expanded with group descendants, then union of subtrees rooted at nodes whose parent is outside the expanded set.
  * Each node appears once; applying the same delta to all ids moves a coherent forest.
  */
-export function collectUniformTranslationTargets(seedIds: Iterable<NodeId>, nodes: Map<NodeId, BoardNode>): NodeId[] {
+export function collectUniformTranslationTargets(
+  seedIds: Iterable<NodeId>,
+  nodes: Map<NodeId, BoardNode>,
+): NodeId[] {
   const expanded = expandGroupDragSeeds(seedIds, nodes)
   const roots: NodeId[] = []
   for (const id of expanded) {
@@ -74,7 +90,7 @@ export function collectUniformTranslationTargets(seedIds: Iterable<NodeId>, node
 export function isStrictDescendantOf(
   maybeDescendant: NodeId,
   ancestorId: NodeId,
-  nodes: Map<NodeId, BoardNode>
+  nodes: Map<NodeId, BoardNode>,
 ): boolean {
   let walk = nodes.get(maybeDescendant)?.parentId
   const seen = new Set<NodeId>()
@@ -91,8 +107,14 @@ export function isStrictDescendantOf(
   return false
 }
 
-export function findContainingGroup(node: BoardNode, nodes: Map<NodeId, BoardNode>): NodeId | undefined {
-  const center: Point = { x: node.x + node.width / 2, y: node.y + node.height / 2 }
+export function findContainingGroup(
+  node: BoardNode,
+  nodes: Map<NodeId, BoardNode>,
+): NodeId | undefined {
+  const center: Point = {
+    x: node.x + node.width / 2,
+    y: node.y + node.height / 2,
+  }
   const candidates: BoardNode[] = []
   for (const g of nodes.values()) {
     if (g.type !== 'group' || !g.visible) {
@@ -116,7 +138,10 @@ export function findContainingGroup(node: BoardNode, nodes: Map<NodeId, BoardNod
   return candidates[0]!.id
 }
 
-export function sortIdsByZIndex(ids: NodeId[], nodes: Map<NodeId, BoardNode>): NodeId[] {
+export function sortIdsByZIndex(
+  ids: NodeId[],
+  nodes: Map<NodeId, BoardNode>,
+): NodeId[] {
   return [...ids].sort((a, b) => {
     const za = nodes.get(a)?.zIndex ?? 0
     const zb = nodes.get(b)?.zIndex ?? 0

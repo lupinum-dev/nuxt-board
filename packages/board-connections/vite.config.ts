@@ -6,19 +6,23 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@lupinum/board-core': fileURLToPath(new URL('../board-core/src/index.ts', import.meta.url)),
-      '@lupinum/vue-board': fileURLToPath(new URL('../vue-board/src/index.ts', import.meta.url))
-    }
+      '@lupinum/board-core': fileURLToPath(
+        new URL('../board-core/src/index.ts', import.meta.url),
+      ),
+      '@lupinum/vue-board': fileURLToPath(
+        new URL('../vue-board/src/index.ts', import.meta.url),
+      ),
+    },
   },
   build: {
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       name: 'BoardConnections',
       fileName: 'index',
-      formats: ['es']
+      formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@lupinum/board-core', '@lupinum/vue-board']
-    }
-  }
+      external: ['vue', '@lupinum/board-core', '@lupinum/vue-board'],
+    },
+  },
 })

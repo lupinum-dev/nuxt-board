@@ -29,14 +29,22 @@ type Box = { x: number; y: number; w: number; h: number }
 
 const PI = Math.PI
 
-function modulate(value: number, rangeA: [number, number], rangeB: [number, number], clamp = false): number {
+function modulate(
+  value: number,
+  rangeA: [number, number],
+  rangeB: [number, number],
+  clamp = false,
+): number {
   const [fromLow, fromHigh] = rangeA
   const [toLow, toHigh] = rangeB
-  const result = toLow + ((value - fromLow) / (fromHigh - fromLow)) * (toHigh - toLow)
+  const result =
+    toLow + ((value - fromLow) / (fromHigh - fromLow)) * (toHigh - toLow)
   if (!clamp) {
     return result
   }
-  return toLow < toHigh ? Math.max(Math.min(result, toHigh), toLow) : Math.max(Math.min(result, toLow), toHigh)
+  return toLow < toHigh
+    ? Math.max(Math.min(result, toHigh), toLow)
+    : Math.max(Math.min(result, toLow), toHigh)
 }
 
 function getAngle(x0: number, y0: number, x1: number, y1: number): number {
@@ -51,16 +59,32 @@ function getIntermediate(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
-function getPointBetween(x0: number, y0: number, x1: number, y1: number, t: number): [number, number] {
+function getPointBetween(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  t: number,
+): [number, number] {
   return [getIntermediate(x0, x1, t), getIntermediate(y0, y1, t)]
 }
 
 function doBoxesCollide(a: Box, b: Box): boolean {
-  return !(a.x > b.x + b.w || a.x + a.w < b.x || a.y > b.y + b.h || a.y + a.h < b.y)
+  return !(
+    a.x > b.x + b.w ||
+    a.x + a.w < b.x ||
+    a.y > b.y + b.h ||
+    a.y + a.h < b.y
+  )
 }
 
 function expandBox(box: Box, amount: number): Box {
-  return { x: box.x - amount, y: box.y - amount, w: box.w + amount * 2, h: box.h + amount * 2 }
+  return {
+    x: box.x - amount,
+    y: box.y - amount,
+    w: box.w + amount * 2,
+    h: box.h + amount * 2,
+  }
 }
 
 function getBoxToBoxArrow(
@@ -81,7 +105,7 @@ function getBoxToBoxArrow(
     padEnd?: number
     flip?: boolean
     straights?: boolean
-  } = {}
+  } = {},
 ): [number, number, number, number, number, number, number, number] {
   const bow = options.bow ?? 0
   const stretch = options.stretch ?? 0.25
@@ -116,7 +140,10 @@ function getBoxToBoxArrow(
     sy = cy0 + Math.sin(boxAngle) * (h0 / 2 + padStart)
     ex = cx1 - Math.cos(boxAngle) * (w1 / 2 + padEnd)
     ey = cy1 - Math.sin(boxAngle) * (h1 / 2 + padEnd)
-    const [cx, cy] = [getIntermediate(sx, ex, 0.5), getIntermediate(sy, ey, 0.5)]
+    const [cx, cy] = [
+      getIntermediate(sx, ex, 0.5),
+      getIntermediate(sy, ey, 0.5),
+    ]
     return [sx, sy, cx, cy, ex, ey, boxAngle + PI, boxAngle + PI]
   }
 
@@ -147,7 +174,9 @@ function getBoxToBoxArrow(
   }
 
   const arrowDistance = getDistance(sx, sy, ex, ey)
-  const bowAmount = modulate(arrowDistance, [stretchMin, stretchMax], [1, 0], true) * stretch + bow
+  const bowAmount =
+    modulate(arrowDistance, [stretchMin, stretchMax], [1, 0], true) * stretch +
+    bow
   const arrowAngle = getAngle(sx, sy, ex, ey)
   const midX = getIntermediate(sx, ex, 0.5)
   const midY = getIntermediate(sy, ey, 0.5)
@@ -157,7 +186,7 @@ function getBoxToBoxArrow(
   const cx = midX + Math.cos(perp) * offset * sign
   const cy = midY + Math.sin(perp) * offset * sign
 
-  if (straights && (Math.abs(cx - midX) < 1 && Math.abs(cy - midY) < 1)) {
+  if (straights && Math.abs(cx - midX) < 1 && Math.abs(cy - midY) < 1) {
     return [sx, sy, midX, midY, ex, ey, arrowAngle + PI, arrowAngle]
   }
 
@@ -204,7 +233,7 @@ function quadraticBounds(from: Point, control: Point, to: Point): Bounds {
 function quadraticMidpoint(from: Point, control: Point, to: Point): Point {
   return {
     x: quadraticAt(from.x, control.x, to.x, 0.5),
-    y: quadraticAt(from.y, control.y, to.y, 0.5)
+    y: quadraticAt(from.y, control.y, to.y, 0.5),
   }
 }
 
@@ -221,7 +250,7 @@ export interface ArcOptions {
 export function buildArcRoute(
   source: ResolvedConnectionEndpoint,
   target: ResolvedConnectionEndpoint,
-  options: ArcOptions = {}
+  options: ArcOptions = {},
 ): ConnectionRoute {
   const [sx, sy, cx, cy, ex, ey] = getBoxToBoxArrow(
     source.node.x,
@@ -240,8 +269,8 @@ export function buildArcRoute(
       padStart: options.padStart ?? 0,
       padEnd: options.padEnd ?? 0,
       flip: options.flip ?? false,
-      straights: true
-    }
+      straights: true,
+    },
   )
 
   const from: Point = { x: sx, y: sy }
@@ -260,8 +289,8 @@ export function buildArcRoute(
         from,
         control1: control,
         control2: control,
-        to
-      }
-    ]
+        to,
+      },
+    ],
   }
 }

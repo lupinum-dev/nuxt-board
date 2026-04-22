@@ -3,24 +3,74 @@ import { onMounted } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
 
 const engine = createBoardEngine({
-  grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' }
+  grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
 })
 
 function seed() {
-  engine.importJSON(JSON.stringify({
-    camera: { x: -80, y: -20, z: 1 },
-    grid: engine.getGridSettings(),
-    nodes: [
-      { id: 'group-1', type: 'group', x: 32, y: 32, width: 896, height: 306, data: { content: 'group' }, zIndex: 0, locked: false, visible: true },
-      { id: 'research', type: 'text', x: 60, y: 60, width: 240, height: 100, data: { content: 'User research\nSynthesize interview findings' }, zIndex: 1, locked: false, visible: true, parentId: 'group-1' },
-      { id: 'prototype', type: 'text', x: 370, y: 200, width: 260, height: 110, data: { content: 'Prototype\nOnboarding redesign flows' }, zIndex: 2, locked: false, visible: true, parentId: 'group-1' },
-      { id: 'review', type: 'text', x: 680, y: 80, width: 220, height: 100, data: { content: 'Design review\nAlign with eng' }, zIndex: 3, locked: false, visible: true, parentId: 'group-1' }
-    ],
-    selection: [],
-    interaction: { mode: 'idle' },
-    snapGuides: [],
-    nextZIndex: 4
-  }), 'replace')
+  engine.importJSON(
+    JSON.stringify({
+      camera: { x: -80, y: -20, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'group-1',
+          type: 'group',
+          x: 32,
+          y: 32,
+          width: 896,
+          height: 306,
+          data: { content: 'group' },
+          zIndex: 0,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'research',
+          type: 'text',
+          x: 60,
+          y: 60,
+          width: 240,
+          height: 100,
+          data: { content: 'User research\nSynthesize interview findings' },
+          zIndex: 1,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+        {
+          id: 'prototype',
+          type: 'text',
+          x: 370,
+          y: 200,
+          width: 260,
+          height: 110,
+          data: { content: 'Prototype\nOnboarding redesign flows' },
+          zIndex: 2,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+        {
+          id: 'review',
+          type: 'text',
+          x: 680,
+          y: 80,
+          width: 220,
+          height: 100,
+          data: { content: 'Design review\nAlign with eng' },
+          zIndex: 3,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+      ],
+      selection: [],
+      interaction: { mode: 'idle' },
+      snapGuides: [],
+      nextZIndex: 4,
+    }),
+    'replace',
+  )
 }
 
 function addNode() {
@@ -30,7 +80,7 @@ function addNode() {
     y: 140 + Math.round(Math.random() * 160),
     width: 220,
     height: 100,
-    data: { content: 'New note\nDouble-click to edit' }
+    data: { content: 'New note\nDouble-click to edit' },
   })
 }
 
@@ -39,14 +89,16 @@ function wrapSelectionInGroup() {
   if (selected.length === 0) {
     return
   }
-  const nodes = engine.getSnapshot().nodes.filter(node => selected.includes(node.id))
+  const nodes = engine
+    .getSnapshot()
+    .nodes.filter((node) => selected.includes(node.id))
   if (nodes.length === 0) {
     return
   }
-  const minX = Math.min(...nodes.map(node => node.x))
-  const minY = Math.min(...nodes.map(node => node.y))
-  const maxX = Math.max(...nodes.map(node => node.x + node.width))
-  const maxY = Math.max(...nodes.map(node => node.y + node.height))
+  const minX = Math.min(...nodes.map((node) => node.x))
+  const minY = Math.min(...nodes.map((node) => node.y))
+  const maxX = Math.max(...nodes.map((node) => node.x + node.width))
+  const maxY = Math.max(...nodes.map((node) => node.y + node.height))
   const group = engine.createNode({
     type: 'group',
     x: minX - 28,
@@ -54,7 +106,7 @@ function wrapSelectionInGroup() {
     width: maxX - minX + 56,
     height: maxY - minY + 56,
     data: { title: 'Cluster' },
-    select: false
+    select: false,
   })
   engine.sendToBack(group.id)
   for (const node of nodes) {
@@ -73,23 +125,12 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button class="demo-danger" @click="seed">
-        Reset
-      </button>
-      <button class="demo-primary" @click="addNode">
-        Add note
-      </button>
-      <button @click="wrapSelectionInGroup">
-        Group selection
-      </button>
-      <button @click="engine.zoomToFit(72, false)">
-        Zoom to fit
-      </button>
+      <button class="demo-danger" @click="seed">Reset</button>
+      <button class="demo-primary" @click="addNode">Add note</button>
+      <button @click="wrapSelectionInGroup">Group selection</button>
+      <button @click="engine.zoomToFit(72, false)">Zoom to fit</button>
     </div>
 
-    <BoardRoot
-      :engine="engine"
-      style="height: 360px"
-    />
+    <BoardRoot :engine="engine" style="height: 360px" />
   </div>
 </template>

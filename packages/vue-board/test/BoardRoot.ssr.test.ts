@@ -20,14 +20,17 @@ describe('BoardRoot SSR', () => {
           data: { content: 'Server rendered node' },
           zIndex: 1,
           locked: false,
-          visible: true
-        }
-      ]
+          visible: true,
+        },
+      ],
     })
 
-    const html = await renderToString(createSSRApp({
-      render: () => h(BoardRoot, { engine, style: 'width: 640px; height: 360px;' })
-    }))
+    const html = await renderToString(
+      createSSRApp({
+        render: () =>
+          h(BoardRoot, { engine, style: 'width: 640px; height: 360px;' }),
+      }),
+    )
 
     expect(html).toContain('class="board-root"')
     expect(html).toContain('data-node-id="hero"')

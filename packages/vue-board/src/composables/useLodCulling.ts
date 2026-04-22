@@ -1,5 +1,11 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
-import type { BoardEngine, BoardNode as BoardNodeState, Camera, NodeId, Point } from '@lupinum/board-core'
+import type {
+  BoardEngine,
+  BoardNode as BoardNodeState,
+  Camera,
+  NodeId,
+  Point,
+} from '@lupinum/board-core'
 
 export type NodeLod = 'full' | 'simple' | 'hidden'
 export type LodNode = BoardNodeState & { lod: NodeLod }
@@ -13,7 +19,11 @@ export interface UseLodCullingOptions {
   cullMargin: Ref<number>
 }
 
-function getNodeLod(node: BoardNodeState, zoom: number, selected: boolean): NodeLod {
+function getNodeLod(
+  node: BoardNodeState,
+  zoom: number,
+  selected: boolean,
+): NodeLod {
   if (selected) return 'full'
   const screenSize = Math.max(node.width, node.height) * zoom
   if (screenSize < 8) return 'hidden'
@@ -21,11 +31,17 @@ function getNodeLod(node: BoardNodeState, zoom: number, selected: boolean): Node
   return 'full'
 }
 
-export function useLodCulling(options: UseLodCullingOptions): ComputedRef<LodNode[]> {
+export function useLodCulling(
+  options: UseLodCullingOptions,
+): ComputedRef<LodNode[]> {
   return computed(() => {
-    const canCull = options.viewportSize.value.x > 0 && options.viewportSize.value.y > 0
+    const canCull =
+      options.viewportSize.value.x > 0 && options.viewportSize.value.y > 0
     const bounds = canCull
-      ? options.engine.getVisibleBounds(options.viewportSize.value.x, options.viewportSize.value.y)
+      ? options.engine.getVisibleBounds(
+          options.viewportSize.value.x,
+          options.viewportSize.value.y,
+        )
       : null
     const zoom = options.camera.value.z
     const sel = options.selectionSet.value

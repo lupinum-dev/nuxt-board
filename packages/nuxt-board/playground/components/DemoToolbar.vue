@@ -9,7 +9,9 @@ const sceneId = defineModel<DemoSceneId>('sceneId', { required: true })
 const showGrid = defineModel<boolean>('showGrid', { required: true })
 const snapToGrid = defineModel<boolean>('snapToGrid', { required: true })
 const showMinimap = defineModel<boolean>('showMinimap', { required: true })
-const showDiagnostics = defineModel<boolean>('showDiagnostics', { required: true })
+const showDiagnostics = defineModel<boolean>('showDiagnostics', {
+  required: true,
+})
 const showPanel = defineModel<boolean>('showPanel', { required: true })
 
 const emit = defineEmits<{
@@ -25,51 +27,21 @@ const emit = defineEmits<{
   <div class="toolbar">
     <label class="toolbar__field">
       <span>Scene</span>
-      <select
-        v-model="sceneId"
-        class="toolbar__select"
-      >
-        <option
-          v-for="scene in scenes"
-          :key="scene.id"
-          :value="scene.id"
-        >
+      <select v-model="sceneId" class="toolbar__select">
+        <option v-for="scene in scenes" :key="scene.id" :value="scene.id">
           {{ scene.label }}
         </option>
       </select>
     </label>
 
     <div class="toolbar__cluster">
-      <button
-        class="toolbar__button"
-        @click="emit('reseed')"
-      >
-        Reset
-      </button>
-      <button
-        class="toolbar__button"
-        @click="emit('fit')"
-      >
-        Fit
-      </button>
-      <button
-        class="toolbar__button"
-        @click="emit('group')"
-      >
-        Group
-      </button>
-      <button
-        class="toolbar__button"
-        @click="emit('benchmark')"
-      >
+      <button class="toolbar__button" @click="emit('reseed')">Reset</button>
+      <button class="toolbar__button" @click="emit('fit')">Fit</button>
+      <button class="toolbar__button" @click="emit('group')">Group</button>
+      <button class="toolbar__button" @click="emit('benchmark')">
         Benchmark
       </button>
-      <button
-        class="toolbar__button"
-        @click="emit('export')"
-      >
-        Export
-      </button>
+      <button class="toolbar__button" @click="emit('export')">Export</button>
     </div>
 
     <div class="toolbar__cluster">

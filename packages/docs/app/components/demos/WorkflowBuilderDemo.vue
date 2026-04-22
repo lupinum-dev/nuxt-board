@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { createBoardEngine, type NodeId } from '@lupinum/board-core'
-import { connectionPlugin, BoardConnectionLayer } from '@lupinum/board-connections'
+import {
+  connectionPlugin,
+  BoardConnectionLayer,
+} from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import WorkflowStepNode from './WorkflowStepNode.vue'
@@ -10,36 +13,94 @@ type StepStatus = 'pending' | 'active' | 'done'
 
 const engine = createBoardEngine({
   grid: { size: 24, majorEvery: 4, snap: true, pattern: 'line' },
-  plugins: [historyPlugin(), connectionPlugin({ routing: 'step' })]
+  plugins: [historyPlugin(), connectionPlugin({ routing: 'step' })],
 })
 
 const renderers: BoardRendererRegistry = {
-  step: WorkflowStepNode
+  step: WorkflowStepNode,
 }
 
 const historyState = computed(() => engine.ext.history.getState())
 
 function seed() {
-  engine.importJSON(JSON.stringify({
-    camera: { x: -40, y: -30, z: 1 },
-    grid: engine.getGridSettings(),
-    nodes: [
-      { id: 'capture', type: 'step', x: 40, y: 110, width: 220, height: 130, data: { label: 'Capture lead', summary: 'Collect the request and normalize inputs.', status: 'done' }, zIndex: 1, locked: false, visible: true },
-      { id: 'qualify', type: 'step', x: 340, y: 110, width: 220, height: 130, data: { label: 'Qualify', summary: 'Score, tag, and route the lead.', status: 'active' }, zIndex: 2, locked: false, visible: true },
-      { id: 'handoff', type: 'step', x: 640, y: 110, width: 220, height: 130, data: { label: 'Handoff', summary: 'Create the downstream record and alert the owner.', status: 'pending' }, zIndex: 3, locked: false, visible: true }
-    ],
-    selection: [],
-    interaction: { mode: 'idle' },
-    snapGuides: [],
-    nextZIndex: 4
-  }), 'replace')
+  engine.importJSON(
+    JSON.stringify({
+      camera: { x: -40, y: -30, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'capture',
+          type: 'step',
+          x: 40,
+          y: 110,
+          width: 220,
+          height: 130,
+          data: {
+            label: 'Capture lead',
+            summary: 'Collect the request and normalize inputs.',
+            status: 'done',
+          },
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'qualify',
+          type: 'step',
+          x: 340,
+          y: 110,
+          width: 220,
+          height: 130,
+          data: {
+            label: 'Qualify',
+            summary: 'Score, tag, and route the lead.',
+            status: 'active',
+          },
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'handoff',
+          type: 'step',
+          x: 640,
+          y: 110,
+          width: 220,
+          height: 130,
+          data: {
+            label: 'Handoff',
+            summary: 'Create the downstream record and alert the owner.',
+            status: 'pending',
+          },
+          zIndex: 3,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      interaction: { mode: 'idle' },
+      snapGuides: [],
+      nextZIndex: 4,
+    }),
+    'replace',
+  )
 
   for (const edge of engine.ext.connections.getEdges()) {
     engine.ext.connections.deleteEdge(edge.id)
   }
 
-  engine.ext.connections.createEdge({ from: 'capture' as NodeId, to: 'qualify' as NodeId, label: 'validated', data: {} })
-  engine.ext.connections.createEdge({ from: 'qualify' as NodeId, to: 'handoff' as NodeId, label: 'approved', data: {} })
+  engine.ext.connections.createEdge({
+    from: 'capture' as NodeId,
+    to: 'qualify' as NodeId,
+    label: 'validated',
+    data: {},
+  })
+  engine.ext.connections.createEdge({
+    from: 'qualify' as NodeId,
+    to: 'handoff' as NodeId,
+    label: 'approved',
+    data: {},
+  })
 }
 
 function nextStatus(current: StepStatus): StepStatus {
@@ -58,8 +119,8 @@ function advanceSelected() {
   engine.updateNode(node.id, {
     data: {
       ...node.data,
-      status: nextStatus(node.data.status as StepStatus)
-    }
+      status: nextStatus(node.data.status as StepStatus),
+    },
   })
 }
 
@@ -72,26 +133,29 @@ onMounted(async () => {
 <template>
   <div class="demo-frame">
     <div class="demo-toolbar">
-      <button class="demo-danger" @click="seed">
-        Reset
-      </button>
+      <button class="demo-danger" @click="seed">Reset</button>
       <button class="demo-primary" @click="advanceSelected">
         Cycle selected step
       </button>
-      <button :disabled="!engine.ext.history.canUndo()" @click="engine.ext.history.undo()">
+      <button
+        :disabled="!engine.ext.history.canUndo()"
+        @click="engine.ext.history.undo()"
+      >
         Undo
       </button>
-      <button :disabled="!engine.ext.history.canRedo()" @click="engine.ext.history.redo()">
+      <button
+        :disabled="!engine.ext.history.canRedo()"
+        @click="engine.ext.history.redo()"
+      >
         Redo
       </button>
-      <span class="demo-history-badge ml-auto">{{ historyState.undoDepth }} undo / {{ historyState.redoDepth }} redo</span>
+      <span class="demo-history-badge ml-auto"
+        >{{ historyState.undoDepth }} undo /
+        {{ historyState.redoDepth }} redo</span
+      >
     </div>
 
-    <BoardRoot
-      :engine="engine"
-      :renderers="renderers"
-      style="height: 400px"
-    >
+    <BoardRoot :engine="engine" :renderers="renderers" style="height: 400px">
       <BoardConnectionLayer routing="step" />
     </BoardRoot>
   </div>

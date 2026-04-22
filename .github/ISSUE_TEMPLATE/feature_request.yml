@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest a capability or API improvement for Vue Board.
-title: "[Feature]: "
+title: '[Feature]: '
 labels:
   - enhancement
 body:

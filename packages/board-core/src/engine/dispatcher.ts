@@ -31,6 +31,6 @@ export function createDispatcher(): Dispatcher {
   return {
     dispatch,
     onAction,
-    getLastAction: () => lastAction
+    getLastAction: () => lastAction,
   }
 }

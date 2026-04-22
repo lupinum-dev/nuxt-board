@@ -4,24 +4,25 @@ import { defineComponent, h, markRaw, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
+import { historyPlugin } from '@lupinum/board-history'
 import BoardRoot from '../src/components/BoardRoot.vue'
 
 function dispatchPointerEvent(
   element: Element,
   type: string,
-  init: PointerEventInit & { pointerId?: number }
+  init: PointerEventInit & { pointerId?: number },
 ) {
   const EventCtor = window.PointerEvent ?? window.MouseEvent
   const event = new EventCtor(type, {
     bubbles: true,
     cancelable: true,
-    ...init
+    ...init,
   })
 
   if (!('pointerId' in event) && init.pointerId !== undefined) {
     Object.defineProperty(event, 'pointerId', {
       configurable: true,
-      value: init.pointerId
+      value: init.pointerId,
     })
   }
 
@@ -31,15 +32,15 @@ function dispatchPointerEvent(
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
     configurable: true,
-    value: vi.fn()
+    value: vi.fn(),
   })
   Object.defineProperty(HTMLElement.prototype, 'releasePointerCapture', {
     configurable: true,
-    value: vi.fn()
+    value: vi.fn(),
   })
   Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
     configurable: true,
-    value: vi.fn().mockReturnValue(true)
+    value: vi.fn().mockReturnValue(true),
   })
   Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
     configurable: true,
@@ -55,109 +56,145 @@ beforeEach(() => {
         height: 600,
         toJSON() {
           return this
-        }
+        },
       }
-    }
+    },
   })
 })
 
 describe('BoardRoot', () => {
   it('starts drag and resize only after the pointer clears the movement threshold', async () => {
     const engine = createBoardEngine()
-    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Drag me' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      data: { content: 'Drag me' },
+    })
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
-    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointerdown', {
-      button: 0,
-      pointerId: 1,
-      clientX: 50,
-      clientY: 50
-    })
+    dispatchPointerEvent(
+      wrapper.find(`[data-node-id="${node.id}"]`).element,
+      'pointerdown',
+      {
+        button: 0,
+        pointerId: 1,
+        clientX: 50,
+        clientY: 50,
+      },
+    )
     expect(engine.getSelection()).toEqual([node.id])
     expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'idle'
+      mode: 'idle',
     })
 
-    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointermove', {
-      pointerId: 1,
-      clientX: 53,
-      clientY: 52
-    })
+    dispatchPointerEvent(
+      wrapper.find(`[data-node-id="${node.id}"]`).element,
+      'pointermove',
+      {
+        pointerId: 1,
+        clientX: 53,
+        clientY: 52,
+      },
+    )
     expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'idle'
+      mode: 'idle',
     })
 
-    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointermove', {
-      pointerId: 1,
-      clientX: 66,
-      clientY: 58
-    })
+    dispatchPointerEvent(
+      wrapper.find(`[data-node-id="${node.id}"]`).element,
+      'pointermove',
+      {
+        pointerId: 1,
+        clientX: 66,
+        clientY: 58,
+      },
+    )
     expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'dragging-nodes'
+      mode: 'dragging-nodes',
     })
     dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 1,
       clientX: 66,
-      clientY: 58
+      clientY: 58,
     })
 
     await nextTick()
-    dispatchPointerEvent(wrapper.find(`[data-node-id="${node.id}"]`).element, 'pointerdown', {
-      button: 0,
-      pointerId: 2,
-      clientX: 46,
-      clientY: 46
-    })
+    dispatchPointerEvent(
+      wrapper.find(`[data-node-id="${node.id}"]`).element,
+      'pointerdown',
+      {
+        button: 0,
+        pointerId: 2,
+        clientX: 46,
+        clientY: 46,
+      },
+    )
     dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 2,
       clientX: 46,
-      clientY: 46
+      clientY: 46,
     })
     await nextTick()
 
-    dispatchPointerEvent(wrapper.find('[data-resize="se"]').element, 'pointerdown', {
-      button: 0,
-      pointerId: 3,
-      clientX: 120,
-      clientY: 110
-    })
+    dispatchPointerEvent(
+      wrapper.find('[data-resize="se"]').element,
+      'pointerdown',
+      {
+        button: 0,
+        pointerId: 3,
+        clientX: 120,
+        clientY: 110,
+      },
+    )
     expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'idle'
+      mode: 'idle',
     })
 
-    dispatchPointerEvent(wrapper.find('[data-resize="se"]').element, 'pointermove', {
-      pointerId: 3,
-      clientX: 132,
-      clientY: 122
-    })
+    dispatchPointerEvent(
+      wrapper.find('[data-resize="se"]').element,
+      'pointermove',
+      {
+        pointerId: 3,
+        clientX: 132,
+        clientY: 122,
+      },
+    )
     expect(engine.getSnapshot().interaction).toMatchObject({
       mode: 'resizing-node',
       nodeId: node.id,
-      handle: 'se'
+      handle: 'se',
     })
   })
 
   it('renders a registry renderer for typed nodes', () => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'image', x: 40, y: 40, data: { alt: 'Poster' } })
-    const ImageRenderer = markRaw(defineComponent({
-      props: ['node'],
-      setup(props) {
-        return () => h('div', { class: 'image-renderer' }, String((props.node.data as Record<string, unknown>).alt))
-      }
-    }))
+    const ImageRenderer = markRaw(
+      defineComponent({
+        props: ['node'],
+        setup(props) {
+          return () =>
+            h(
+              'div',
+              { class: 'image-renderer' },
+              String((props.node.data as Record<string, unknown>).alt),
+            )
+        },
+      }),
+    )
 
     const wrapper = mount(BoardRoot, {
       props: {
         engine,
         renderers: {
-          image: ImageRenderer
-        }
+          image: ImageRenderer,
+        },
       },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     expect(wrapper.find('.image-renderer').text()).toContain('Poster')
@@ -165,23 +202,37 @@ describe('BoardRoot', () => {
 
   it('draws a box select and updates selection from background drag', async () => {
     const engine = createBoardEngine()
-    const first = engine.createNode({ type: 'text', x: 20, y: 20, width: 80, height: 60, data: { content: 'A' } })
-    engine.createNode({ type: 'text', x: 420, y: 320, width: 80, height: 60, data: { content: 'B' } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+      data: { content: 'A' },
+    })
+    engine.createNode({
+      type: 'text',
+      x: 420,
+      y: 320,
+      width: 80,
+      height: 60,
+      data: { content: 'B' },
+    })
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     dispatchPointerEvent(wrapper.element, 'pointerdown', {
       button: 0,
       pointerId: 7,
       clientX: 0,
-      clientY: 0
+      clientY: 0,
     })
     dispatchPointerEvent(wrapper.element, 'pointermove', {
       pointerId: 7,
       clientX: 180,
-      clientY: 140
+      clientY: 140,
     })
     await Promise.resolve()
     await wrapper.vm.$nextTick()
@@ -191,7 +242,7 @@ describe('BoardRoot', () => {
     dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 7,
       clientX: 180,
-      clientY: 140
+      clientY: 140,
     })
     await Promise.resolve()
     await wrapper.vm.$nextTick()
@@ -201,10 +252,15 @@ describe('BoardRoot', () => {
 
   it('supports keyboard duplicate and delete shortcuts', async () => {
     const engine = createBoardEngine()
-    engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Keyboard' } })
+    engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      data: { content: 'Keyboard' },
+    })
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     await wrapper.trigger('keydown', { key: 'a', ctrlKey: true })
@@ -217,10 +273,15 @@ describe('BoardRoot', () => {
 
   it('duplicates the current selection when alt-dragging past the threshold', async () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Clone me' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      data: { content: 'Clone me' },
+    })
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     const element = wrapper.find(`[data-node-id="${node.id}"]`).element
@@ -229,27 +290,38 @@ describe('BoardRoot', () => {
       pointerId: 12,
       altKey: true,
       clientX: 60,
-      clientY: 60
+      clientY: 60,
     })
     dispatchPointerEvent(element, 'pointermove', {
       pointerId: 12,
       altKey: true,
       clientX: 84,
-      clientY: 84
+      clientY: 84,
     })
     await nextTick()
 
     expect(engine.getSnapshot().nodes).toHaveLength(2)
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'dragging-nodes' })
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'dragging-nodes',
+    })
     expect(engine.getSelection()).toHaveLength(1)
   })
 
   it('respects middleware-blocked drag, duplicate, and create commands without crashing', async () => {
     const engine = createBoardEngine({ grid: { snap: false } })
-    const node = engine.createNode({ type: 'text', x: 40, y: 40, data: { content: 'Locked down' } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      data: { content: 'Locked down' },
+    })
     const blocked: string[] = []
     engine.addMiddleware((name, _args, next) => {
-      if (name === 'beginNodeDrag' || name === 'duplicateNodes' || name === 'createNode') {
+      if (
+        name === 'beginNodeDrag' ||
+        name === 'duplicateNodes' ||
+        name === 'createNode'
+      ) {
         blocked.push(name)
         return
       }
@@ -258,7 +330,7 @@ describe('BoardRoot', () => {
 
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     const element = wrapper.find(`[data-node-id="${node.id}"]`).element
@@ -266,40 +338,42 @@ describe('BoardRoot', () => {
       button: 0,
       pointerId: 13,
       clientX: 60,
-      clientY: 60
+      clientY: 60,
     })
     dispatchPointerEvent(element, 'pointermove', {
       pointerId: 13,
       clientX: 90,
-      clientY: 90
+      clientY: 90,
     })
     dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 13,
       clientX: 90,
-      clientY: 90
+      clientY: 90,
     })
     await nextTick()
 
     expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
-    expect(engine.getSnapshot().nodes.find((entry) => entry.id === node.id)).toMatchObject({ x: 40, y: 40 })
+    expect(
+      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
+    ).toMatchObject({ x: 40, y: 40 })
 
     dispatchPointerEvent(element, 'pointerdown', {
       button: 0,
       pointerId: 14,
       altKey: true,
       clientX: 60,
-      clientY: 60
+      clientY: 60,
     })
     dispatchPointerEvent(element, 'pointermove', {
       pointerId: 14,
       altKey: true,
       clientX: 90,
-      clientY: 90
+      clientY: 90,
     })
     dispatchPointerEvent(wrapper.element, 'pointerup', {
       pointerId: 14,
       clientX: 90,
-      clientY: 90
+      clientY: 90,
     })
     await nextTick()
 
@@ -307,7 +381,7 @@ describe('BoardRoot', () => {
 
     await wrapper.trigger('dblclick', {
       clientX: 320,
-      clientY: 240
+      clientY: 240,
     })
 
     expect(engine.getSnapshot().nodes).toHaveLength(1)
@@ -324,10 +398,10 @@ describe('BoardRoot', () => {
           pattern: 'dot',
           size: 24,
           majorEvery: 4,
-          snap: false
-        }
+          snap: false,
+        },
       },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     await wrapper.vm.$nextTick()
@@ -336,16 +410,53 @@ describe('BoardRoot', () => {
       pattern: 'dot',
       size: 24,
       majorEvery: 4,
-      snap: false
+      snap: false,
     })
     expect(wrapper.find('.board-grid').exists()).toBe(true)
+  })
+
+  it('keeps slot snapshot state in sync with undo and redo replays', async () => {
+    const engine = createBoardEngine({
+      plugins: [historyPlugin({ debounceMs: 0 })],
+    })
+    const node = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      data: { content: 'Undo me' },
+    })
+    engine.ext.history.clear()
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        default: ({ snapshot }: { snapshot: { nodes: Array<unknown> } }) =>
+          h('div', { class: 'snapshot-count' }, String(snapshot.nodes.length)),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+
+    engine.deleteNode(node.id)
+    await nextTick()
+    expect(wrapper.find('.snapshot-count').text()).toBe('0')
+
+    engine.ext.history.undo()
+    await nextTick()
+    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+
+    engine.ext.history.redo()
+    await nextTick()
+    expect(wrapper.find('.snapshot-count').text()).toBe('0')
   })
 
   it('ignores connection-layer interactive targets for board interactions', () => {
     const engine = createBoardEngine()
     const wrapper = mount(BoardRoot, {
       props: { engine },
-      attachTo: document.body
+      attachTo: document.body,
     })
 
     const interactive = document.createElement('div')
@@ -356,7 +467,7 @@ describe('BoardRoot', () => {
       button: 0,
       pointerId: 11,
       clientX: 120,
-      clientY: 120
+      clientY: 120,
     })
 
     expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
