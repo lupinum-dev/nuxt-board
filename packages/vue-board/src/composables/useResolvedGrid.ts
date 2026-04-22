@@ -10,6 +10,7 @@ import {
   type ResolvedBoardGridOptions,
 } from '../grid'
 
+/** Inputs used to merge the `BoardRoot` grid prop with engine grid state. */
 export interface UseResolvedGridOptions {
   engine: BoardEngine
   snapshot: Ref<BoardSnapshot>
@@ -52,6 +53,10 @@ function resolveGridOptions(
   }
 }
 
+/**
+ * Resolve the effective grid configuration for rendering and keep the engine
+ * grid state in sync with explicit prop overrides.
+ */
 export function useResolvedGrid(
   options: UseResolvedGridOptions,
 ): ComputedRef<ResolvedBoardGridOptions> {

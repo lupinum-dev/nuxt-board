@@ -75,8 +75,30 @@ type PendingCreateDrag = {
 type PendingDragState = PendingReconnectDrag | PendingCreateDrag
 
 const CONNECTION_DRAG_THRESHOLD = 6
+const EDGE_LABEL_LOD_FADE_START = 0.85
+const EDGE_LABEL_LOD_HIDE_AT = 0.55
+const EDGE_STROKE_LOD_FADE_START = 0.95
+const EDGE_STROKE_LOD_SOFTEN_AT = 0.45
 
 let markerCounter = 0
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function resolveLodAmount(
+  zoom: number,
+  fadeStart: number,
+  minDetailAt: number,
+): number {
+  if (zoom >= fadeStart) {
+    return 1
+  }
+  if (zoom <= minDetailAt) {
+    return 0
+  }
+  return clamp01((zoom - minDetailAt) / (fadeStart - minDetailAt))
+}
 
 function edgeIdFromTarget(target: EventTarget | null): string | null {
   return target instanceof Element
@@ -1073,7 +1095,13 @@ export const BoardConnectionLayer = defineComponent({
       ]
     }
 
-    function renderEdgeLabel(entry: EdgeRenderEntry) {
+    function renderEdgeLabel(
+      entry: EdgeRenderEntry,
+      state: {
+        isSelected: boolean
+        isHovered: boolean
+      },
+    ) {
       const edgeId = String(entry.edge.id)
       const isEditing = editingEdgeId.value === edgeId
       const label = entry.edge.label ?? ''
@@ -1082,6 +1110,17 @@ export const BoardConnectionLayer = defineComponent({
       }
 
       const zoom = Math.max(injected.$camera.value.z, 0.25)
+      const labelOpacity =
+        isEditing || state.isSelected || state.isHovered
+          ? 1
+          : resolveLodAmount(
+              zoom,
+              EDGE_LABEL_LOD_FADE_START,
+              EDGE_LABEL_LOD_HIDE_AT,
+            )
+      if (!isEditing && labelOpacity <= 0.02) {
+        return null
+      }
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
       const size = 1 / zoom
       const approxWidth = Math.max(
@@ -1188,6 +1227,7 @@ export const BoardConnectionLayer = defineComponent({
                 justifyContent: 'center',
                 transform: `scale(${size})`,
                 transformOrigin: 'center center',
+                opacity: String(labelOpacity),
               },
             },
             [
@@ -1218,6 +1258,12 @@ export const BoardConnectionLayer = defineComponent({
         dragState.value?.mode === 'reconnect' &&
         dragState.value.edgeId === edgeId
       const showHandles = isSelected || isHovered || isDragging
+      const zoom = Math.max(injected.$camera.value.z, 0.25)
+      const idleDetail = resolveLodAmount(
+        zoom,
+        EDGE_STROKE_LOD_FADE_START,
+        EDGE_STROKE_LOD_SOFTEN_AT,
+      )
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
       const strokeOpacity = isDragging
         ? 0.22
@@ -1225,12 +1271,12 @@ export const BoardConnectionLayer = defineComponent({
           ? 0.98
           : isHovered
             ? 0.92
-            : 0.7
+            : 0.24 + idleDetail * 0.46
       const strokeWidth = isSelected
         ? edgeStrokeWidth.value + 0.4
         : isHovered
           ? edgeStrokeWidth.value + 0.2
-          : edgeStrokeWidth.value
+          : 1.15 + idleDetail * 0.7
 
       const visibleContent = slots.edge
         ? slots.edge(entry)
@@ -1253,7 +1299,7 @@ export const BoardConnectionLayer = defineComponent({
             },
           })
 
-      const label = renderEdgeLabel(entry)
+      const label = renderEdgeLabel(entry, { isSelected, isHovered })
 
       return h(
         'g',

@@ -107,28 +107,151 @@ function classify(name, isType) {
   return 'Function'
 }
 
-function parseExports(source) {
-  const entries = []
-  const blockPattern =
-    /export\s+(type\s+)?\{([^}]+)\}\s+from\s+['"][^'"]+['"]/gms
-  for (const match of source.matchAll(blockPattern)) {
-    const isType = Boolean(match[1])
-    const names = match[2]
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry) => {
-        const defaultMatch = entry.match(/^default\s+as\s+(.+)$/)
-        if (defaultMatch) return defaultMatch[1].trim()
-        const aliasMatch = entry.match(/^(.+?)\s+as\s+(.+)$/)
-        return (aliasMatch ? aliasMatch[2] : entry).trim()
-      })
+function cleanDocBlock(block) {
+  const lines = block
+    .split('\n')
+    .map((line) => line.replace(/^\s*\*\s?/, '').trimEnd())
 
-    for (const name of names) {
-      entries.push({ name, kind: classify(name, isType) })
+  const summary = []
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('@')) break
+    if (trimmed === '' && summary.length > 0) break
+    if (trimmed) {
+      summary.push(trimmed)
     }
   }
-  return entries
+
+  return summary.join(' ').trim()
+}
+
+function findLeadingDoc(source, exportIndex) {
+  let end = exportIndex
+  while (end > 0 && /\s/.test(source[end - 1])) {
+    end -= 1
+  }
+
+  if (source.slice(end - 2, end) !== '*/') {
+    return ''
+  }
+
+  const start = source.lastIndexOf('/**', end - 2)
+  if (start === -1) {
+    return ''
+  }
+
+  const close = source.indexOf('*/', start)
+  if (close !== end - 2) {
+    return ''
+  }
+
+  return cleanDocBlock(source.slice(start + 3, close))
+}
+
+function parseExports(source) {
+  const entries = []
+  const patterns = [
+    {
+      regex: /export\s+(type\s+)?\{([^}]+)\}\s+from\s+['"][^'"]+['"]/gms,
+      map(match) {
+        const note = findLeadingDoc(source, match.index)
+        const names = match[2]
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .map((entry) => {
+            const inlineType = entry.startsWith('type ')
+            const normalized = inlineType ? entry.slice(5).trim() : entry
+            const defaultMatch = normalized.match(/^default\s+as\s+(.+)$/)
+            const aliasMatch = normalized.match(/^(.+?)\s+as\s+(.+)$/)
+            const name = (
+              defaultMatch
+                ? defaultMatch[1]
+                : aliasMatch
+                  ? aliasMatch[2]
+                  : normalized
+            ).trim()
+
+            return {
+              name,
+              kind: classify(name, Boolean(match[1]) || inlineType),
+              notes: note,
+            }
+          })
+
+        return names
+      },
+    },
+    {
+      regex: /export\s+interface\s+([A-Za-z0-9_]+)/gms,
+      map(match) {
+        const name = match[1]
+        return [
+          {
+            name,
+            kind: classify(name, true),
+            notes: findLeadingDoc(source, match.index),
+          },
+        ]
+      },
+    },
+    {
+      regex: /export\s+type\s+([A-Za-z0-9_]+)/gms,
+      map(match) {
+        const name = match[1]
+        return [
+          {
+            name,
+            kind: classify(name, true),
+            notes: findLeadingDoc(source, match.index),
+          },
+        ]
+      },
+    },
+    {
+      regex: /export\s+function\s+([A-Za-z0-9_]+)/gms,
+      map(match) {
+        const name = match[1]
+        return [
+          {
+            name,
+            kind: classify(name, false),
+            notes: findLeadingDoc(source, match.index),
+          },
+        ]
+      },
+    },
+    {
+      regex: /export\s+const\s+([A-Za-z0-9_]+)/gms,
+      map(match) {
+        const name = match[1]
+        return [
+          {
+            name,
+            kind: classify(name, false),
+            notes: findLeadingDoc(source, match.index),
+          },
+        ]
+      },
+    },
+  ]
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern.regex)) {
+      entries.push(...pattern.map(match))
+    }
+  }
+
+  const deduped = new Map()
+  for (const entry of entries) {
+    if (!deduped.has(entry.name)) {
+      deduped.set(entry.name, entry)
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )
 }
 
 function table(rows) {
@@ -149,7 +272,7 @@ async function writePackageDoc(pkg) {
     const rows = exports.map((entry) => [
       `\`${entry.name}\``,
       entry.kind,
-      `Exported from \`${pkg.title}\`.`,
+      entry.notes || `Exported from \`${pkg.title}\`.`,
     ])
     sections.push(`## Exports\n\n${table(rows)}`)
   }

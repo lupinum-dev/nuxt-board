@@ -1,17 +1,20 @@
 import type { Action, BoardPlugin } from '@lupinum/board-core'
 
+/** Public history state exposed by the history plugin extension. */
 export interface HistoryState {
   undoDepth: number
   redoDepth: number
   current: string | null
 }
 
+/** A single undoable history frame captured from dispatched actions. */
 export interface HistoryEntry {
   label: string
   actions: Action[]
   timestamp: number
 }
 
+/** Options for configuring stack depth and move coalescing. */
 export interface HistoryPluginOptions {
   maxSteps?: number
   debounceMs?: number
@@ -115,6 +118,12 @@ function getUndoReplayActions(
     .sort((left, right) => undoReplayPriority(left) - undoReplayPriority(right))
 }
 
+/**
+ * Install undo/redo support backed by inverse action replay.
+ *
+ * The plugin listens to engine actions, groups them per command, coalesces drag
+ * moves, and exposes a `history` extension on the engine.
+ */
 export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)

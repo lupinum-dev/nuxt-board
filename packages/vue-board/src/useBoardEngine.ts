@@ -7,6 +7,7 @@ import {
 } from '@lupinum/board-core'
 import { boardEngineKey } from './context'
 
+/** Access the board context provided by `BoardRoot`. */
 export function useBoardEngine() {
   const context = inject(boardEngineKey)
   if (!context) {
@@ -15,26 +16,31 @@ export function useBoardEngine() {
   return context
 }
 
+/** Reactive camera state for the current board. */
 export function useCamera() {
   const { $camera } = useBoardEngine()
   return computed(() => $camera.value)
 }
 
+/** Reactive node map for the current board. */
 export function useNodes() {
   const { $nodes } = useBoardEngine()
   return computed(() => $nodes.value)
 }
 
+/** Reactive selection ids as an ordered array. */
 export function useSelection() {
   const { $selection } = useBoardEngine()
   return computed(() => [...$selection.value])
 }
 
+/** Reactive interaction state for the current board gesture. */
 export function useInteraction() {
   const { $interaction } = useBoardEngine()
   return computed(() => $interaction.value)
 }
 
+/** Compute the currently visible world bounds from camera and viewport size. */
 export function useVisibleBounds() {
   const { $camera, viewportSize } = useBoardEngine()
   return computed(() =>
@@ -42,6 +48,7 @@ export function useVisibleBounds() {
   )
 }
 
+/** Filter visible nodes to the viewport with an optional culling margin. */
 export function useVisibleNodes(margin = 200) {
   const { $nodes, viewportSize, $camera } = useBoardEngine()
   return computed(() => {
@@ -70,6 +77,7 @@ export function useVisibleNodes(margin = 200) {
   })
 }
 
+/** CSS custom properties used by `BoardGrid` to render the active grid pattern. */
 export function useGridStyle() {
   const { $camera, resolvedGrid } = useBoardEngine()
 
@@ -113,6 +121,11 @@ export function useGridStyle() {
   })
 }
 
+/**
+ * Access a single node plus common node-level actions used by renderers.
+ *
+ * The returned helpers intentionally stay thin over the engine command API.
+ */
 export function useNode(id: NodeId) {
   const { engine, $nodes, $selection, $interaction, toLocalPoint } =
     useBoardEngine()
@@ -165,6 +178,7 @@ export function useNode(id: NodeId) {
   }
 }
 
+/** Screen-space rectangle for the active box-selection gesture, or `null` when idle. */
 export function useBoxSelectBounds() {
   const { $interaction } = useBoardEngine()
   return computed(() => {

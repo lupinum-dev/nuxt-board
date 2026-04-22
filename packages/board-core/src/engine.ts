@@ -96,6 +96,14 @@ import type {
   ZoomSettings,
 } from './types'
 
+/**
+ * Create a headless board engine with commands, reactive state, and plugin hooks.
+ *
+ * @example
+ * const engine = createBoardEngine({
+ *   initialNodes: [{ id: asNodeId('a'), type: 'text', x: 0, y: 0, width: 160, height: 80, data: { content: 'Hello' }, zIndex: 1, locked: false, visible: true }],
+ * })
+ */
 export function createBoardEngine<
   R extends NodeTypeRegistry = NodeTypeRegistry,
 >(options: BoardEngineOptions<R> = {}): BoardEngine<R> {

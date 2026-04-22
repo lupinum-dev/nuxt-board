@@ -125,6 +125,61 @@ describe('BoardConnectionLayer', () => {
     wrapper.unmount()
   })
 
+  it('reduces idle edge chrome at low zoom', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+    engine.ext.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      label: 'sync',
+      data: {},
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    const path = query(
+      '.board-connection-layer > g > path:not([data-connection-hit])',
+    )
+    expect(
+      document.body.querySelector('[data-connection-label]'),
+    ).not.toBeNull()
+    expect(path.getAttribute('opacity')).toBe('0.7')
+    expect(Number(path.getAttribute('stroke-width'))).toBeCloseTo(1.85, 6)
+
+    await engine.zoomTo(0.45)
+    await nextTick()
+    await nextTick()
+
+    expect(document.body.querySelector('[data-connection-label]')).toBeNull()
+    expect(path.getAttribute('opacity')).toBe('0.24')
+    expect(Number(path.getAttribute('stroke-width'))).toBeCloseTo(1.15, 6)
+    wrapper.unmount()
+  })
+
   it('exposes resolved endpoints and route metadata to the edge slot', async () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin()],

@@ -1,6 +1,7 @@
 import type { Ref } from 'vue'
 import type { BoardEngine, BoardSnapshot } from '@lupinum/board-core'
 
+/** Options for wiring keyboard shortcuts to a board engine instance. */
 export interface UseKeyboardShortcutsOptions {
   engine: BoardEngine
   snapshot: Ref<BoardSnapshot>
@@ -15,6 +16,12 @@ function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
   )
 }
 
+/**
+ * Provide the keyboard handlers used by `BoardRoot`.
+ *
+ * Shortcuts cover selection, clipboard commands, history, zoom presets, and
+ * keyboard nudging while intentionally ignoring editable targets.
+ */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   const { engine, snapshot, spacePressed } = options
 

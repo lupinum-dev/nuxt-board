@@ -1,11 +1,13 @@
 import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 import type { BoardEngine, Point } from '@lupinum/board-core'
 
+/** Inputs for tracking the rendered board viewport size. */
 export interface UseViewportSizeOptions {
   rootElement: Ref<HTMLElement | null>
   engine: BoardEngine
 }
 
+/** Observe the root element size and mirror it into the engine viewport state. */
 export function useViewportSize(options: UseViewportSizeOptions) {
   const viewportSize = ref<Point>({ x: 0, y: 0 })
   let resizeObserver: ResizeObserver | null = null

@@ -5,11 +5,13 @@ import type {
   NodeId,
 } from '@lupinum/board-core'
 
+/** Return the currently selected nodes in snapshot order. */
 export function getSelectionNodes(engine: BoardEngine): BoardNode[] {
   const selected = new Set(engine.getSelection())
   return engine.getSnapshot().nodes.filter((node) => selected.has(node.id))
 }
 
+/** Compute the bounding box of the current selection, or `null` when empty. */
 export function getSelectionBounds(engine: BoardEngine): Bounds | null {
   const nodes = getSelectionNodes(engine)
   if (nodes.length === 0) {
@@ -23,6 +25,7 @@ export function getSelectionBounds(engine: BoardEngine): Bounds | null {
   }
 }
 
+/** Toggle a list of ids in an existing selection array. */
 export function toggleIds(current: NodeId[], ids: NodeId[]): NodeId[] {
   const next = new Set(current)
   for (const id of ids) {

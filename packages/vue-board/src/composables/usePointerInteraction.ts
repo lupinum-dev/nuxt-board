@@ -19,6 +19,7 @@ type PendingPointerInteraction =
     }
   | { kind: 'box-select'; pointerId: number; startPoint: Point }
 
+/** Options for translating DOM pointer events into board-engine commands. */
 export interface UsePointerInteractionOptions {
   engine: BoardEngine
   rootElement: Ref<HTMLElement | null>
@@ -54,6 +55,12 @@ function isBoardInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
+/**
+ * Translate pointer input from `BoardRoot` into engine commands.
+ *
+ * This composable owns drag thresholds, pinch zoom, deferred interactions,
+ * and the mapping from DOM targets to node drag / resize / selection flows.
+ */
 export function usePointerInteraction(options: UsePointerInteractionOptions) {
   const { engine, rootElement, spacePressed, toLocalPoint } = options
 

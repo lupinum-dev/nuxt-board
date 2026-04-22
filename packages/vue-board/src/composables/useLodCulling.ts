@@ -7,9 +7,12 @@ import type {
   Point,
 } from '@lupinum/board-core'
 
+/** Level-of-detail mode used by `BoardRoot` node renderers. */
 export type NodeLod = 'full' | 'simple' | 'hidden'
+/** Node record annotated with the level-of-detail chosen for the current viewport. */
 export type LodNode = BoardNodeState & { lod: NodeLod }
 
+/** Inputs required to compute viewport culling and node LOD. */
 export interface UseLodCullingOptions {
   engine: BoardEngine
   nodes: Ref<ReadonlyMap<NodeId, BoardNodeState>>
@@ -31,6 +34,7 @@ function getNodeLod(
   return 'full'
 }
 
+/** Compute the nodes that should render along with the LOD chosen for each one. */
 export function useLodCulling(
   options: UseLodCullingOptions,
 ): ComputedRef<LodNode[]> {

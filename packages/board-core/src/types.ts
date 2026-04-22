@@ -1,11 +1,22 @@
+/**
+ * A nominal type helper used to distinguish identifiers that are both strings at runtime.
+ */
 export type Brand<T, K extends string> = T & { readonly __brand: K }
 
+/** Unique identifier for a board node. */
 export type NodeId = Brand<string, 'NodeId'>
+/** Unique identifier for a connection edge. */
 export type EdgeId = Brand<string, 'EdgeId'>
+
+/** Cast a string into a branded node id. Prefer this in tests and fixtures. */
 export const asNodeId = (value: string): NodeId => value as NodeId
+/** Cast a string into a branded edge id. Prefer this in tests and fixtures. */
 export const asEdgeId = (value: string): EdgeId => value as EdgeId
+
+/** Axis used by snapping guides and edge-alignment calculations. */
 export type SnapAxis = 'x' | 'y'
 
+/** Visual guide emitted while a drag or resize operation snaps against nearby edges. */
 export interface SnapGuide {
   axis: SnapAxis
   position: number
@@ -13,11 +24,13 @@ export interface SnapGuide {
   to: number
 }
 
+/** A 2D coordinate in world or screen space depending on call site. */
 export interface Point {
   x: number
   y: number
 }
 
+/** Axis-aligned rectangle represented by its minimum and maximum corners. */
 export interface Bounds {
   minX: number
   minY: number
@@ -25,19 +38,23 @@ export interface Bounds {
   maxY: number
 }
 
+/** View transform for the board surface. */
 export interface Camera {
   x: number
   y: number
   z: number
 }
 
+/** Zoom limits enforced by the engine camera commands. */
 export interface ZoomSettings {
   min: number
   max: number
 }
 
+/** Visual style used by the board grid renderer. */
 export type GridPattern = 'dot' | 'line' | 'cross' | 'none'
 
+/** Persistent grid configuration stored with the board snapshot. */
 export interface GridSettings {
   size: number
   majorEvery: number
@@ -47,6 +64,7 @@ export interface GridSettings {
   pattern: GridPattern
 }
 
+/** Default dimensions used when callers omit node sizing data. */
 export interface NodeConstraints {
   minWidth: number
   minHeight: number
@@ -54,9 +72,12 @@ export interface NodeConstraints {
   defaultHeight: number
 }
 
+/** Arbitrary payload carried by a board node. */
 export type NodeData = Record<string, unknown>
+/** Registry mapping node type names to their payload shapes. */
 export type NodeTypeRegistry = Record<string, NodeData>
 
+/** Public immutable node shape returned by snapshots, selectors, and commands. */
 export interface BoardNode<
   TType extends string = string,
   TData extends NodeData = NodeData,
@@ -74,11 +95,13 @@ export interface BoardNode<
   readonly parentId?: NodeId
 }
 
+/** Resolve a typed node from a registry by node type key. */
 export type ResolvedNode<
   R extends NodeTypeRegistry = NodeTypeRegistry,
   T extends keyof R = keyof R,
 > = T extends keyof R ? BoardNode<T & string, R[T]> : never
 
+/** Input accepted by `createNode`, with sensible defaults for omitted fields. */
 export interface NodeInput<
   R extends NodeTypeRegistry = NodeTypeRegistry,
   T extends keyof R = keyof R,
@@ -96,6 +119,7 @@ export interface NodeInput<
   select?: boolean
 }
 
+/** Partial update payload accepted by `updateNode`. */
 export type NodePatch<
   R extends NodeTypeRegistry = NodeTypeRegistry,
   T extends keyof R = keyof R,
@@ -108,6 +132,8 @@ export type NodePatch<
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
+
+/** High-level interaction state for the active pointer or keyboard gesture. */
 export type InteractionMode =
   | 'idle'
   | 'panning'
@@ -166,6 +192,7 @@ export type InteractionState =
   | BoxSelectInteractionState
   | EditingInteractionState
 
+/** Internal immutable engine state exposed through `getState()`. */
 export interface BoardState<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly camera: Camera
   readonly nodes: ReadonlyMap<NodeId, ResolvedNode<R>>
@@ -175,6 +202,7 @@ export interface BoardState<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly nextZIndex: number
 }
 
+/** Serializable board snapshot used by import, export, and tests. */
 export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly camera: Camera
   readonly grid: GridSettings
@@ -185,12 +213,14 @@ export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly nextZIndex: number
 }
 
+/** Invariant handling strategy for development and tests. */
 export type InvariantMode = 'strict' | 'warn' | 'off'
 
 export interface BoardEngineExtensions<
   R extends NodeTypeRegistry = NodeTypeRegistry,
 > {}
 
+/** Engine factory options shared by all commands, plugins, and renderers. */
 export interface BoardEngineOptions<
   R extends NodeTypeRegistry = NodeTypeRegistry,
 > {
@@ -204,6 +234,7 @@ export interface BoardEngineOptions<
   initialNodes?: ReadonlyArray<ResolvedNode<R>>
 }
 
+/** Structured invariant violation emitted when validation fails. */
 export interface InvariantFailure<
   R extends NodeTypeRegistry = NodeTypeRegistry,
 > {
@@ -213,12 +244,14 @@ export interface InvariantFailure<
   context: string
 }
 
+/** Trace row recorded when diagnostics are enabled. */
 export interface TraceEntry {
   event: string
   timestamp: number
   args: unknown[]
 }
 
+/** Event contract emitted by the board engine. Plugins extend this interface via module augmentation. */
 export interface BoardEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
   ready: () => void
   destroy: () => void
@@ -261,11 +294,18 @@ export type CommandMiddleware = (
   next: () => void,
 ) => void
 
+/** Minimal observable contract used by the engine and framework adapters. */
 export interface Subscribable<T> {
   get(): T
   subscribe(callback: (value: T, prev: T) => void): Unsubscribe
 }
 
+/**
+ * Public board engine interface.
+ *
+ * Commands mutate persistent board state, subscribables expose reactive state,
+ * and events let plugins or host applications observe lifecycle changes.
+ */
 export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly ext: BoardEngineExtensions<R>
   readonly $camera: Subscribable<Camera>
@@ -392,6 +432,12 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   ): import('./state/actions').Action
 }
 
+/**
+ * Internal plugin-facing engine surface.
+ *
+ * Plugins receive the full public engine plus imperative hooks for extending
+ * the engine surface, emitting events, and dispatching actions.
+ */
 export interface BoardPluginContext<
   R extends NodeTypeRegistry = NodeTypeRegistry,
 > extends BoardEngine<R> {
@@ -421,6 +467,7 @@ export interface BoardPluginContext<
   getPluginState<S>(): S
 }
 
+/** Reducer-backed persistent state owned by a plugin. */
 export interface BoardPluginSlice {
   initial: unknown
   reducer: (state: never, action: import('./state/actions').Action) => unknown
@@ -432,6 +479,7 @@ export interface BoardPluginSlice {
   invert?: (innerAction: never) => unknown
 }
 
+/** Plugin contract used to extend the engine with state, commands, and side effects. */
 export interface BoardPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {
   name: string
   slice?: BoardPluginSlice

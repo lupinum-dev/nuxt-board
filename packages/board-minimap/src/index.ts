@@ -7,15 +7,28 @@ import {
   type ComputedRef,
   type PropType,
 } from 'vue'
-import type { Bounds, BoardEngine, BoardNode, Point } from '@lupinum/board-core'
+import {
+  getVisibleBounds,
+  type Bounds,
+  type BoardEngine,
+  type BoardNode,
+  type Point,
+} from '@lupinum/board-core'
 import { useBoardEngine } from '@lupinum/vue-board'
 
+/** Sizing options for the minimap composable and component. */
 export interface MinimapOptions {
   width?: number
   height?: number
   padding?: number
 }
 
+/**
+ * Project board content and the active viewport into minimap coordinates.
+ *
+ * Returns derived node rectangles, the current viewport rectangle, and a
+ * helper that pans the main board camera from minimap pointer input.
+ */
 export function useMinimap(
   engine: BoardEngine,
   options: MinimapOptions = {},
@@ -108,9 +121,10 @@ export function useMinimap(
   const viewportRect = computed(() => {
     const value = bounds.value
     const off = offset.value
-    const visible = engine.getVisibleBounds(
+    const visible = getVisibleBounds(
       viewportSize.value.x,
       viewportSize.value.y,
+      camera.value,
     )
     return {
       x: (visible.minX - value.minX) * scale.value + off.x,
@@ -144,6 +158,7 @@ export function useMinimap(
   }
 }
 
+/** Render a clickable, draggable minimap for the current board engine. */
 export const BoardMinimap = defineComponent({
   name: 'BoardMinimap',
   props: {

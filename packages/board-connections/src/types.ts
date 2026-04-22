@@ -6,21 +6,27 @@ import type {
   Point,
 } from '@lupinum/board-core'
 
+/** Side of a rectangular node used for connection anchors. */
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'
+/** Routing strategy used when rendering a connection edge. */
 export type ConnectionRouting =
   | 'bezier'
   | 'smooth-step'
   | 'step'
   | 'straight'
   | 'arc'
+/** Marker rendered at either end of an edge. */
 export type EdgeEnd = 'none' | 'arrow'
+/** Whether an endpoint came from an explicit anchor or automatic side resolution. */
 export type EndpointResolutionKind = 'explicit' | 'auto'
 
+/** Anchor location along a given node side, with `offset` normalized from 0 to 1. */
 export interface AnchorPosition {
   side: AnchorSide
   offset: number
 }
 
+/** Persistent edge record owned by the connections plugin. */
 export interface BoardEdge<T = Record<string, unknown>> {
   id: EdgeId
   from: NodeId
@@ -35,6 +41,7 @@ export interface BoardEdge<T = Record<string, unknown>> {
   zIndex: number
 }
 
+/** Partial update payload accepted by `updateEdge`. */
 export interface BoardEdgePatch<T = Record<string, unknown>> {
   from?: NodeId
   to?: NodeId
@@ -47,12 +54,14 @@ export interface BoardEdgePatch<T = Record<string, unknown>> {
   data?: T
 }
 
+/** Options for configuring the connections plugin defaults. */
 export interface ConnectionPluginOptions {
   routing?: ConnectionRouting
   defaultArrow?: 'none' | 'start' | 'end' | 'both'
   snapDistance?: number
 }
 
+/** Engine extension installed by the connections plugin. */
 export interface ConnectionsExtension {
   createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
     input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
@@ -72,6 +81,7 @@ export interface ConnectionsExtension {
   getEdgesBetween(from: NodeId, to: NodeId): BoardEdge[]
 }
 
+/** Fully resolved endpoint used for rendering and hit-testing an edge. */
 export interface ResolvedConnectionEndpoint {
   nodeId: NodeId
   node: Pick<BoardNode, 'id' | 'x' | 'y' | 'width' | 'height'>
@@ -81,10 +91,12 @@ export interface ResolvedConnectionEndpoint {
   kind: EndpointResolutionKind
 }
 
+/** Low-level path segment used to render a connection route. */
 export type ConnectionRouteSegment =
   | { type: 'line'; from: Point; to: Point }
   | { type: 'cubic'; from: Point; control1: Point; control2: Point; to: Point }
 
+/** Render-ready edge route including path data, bounds, and label position. */
 export interface ConnectionRoute {
   routing: ConnectionRouting
   path: string

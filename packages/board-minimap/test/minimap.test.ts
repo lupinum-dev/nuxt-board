@@ -113,4 +113,40 @@ describe('minimap', () => {
     expect(after).toBeGreaterThan(before)
     scope.stop()
   })
+
+  it('updates the projected viewport when the camera moves without node changes', () => {
+    const engine = createBoardEngine()
+    engine.setViewportSize({ x: 400, y: 300 })
+    engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+      data: { content: 'A' },
+    })
+    engine.createNode({
+      type: 'text',
+      x: 600,
+      y: 400,
+      width: 100,
+      height: 80,
+      data: { content: 'B' },
+    })
+
+    const scope = effectScope()
+    const minimap = scope.run(() =>
+      useMinimap(engine, { width: 200, height: 120 }),
+    )
+    if (!minimap) {
+      throw new Error('Minimap scope did not initialize.')
+    }
+
+    const before = minimap.viewportRect.value.x
+    engine.panBy(120, 0)
+    const after = minimap.viewportRect.value.x
+
+    expect(after).not.toBe(before)
+    scope.stop()
+  })
 })

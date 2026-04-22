@@ -6,6 +6,7 @@ import {
 } from '@lupinum/board-core'
 import type { AnchorSide, BoardEdge, EdgeEnd } from '@lupinum/board-connections'
 
+/** Serializable JSON Canvas node entry plus optional extension keys. */
 export interface JsonCanvasNode {
   id: string
   type: string
@@ -17,6 +18,7 @@ export interface JsonCanvasNode {
   [key: string]: unknown
 }
 
+/** JSON Canvas document with optional `x-canvas` extensions used by this library. */
 export interface JsonCanvasDocument {
   nodes: JsonCanvasNode[]
   edges?: JsonCanvasEdge[]
@@ -37,6 +39,7 @@ export interface JsonCanvasDocument {
   }
 }
 
+/** Serializable JSON Canvas edge entry. */
 export interface JsonCanvasEdge {
   id: string
   fromNode: string
@@ -50,11 +53,13 @@ export interface JsonCanvasEdge {
   [key: string]: unknown
 }
 
+/** Custom serializers for non-text node types. */
 export type TypeHandler = {
   serialize?: (node: BoardNode) => Record<string, unknown>
   deserialize?: (raw: Record<string, unknown>) => Record<string, unknown>
 }
 
+/** Serializer contract for importing and exporting JSON Canvas documents. */
 export interface JsonCanvasSerializer {
   registerType(type: string, handler: TypeHandler): void
   export(
@@ -70,6 +75,7 @@ export interface JsonCanvasSerializer {
   ): void
 }
 
+/** Create an isolated JSON Canvas serializer instance with its own type registry. */
 export function createJsonCanvasSerializer(): JsonCanvasSerializer {
   const typeHandlers = new Map<string, TypeHandler>()
 

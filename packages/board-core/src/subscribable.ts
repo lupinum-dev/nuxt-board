@@ -1,15 +1,22 @@
 import type { Subscribable, Unsubscribe } from './types'
 
-// Batch coordination — shared across all subscribables in an engine
+/** Batch coordination shared across the subscribables owned by one engine instance. */
 export interface BatchController {
   depth: number
   pending: Set<() => void>
 }
 
+/** Create a batch controller that defers subscriber notifications until the batch completes. */
 export function createBatchController(): BatchController {
   return { depth: 0, pending: new Set() }
 }
 
+/**
+ * Create a mutable subscribable value.
+ *
+ * The returned object implements the public `Subscribable<T>` contract plus
+ * `set()` and `notify()` helpers used by the engine internals.
+ */
 export function createSubscribable<T>(
   initial: T,
   batch: BatchController,

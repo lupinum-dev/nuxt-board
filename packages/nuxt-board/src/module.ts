@@ -1,5 +1,6 @@
 import { defineNuxtModule, addComponent, addImports } from '@nuxt/kit'
 
+/** Configuration for the `@lupinum/nuxt-board` module. */
 export interface ModuleOptions {
   /**
    * Optional prefix for all auto-imported board components.
@@ -41,6 +42,7 @@ const BOARD_COMPOSABLES = [
   'useBoxSelectBounds',
 ] as const
 
+/** Nuxt module that auto-registers the board components and composables. */
 export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: '@lupinum/nuxt-board',
