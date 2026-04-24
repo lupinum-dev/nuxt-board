@@ -204,47 +204,60 @@ function getTextContent(node: BoardNode): string {
   overflow: visible;
   border: calc(1px / var(--board-zoom, 1)) solid
     var(--board-node-border, rgba(148, 163, 184, 0.28));
-  border-radius: calc(var(--board-node-radius, 8px) / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow, 0 1px 3px rgba(0, 0, 0, 0.06));
+  border-radius: calc(var(--board-node-radius, 10px) / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow, 0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08));
   background: var(--board-node-bg, #fff);
   color: inherit;
   contain: layout style;
+  transform: translateZ(0);
   transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    background-color 140ms ease,
-    outline-color 140ms ease;
+    border-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    box-shadow var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    background-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    outline-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    transform var(--board-dur-fast, 120ms) var(--board-ease-out, ease);
 }
 
 .board-node:hover:not(.is-group):not(.is-editing) {
   border-color: var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
-  box-shadow: var(--board-node-shadow-hover, 0 2px 8px rgba(0, 0, 0, 0.08));
+  box-shadow: var(
+    --board-node-shadow-hover,
+    0 2px 8px -2px rgba(9, 14, 28, 0.12)
+  );
 }
 
 .board-node:focus-visible {
-  outline: calc(3px / var(--board-zoom, 1)) solid
-    var(--board-node-ring, rgba(15, 118, 110, 0.58));
-  outline-offset: calc(3px / var(--board-zoom, 1));
+  outline: calc(2px / var(--board-zoom, 1)) solid
+    var(--board-node-ring, rgba(99, 102, 232, 0.42));
+  outline-offset: calc(2px / var(--board-zoom, 1));
 }
 
 .board-node.is-selected {
-  outline: calc(2px / var(--board-zoom, 1)) solid
-    var(
-      --board-node-color-ring,
-      var(--board-node-selection, var(--board-accent, #0f766e))
-    );
-  outline-offset: calc(-1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, var(--board-node-shadow, none));
+  border-color: var(
+    --board-node-color-ring,
+    var(--board-node-selection, var(--board-accent, #6366e8))
+  );
+  box-shadow:
+    0 0 0 calc(1px / var(--board-zoom, 1))
+      var(
+        --board-node-color-ring,
+        var(--board-node-selection, var(--board-accent, #6366e8))
+      ),
+    var(--board-node-shadow-selected, var(--board-node-shadow, none));
 }
 
 .board-node.is-editing {
-  outline: calc(2px / var(--board-zoom, 1)) solid
-    var(
-      --board-node-color-ring,
-      var(--board-node-selection, var(--board-accent, #0f766e))
-    );
-  outline-offset: calc(-1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, var(--board-node-shadow, none));
+  border-color: var(
+    --board-node-color-ring,
+    var(--board-node-selection, var(--board-accent, #6366e8))
+  );
+  box-shadow:
+    0 0 0 calc(1px / var(--board-zoom, 1))
+      var(
+        --board-node-color-ring,
+        var(--board-node-selection, var(--board-accent, #6366e8))
+      ),
+    var(--board-node-shadow-selected, var(--board-node-shadow, none));
 }
 
 .board-node.is-locked {
@@ -253,9 +266,10 @@ function getTextContent(node: BoardNode): string {
 }
 
 .board-node.is-group {
-  background: var(--board-group-bg, rgba(15, 23, 42, 0.04));
+  background: var(--board-group-bg, rgba(99, 102, 232, 0.05));
   border-style: dashed;
-  border-color: var(--board-group-border, rgba(15, 23, 42, 0.12));
+  border-color: var(--board-group-border, rgba(99, 102, 232, 0.26));
+  border-radius: calc(var(--board-group-radius, 16px) / var(--board-zoom, 1));
   outline: none;
   box-shadow: none;
 }

@@ -22,7 +22,7 @@ function getData(node: BoardNode): { src?: string; alt?: string } {
     />
     <div
       v-else
-      class="flex flex-col items-center justify-center gap-2 size-full bg-stone-100 font-sans text-[13px] text-stone-400"
+      class="flex flex-col items-center justify-center gap-2 size-full bg-[var(--board-bg-subtle)] font-sans text-[13px] text-[var(--board-dim-fg)]"
     >
       <svg
         width="24"

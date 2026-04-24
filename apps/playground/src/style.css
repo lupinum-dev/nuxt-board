@@ -1,41 +1,72 @@
 @import 'tailwindcss';
 
-/* ━━ Theme ━━ */
+/* Board design tokens are imported from @lupinum/vue-board via index.ts. */
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
   --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
 
+  --color-surface: var(--board-bg);
+  --color-surface-elevated: var(--board-bg-elevated);
+  --color-surface-subtle: var(--board-bg-subtle);
+  --color-canvas: var(--board-canvas-bg);
+  --color-fg: var(--board-fg);
+  --color-muted: var(--board-muted-fg);
+  --color-dim: var(--board-dim-fg);
+  --color-line: var(--board-border);
+  --color-line-strong: var(--board-border-strong);
+  --color-accent: var(--board-accent);
+  --color-accent-ring: var(--board-accent-ring);
+  --color-accent-soft: var(--board-accent-soft);
+
   --shadow-float:
-    0 0 0 1px rgba(0, 0, 0, 0.03), 0 4px 16px -2px rgba(0, 0, 0, 0.06),
-    0 12px 32px -8px rgba(0, 0, 0, 0.05);
+    0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08),
+    0 4px 16px -2px rgba(9, 14, 28, 0.08),
+    0 12px 32px -8px rgba(9, 14, 28, 0.08);
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ━━ Custom utilities ━━ */
 @utility glass {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  background: color-mix(in srgb, var(--board-bg-elevated) 80%, transparent);
+  border: 1px solid var(--board-border);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
 }
 
-@utility glass-light {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+@utility glass-subtle {
+  background: color-mix(in srgb, var(--board-bg-elevated) 88%, transparent);
+  border: 1px solid var(--board-border);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
 }
 
 @utility select-chevron {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2378716c' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
+  color: var(--board-muted-fg);
 }
 
-/* ━━ Base ━━ */
 @layer base {
+  html {
+    color-scheme: light dark;
+  }
+
   body {
-    @apply m-0 overflow-hidden bg-stone-50 font-sans text-stone-900 antialiased;
+    margin: 0;
+    overflow: hidden;
+    background: var(--board-canvas-bg);
+    color: var(--board-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition:
+      background-color var(--board-dur-slow, 260ms) var(--board-ease-out, ease),
+      color var(--board-dur-slow, 260ms) var(--board-ease-out, ease);
   }
 
   h1,
@@ -47,16 +78,21 @@
   dd {
     margin: 0;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    body {
+      transition: none;
+    }
+  }
 }
 
-/* ━━ Panel scrollbar ━━ */
 .panel-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+  scrollbar-color: var(--board-border-strong) transparent;
 }
 
 .panel-scroll::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 .panel-scroll::-webkit-scrollbar-track {
@@ -64,11 +100,10 @@
 }
 
 .panel-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--board-border-strong);
   border-radius: 3px;
 }
 
-/* ━━ Vue transitions ━━ */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;

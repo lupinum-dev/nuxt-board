@@ -124,11 +124,11 @@ const currentColor = computed(() => {
       @click="removeSelected"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16" />
         <path d="M10 11v6" />
         <path d="M14 11v6" />
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-        <path d="M3 6h18" />
-        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+        <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
       </svg>
     </button>
 
@@ -143,12 +143,13 @@ const currentColor = computed(() => {
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path
-            d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"
+            d="M19 3h-4a2 2 0 0 0 -2 2v12a4 4 0 0 0 8 0v-12a2 2 0 0 0 -2 -2"
           />
-          <circle cx="13.5" cy="6.5" r="0.5" />
-          <circle cx="17.5" cy="10.5" r="0.5" />
-          <circle cx="6.5" cy="12.5" r="0.5" />
-          <circle cx="8.5" cy="7.5" r="0.5" />
+          <path
+            d="M13 7.35l-2 -2a2 2 0 0 0 -2.828 0l-2.828 2.828a2 2 0 0 0 0 2.828l9 9"
+          />
+          <path d="M7.3 13h-2.3a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h12" />
+          <path d="M17 17l0 .01" />
         </svg>
       </button>
 
@@ -172,7 +173,9 @@ const currentColor = computed(() => {
           type="button"
           class="board-selection-toolbar__swatch"
           :class="{ 'is-active': currentColor === option.preset }"
-          :style="{ '--swatch-color': option.hex }"
+          :style="{
+            '--swatch-color': `var(--board-preset-${option.preset}, ${option.hex})`,
+          }"
           :aria-label="option.label"
           :title="option.label"
           :data-node-color-option="option.preset"
@@ -189,12 +192,12 @@ const currentColor = computed(() => {
       @click="zoomToSelection"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M2 6V4a2 2 0 0 1 2-2h2" />
-        <path d="M18 2h2a2 2 0 0 1 2 2v2" />
-        <path d="M22 18v2a2 2 0 0 1-2 2h-2" />
-        <path d="M6 22H4a2 2 0 0 1-2-2v-2" />
-        <path d="m15 15 5 5" />
-        <circle cx="11" cy="11" r="5" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="12" cy="12" r="5" />
+        <path d="M12 3v2" />
+        <path d="M3 12h2" />
+        <path d="M12 19v2" />
+        <path d="M19 12h2" />
       </svg>
     </button>
 
@@ -207,10 +210,8 @@ const currentColor = computed(() => {
       @click="editSelected"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path
-          d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"
-        />
+        <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+        <path d="M13.5 6.5l4 4" />
       </svg>
     </button>
   </div>
@@ -222,36 +223,40 @@ const currentColor = computed(() => {
   z-index: 12;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid var(--board-node-border, rgba(15, 23, 42, 0.1));
-  border-radius: 6px;
-  background: var(--board-node-bg, #ffffff);
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--board-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: var(--board-bg-elevated, #ffffff);
   box-shadow:
-    0 4px 14px rgba(15, 23, 42, 0.12),
-    0 1px 2px rgba(15, 23, 42, 0.08);
+    0 8px 24px -6px rgba(9, 14, 28, 0.18),
+    0 1px 2px rgba(9, 14, 28, 0.08);
   transform: translate(-50%, calc(-100% - 14px));
   pointer-events: auto;
   user-select: none;
+  backdrop-filter: saturate(1.2);
 }
 
 .board-selection-toolbar__button {
   display: inline-flex;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--board-muted-fg, #6b7280);
+  color: var(--board-muted-fg, #5b6075);
   cursor: pointer;
+  transition:
+    background-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    color var(--board-dur-fast, 120ms) var(--board-ease-out, ease);
 }
 
 .board-selection-toolbar__button:hover:not(:disabled) {
-  background: rgba(15, 23, 42, 0.06);
-  color: var(--board-fg, #0f172a);
+  background: color-mix(in srgb, var(--board-fg, #14161f) 6%, transparent);
+  color: var(--board-fg, #14161f);
 }
 
 .board-selection-toolbar__button:disabled {
@@ -260,12 +265,21 @@ const currentColor = computed(() => {
 }
 
 .board-selection-toolbar__button.is-danger {
-  color: #b45353;
+  color: var(--board-preset-1, #e5476a);
+}
+
+.board-selection-toolbar__button.is-danger:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--board-preset-1, #e5476a) 10%,
+    transparent
+  );
+  color: var(--board-preset-1, #e5476a);
 }
 
 .board-selection-toolbar__button svg {
-  width: 24px;
-  height: 24px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -284,34 +298,63 @@ const currentColor = computed(() => {
   left: 50%;
   z-index: 1;
   display: inline-flex;
-  gap: 10px;
+  gap: 8px;
   padding: 10px;
-  border: 1px solid var(--board-node-border, rgba(15, 23, 42, 0.1));
-  border-radius: 6px;
-  background: var(--board-node-bg, #ffffff);
+  border: 1px solid var(--board-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: var(--board-bg-elevated, #ffffff);
   box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.16),
-    0 1px 2px rgba(15, 23, 42, 0.08);
+    0 12px 32px -8px rgba(9, 14, 28, 0.22),
+    0 1px 2px rgba(9, 14, 28, 0.08);
   transform: translateX(-50%);
+  animation: board-palette-in var(--board-dur-fast, 140ms)
+    var(--board-ease-out, ease);
+}
+
+@keyframes board-palette-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 .board-selection-toolbar__swatch {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 999px;
   background: var(--swatch-color);
   cursor: pointer;
+  transition: transform var(--board-dur-fast, 120ms)
+    var(--board-ease-spring, ease);
+}
+
+.board-selection-toolbar__swatch:hover {
+  transform: scale(1.12);
 }
 
 .board-selection-toolbar__swatch.is-default {
-  --swatch-color: #c7c7c7;
+  --swatch-color: var(--board-border-strong, #c9cbdb);
 }
 
 .board-selection-toolbar__swatch.is-active {
   box-shadow:
-    0 0 0 3px var(--board-node-bg, #ffffff),
-    0 0 0 5px var(--swatch-color);
+    0 0 0 2px var(--board-bg-elevated, #ffffff),
+    0 0 0 4px var(--swatch-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-selection-toolbar,
+  .board-selection-toolbar__button,
+  .board-selection-toolbar__swatch,
+  .board-selection-toolbar__palette {
+    animation: none;
+    transition: none;
+  }
 }
 </style>

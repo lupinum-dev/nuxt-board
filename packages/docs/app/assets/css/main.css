@@ -1,54 +1,120 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
+/* Board design tokens ship via @lupinum/vue-board/style.css, which is
+   pulled in by the nuxt-board module's auto-registered css entry. */
+
 @source "../../../content/**/*";
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme static {
   --container-8xl: 90rem;
-  --font-sans: 'Space Grotesk', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  --color-teal-50: #effcfb;
-  --color-teal-100: #ccfbf6;
-  --color-teal-200: #99f6ed;
-  --color-teal-300: #5eead4;
-  --color-teal-400: #2dd4bf;
-  --color-teal-500: #14b8a6;
-  --color-teal-600: #0f766e;
-  --color-teal-700: #115e59;
-  --color-teal-800: #134e4a;
-  --color-teal-900: #042f2e;
-  --color-teal-950: #021817;
+  /* Brand accent palette derived from --board-preset-6 (Violet) */
+  --color-primary-50: #f1eefd;
+  --color-primary-100: #e1dbfb;
+  --color-primary-200: #c9bff7;
+  --color-primary-300: #ae9ef2;
+  --color-primary-400: #957eec;
+  --color-primary-500: #7e5ae4;
+  --color-primary-600: #6749d1;
+  --color-primary-700: #533ab3;
+  --color-primary-800: #3f2d89;
+  --color-primary-900: #2a1f5b;
+  --color-primary-950: #180f34;
 }
 
 :root {
   --ui-container: var(--container-8xl);
   color-scheme: light;
+
+  /* Map Nuxt UI surfaces onto board tokens so the whole docs surface
+     breathes the same air as the playground and the renderer. */
+  --ui-bg: var(--board-bg);
+  --ui-bg-elevated: var(--board-bg-elevated);
+  --ui-bg-accented: var(--board-bg-subtle);
+  --ui-bg-muted: var(--board-bg-subtle);
+  --ui-border: var(--board-border);
+  --ui-border-accented: var(--board-border-strong);
+  --ui-border-muted: var(--board-border);
+  --ui-text: var(--board-fg);
+  --ui-text-highlighted: var(--board-fg);
+  --ui-text-default: var(--board-fg);
+  --ui-text-muted: var(--board-muted-fg);
+  --ui-text-dimmed: var(--board-dim-fg);
+  --ui-text-toned: var(--board-muted-fg);
+  --ui-primary: var(--board-accent);
+
   background:
     radial-gradient(
-      circle at top left,
-      rgba(20, 184, 166, 0.12),
-      transparent 32%
+      1200px 600px at 80% -10%,
+      color-mix(in srgb, var(--board-accent) 10%, transparent),
+      transparent 60%
     ),
     radial-gradient(
-      circle at top right,
-      rgba(15, 118, 110, 0.1),
-      transparent 28%
+      900px 480px at -10% 10%,
+      color-mix(in srgb, var(--board-preset-6) 8%, transparent),
+      transparent 55%
     ),
-    linear-gradient(180deg, #f8fafc 0%, #ffffff 48%, #f3f4f6 100%);
+    linear-gradient(
+      180deg,
+      var(--board-bg) 0%,
+      var(--board-bg-elevated) 48%,
+      var(--board-bg-subtle) 100%
+    );
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  background:
+    radial-gradient(
+      1200px 600px at 80% -10%,
+      color-mix(in srgb, var(--board-accent) 18%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 480px at -10% 10%,
+      color-mix(in srgb, var(--board-preset-6) 14%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      var(--board-canvas-bg) 0%,
+      var(--board-bg) 55%,
+      var(--board-bg-elevated) 100%
+    );
 }
 
 body {
   min-height: 100vh;
+  font-family: var(--font-sans);
+  color: var(--board-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+  transition:
+    background-color var(--board-dur-slow, 260ms) var(--board-ease-out, ease),
+    color var(--board-dur-slow, 260ms) var(--board-ease-out, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
 }
 
 .demo-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
-  background: var(--ui-bg);
+  border: 1px solid var(--board-border);
+  border-radius: var(--board-radius-md);
+  background: var(--board-bg-elevated);
+  box-shadow: var(--board-node-shadow);
 }
 
 .demo-toolbar {
@@ -57,25 +123,32 @@ body {
   flex-wrap: wrap;
   align-items: center;
   padding: 0.75rem;
-  border-bottom: 1px solid var(--ui-border);
-  background: var(--ui-bg-elevated);
+  border-bottom: 1px solid var(--board-border);
+  background: var(--board-bg);
 }
 
 .demo-toolbar button {
   border: 0;
-  border-radius: var(--ui-radius);
+  border-radius: var(--board-radius-sm);
   padding: 0.45rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  color: var(--ui-text-muted);
-  background: var(--ui-bg-accented);
-  transition: all 0.15s ease;
+  color: var(--board-muted-fg);
+  background: var(--board-bg-subtle);
+  transition:
+    color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    background-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    transform var(--board-dur-fast, 120ms) var(--board-ease-out, ease);
 }
 
 .demo-toolbar button:hover {
-  color: var(--ui-text-highlighted);
-  background: color-mix(in srgb, var(--ui-primary) 12%, var(--ui-bg-accented));
+  color: var(--board-fg);
+  background: color-mix(
+    in srgb,
+    var(--board-accent) 10%,
+    var(--board-bg-subtle)
+  );
 }
 
 .demo-toolbar button:active {
@@ -89,31 +162,31 @@ body {
 }
 
 .demo-toolbar button.demo-primary {
-  color: var(--ui-primary);
-  background: color-mix(in srgb, var(--ui-primary) 10%, transparent);
+  color: var(--board-accent);
+  background: var(--board-accent-soft);
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--ui-primary) 20%, transparent);
+    color-mix(in srgb, var(--board-accent) 28%, transparent);
 }
 
 .demo-toolbar button.demo-primary:hover {
-  background: color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--board-accent) 20%, transparent);
 }
 
 .demo-toolbar button.demo-danger {
-  color: var(--ui-text-muted);
+  color: var(--board-muted-fg);
 }
 
 .demo-toolbar button.demo-danger:hover {
-  color: var(--ui-error);
-  background: color-mix(in srgb, var(--ui-error) 8%, transparent);
+  color: var(--board-preset-1);
+  background: color-mix(in srgb, var(--board-preset-1) 10%, transparent);
 }
 
 .demo-toggle-group {
   display: inline-flex;
   gap: 1px;
   padding: 3px;
-  border-radius: var(--ui-radius);
-  background: var(--ui-bg-accented);
+  border-radius: var(--board-radius-sm);
+  background: var(--board-bg-subtle);
 }
 
 .demo-toggle-group button {
@@ -121,19 +194,19 @@ body {
   padding: 0.35rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--ui-text-muted);
-  border-radius: calc(var(--ui-radius) - 2px);
+  color: var(--board-muted-fg);
+  border-radius: calc(var(--board-radius-sm) - 2px);
 }
 
 .demo-toggle-group button:hover {
-  color: var(--ui-text-default);
-  background: color-mix(in srgb, var(--ui-bg) 50%, transparent);
+  color: var(--board-fg);
+  background: color-mix(in srgb, var(--board-bg-elevated) 70%, transparent);
 }
 
 .demo-toggle-group button.active {
-  color: var(--ui-primary);
-  background: var(--ui-bg);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  color: var(--board-accent);
+  background: var(--board-bg-elevated);
+  box-shadow: var(--board-node-shadow);
 }
 
 .demo-history-badge {
@@ -141,18 +214,18 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.65rem;
-  border-radius: var(--ui-radius);
-  background: var(--ui-bg-accented);
+  border-radius: var(--board-radius-sm);
+  background: var(--board-bg-subtle);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 500;
-  color: var(--ui-text-dimmed);
+  color: var(--board-dim-fg);
   letter-spacing: 0.02em;
 }
 
 .demo-toolbar-note {
   align-self: center;
-  color: var(--ui-text-muted);
+  color: var(--board-muted-fg);
   font-size: 0.8rem;
   line-height: 1.5;
 }
@@ -162,12 +235,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border: 1px solid var(--board-border);
+  border-radius: var(--board-radius-sm);
   padding: 0.75rem 0.875rem;
-  background: var(--ui-bg);
+  background: var(--board-bg-elevated);
   font-size: 0.875rem;
-  color: var(--ui-text-highlighted);
+  color: var(--board-fg);
 }
 
 .demo-color-field span {
@@ -179,7 +252,7 @@ body {
   height: 2.25rem;
   padding: 0;
   border: 0;
-  border-radius: var(--ui-radius);
+  border-radius: var(--board-radius-sm);
   background: transparent;
   cursor: pointer;
 }
@@ -190,12 +263,12 @@ body {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 400;
-  color: var(--ui-text-dimmed);
+  color: var(--board-dim-fg);
   letter-spacing: 0.01em;
 }
 
 .demo-caption {
-  color: var(--ui-text-muted);
+  color: var(--board-muted-fg);
   font-size: 0.95rem;
   line-height: 1.6;
 }

@@ -1,3 +1,6 @@
+import './styles/theme.css'
+import './styles/motion.css'
+
 /** Main board root component that wires a board engine to the DOM scene graph. */
 export { default as BoardRoot } from './components/BoardRoot.vue'
 /** Camera transform layer used inside `BoardRoot` render trees. */

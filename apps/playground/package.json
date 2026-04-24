@@ -15,5 +15,9 @@
     "@lupinum/board-serializer": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
     "vue": "^3.5.33"
+  },
+  "devDependencies": {
+    "@iconify-json/tabler": "^1.2.33",
+    "unplugin-icons": "^23.0.1"
   }
 }

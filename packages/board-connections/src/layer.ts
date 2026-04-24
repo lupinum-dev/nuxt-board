@@ -28,6 +28,7 @@ import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors'
 import type {
   AnchorSide,
   BoardEdge,
+  ConnectionEndpointMode,
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
@@ -49,6 +50,7 @@ type ReconnectDragState = {
   pointerId: number
   pointerWorld: Point
   candidateNodeId: NodeId | null
+  candidateSide: AnchorSide | null
 }
 type CreateDragState = {
   mode: 'create'
@@ -57,6 +59,7 @@ type CreateDragState = {
   pointerId: number
   pointerWorld: Point
   candidateNodeId: NodeId | null
+  candidateSide: AnchorSide | null
 }
 type DragState = ReconnectDragState | CreateDragState
 type PendingReconnectDrag = {
@@ -167,6 +170,19 @@ function shouldPreserveDraggedAnchor(
     : edge.to === nodeId && Boolean(edge.toAnchor)
 }
 
+function floatingNodeAt(
+  point: Point,
+  role: 'source' | 'target',
+): Pick<BoardNode, 'id' | 'x' | 'y' | 'width' | 'height'> {
+  return {
+    id: `floating-${role}` as NodeId,
+    x: point.x,
+    y: point.y,
+    width: 0,
+    height: 0,
+  }
+}
+
 export const BoardConnectionLayer = defineComponent({
   name: 'BoardConnectionLayer',
   props: {
@@ -176,6 +192,10 @@ export const BoardConnectionLayer = defineComponent({
     },
     routing: {
       type: String as PropType<ConnectionRouting | undefined>,
+      default: undefined,
+    },
+    endpointMode: {
+      type: String as PropType<ConnectionEndpointMode | undefined>,
       default: undefined,
     },
   },
@@ -368,6 +388,17 @@ export const BoardConnectionLayer = defineComponent({
         ),
     )
 
+    const endpointMode = computed<ConnectionEndpointMode>(
+      () =>
+        props.endpointMode ??
+        (
+          engine.value.ext.connections as ConnectionsExtension & {
+            __endpointMode?: ConnectionEndpointMode
+          }
+        ).__endpointMode ??
+        'auto',
+    )
+
     watch(entries, (current) => {
       const ids = new Set(current.map((entry) => String(entry.edge.id)))
       if (selectedEdgeId.value && !ids.has(selectedEdgeId.value)) {
@@ -491,28 +522,35 @@ export const BoardConnectionLayer = defineComponent({
         return null
       }
 
-      const source: ResolvedConnectionEndpoint = {
-        nodeId: sourceNode.id,
-        node: sourceNode,
-        side: active.sourceSide,
-        offset: 0.5,
-        point: resolveAnchorPoint(sourceNode, {
-          side: active.sourceSide,
-          offset: 0.5,
-        }),
-        kind: 'explicit',
+      const lockedSourceAnchor =
+        endpointMode.value === 'manual'
+          ? { side: active.sourceSide, offset: 0.5 }
+          : undefined
+      const lockedTargetAnchor =
+        endpointMode.value === 'manual' && active.candidateSide
+          ? { side: active.candidateSide, offset: 0.5 }
+          : undefined
+      const previewEdge: BoardEdge = {
+        id: 'preview-edge' as BoardEdge['id'],
+        from: sourceNode.id,
+        to: (candidateNode?.id ?? 'floating-target') as NodeId,
+        fromAnchor: lockedSourceAnchor,
+        toAnchor: lockedTargetAnchor,
+        data: {},
+        zIndex: 0,
       }
-
+      const targetReference =
+        candidateNode ?? floatingNodeAt(active.pointerWorld, 'target')
+      const source = resolveConnectionEndpoint(
+        previewEdge,
+        sourceNode,
+        targetReference,
+        'source',
+        active.sourceSide,
+      )
       const target = candidateNode
         ? resolveConnectionEndpoint(
-            {
-              id: 'preview-edge' as BoardEdge['id'],
-              from: sourceNode.id,
-              to: candidateNode.id,
-              fromAnchor: { side: active.sourceSide, offset: 0.5 },
-              data: {},
-              zIndex: 0,
-            },
+            previewEdge,
             candidateNode,
             sourceNode,
             'target',
@@ -798,7 +836,14 @@ export const BoardConnectionLayer = defineComponent({
       const createdEdge = currentEngine.ext.connections.createEdge({
         from: sourceNode.id,
         to: targetNode.id,
-        fromAnchor: { side: active.sourceSide, offset: 0.5 },
+        fromAnchor:
+          endpointMode.value === 'manual'
+            ? { side: active.sourceSide, offset: 0.5 }
+            : undefined,
+        toAnchor:
+          endpointMode.value === 'manual' && active.candidateSide
+            ? { side: active.candidateSide, offset: 0.5 }
+            : undefined,
         data: {},
       })
 
@@ -930,7 +975,10 @@ export const BoardConnectionLayer = defineComponent({
           event.clientX,
           event.clientY,
         )
-        const candidateNode = currentEngine.getNodeAt(nextWorld)
+        const candidateHandle = resolveNodeHandleAtWorldPoint(nextWorld)
+        const candidateNode = candidateHandle
+          ? currentEngine.findNode(candidateHandle.nodeId)
+          : currentEngine.getNodeAt(nextWorld)
         if (currentPending) {
           const screenDistance =
             Math.hypot(
@@ -949,6 +997,7 @@ export const BoardConnectionLayer = defineComponent({
                   pointerId: currentPending.pointerId,
                   pointerWorld: nextWorld,
                   candidateNodeId: candidateNode?.id ?? null,
+                  candidateSide: candidateHandle?.side ?? null,
                 }
               : {
                   mode: 'create',
@@ -957,6 +1006,7 @@ export const BoardConnectionLayer = defineComponent({
                   pointerId: currentPending.pointerId,
                   pointerWorld: nextWorld,
                   candidateNodeId: candidateNode?.id ?? null,
+                  candidateSide: candidateHandle?.side ?? null,
                 }
           pendingDrag.value = null
           return
@@ -970,6 +1020,7 @@ export const BoardConnectionLayer = defineComponent({
           ...currentActive,
           pointerWorld: nextWorld,
           candidateNodeId: candidateNode?.id ?? null,
+          candidateSide: candidateHandle?.side ?? null,
         }
       }
 

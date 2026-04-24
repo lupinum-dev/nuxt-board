@@ -15,6 +15,8 @@ export type ConnectionRouting =
   | 'step'
   | 'straight'
   | 'arc'
+/** How UI-created and reconnected edge endpoints choose node anchors. */
+export type ConnectionEndpointMode = 'auto' | 'manual'
 /** Marker rendered at either end of an edge. */
 export type EdgeEnd = 'none' | 'arrow'
 /** Whether an endpoint came from an explicit anchor or automatic side resolution. */
@@ -57,6 +59,7 @@ export interface BoardEdgePatch<T = Record<string, unknown>> {
 /** Options for configuring the connections plugin defaults. */
 export interface ConnectionPluginOptions {
   routing?: ConnectionRouting
+  endpointMode?: ConnectionEndpointMode
   defaultArrow?: 'none' | 'start' | 'end' | 'both'
   snapDistance?: number
 }

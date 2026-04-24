@@ -15,6 +15,9 @@ import ImageNodeRenderer from './components/ImageNodeRenderer.vue'
 import PlaygroundToolbar from './components/PlaygroundToolbar.vue'
 import PlaygroundPanel from './components/PlaygroundPanel.vue'
 import PlaygroundDiagnostics from './components/PlaygroundDiagnostics.vue'
+import { useBoardTheme } from './composables/useBoardTheme'
+
+useBoardTheme()
 
 type PlaygroundApi = {
   engine: ReturnType<typeof createBoardEngine>
@@ -302,7 +305,7 @@ onMounted(async () => {
         <Transition name="fade">
           <div
             v-if="showMinimap"
-            class="absolute right-4 bottom-4 z-10 glass-light border border-black/6 rounded-[10px] shadow-sm overflow-hidden"
+            class="absolute right-4 bottom-4 z-10 glass-subtle rounded-[10px] shadow-sm overflow-hidden"
           >
             <BoardMinimap :width="200" :height="140" />
           </div>
@@ -354,52 +357,16 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Deep overrides for board library components — uses raw values
-   since theme() is unavailable in Vue scoped CSS with Tailwind 4 */
-:deep(.board-root) {
-  background: var(--color-stone-50);
-}
-
-:deep(.board-node) {
-  border-color: rgba(28, 25, 23, 0.14);
-  border-radius: 8px;
-  background: white;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.03),
-    0 4px 12px -4px rgba(0, 0, 0, 0.04);
-}
-
-:deep(.board-node.is-selected) {
-  outline: 2px solid var(--board-node-color-ring, var(--color-teal-600));
-  outline-offset: -1px;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.03),
-    0 4px 12px -4px rgba(0, 0, 0, 0.04);
-}
-
-:deep(.board-node.is-colored:not(.is-group)) {
-  border-color: var(--board-node-color);
-  background: var(--board-node-tint);
-}
-
-:deep(.board-node.is-locked) {
-  opacity: 0.55;
-}
-
 :deep(.board-node__content),
 :deep(.board-node__editor) {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
-  color: var(--color-stone-900);
+  color: var(--board-fg);
+  letter-spacing: -0.005em;
 }
 
 :deep(.board-connection-layer) {
-  color: var(--color-stone-400);
-}
-
-:deep(.board-node-simple) {
-  border-color: rgba(28, 25, 23, 0.1);
-  border-radius: 6px;
+  color: var(--board-edge-color);
 }
 </style>

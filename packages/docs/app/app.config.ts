@@ -1,7 +1,7 @@
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'teal',
+      primary: 'primary',
       neutral: 'slate',
     },
     footer: {
@@ -26,13 +26,13 @@ export default defineAppConfig({
     colorMode: true,
     links: [
       {
-        icon: 'i-simple-icons-github',
+        icon: 'i-tabler-brand-github',
         to: 'https://github.com/Mat4m0/canvas',
         target: '_blank',
         'aria-label': 'GitHub',
       },
       {
-        icon: 'i-lucide-square-play',
+        icon: 'i-tabler-player-play',
         to: '/examples/basic-board',
         'aria-label': 'Examples',
       },
@@ -43,7 +43,7 @@ export default defineAppConfig({
     colorMode: false,
     links: [
       {
-        icon: 'i-simple-icons-github',
+        icon: 'i-tabler-brand-github',
         to: 'https://github.com/Mat4m0/canvas',
         target: '_blank',
         'aria-label': 'Vue Board on GitHub',
@@ -57,13 +57,13 @@ export default defineAppConfig({
       edit: 'https://github.com/Mat4m0/canvas/edit/main/packages/docs/content',
       links: [
         {
-          icon: 'i-lucide-star',
+          icon: 'i-tabler-star',
           label: 'Star on GitHub',
           to: 'https://github.com/Mat4m0/canvas',
           target: '_blank',
         },
         {
-          icon: 'i-lucide-play',
+          icon: 'i-tabler-player-play',
           label: 'Open examples',
           to: '/examples/basic-board',
         },

@@ -23,20 +23,25 @@ const emit = defineEmits<{
 }>()
 
 const pbtn =
-  'flex-1 min-w-0 min-h-10 py-2 px-3.5 border border-black/12 bg-transparent font-sans text-[13px] font-medium text-stone-900 rounded-lg cursor-pointer transition-colors hover:bg-black/[0.03] hover:border-stone-400 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:-outline-offset-1'
+  'flex-1 min-w-0 min-h-10 py-2 px-3.5 border border-[var(--board-border)] bg-transparent font-sans text-[13px] font-medium text-[var(--board-fg)] rounded-lg cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--board-fg)_4%,transparent)] hover:border-[var(--board-border-strong)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-[var(--board-accent)] focus-visible:-outline-offset-1'
+
+const pselect =
+  'appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-[var(--board-border)] bg-[var(--board-bg-elevated)] select-chevron font-sans text-[13px] text-[var(--board-fg)] rounded-lg cursor-pointer transition-[border-color] duration-150 hover:border-[var(--board-border-strong)] focus:outline-none focus:border-[var(--board-accent)] focus:ring-2 focus:ring-[var(--board-accent-ring)]'
 </script>
 
 <template>
   <aside
-    class="playground-panel fixed z-40 flex flex-col glass border border-black/6 rounded-xl shadow-float overflow-y-auto overflow-x-hidden overscroll-contain panel-scroll pointer-events-auto"
+    class="playground-panel fixed z-40 flex flex-col glass rounded-xl shadow-float overflow-y-auto overflow-x-hidden overscroll-contain panel-scroll pointer-events-auto"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 pt-3.5">
-      <h2 class="text-[13px] font-semibold tracking-tight text-stone-900">
+      <h2
+        class="text-[13px] font-semibold tracking-tight text-[var(--board-fg)]"
+      >
         Settings
       </h2>
       <button
-        class="flex items-center justify-center w-9 h-9 sm:w-6 sm:h-6 border-none bg-transparent text-stone-400 rounded-md cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900"
+        class="flex items-center justify-center w-9 h-9 sm:w-6 sm:h-6 border-none bg-transparent text-[var(--board-dim-fg)] rounded-md cursor-pointer transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--board-fg)_6%,transparent)] hover:text-[var(--board-fg)]"
         aria-label="Close settings"
         @click="emit('close')"
       >
@@ -55,31 +60,29 @@ const pbtn =
     </div>
 
     <!-- Sections -->
-    <div class="divide-y divide-black/6">
+    <div class="divide-y divide-[var(--board-divider)]">
       <!-- Grid -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
         <h3
-          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+          class="font-mono text-[10px] font-medium tracking-[0.08em] uppercase text-[var(--board-dim-fg)] mb-0.5"
         >
           Grid
         </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="min-w-0 text-[13px] text-stone-600">Size</span>
-          <select
-            v-model="gridSize"
-            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+          <span class="min-w-0 text-[13px] text-[var(--board-muted-fg)]"
+            >Size</span
           >
+          <select v-model="gridSize" :class="pselect">
             <option :value="10">10 px</option>
             <option :value="20">20 px</option>
             <option :value="40">40 px</option>
           </select>
         </label>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="min-w-0 text-[13px] text-stone-600">Pattern</span>
-          <select
-            v-model="gridPattern"
-            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+          <span class="min-w-0 text-[13px] text-[var(--board-muted-fg)]"
+            >Pattern</span
           >
+          <select v-model="gridPattern" :class="pselect">
             <option value="line">Line</option>
             <option value="dot">Dot</option>
             <option value="cross">Cross</option>
@@ -90,16 +93,15 @@ const pbtn =
 
       <section class="flex flex-col gap-2 px-4 py-3.5">
         <h3
-          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+          class="font-mono text-[10px] font-medium tracking-[0.08em] uppercase text-[var(--board-dim-fg)] mb-0.5"
         >
           Connections
         </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="min-w-0 text-[13px] text-stone-600">Style</span>
-          <select
-            v-model="connectionRouting"
-            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+          <span class="min-w-0 text-[13px] text-[var(--board-muted-fg)]"
+            >Style</span
           >
+          <select v-model="connectionRouting" :class="pselect">
             <option value="bezier">Curve</option>
             <option value="smooth-step">Angled smooth</option>
             <option value="step">Angled</option>
@@ -112,13 +114,13 @@ const pbtn =
       <!-- Benchmark -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
         <h3
-          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+          class="font-mono text-[10px] font-medium tracking-[0.08em] uppercase text-[var(--board-dim-fg)] mb-0.5"
         >
           Benchmark
         </h3>
         <button :class="pbtn" @click="emit('benchmark')">Run benchmark</button>
         <p
-          class="font-mono text-[11px] leading-relaxed text-stone-400 break-all"
+          class="font-mono text-[11px] leading-relaxed text-[var(--board-dim-fg)] break-all"
         >
           {{ benchmarkResult }}
         </p>
@@ -127,7 +129,7 @@ const pbtn =
       <!-- Data -->
       <section class="flex flex-col gap-2 px-4 py-3.5">
         <h3
-          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+          class="font-mono text-[10px] font-medium tracking-[0.08em] uppercase text-[var(--board-dim-fg)] mb-0.5"
         >
           Data
         </h3>
@@ -137,7 +139,7 @@ const pbtn =
         </div>
         <pre
           v-if="exportedJson"
-          class="p-2.5 bg-black/[0.025] rounded-lg font-mono text-[11px] leading-snug text-stone-400 whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto"
+          class="p-2.5 bg-[var(--board-bg-subtle)] border border-[var(--board-border)] rounded-lg font-mono text-[11px] leading-snug text-[var(--board-muted-fg)] whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto"
           >{{ exportedJson.slice(0, 300) }}</pre
         >
       </section>
@@ -145,7 +147,7 @@ const pbtn =
       <!-- Shortcuts -->
       <section class="flex flex-col gap-2 px-4 py-3.5 pb-4">
         <h3
-          class="font-mono text-[10px] font-medium tracking-[0.06em] uppercase text-stone-400 mb-0.5"
+          class="font-mono text-[10px] font-medium tracking-[0.08em] uppercase text-[var(--board-dim-fg)] mb-0.5"
         >
           Shortcuts
         </h3>
@@ -156,10 +158,10 @@ const pbtn =
             class="flex items-center justify-between gap-3"
           >
             <dt
-              class="text-xs text-stone-600 whitespace-nowrap"
+              class="text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
               v-html="shortcut.keys"
             />
-            <dd class="min-w-0 text-xs text-stone-400 text-right">
+            <dd class="min-w-0 text-xs text-[var(--board-dim-fg)] text-right">
               {{ shortcut.action }}
             </dd>
           </div>
@@ -171,7 +173,7 @@ const pbtn =
 
 <script lang="ts">
 const kbd = (label: string) =>
-  `<kbd class="inline-block py-px px-1 bg-black/[0.04] border border-black/6 rounded font-mono text-[10px] leading-relaxed text-stone-600">${label}</kbd>`
+  `<kbd class="inline-block py-px px-1 bg-[var(--board-bg-subtle)] border border-[var(--board-border)] rounded font-mono text-[10px] leading-relaxed text-[var(--board-muted-fg)]">${label}</kbd>`
 
 const shortcuts = [
   { keys: 'Double-click', action: 'Create node' },

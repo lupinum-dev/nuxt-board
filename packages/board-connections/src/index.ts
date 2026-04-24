@@ -35,6 +35,7 @@ export type {
   AnchorSide,
   BoardEdge,
   BoardEdgePatch,
+  ConnectionEndpointMode,
   ConnectionPluginOptions,
   ConnectionRoute,
   ConnectionRouteSegment,

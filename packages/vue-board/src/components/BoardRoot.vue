@@ -329,64 +329,28 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .board-root {
-  --board-bg: var(--ui-bg, #f8fbfd);
-  --board-fg: var(--ui-text-highlighted, #0f172a);
-  --board-node-bg: var(--ui-bg, rgba(255, 255, 255, 0.96));
-  --board-node-border: var(--ui-border, rgba(148, 163, 184, 0.28));
-  --board-node-border-hover: var(--ui-border-hover, rgba(100, 116, 139, 0.42));
-  --board-node-stripe: var(--ui-bg-accented, rgba(15, 23, 42, 0.06));
-  --board-node-ring: color-mix(
-    in srgb,
-    var(--ui-primary, #0f766e) 45%,
-    transparent
-  );
-  --board-node-selection: var(--ui-primary, #0f766e);
-  --board-node-handle-bg: var(--ui-bg, #fff);
-  --board-node-handle-dot: rgba(148, 163, 184, 0.72);
-  --board-node-radius: 8px;
-  --board-node-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --board-node-shadow-hover:
-    0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-  --board-node-shadow-selected: var(--board-node-shadow);
-  --board-group-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.04));
-  --board-group-border: var(--ui-border, rgba(15, 23, 42, 0.12));
-  --board-accent: var(--ui-primary, #0f766e);
-  --board-edge-color: var(--ui-text-dimmed, rgba(71, 85, 105, 0.82));
-  --board-edge-active-color: var(--ui-primary, #0f766e);
-  --board-handle-shadow: rgba(0, 0, 0, 0.1);
-  --board-box-select-fill: color-mix(
-    in srgb,
-    var(--ui-primary, #0f766e) 10%,
-    transparent
-  );
-  --board-box-select-stroke: color-mix(
-    in srgb,
-    var(--ui-primary, #0f766e) 60%,
-    transparent
-  );
-  --board-snap-guide-color: var(--ui-primary, rgba(15, 118, 110, 0.95));
-  --board-grid-minor-rgb: 148 163 184;
-  --board-grid-major-rgb: 100 116 139;
-
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   touch-action: none;
   user-select: none;
-  background: var(--board-bg);
-  color: var(--board-fg);
+  background: var(--board-canvas-bg, var(--board-bg, #f5f6fa));
+  color: var(--board-fg, #14161f);
   isolation: isolate;
+  transition:
+    background-color var(--board-dur-slow, 260ms) var(--board-ease-out, ease),
+    color var(--board-dur-slow, 260ms) var(--board-ease-out, ease);
 }
 
 .board-node-simple {
   position: absolute;
   box-sizing: border-box;
-  border: calc(1px / var(--board-zoom, 1)) solid var(--board-node-border);
-  background: var(--board-node-bg);
-  border-radius: calc(var(--board-node-radius, 8px) / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow);
+  border: calc(1px / var(--board-zoom, 1)) solid
+    var(--board-node-border, rgba(148, 163, 184, 0.28));
+  background: var(--board-node-bg, #fff);
+  border-radius: calc(var(--board-node-radius, 10px) / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow, 0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08));
   overflow: hidden;
   contain: layout style paint;
 }
@@ -398,6 +362,7 @@ onBeforeUnmount(() => {
 
 .board-node-simple.is-group {
   border-style: dashed;
+  border-radius: calc(var(--board-group-radius, 16px) / var(--board-zoom, 1));
 }
 
 .board-node-simple::after {
@@ -409,51 +374,16 @@ onBeforeUnmount(() => {
   height: 50%;
   background: repeating-linear-gradient(
     to bottom,
-    var(--board-node-stripe) 0px,
-    var(--board-node-stripe) 2px,
+    var(--board-divider, rgba(15, 23, 42, 0.06)) 0px,
+    var(--board-divider, rgba(15, 23, 42, 0.06)) 2px,
     transparent 2px,
     transparent 6px
   );
 }
 
-:global(.dark) .board-root {
-  --board-bg: var(--ui-bg, #111827);
-  --board-fg: var(--ui-text-highlighted, #e5eef6);
-  --board-node-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.92));
-  --board-node-border: var(--ui-border, rgba(148, 163, 184, 0.18));
-  --board-node-border-hover: var(--ui-border-hover, rgba(148, 163, 184, 0.3));
-  --board-node-stripe: var(--ui-bg-accented, rgba(226, 232, 240, 0.08));
-  --board-node-ring: color-mix(
-    in srgb,
-    var(--ui-primary, #2dd4bf) 50%,
-    transparent
-  );
-  --board-node-selection: var(--ui-primary, #2dd4bf);
-  --board-node-handle-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.96));
-  --board-node-handle-dot: rgba(148, 163, 184, 0.82);
-  --board-node-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
-  --board-node-shadow-hover:
-    0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
-  --board-node-shadow-selected: var(--board-node-shadow);
-  --board-group-bg: var(--ui-bg-elevated, rgba(148, 163, 184, 0.06));
-  --board-group-border: var(--ui-border, rgba(148, 163, 184, 0.22));
-  --board-accent: var(--ui-primary, #2dd4bf);
-  --board-edge-color: var(--ui-text-dimmed, rgba(148, 163, 184, 0.74));
-  --board-edge-active-color: var(--ui-primary, #2dd4bf);
-  --board-handle-shadow: rgba(0, 0, 0, 0.3);
-  --board-box-select-fill: color-mix(
-    in srgb,
-    var(--ui-primary, #2dd4bf) 12%,
-    transparent
-  );
-  --board-box-select-stroke: color-mix(
-    in srgb,
-    var(--ui-primary, #2dd4bf) 70%,
-    transparent
-  );
-  --board-snap-guide-color: var(--ui-primary, rgba(45, 212, 191, 0.98));
-  --board-grid-minor-rgb: 71 85 105;
-  --board-grid-major-rgb: 148 163 184;
+@media (prefers-reduced-motion: reduce) {
+  .board-root {
+    transition: none;
+  }
 }
 </style>

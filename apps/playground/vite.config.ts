@@ -1,10 +1,19 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
+import Icons from 'unplugin-icons/vite'
 import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+  plugins: [
+    vue(),
+    tailwindcss(),
+    Icons({
+      compiler: 'vue3',
+      defaultClass: 'shrink-0',
+      defaultStyle: 'display:inline-flex',
+    }),
+  ],
   resolve: {
     alias: {
       '@lupinum/board-core': fileURLToPath(

@@ -29,6 +29,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  colorMode: {
+    classSuffix: '',
+    dataValue: 'theme',
+  },
+
   site: {
     url: siteUrl,
     name: 'Vue Board',

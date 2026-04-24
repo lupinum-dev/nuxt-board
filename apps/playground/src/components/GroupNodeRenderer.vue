@@ -83,15 +83,22 @@ function cancel(): void {
   height: 100%;
   border-radius: inherit;
   overflow: visible;
-  border: calc(2px / var(--board-zoom, 1)) solid
+  border: calc(1.5px / var(--board-zoom, 1)) solid
     var(--board-node-color-soft, var(--board-group-border));
   background: var(--board-node-tint, var(--board-group-bg));
+  transition:
+    border-color var(--board-dur-fast, 120ms) var(--board-ease-out, ease),
+    box-shadow var(--board-dur-fast, 120ms) var(--board-ease-out, ease);
 }
 
 .group-node.is-selected {
   border-color: var(--board-node-color, var(--board-node-selection));
-  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1))
-    var(--board-node-color-soft, transparent);
+  box-shadow: 0 0 0 calc(4px / var(--board-zoom, 1))
+    color-mix(
+      in srgb,
+      var(--board-node-color, var(--board-accent)) 22%,
+      transparent
+    );
 }
 
 .group-node__label {
@@ -106,41 +113,36 @@ function cancel(): void {
 .group-node__title {
   display: inline-block;
   max-width: 100%;
-  padding: 3px 10px;
-  border-radius: 6px 6px 0 0;
+  padding: 4px 10px 3px;
+  border-radius: 8px 8px 0 0;
   background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 12px;
   font-weight: 600;
   line-height: 18px;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
 }
 
 .group-node__input {
   display: block;
   width: 200px;
   max-width: 100%;
-  padding: 3px 10px;
+  padding: 4px 10px 3px;
   border: none;
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px 8px 0 0;
   background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 12px;
   font-weight: 600;
   line-height: 18px;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   outline: none;
   caret-color: #fff;
 }

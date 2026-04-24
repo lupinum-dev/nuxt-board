@@ -10,6 +10,7 @@ import type {
   BoardEdge,
   BoardEdgePatch,
   ConnectionPluginOptions,
+  ConnectionEndpointMode,
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
@@ -63,6 +64,7 @@ export function connectionPlugin(
   options: ConnectionPluginOptions = {},
 ): BoardPlugin {
   const routing = options.routing ?? 'bezier'
+  const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
   const defaults = defaultEnds(defaultArrow)
 
@@ -214,12 +216,21 @@ export function connectionPlugin(
       ;(
         engine.ext.connections as ConnectionsExtension & {
           __routing?: ConnectionRouting
+          __endpointMode?: ConnectionEndpointMode
           __defaultArrow?: ConnectionPluginOptions['defaultArrow']
         }
       ).__routing = routing
       ;(
         engine.ext.connections as ConnectionsExtension & {
           __routing?: ConnectionRouting
+          __endpointMode?: ConnectionEndpointMode
+          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
+        }
+      ).__endpointMode = endpointMode
+      ;(
+        engine.ext.connections as ConnectionsExtension & {
+          __routing?: ConnectionRouting
+          __endpointMode?: ConnectionEndpointMode
           __defaultArrow?: ConnectionPluginOptions['defaultArrow']
         }
       ).__defaultArrow = defaultArrow

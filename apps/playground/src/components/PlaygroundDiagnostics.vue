@@ -11,17 +11,17 @@ defineProps<{
 
 <template>
   <aside
-    class="absolute bottom-4 left-4 z-10 py-2.5 px-3.5 glass-light border border-black/6 rounded-[10px] shadow-sm"
+    class="absolute bottom-4 left-4 z-10 py-2.5 px-3.5 glass-subtle rounded-[10px] shadow-sm"
   >
     <dl class="grid grid-cols-2 gap-x-5 gap-y-1">
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Camera
         </dt>
         <dd
-          class="font-mono text-xs text-stone-600 whitespace-nowrap"
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
           data-testid="camera-value"
         >
           {{ camera.x.toFixed(1) }}, {{ camera.y.toFixed(1) }},
@@ -30,12 +30,12 @@ defineProps<{
       </div>
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Nodes
         </dt>
         <dd
-          class="font-mono text-xs text-stone-600 whitespace-nowrap"
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
           data-testid="node-count"
         >
           {{ nodeCount }}
@@ -43,41 +43,49 @@ defineProps<{
       </div>
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Selected
         </dt>
-        <dd class="font-mono text-xs text-stone-600 whitespace-nowrap">
+        <dd
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
+        >
           {{ selectionCount }}
         </dd>
       </div>
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Mode
         </dt>
-        <dd class="font-mono text-xs text-stone-600 whitespace-nowrap">
+        <dd
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
+        >
           {{ interactionMode }}
         </dd>
       </div>
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Visible
         </dt>
-        <dd class="font-mono text-xs text-stone-600 whitespace-nowrap">
+        <dd
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
+        >
           {{ visibleCount }}
         </dd>
       </div>
       <div class="flex items-baseline gap-2">
         <dt
-          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-stone-400 whitespace-nowrap"
+          class="font-mono text-[10px] font-medium tracking-[0.03em] uppercase text-[var(--board-dim-fg)] whitespace-nowrap"
         >
           Trace
         </dt>
-        <dd class="font-mono text-xs text-stone-600 whitespace-nowrap">
+        <dd
+          class="font-mono text-xs text-[var(--board-muted-fg)] whitespace-nowrap"
+        >
           {{ lastTrace }}
         </dd>
       </div>

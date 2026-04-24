@@ -1,0 +1,158 @@
+/**
+ * Lupinum Board design tokens.
+ *
+ * Single source of truth for colors, surfaces, shadows, and node presets
+ * consumed by the vue-board renderer and by any host app that imports the
+ * package. Light tokens live on `:root`; dark tokens swap when the root
+ * carries `data-theme="dark"`.
+ */
+
+:root {
+  /* Surfaces */
+  --board-bg: #fbfbfd;
+  --board-bg-elevated: #ffffff;
+  --board-bg-subtle: #f3f4f9;
+  --board-canvas-bg: #f5f6fa;
+
+  /* Text */
+  --board-fg: #14161f;
+  --board-muted-fg: #5b6075;
+  --board-dim-fg: #8b90a7;
+
+  /* Lines */
+  --board-border: #e4e5ee;
+  --board-border-strong: #c9cbdb;
+  --board-divider: rgba(20, 22, 31, 0.08);
+
+  /* Grid — RGB tuples consumed by useGridStyle() via `rgba(var(...) / alpha)` */
+  --board-grid-minor-rgb: 131 134 160;
+  --board-grid-major-rgb: 91 96 117;
+  --board-grid-dot: rgba(131, 134, 160, 0.32);
+  --board-grid-dot-major: rgba(131, 134, 160, 0.55);
+
+  /* Brand accent */
+  --board-accent: #6366e8;
+  --board-accent-fg: #ffffff;
+  --board-accent-ring: rgba(99, 102, 232, 0.35);
+  --board-accent-soft: rgba(99, 102, 232, 0.12);
+
+  /* Node surface */
+  --board-node-bg: #ffffff;
+  --board-node-border: #e4e5ee;
+  --board-node-border-hover: #c9cbdb;
+  --board-node-radius: 10px;
+  --board-node-shadow: 0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08);
+  --board-node-shadow-hover:
+    0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08),
+    0 2px 8px -2px rgba(9, 14, 28, 0.12);
+  --board-node-shadow-selected: 0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08);
+  --board-node-shadow-drag: 0 10px 30px -8px rgba(9, 14, 28, 0.22);
+
+  /* Group frame */
+  --board-group-bg: rgba(99, 102, 232, 0.05);
+  --board-group-border: rgba(99, 102, 232, 0.26);
+  --board-group-label-fg: #ffffff;
+  --board-group-radius: 16px;
+
+  /* Selection ring (neutral default) */
+  --board-node-ring: rgba(99, 102, 232, 0.42);
+  --board-node-selection: #6366e8;
+
+  /* Connections / edges */
+  --board-edge-color: rgba(91, 96, 117, 0.72);
+  --board-edge-active-color: #6366e8;
+
+  /* Snap / box-select */
+  --board-snap-guide-color: rgba(99, 102, 232, 0.95);
+  --board-box-select-fill: rgba(99, 102, 232, 0.1);
+  --board-box-select-stroke: rgba(99, 102, 232, 0.6);
+
+  /* Handles */
+  --board-node-handle-bg: #ffffff;
+  --board-node-handle-dot: rgba(131, 134, 160, 0.72);
+  --board-handle-shadow: rgba(9, 14, 28, 0.1);
+
+  /* Radii scale */
+  --board-radius-xs: 4px;
+  --board-radius-sm: 8px;
+  --board-radius-md: 10px;
+  --board-radius-lg: 16px;
+
+  /* Node color presets */
+  --board-preset-1: #e5476a;
+  --board-preset-2: #d97a1c;
+  --board-preset-3: #b89a14;
+  --board-preset-4: #2fa560;
+  --board-preset-5: #3b7de0;
+  --board-preset-6: #7e5ae4;
+}
+
+:root[data-theme='dark'] {
+  /* Surfaces */
+  --board-bg: #0e1016;
+  --board-bg-elevated: #171a22;
+  --board-bg-subtle: #13161d;
+  --board-canvas-bg: #0a0c12;
+
+  /* Text */
+  --board-fg: #ecedf3;
+  --board-muted-fg: #9aa0b8;
+  --board-dim-fg: #6b7192;
+
+  /* Lines */
+  --board-border: #262a36;
+  --board-border-strong: #373c4b;
+  --board-divider: rgba(236, 237, 243, 0.08);
+
+  /* Grid */
+  --board-grid-minor-rgb: 170 175 200;
+  --board-grid-major-rgb: 210 214 232;
+  --board-grid-dot: rgba(170, 175, 200, 0.18);
+  --board-grid-dot-major: rgba(170, 175, 200, 0.32);
+
+  /* Brand accent */
+  --board-accent: #8487f2;
+  --board-accent-fg: #0a0c12;
+  --board-accent-ring: rgba(132, 135, 242, 0.35);
+  --board-accent-soft: rgba(132, 135, 242, 0.16);
+
+  /* Node surface */
+  --board-node-bg: #171a22;
+  --board-node-border: #262a36;
+  --board-node-border-hover: #373c4b;
+  --board-node-shadow: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4);
+  --board-node-shadow-hover:
+    0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4), 0 4px 14px -2px rgba(0, 0, 0, 0.5);
+  --board-node-shadow-selected: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4);
+  --board-node-shadow-drag: 0 12px 34px -8px rgba(0, 0, 0, 0.7);
+
+  /* Group frame */
+  --board-group-bg: rgba(132, 135, 242, 0.05);
+  --board-group-border: rgba(132, 135, 242, 0.28);
+
+  /* Selection ring */
+  --board-node-ring: rgba(132, 135, 242, 0.45);
+  --board-node-selection: #8487f2;
+
+  /* Connections */
+  --board-edge-color: rgba(154, 160, 184, 0.7);
+  --board-edge-active-color: #8487f2;
+
+  /* Snap / box-select */
+  --board-snap-guide-color: rgba(132, 135, 242, 0.95);
+  --board-box-select-fill: rgba(132, 135, 242, 0.12);
+  --board-box-select-stroke: rgba(132, 135, 242, 0.7);
+
+  /* Handles */
+  --board-node-handle-bg: #171a22;
+  --board-node-handle-dot: rgba(170, 175, 200, 0.7);
+  --board-handle-shadow: rgba(0, 0, 0, 0.5);
+
+  /* Node color presets — slightly lifted for dark surfaces */
+  --board-preset-1: #f06783;
+  --board-preset-2: #e8933b;
+  --board-preset-3: #d8bc2e;
+  --board-preset-4: #4dc27e;
+  --board-preset-5: #6b9dec;
+  --board-preset-6: #9d7df0;
+}

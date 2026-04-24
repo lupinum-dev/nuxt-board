@@ -769,7 +769,81 @@ describe('BoardConnectionLayer', () => {
     expect(engine.ext.connections.getEdges()[0]).toMatchObject({
       from: source.id,
       to: target.id,
+    })
+    expect(engine.ext.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
+    expect(engine.ext.connections.getEdges()[0]?.toAnchor).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('can lock UI-created edges to manual endpoint anchors', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 320,
+      y: 40,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer, { endpointMode: 'manual' }),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    const root = query('.board-root')
+    dispatchPointerEvent(root, 'pointermove', {
+      pointerId: 11,
+      clientX: 160,
+      clientY: 80,
+    })
+    await nextTick()
+
+    const createHandle = query(
+      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
+    )
+    dispatchPointerEvent(createHandle, 'pointerdown', {
+      pointerId: 11,
+      button: 0,
+      clientX: 160,
+      clientY: 80,
+    })
+    await nextTick()
+    dispatchPointerEvent(window, 'pointermove', {
+      pointerId: 11,
+      clientX: 340,
+      clientY: 80,
+    })
+    await nextTick()
+    await nextTick()
+    dispatchPointerEvent(window, 'pointerup', {
+      pointerId: 11,
+      clientX: 340,
+      clientY: 80,
+    })
+    await nextTick()
+    await nextTick()
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      from: source.id,
+      to: target.id,
       fromAnchor: { side: 'right', offset: 0.5 },
+      toAnchor: { side: 'left', offset: 0.5 },
     })
     wrapper.unmount()
   })
@@ -831,6 +905,8 @@ describe('BoardConnectionLayer', () => {
 
     expect(engine.getSnapshot().nodes).toHaveLength(2)
     expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
+    expect(engine.ext.connections.getEdges()[0]?.toAnchor).toBeUndefined()
     expect(engine.getSnapshot().interaction).toMatchObject({
       mode: 'editing-text',
     })
