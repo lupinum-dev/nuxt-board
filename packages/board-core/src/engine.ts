@@ -539,29 +539,28 @@ export function createBoardEngine<
     }
   }
 
-  function reparentNodesCapturedByMovedGroups(movedIds: NodeId[]): void {
-    const moved = new Set(movedIds)
-    const movedGroups = movedIds
+  function reparentNodesCapturedByGroups(
+    groupIds: NodeId[],
+    excludeIds: Iterable<NodeId>,
+  ): void {
+    const exclude = new Set(excludeIds)
+    const groups = groupIds
       .map((id) => state.nodes.get(id))
       .filter((node): node is StoredNode => Boolean(node))
       .filter((node) => node.type === 'group' && node.visible)
 
-    if (movedGroups.length === 0) {
+    if (groups.length === 0) {
       return
     }
 
     const captured: NodeId[] = []
     for (const node of state.nodes.values()) {
-      if (moved.has(node.id) || node.locked || !node.visible) {
+      if (exclude.has(node.id) || node.locked || !node.visible) {
         continue
       }
-      const center = {
-        x: node.x + node.width / 2,
-        y: node.y + node.height / 2,
-      }
       if (
-        movedGroups.some((group) =>
-          pointInBounds(center, getBoundsFromNode(group)),
+        groups.some((group) =>
+          boundsContain(getBoundsFromNode(group), getBoundsFromNode(node)),
         )
       ) {
         captured.push(node.id)
@@ -571,6 +570,10 @@ export function createBoardEngine<
     if (captured.length > 0) {
       reparentAfterDrag(captured)
     }
+  }
+
+  function reparentNodesCapturedByMovedGroups(movedIds: NodeId[]): void {
+    reparentNodesCapturedByGroups(movedIds, movedIds)
   }
 
   function getSelectionNodes(): StoredNode[] {
@@ -1793,6 +1796,9 @@ export function createBoardEngine<
         if (previous.mode === 'dragging-nodes') {
           reparentAfterDrag(previous.nodeIds)
           reparentNodesCapturedByMovedGroups(previous.nodeIds)
+        }
+        if (previous.mode === 'resizing-node') {
+          reparentNodesCapturedByGroups([previous.nodeId], [previous.nodeId])
         }
         setInteraction({ mode: 'idle' })
       })

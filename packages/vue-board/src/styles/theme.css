@@ -89,26 +89,26 @@
 
 :root[data-theme='dark'] {
   /* Surfaces */
-  --board-bg: #0e1016;
-  --board-bg-elevated: #171a22;
-  --board-bg-subtle: #13161d;
-  --board-canvas-bg: #0a0c12;
+  --board-bg: #151922;
+  --board-bg-elevated: #202633;
+  --board-bg-subtle: #1a1f2a;
+  --board-canvas-bg: #171b24;
 
   /* Text */
   --board-fg: #ecedf3;
-  --board-muted-fg: #9aa0b8;
-  --board-dim-fg: #6b7192;
+  --board-muted-fg: #adb3c7;
+  --board-dim-fg: #7f879f;
 
   /* Lines */
-  --board-border: #262a36;
-  --board-border-strong: #373c4b;
+  --board-border: #303646;
+  --board-border-strong: #454d61;
   --board-divider: rgba(236, 237, 243, 0.08);
 
   /* Grid */
-  --board-grid-minor-rgb: 170 175 200;
-  --board-grid-major-rgb: 210 214 232;
-  --board-grid-dot: rgba(170, 175, 200, 0.18);
-  --board-grid-dot-major: rgba(170, 175, 200, 0.32);
+  --board-grid-minor-rgb: 108 116 138;
+  --board-grid-major-rgb: 142 151 176;
+  --board-grid-dot: rgba(142, 151, 176, 0.16);
+  --board-grid-dot-major: rgba(166, 174, 198, 0.24);
 
   /* Brand accent */
   --board-accent: #8487f2;
@@ -117,25 +117,25 @@
   --board-accent-soft: rgba(132, 135, 242, 0.16);
 
   /* Node surface */
-  --board-node-bg: #171a22;
-  --board-node-border: #262a36;
-  --board-node-border-hover: #373c4b;
-  --board-node-shadow: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4);
+  --board-node-bg: #202633;
+  --board-node-border: #343b4c;
+  --board-node-border-hover: #4b5469;
+  --board-node-shadow: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.28);
   --board-node-shadow-hover:
-    0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4), 0 4px 14px -2px rgba(0, 0, 0, 0.5);
-  --board-node-shadow-selected: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.4);
-  --board-node-shadow-drag: 0 12px 34px -8px rgba(0, 0, 0, 0.7);
+    0 0.5px 1px 0.5px rgba(0, 0, 0, 0.28), 0 4px 14px -2px rgba(0, 0, 0, 0.38);
+  --board-node-shadow-selected: 0 0.5px 1px 0.5px rgba(0, 0, 0, 0.28);
+  --board-node-shadow-drag: 0 12px 34px -8px rgba(0, 0, 0, 0.56);
 
   /* Group frame */
-  --board-group-bg: rgba(132, 135, 242, 0.05);
-  --board-group-border: rgba(132, 135, 242, 0.28);
+  --board-group-bg: rgba(132, 135, 242, 0.07);
+  --board-group-border: rgba(132, 135, 242, 0.34);
 
   /* Selection ring */
   --board-node-ring: rgba(132, 135, 242, 0.45);
   --board-node-selection: #8487f2;
 
   /* Connections */
-  --board-edge-color: rgba(154, 160, 184, 0.7);
+  --board-edge-color: rgba(173, 179, 199, 0.66);
   --board-edge-active-color: #8487f2;
 
   /* Snap / box-select */
@@ -144,9 +144,9 @@
   --board-box-select-stroke: rgba(132, 135, 242, 0.7);
 
   /* Handles */
-  --board-node-handle-bg: #171a22;
-  --board-node-handle-dot: rgba(170, 175, 200, 0.7);
-  --board-handle-shadow: rgba(0, 0, 0, 0.5);
+  --board-node-handle-bg: #202633;
+  --board-node-handle-dot: rgba(173, 179, 199, 0.72);
+  --board-handle-shadow: rgba(0, 0, 0, 0.38);
 
   /* Node color presets — slightly lifted for dark surfaces */
   --board-preset-1: #f06783;

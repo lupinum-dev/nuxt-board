@@ -603,8 +603,8 @@ describe('BoardConnectionLayer', () => {
 
     dispatchPointerEvent(window, 'pointermove', {
       pointerId: 2,
-      clientX: 560,
-      clientY: 60,
+      clientX: 500,
+      clientY: 40,
     })
     await nextTick()
     await nextTick()
@@ -612,8 +612,8 @@ describe('BoardConnectionLayer', () => {
 
     dispatchPointerEvent(window, 'pointerup', {
       pointerId: 2,
-      clientX: 560,
-      clientY: 60,
+      clientX: 500,
+      clientY: 40,
     })
     await nextTick()
     await nextTick()
@@ -622,7 +622,7 @@ describe('BoardConnectionLayer', () => {
     expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
       to: target.id,
       fromAnchor: { side: 'right', offset: 0.25 },
-      toAnchor: undefined,
+      toAnchor: { side: 'left', offset: 0.25 },
     })
     wrapper.unmount()
   })
@@ -825,14 +825,14 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     dispatchPointerEvent(window, 'pointermove', {
       pointerId: 11,
-      clientX: 340,
+      clientX: 320,
       clientY: 80,
     })
     await nextTick()
     await nextTick()
     dispatchPointerEvent(window, 'pointerup', {
       pointerId: 11,
-      clientX: 340,
+      clientX: 320,
       clientY: 80,
     })
     await nextTick()
@@ -845,6 +845,69 @@ describe('BoardConnectionLayer', () => {
       fromAnchor: { side: 'right', offset: 0.5 },
       toAnchor: { side: 'left', offset: 0.5 },
     })
+    wrapper.unmount()
+  })
+
+  it('resets manual endpoint anchors back to auto from the edge toolbar', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 320,
+      y: 40,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+    const edge = engine.ext.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      fromAnchor: { side: 'right', offset: 0.25 },
+      toAnchor: { side: 'left', offset: 0.75 },
+      data: {},
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    const hit = query('[data-connection-hit="true"]')
+    dispatchPointerEvent(hit, 'pointerdown', {
+      pointerId: 12,
+      button: 0,
+      clientX: 240,
+      clientY: 80,
+    })
+    await nextTick()
+
+    const resetSource = query('[data-connection-reset-source-anchor]')
+    resetSource.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(engine.ext.connections.getEdge(edge.id)?.fromAnchor).toBeUndefined()
+    expect(engine.ext.connections.getEdge(edge.id)?.toAnchor).toEqual({
+      side: 'left',
+      offset: 0.75,
+    })
+
+    const resetAll = query('[data-connection-reset-target-anchor]')
+    resetAll.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await nextTick()
+    expect(engine.ext.connections.getEdge(edge.id)?.fromAnchor).toBeUndefined()
+    expect(engine.ext.connections.getEdge(edge.id)?.toAnchor).toBeUndefined()
     wrapper.unmount()
   })
 

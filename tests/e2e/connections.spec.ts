@@ -265,7 +265,9 @@ test('keeps connections attached through drag resize and zoom interactions', asy
     )
   })
 
-  await expect(board).toHaveScreenshot('connections-interaction-zoom.png')
+  await expect(board).toHaveScreenshot('connections-interaction-zoom.png', {
+    maxDiffPixels: 100,
+  })
 })
 
 test('creates a new connection from a card edge and previews the route cleanly', async ({

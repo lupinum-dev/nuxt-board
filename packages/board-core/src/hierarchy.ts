@@ -1,5 +1,5 @@
-import { pointInBounds } from './math'
-import type { Bounds, BoardNode, NodeId, Point } from './types'
+import { boundsContain } from './math'
+import type { Bounds, BoardNode, NodeId } from './types'
 
 export function getBoundsFromNode(
   node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
@@ -111,10 +111,7 @@ export function findContainingGroup(
   node: BoardNode,
   nodes: Map<NodeId, BoardNode>,
 ): NodeId | undefined {
-  const center: Point = {
-    x: node.x + node.width / 2,
-    y: node.y + node.height / 2,
-  }
+  const nodeBounds = getBoundsFromNode(node)
   const candidates: BoardNode[] = []
   for (const g of nodes.values()) {
     if (g.type !== 'group' || !g.visible) {
@@ -126,7 +123,7 @@ export function findContainingGroup(
     if (isStrictDescendantOf(g.id, node.id, nodes)) {
       continue
     }
-    if (!pointInBounds(center, getBoundsFromNode(g))) {
+    if (!boundsContain(getBoundsFromNode(g), nodeBounds)) {
       continue
     }
     candidates.push(g)

@@ -62,27 +62,76 @@ const screenGuides = computed(() => {
   inset: 0;
   pointer-events: none;
   z-index: 999999;
+  color: var(--board-snap-guide-color, var(--board-accent, #6366e8));
 }
 
 .board-snap-guide {
   position: absolute;
+  background: currentColor;
+  opacity: 0.95;
+  animation: board-snap-guide-in 120ms var(--board-ease-out, ease);
 }
 
 .board-snap-guide--vertical {
-  width: var(--board-snap-guide-width, 2px);
-  background: var(--board-snap-guide-color, #0f766e);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 0 var(--board-snap-guide-glow-size, 18px) -4px
-      var(--board-snap-guide-color, #0f766e);
+  width: 1px;
+  transform: translateX(-0.5px);
 }
 
 .board-snap-guide--horizontal {
-  height: var(--board-snap-guide-width, 2px);
-  background: var(--board-snap-guide-color, #0f766e);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 0 var(--board-snap-guide-glow-size, 18px) -4px
-      var(--board-snap-guide-color, #0f766e);
+  height: 1px;
+  transform: translateY(-0.5px);
+}
+
+/* Crisp tick caps at each end, like Figma's alignment hints. */
+.board-snap-guide::before,
+.board-snap-guide::after {
+  content: '';
+  position: absolute;
+  background: currentColor;
+}
+
+.board-snap-guide--vertical::before,
+.board-snap-guide--vertical::after {
+  left: -3px;
+  width: 7px;
+  height: 1px;
+}
+
+.board-snap-guide--vertical::before {
+  top: -0.5px;
+}
+
+.board-snap-guide--vertical::after {
+  bottom: -0.5px;
+}
+
+.board-snap-guide--horizontal::before,
+.board-snap-guide--horizontal::after {
+  top: -3px;
+  width: 1px;
+  height: 7px;
+}
+
+.board-snap-guide--horizontal::before {
+  left: -0.5px;
+}
+
+.board-snap-guide--horizontal::after {
+  right: -0.5px;
+}
+
+@keyframes board-snap-guide-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.95;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-snap-guide {
+    animation: none;
+  }
 }
 </style>

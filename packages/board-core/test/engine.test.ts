@@ -662,7 +662,7 @@ describe('board engine', () => {
       })
     })
 
-    it('reparents when a node center moves into a group and clears parent when moving out', () => {
+    it('reparents when a node moves fully into a group and clears parent when moving out', () => {
       const engine = createBoardEngine({ grid: { snap: false } })
       const group = engine.createNode({
         type: 'group',
@@ -693,6 +693,37 @@ describe('board engine', () => {
       engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: 250, y: 0 })
       engine.endInteraction(1)
+      expect(
+        engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
+      ).toBeUndefined()
+    })
+
+    it('does not reparent a dragged node that is only partially inside a group', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+        select: false,
+      })
+      const loose = engine.createNode({
+        type: 'text',
+        x: 300,
+        y: 80,
+        width: 80,
+        height: 60,
+        select: false,
+        data: { content: 'partial' },
+      })
+      engine.syncGroupZOrder(group.id)
+
+      engine.select([loose.id])
+      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: -140, y: 0 })
+      engine.endInteraction(1)
+
       expect(
         engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
       ).toBeUndefined()
@@ -734,6 +765,165 @@ describe('board engine', () => {
       expect(snapshot.nodes.find((node) => node.id === card.id)?.parentId).toBe(
         group.id,
       )
+    })
+
+    it('captures every fully contained stationary node when a group is dragged over a set', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 360,
+        height: 260,
+        select: false,
+      })
+      const cards = [
+        engine.createNode({
+          type: 'text',
+          x: 460,
+          y: 40,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'one' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 640,
+          y: 40,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'two' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 460,
+          y: 150,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'three' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 640,
+          y: 150,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'four' },
+        }),
+      ]
+      engine.syncGroupZOrder(group.id)
+
+      engine.select([group.id])
+      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 420, y: 0 })
+      engine.endInteraction(1)
+
+      const snapshot = engine.getSnapshot()
+      expect(
+        cards.map(
+          (card) =>
+            snapshot.nodes.find((node) => node.id === card.id)?.parentId,
+        ),
+      ).toEqual([group.id, group.id, group.id, group.id])
+    })
+
+    it('captures every fully contained stationary node when a group is resized around a set', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 220,
+        height: 180,
+        select: false,
+      })
+      const cards = [
+        engine.createNode({
+          type: 'text',
+          x: 260,
+          y: 40,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'one' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 420,
+          y: 40,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'two' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 260,
+          y: 170,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'three' },
+        }),
+        engine.createNode({
+          type: 'text',
+          x: 420,
+          y: 170,
+          width: 100,
+          height: 70,
+          select: false,
+          data: { content: 'four' },
+        }),
+      ]
+      engine.syncGroupZOrder(group.id)
+
+      engine.beginResize(group.id, 'se', 1, { x: 220, y: 180 })
+      engine.updatePointer(1, { x: 560, y: 280 })
+      engine.endInteraction(1)
+
+      const snapshot = engine.getSnapshot()
+      expect(
+        cards.map(
+          (card) =>
+            snapshot.nodes.find((node) => node.id === card.id)?.parentId,
+        ),
+      ).toEqual([group.id, group.id, group.id, group.id])
+    })
+
+    it('does not capture stationary nodes that are only partially inside a moved group', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 220,
+        height: 180,
+        select: false,
+      })
+      const card = engine.createNode({
+        type: 'text',
+        x: 430,
+        y: 40,
+        width: 80,
+        height: 60,
+        select: false,
+        data: { content: 'partial' },
+      })
+      engine.syncGroupZOrder(group.id)
+
+      engine.select([group.id])
+      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 260, y: 0 })
+      engine.endInteraction(1)
+
+      expect(
+        engine.getSnapshot().nodes.find((node) => node.id === card.id)
+          ?.parentId,
+      ).toBeUndefined()
     })
 
     it('picks the smallest containing group when nested', () => {
