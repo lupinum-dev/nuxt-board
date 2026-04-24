@@ -18,17 +18,17 @@ const emit = defineEmits<{
 }>()
 
 const btn =
-  'flex items-center justify-center h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
+  'flex items-center justify-center h-10 sm:h-8 px-3 border-none font-sans text-[13px] font-medium rounded-[10px] cursor-pointer whitespace-nowrap transition-colors active:scale-[0.97]'
 const btnOff =
   'bg-transparent text-stone-600 hover:bg-black/5 hover:text-stone-900'
 const btnOn = 'bg-stone-900 text-white hover:bg-stone-800'
 const sq =
-  'flex items-center justify-center w-8 h-8 border-none font-sans rounded-[10px] cursor-pointer transition-colors active:scale-[0.97]'
+  'flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 border-none font-sans rounded-[10px] cursor-pointer transition-colors active:scale-[0.97]'
 </script>
 
 <template>
   <header
-    class="fixed top-4 left-1/2 z-50 -translate-x-1/2 flex items-center gap-0.5 p-1 glass border border-black/6 rounded-[14px] shadow-float"
+    class="fixed top-2 left-2 right-2 z-50 flex flex-wrap items-center justify-center gap-1 p-1 glass border border-black/6 rounded-[14px] shadow-float sm:top-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:flex-nowrap sm:gap-0.5"
   >
     <!-- Brand -->
     <div
@@ -54,13 +54,16 @@ const sq =
       <span>board</span>
     </div>
 
-    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+    <i
+      class="hidden sm:block w-px h-5 mx-0.5 bg-black/12 shrink-0"
+      aria-hidden="true"
+    />
 
     <!-- Scene -->
     <div class="flex items-center gap-0.5">
       <select
         v-model="selectedScene"
-        class="appearance-none h-8 pl-2.5 pr-[26px] border-none bg-transparent select-chevron font-sans text-[13px] font-medium text-stone-600 rounded-[10px] cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:-outline-offset-1"
+        class="appearance-none h-10 sm:h-8 pl-2.5 pr-[26px] border-none bg-transparent select-chevron font-sans text-[13px] font-medium text-stone-600 rounded-[10px] cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900 focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:-outline-offset-1"
         aria-label="Scene size"
       >
         <option :value="25">25 nodes</option>
@@ -70,7 +73,10 @@ const sq =
       <button :class="[btn, btnOff]" @click="emit('seed')">Seed</button>
     </div>
 
-    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+    <i
+      class="hidden sm:block w-px h-5 mx-0.5 bg-black/12 shrink-0"
+      aria-hidden="true"
+    />
 
     <!-- Grid / Snap -->
     <div class="flex items-center gap-0.5">
@@ -88,7 +94,10 @@ const sq =
       </button>
     </div>
 
-    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+    <i
+      class="hidden sm:block w-px h-5 mx-0.5 bg-black/12 shrink-0"
+      aria-hidden="true"
+    />
 
     <button :class="[btn, btnOff]" @click="emit('fit')">Fit</button>
 
@@ -101,7 +110,10 @@ const sq =
       Group
     </button>
 
-    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+    <i
+      class="hidden sm:block w-px h-5 mx-0.5 bg-black/12 shrink-0"
+      aria-hidden="true"
+    />
 
     <!-- Add image -->
     <button :class="[sq, btnOff]" title="Add image" @click="emit('addImage')">
@@ -121,7 +133,10 @@ const sq =
       </svg>
     </button>
 
-    <i class="block w-px h-5 mx-0.5 bg-black/12 shrink-0" aria-hidden="true" />
+    <i
+      class="hidden sm:block w-px h-5 mx-0.5 bg-black/12 shrink-0"
+      aria-hidden="true"
+    />
 
     <!-- View toggles -->
     <div class="flex items-center gap-px">

@@ -315,7 +315,9 @@ onMounted(async () => {
       ref="imageFileInput"
       type="file"
       accept="image/*"
-      class="sr-only"
+      aria-hidden="true"
+      class="hidden"
+      tabindex="-1"
       @change="onImageFileSelected"
     />
 
@@ -368,11 +370,16 @@ onMounted(async () => {
 }
 
 :deep(.board-node.is-selected) {
-  outline: 2px solid var(--color-teal-600);
+  outline: 2px solid var(--board-node-color-ring, var(--color-teal-600));
   outline-offset: -1px;
   box-shadow:
-    0 0 0 4px rgba(13, 148, 136, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.06);
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    0 4px 12px -4px rgba(0, 0, 0, 0.04);
+}
+
+:deep(.board-node.is-colored:not(.is-group)) {
+  border-color: var(--board-node-color);
+  background: var(--board-node-tint);
 }
 
 :deep(.board-node.is-locked) {
@@ -394,11 +401,5 @@ onMounted(async () => {
 :deep(.board-node-simple) {
   border-color: rgba(28, 25, 23, 0.1);
   border-radius: 6px;
-}
-
-:deep(.board-node-handle) {
-  background: white;
-  border: 1.5px solid var(--color-teal-600);
-  border-radius: 2px;
 }
 </style>

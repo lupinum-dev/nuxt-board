@@ -133,7 +133,7 @@ body {
 .demo-toggle-group button.active {
   color: var(--ui-primary);
   background: var(--ui-bg);
-  box-shadow: var(--ui-shadow-xs);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 
 .demo-history-badge {

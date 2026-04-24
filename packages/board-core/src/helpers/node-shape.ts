@@ -14,6 +14,7 @@ export function materializeNode<
     width: node.width,
     height: node.height,
     data: cloneData(node.data),
+    ...(node.color !== undefined ? { color: node.color } : {}),
     zIndex: node.zIndex,
     locked: node.locked,
     visible: node.visible,

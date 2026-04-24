@@ -49,6 +49,47 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
   await expect.poll(totalNodes).toBe(created.count)
 })
 
+test('supports multiline text editing inside a node', async ({ page }) => {
+  await page.goto('/')
+
+  const created = await page.evaluate(() => {
+    const api = (
+      window as unknown as {
+        __boardPlayground: {
+          engine: {
+            createNode: (input: Record<string, unknown>) => { id: string }
+            getSnapshot: () => { nodes: unknown[] }
+          }
+        }
+      }
+    ).__boardPlayground
+    const node = api.engine.createNode({
+      type: 'text',
+      x: 420,
+      y: 220,
+      data: { content: 'First line' },
+    })
+    return { id: node.id, count: api.engine.getSnapshot().nodes.length }
+  })
+
+  const createdNode = page.locator(`[data-node-id="${created.id}"]`)
+  await createdNode.dblclick()
+
+  const editor = page.locator('textarea[data-editor="true"]')
+  await expect(editor).toBeFocused()
+  await editor.fill('First line')
+  await editor.press('End')
+  await editor.press('Enter')
+  await editor.type('Second line')
+  await expect(editor).toHaveValue('First line\nSecond line')
+
+  await editor.press(
+    process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter',
+  )
+  await expect(createdNode).toContainText('First line')
+  await expect(createdNode).toContainText('Second line')
+})
+
 test('supports alt-drag duplication and benchmark reporting', async ({
   page,
 }) => {
@@ -126,4 +167,158 @@ test('renders connections, minimap, and serializer helpers', async ({
     return api.exportJsonCanvas().length
   })
   expect(exportedLength).toBeGreaterThan(10)
+})
+
+test('colors selected cards and groups through the selection toolbar', async ({
+  page,
+}) => {
+  await page.goto('/')
+
+  const setup = await page.evaluate(() => {
+    const api = (
+      window as unknown as {
+        __boardPlayground: {
+          engine: {
+            createNode: (input: Record<string, unknown>) => { id: string }
+            select: (ids: string[]) => void
+          }
+        }
+      }
+    ).__boardPlayground
+    const card = api.engine.createNode({
+      type: 'text',
+      x: 420,
+      y: 240,
+      width: 220,
+      height: 120,
+      data: { content: 'Color card' },
+    })
+    const group = api.engine.createNode({
+      type: 'group',
+      x: 380,
+      y: 200,
+      width: 320,
+      height: 220,
+      data: { title: 'Color group' },
+    })
+    api.engine.select([card.id, group.id])
+    return { cardId: card.id, groupId: group.id }
+  })
+
+  await page.locator('[data-node-color-menu-button="true"]').click()
+  await page.locator('[data-node-color-option="6"]').click()
+
+  const result = await page.evaluate(({ cardId, groupId }) => {
+    const api = (
+      window as unknown as {
+        __boardPlayground: {
+          engine: {
+            getSnapshot: () => {
+              nodes: Array<{ id: string; color?: string }>
+            }
+          }
+          exportJsonCanvas: () => string
+        }
+      }
+    ).__boardPlayground
+    const snapshot = api.engine.getSnapshot()
+    const exported = JSON.parse(api.exportJsonCanvas()) as {
+      nodes: Array<{ id: string; color?: string }>
+    }
+    return {
+      card: snapshot.nodes.find((node) => node.id === cardId),
+      group: snapshot.nodes.find((node) => node.id === groupId),
+      exportedCard: exported.nodes.find((node) => node.id === cardId),
+      exportedGroup: exported.nodes.find((node) => node.id === groupId),
+    }
+  }, setup)
+
+  expect(result.card?.color).toBe('6')
+  expect(result.group?.color).toBe('6')
+  expect(result.exportedCard?.color).toBe('6')
+  expect(result.exportedGroup?.color).toBe('6')
+  await expect(page.locator(`[data-node-id="${setup.cardId}"]`)).toHaveClass(
+    /is-colored/,
+  )
+})
+
+test('dragging a group over cards captures them as children', async ({
+  page,
+}) => {
+  await page.goto('/')
+
+  const setup = await page.evaluate(() => {
+    const api = (
+      window as unknown as {
+        __boardPlayground: {
+          engine: {
+            createNode: (input: Record<string, unknown>) => { id: string }
+            select: (ids: string[]) => void
+            syncGroupZOrder: (id: string) => void
+          }
+        }
+      }
+    ).__boardPlayground
+    const group = api.engine.createNode({
+      type: 'group',
+      x: 320,
+      y: 220,
+      width: 220,
+      height: 180,
+      data: { title: 'Capture group' },
+    })
+    const card = api.engine.createNode({
+      type: 'text',
+      x: 720,
+      y: 260,
+      width: 120,
+      height: 80,
+      data: { content: 'Captured card' },
+    })
+    api.engine.syncGroupZOrder(group.id)
+    api.engine.select([group.id])
+    return { groupId: group.id, cardId: card.id }
+  })
+
+  const group = page.locator(`[data-node-id="${setup.groupId}"]`)
+  const card = page.locator(`[data-node-id="${setup.cardId}"]`)
+  const groupBox = await group.boundingBox()
+  const cardBox = await card.boundingBox()
+  if (!groupBox || !cardBox) {
+    throw new Error('Missing group or card bounds')
+  }
+
+  await page.mouse.move(
+    groupBox.x + groupBox.width / 2,
+    groupBox.y + groupBox.height / 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    cardBox.x + cardBox.width / 2,
+    cardBox.y + cardBox.height / 2,
+    { steps: 10 },
+  )
+  await page.mouse.up()
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate((id) => {
+          const api = (
+            window as unknown as {
+              __boardPlayground: {
+                engine: {
+                  getSnapshot: () => {
+                    nodes: Array<{ id: string; parentId?: string }>
+                  }
+                }
+              }
+            }
+          ).__boardPlayground
+          return api.engine.getSnapshot().nodes.find((node) => node.id === id)
+            ?.parentId
+        }, setup.cardId),
+      { message: 'card should be parented to the moved group' },
+    )
+    .toBe(setup.groupId)
 })

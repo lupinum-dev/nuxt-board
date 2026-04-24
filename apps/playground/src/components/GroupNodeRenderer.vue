@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const { engine } = useBoardEngine()
 
-type GroupData = { title?: string; accent?: string }
+type GroupData = { title?: string }
 
 const data = computed((): GroupData => (props.node.data ?? {}) as GroupData)
 
@@ -19,12 +19,6 @@ const title = computed(() =>
   typeof data.value.title === 'string' && data.value.title.length > 0
     ? data.value.title
     : 'Untitled group',
-)
-
-const accent = computed(() =>
-  typeof data.value.accent === 'string' && data.value.accent.length > 0
-    ? data.value.accent
-    : '#0d9488',
 )
 
 const draft = ref(title.value)
@@ -64,18 +58,7 @@ function cancel(): void {
 </script>
 
 <template>
-  <div
-    class="group-node"
-    :style="
-      {
-        '--accent': accent,
-        '--accent-bg': accent + '0a',
-        '--accent-border': accent + '55',
-        '--accent-glow': accent + '30',
-      } as any
-    "
-    :class="{ 'is-selected': selected }"
-  >
+  <div class="group-node" :class="{ 'is-selected': selected }">
     <div class="group-node__label">
       <input
         v-if="editing"
@@ -100,13 +83,15 @@ function cancel(): void {
   height: 100%;
   border-radius: inherit;
   overflow: visible;
-  border: calc(2px / var(--board-zoom, 1)) solid var(--accent-border);
-  background: var(--accent-bg);
+  border: calc(2px / var(--board-zoom, 1)) solid
+    var(--board-node-color-soft, var(--board-group-border));
+  background: var(--board-node-tint, var(--board-group-bg));
 }
 
 .group-node.is-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--accent-glow);
+  border-color: var(--board-node-color, var(--board-node-selection));
+  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1))
+    var(--board-node-color-soft, transparent);
 }
 
 .group-node__label {
@@ -123,7 +108,7 @@ function cancel(): void {
   max-width: 100%;
   padding: 3px 10px;
   border-radius: 6px 6px 0 0;
-  background: var(--accent);
+  background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
   font-family:
     system-ui,
@@ -146,7 +131,7 @@ function cancel(): void {
   padding: 3px 10px;
   border: none;
   border-radius: 6px 6px 0 0;
-  background: var(--accent);
+  background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
   font-family:
     system-ui,

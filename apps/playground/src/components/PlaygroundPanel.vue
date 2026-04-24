@@ -23,12 +23,12 @@ const emit = defineEmits<{
 }>()
 
 const pbtn =
-  'flex-1 py-2 px-3.5 border border-black/12 bg-transparent font-sans text-[13px] font-medium text-stone-900 rounded-lg cursor-pointer transition-colors hover:bg-black/[0.03] hover:border-stone-400 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:-outline-offset-1'
+  'flex-1 min-w-0 min-h-10 py-2 px-3.5 border border-black/12 bg-transparent font-sans text-[13px] font-medium text-stone-900 rounded-lg cursor-pointer transition-colors hover:bg-black/[0.03] hover:border-stone-400 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:-outline-offset-1'
 </script>
 
 <template>
   <aside
-    class="fixed top-[68px] right-4 z-40 w-[264px] flex flex-col glass border border-black/6 rounded-xl shadow-float max-h-[calc(100vh-84px)] overflow-y-auto overscroll-contain panel-scroll pointer-events-auto"
+    class="playground-panel fixed z-40 flex flex-col glass border border-black/6 rounded-xl shadow-float overflow-y-auto overflow-x-hidden overscroll-contain panel-scroll pointer-events-auto"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 pt-3.5">
@@ -36,7 +36,7 @@ const pbtn =
         Settings
       </h2>
       <button
-        class="flex items-center justify-center w-6 h-6 border-none bg-transparent text-stone-400 rounded-md cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900"
+        class="flex items-center justify-center w-9 h-9 sm:w-6 sm:h-6 border-none bg-transparent text-stone-400 rounded-md cursor-pointer transition-colors hover:bg-black/5 hover:text-stone-900"
         aria-label="Close settings"
         @click="emit('close')"
       >
@@ -64,10 +64,10 @@ const pbtn =
           Grid
         </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="text-[13px] text-stone-600">Size</span>
+          <span class="min-w-0 text-[13px] text-stone-600">Size</span>
           <select
             v-model="gridSize"
-            class="appearance-none w-[110px] py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
           >
             <option :value="10">10 px</option>
             <option :value="20">20 px</option>
@@ -75,10 +75,10 @@ const pbtn =
           </select>
         </label>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="text-[13px] text-stone-600">Pattern</span>
+          <span class="min-w-0 text-[13px] text-stone-600">Pattern</span>
           <select
             v-model="gridPattern"
-            class="appearance-none w-[110px] py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
           >
             <option value="line">Line</option>
             <option value="dot">Dot</option>
@@ -95,10 +95,10 @@ const pbtn =
           Connections
         </h3>
         <label class="flex items-center justify-between gap-3 cursor-pointer">
-          <span class="text-[13px] text-stone-600">Style</span>
+          <span class="min-w-0 text-[13px] text-stone-600">Style</span>
           <select
             v-model="connectionRouting"
-            class="appearance-none w-[110px] py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
+            class="appearance-none min-h-10 w-[110px] shrink-0 py-1.5 pl-2.5 pr-7 border border-black/12 bg-white select-chevron font-sans text-[13px] text-stone-900 rounded-lg cursor-pointer transition-[border-color] hover:border-stone-400 focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/10"
           >
             <option value="bezier">Curve</option>
             <option value="smooth-step">Angled smooth</option>
@@ -131,7 +131,7 @@ const pbtn =
         >
           Data
         </h3>
-        <div class="flex gap-1.5">
+        <div class="flex min-w-0 gap-1.5">
           <button :class="pbtn" @click="emit('export')">Export</button>
           <button :class="pbtn" @click="emit('import')">Import</button>
         </div>
@@ -159,7 +159,7 @@ const pbtn =
               class="text-xs text-stone-600 whitespace-nowrap"
               v-html="shortcut.keys"
             />
-            <dd class="text-xs text-stone-400 text-right">
+            <dd class="min-w-0 text-xs text-stone-400 text-right">
               {{ shortcut.action }}
             </dd>
           </div>
@@ -186,3 +186,22 @@ const shortcuts = [
   { keys: 'Arrows', action: 'Nudge selection' },
 ]
 </script>
+
+<style scoped>
+.playground-panel {
+  top: 116px;
+  right: 0.5rem;
+  left: 0.5rem;
+  max-height: calc(100vh - 124px);
+}
+
+@media (min-width: 640px) {
+  .playground-panel {
+    top: 68px;
+    right: 1rem;
+    left: auto;
+    width: min(264px, calc(100vw - 2rem));
+    max-height: calc(100vh - 84px);
+  }
+}
+</style>

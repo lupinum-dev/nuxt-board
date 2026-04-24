@@ -8,6 +8,11 @@ import {
 
 const POINTER_DRAG_THRESHOLD = 6
 
+interface ActivePointer {
+  point: Point
+  type: string
+}
+
 type PendingPointerInteraction =
   | { kind: 'drag'; pointerId: number; startPoint: Point; nodeId: string }
   | {
@@ -65,7 +70,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   const { engine, rootElement, spacePressed, toLocalPoint } = options
 
   const pendingInteraction = shallowRef<PendingPointerInteraction | null>(null)
-  const activePointers = new Map<number, Point>()
+  const activePointers = new Map<number, ActivePointer>()
   let pinchActive = false
   let pinchPrevDistance = 0
   let pendingPointer: {
@@ -82,7 +87,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function getPinchDistance(): number {
-    const pts = [...activePointers.values()]
+    const pts = getActiveTouchPoints()
     const p1 = pts[0]
     const p2 = pts[1]
     if (!p1 || !p2) return 0
@@ -90,11 +95,17 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function getPinchMidpoint(): Point {
-    const pts = [...activePointers.values()]
+    const pts = getActiveTouchPoints()
     const p1 = pts[0]
     const p2 = pts[1]
     if (!p1 || !p2) return { x: 0, y: 0 }
     return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  }
+
+  function getActiveTouchPoints(): Point[] {
+    return [...activePointers.values()]
+      .filter((pointer) => pointer.type === 'touch')
+      .map((pointer) => pointer.point)
   }
 
   function startPointerInteraction(
@@ -250,11 +261,16 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
   function onPointerDown(event: PointerEvent): void {
     const localPoint = toLocalPoint(event.clientX, event.clientY)
-    activePointers.set(event.pointerId, localPoint)
+    activePointers.set(event.pointerId, {
+      point: localPoint,
+      type: event.pointerType,
+    })
 
-    if (activePointers.size === 2 && event.pointerType === 'touch') {
+    if (getActiveTouchPoints().length === 2 && event.pointerType === 'touch') {
       engine.endInteraction()
       rootElement.value?.setPointerCapture(event.pointerId)
+      clearPendingInteraction()
+      pendingPointer = null
       pinchActive = true
       pinchPrevDistance = getPinchDistance()
       return
@@ -277,7 +293,16 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
   function onPointerMove(event: PointerEvent): void {
     const localPoint = toLocalPoint(event.clientX, event.clientY)
-    activePointers.set(event.pointerId, localPoint)
+    const activePointer = activePointers.get(event.pointerId)
+
+    if (!activePointer) {
+      return
+    }
+
+    activePointers.set(event.pointerId, {
+      point: localPoint,
+      type: activePointer.type,
+    })
 
     if (pinchActive) {
       const newDist = getPinchDistance()
@@ -327,9 +352,10 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
 
     if (pinchActive) {
-      if (activePointers.size < 2) {
+      if (getActiveTouchPoints().length < 2) {
         pinchActive = false
         pinchPrevDistance = 0
+        clearPendingInteraction()
         engine.endInteraction()
       }
       return

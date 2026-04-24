@@ -51,8 +51,11 @@ const emit = defineEmits<{
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">JSON Canvas</p>
+      <label class="sidebar__eyebrow" for="json-canvas-editor">
+        JSON Canvas
+      </label>
       <textarea
+        id="json-canvas-editor"
         v-model="documentText"
         class="sidebar__textarea"
         spellcheck="false"
@@ -62,7 +65,9 @@ const emit = defineEmits<{
         <button class="sidebar__button" @click="emit('import')">
           Import JSON
         </button>
-        <span class="sidebar__status">{{ status }}</span>
+        <span class="sidebar__status" role="status" aria-live="polite">
+          {{ status }}
+        </span>
       </div>
     </div>
 

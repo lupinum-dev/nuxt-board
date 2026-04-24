@@ -12,10 +12,7 @@ function getData(node: BoardNode): { src?: string; alt?: string } {
 </script>
 
 <template>
-  <div
-    class="relative size-full overflow-hidden rounded-[inherit]"
-    :class="{ 'ring-2 ring-teal-600 ring-inset': selected }"
-  >
+  <div class="relative size-full overflow-hidden rounded-[inherit]">
     <img
       v-if="getData(node).src"
       :src="getData(node).src"

@@ -36,6 +36,8 @@ import BoardGrid from './BoardGrid.vue'
 import BoardNode from './BoardNode.vue'
 import BoardSnapGuides from './BoardSnapGuides.vue'
 import BoardViewport from './BoardViewport.vue'
+import BoardSelectionToolbar from './BoardSelectionToolbar.vue'
+import { resolveNodeColorStyle } from '../nodeColors'
 
 const props = defineProps({
   engine: {
@@ -66,6 +68,7 @@ const emit = defineEmits<{
 
 const rootElement = ref<HTMLElement | null>(null)
 const engine = props.engine ?? createBoardEngine()
+const ownsEngine = props.engine === undefined
 const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
 const renderersRef = shallowRef<BoardRendererRegistry>(props.renderers)
 
@@ -222,6 +225,9 @@ onBeforeUnmount(() => {
   for (const unsubscribe of unsubscribes) {
     unsubscribe()
   }
+  if (ownsEngine) {
+    engine.destroy()
+  }
 })
 </script>
 
@@ -230,6 +236,8 @@ onBeforeUnmount(() => {
     ref="rootElement"
     class="board-root"
     tabindex="0"
+    role="application"
+    aria-label="Board canvas"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -251,6 +259,7 @@ onBeforeUnmount(() => {
             node.width,
             node.height,
             node.zIndex,
+            node.color,
             node.lod,
             selectionSet.has(node.id),
             snapshot.interaction.mode === 'editing-text' &&
@@ -287,9 +296,14 @@ onBeforeUnmount(() => {
             node.width,
             node.height,
             node.zIndex,
+            node.color,
             node.lod,
           ]"
           class="board-node-simple"
+          :class="{
+            'is-colored': Boolean(node.color),
+            'is-group': node.type === 'group',
+          }"
           :data-node-id="node.id"
           :style="{
             left: node.x + 'px',
@@ -297,10 +311,12 @@ onBeforeUnmount(() => {
             width: node.width + 'px',
             height: node.height + 'px',
             zIndex: node.zIndex,
+            ...resolveNodeColorStyle(node.color),
           }"
         />
       </template>
     </BoardViewport>
+    <BoardSelectionToolbar />
     <BoardSnapGuides />
     <BoardBoxSelect>
       <template #default="slotProps">
@@ -324,13 +340,15 @@ onBeforeUnmount(() => {
     var(--ui-primary, #0f766e) 45%,
     transparent
   );
+  --board-node-selection: var(--ui-primary, #0f766e);
+  --board-node-handle-bg: var(--ui-bg, #fff);
+  --board-node-handle-dot: rgba(148, 163, 184, 0.72);
   --board-node-radius: 8px;
   --board-node-shadow:
     0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --board-node-shadow-hover:
-    0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --board-node-shadow-selected:
-    0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+    0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --board-node-shadow-selected: var(--board-node-shadow);
   --board-group-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.04));
   --board-group-border: var(--ui-border, rgba(15, 23, 42, 0.12));
   --board-accent: var(--ui-primary, #0f766e);
@@ -373,6 +391,15 @@ onBeforeUnmount(() => {
   contain: layout style paint;
 }
 
+.board-node-simple.is-colored {
+  border-color: var(--board-node-color);
+  background: var(--board-node-tint);
+}
+
+.board-node-simple.is-group {
+  border-style: dashed;
+}
+
 .board-node-simple::after {
   content: '';
   position: absolute;
@@ -401,12 +428,14 @@ onBeforeUnmount(() => {
     var(--ui-primary, #2dd4bf) 50%,
     transparent
   );
+  --board-node-selection: var(--ui-primary, #2dd4bf);
+  --board-node-handle-bg: var(--ui-bg-elevated, rgba(15, 23, 42, 0.96));
+  --board-node-handle-dot: rgba(148, 163, 184, 0.82);
   --board-node-shadow:
     0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
   --board-node-shadow-hover:
-    0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --board-node-shadow-selected:
-    0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+    0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --board-node-shadow-selected: var(--board-node-shadow);
   --board-group-bg: var(--ui-bg-elevated, rgba(148, 163, 184, 0.06));
   --board-group-border: var(--ui-border, rgba(148, 163, 184, 0.22));
   --board-accent: var(--ui-primary, #2dd4bf);

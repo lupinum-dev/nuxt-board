@@ -10,6 +10,7 @@ describe('json canvas serializer', () => {
       type: 'text',
       x: 10,
       y: 20,
+      color: '5',
       data: { content: 'Hello' },
     })
 
@@ -19,8 +20,10 @@ describe('json canvas serializer', () => {
 
     expect(snapshot.nodes[0]).toMatchObject({
       type: 'text',
+      color: '5',
       data: { content: 'Hello' },
     })
+    expect(document.nodes[0]).toMatchObject({ color: '5' })
   })
 
   it('uses custom type handlers when registered', () => {

@@ -1,8 +1,10 @@
 import {
   asNodeId,
+  isBoardColorPreset,
   type BoardSnapshot,
   type BoardEngine,
   type BoardNode,
+  type BoardColorPreset,
 } from '@lupinum/board-core'
 import type { AnchorSide, BoardEdge, EdgeEnd } from '@lupinum/board-connections'
 
@@ -15,6 +17,7 @@ export interface JsonCanvasNode {
   width: number
   height: number
   text?: string
+  color?: BoardColorPreset
   [key: string]: unknown
 }
 
@@ -87,6 +90,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       y: node.y,
       width: node.width,
       height: node.height,
+      color: node.color,
     }
 
     if (node.type === 'text') {
@@ -120,6 +124,7 @@ export function createJsonCanvasSerializer(): JsonCanvasSerializer {
       width: raw.width,
       height: raw.height,
       data,
+      color: isBoardColorPreset(raw.color) ? raw.color : undefined,
       zIndex: index + 1,
       locked: false,
       visible: true,

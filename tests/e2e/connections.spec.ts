@@ -4,12 +4,22 @@ test.describe.configure({ timeout: 60_000 })
 
 async function seedConnectionScene(page: Page) {
   await page.goto('/')
+  await page.waitForFunction(() =>
+    Boolean(
+      (
+        window as unknown as {
+          __boardPlayground?: { engine?: unknown }
+        }
+      ).__boardPlayground?.engine,
+    ),
+  )
   await page.evaluate(() => {
     const api = (
       window as unknown as {
         __boardPlayground: {
           engine: {
             importJSON: (snapshot: string, mode: 'replace' | 'merge') => void
+            zoomTo: (level: number, animated?: boolean) => Promise<void>
             ext: {
               connections: {
                 getEdges: () => Array<{ id: string }>
@@ -136,6 +146,30 @@ test('renders stable screenshots for connection routing styles', async ({
   await expect(board).toHaveScreenshot('connections-step.png')
 })
 
+test('keeps connection labels readable at low zoom', async ({ page }) => {
+  await seedConnectionScene(page)
+
+  await page.evaluate(async () => {
+    const api = (
+      window as unknown as {
+        __boardPlayground: {
+          engine: {
+            zoomTo: (level: number, animated?: boolean) => Promise<void>
+          }
+        }
+      }
+    ).__boardPlayground
+    await api.engine.zoomTo(0.12, false)
+  })
+
+  const labels = page.locator('[data-connection-label]')
+  await expect(labels).toHaveCount(4)
+  await expect(labels.filter({ hasText: 'clean' })).toBeVisible()
+  await expect(labels.filter({ hasText: 'rank' })).toBeVisible()
+  await expect(labels.filter({ hasText: 'emit' })).toBeVisible()
+  await expect(labels.filter({ hasText: 'merge' })).toBeVisible()
+})
+
 test('keeps connections attached through drag resize and zoom interactions', async ({
   page,
 }) => {
@@ -144,8 +178,7 @@ test('keeps connections attached through drag resize and zoom interactions', asy
   const board = page.locator('.board-root').first()
   await expect(board).toBeVisible()
 
-  const firstEdge = page.locator('[data-connection-hit="true"]').first()
-  await firstEdge.hover()
+  await page.locator('[data-connection-label]').first().hover()
   await expect(
     page.locator('[data-connection-handle="from"]').first(),
   ).toBeVisible()
@@ -260,28 +293,32 @@ test('creates a new connection from a card edge and previews the route cleanly',
     })
 
   const before = await countEdges()
-  const hotspot = page
-    .locator('[data-connection-node-id="input"][data-connection-side="right"]')
+  const input = page.locator('[data-node-id="input"]')
+  const inputBox = await input.boundingBox()
+  if (!inputBox) {
+    throw new Error('Missing input node bounds')
+  }
+  const start = {
+    x: inputBox.x + inputBox.width - 2,
+    y: inputBox.y + inputBox.height / 2,
+  }
+
+  await page.mouse.move(start.x, start.y)
+  const createHandle = page
+    .locator('[data-connection-create-handle="true"]')
     .first()
-  const hotspotBox = await hotspot.boundingBox()
-  if (!hotspotBox) {
-    throw new Error('Missing source hotspot bounds')
+  await expect(createHandle).toBeVisible()
+  const createHandleBox = await createHandle.boundingBox()
+  if (!createHandleBox) {
+    throw new Error('Missing source create handle bounds')
   }
 
   await page.mouse.move(
-    hotspotBox.x + hotspotBox.width / 2,
-    hotspotBox.y + hotspotBox.height / 2,
-  )
-  await expect(
-    page.locator('[data-connection-create-handle="true"]').first(),
-  ).toBeVisible()
-
-  await page.mouse.move(
-    hotspotBox.x + hotspotBox.width / 2,
-    hotspotBox.y + hotspotBox.height / 2,
+    createHandleBox.x + createHandleBox.width / 2,
+    createHandleBox.y + createHandleBox.height / 2,
   )
   await page.mouse.down()
-  await page.mouse.move(hotspotBox.x + 150, hotspotBox.y - 28, { steps: 10 })
+  await page.mouse.move(start.x + 150, start.y - 28, { steps: 10 })
   await expect(board).toHaveScreenshot('connections-create-edge-preview.png')
 
   const output = page.locator('[data-node-id="output"]')

@@ -118,6 +118,85 @@ test.describe('drag, resize, box-select, undo/redo, edge-create — refactor pin
     expect(Math.sign(after.y - before.y)).toBe(Math.sign(dy))
   })
 
+  test('dragging a selected node preserves and moves the full selection', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    const setup = await page.evaluate(() => {
+      const engine = (
+        window as unknown as { __boardPlayground: { engine: PlaygroundEngine } }
+      ).__boardPlayground.engine
+      const a = engine.createNode({
+        type: 'text',
+        x: 360,
+        y: 260,
+        width: 120,
+        height: 72,
+        data: { content: 'Multi A' },
+      })
+      const b = engine.createNode({
+        type: 'text',
+        x: 520,
+        y: 260,
+        width: 120,
+        height: 72,
+        data: { content: 'Multi B' },
+      })
+      engine.select([a.id, b.id])
+      return {
+        aId: a.id,
+        bId: b.id,
+        beforeA: engine.getNode(a.id),
+        beforeB: engine.getNode(b.id),
+        selection: engine.getSelection(),
+      }
+    })
+
+    expect(setup.selection).toEqual([setup.aId, setup.bId])
+
+    const dragSource = page.locator(`[data-node-id="${setup.aId}"]`)
+    const sourceBox = await dragSource.boundingBox()
+    if (!sourceBox) throw new Error('no bounding box for drag source')
+
+    const startX = sourceBox.x + sourceBox.width / 2
+    const startY = sourceBox.y + sourceBox.height / 2
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX + 96, startY + 48, { steps: 16 })
+    await page.mouse.up()
+
+    const result = await page.evaluate(
+      ({ aId, bId }) => {
+        const engine = (
+          window as unknown as {
+            __boardPlayground: { engine: PlaygroundEngine }
+          }
+        ).__boardPlayground.engine
+        return {
+          afterA: engine.getNode(aId),
+          afterB: engine.getNode(bId),
+          selection: engine.getSelection(),
+        }
+      },
+      { aId: setup.aId, bId: setup.bId },
+    )
+
+    expect(result.selection).toEqual([setup.aId, setup.bId])
+    expect(result.afterA.x).not.toBe(setup.beforeA.x)
+    expect(result.afterB.x).not.toBe(setup.beforeB.x)
+    expect(Math.sign(result.afterA.x - setup.beforeA.x)).toBe(1)
+    expect(Math.sign(result.afterB.x - setup.beforeB.x)).toBe(1)
+    expect(result.afterB.x - setup.beforeB.x).toBeCloseTo(
+      result.afterA.x - setup.beforeA.x,
+      5,
+    )
+    expect(result.afterB.y - setup.beforeB.y).toBeCloseTo(
+      result.afterA.y - setup.beforeA.y,
+      5,
+    )
+  })
+
   test('box-select selects nodes within the rectangle', async ({ page }) => {
     await page.goto('/')
 

@@ -48,6 +48,7 @@ const emit = defineEmits<{
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': showGrid }"
+        :aria-pressed="showGrid"
         @click="showGrid = !showGrid"
       >
         Grid
@@ -55,6 +56,7 @@ const emit = defineEmits<{
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': snapToGrid }"
+        :aria-pressed="snapToGrid"
         @click="snapToGrid = !snapToGrid"
       >
         Snap
@@ -62,6 +64,7 @@ const emit = defineEmits<{
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': showMinimap }"
+        :aria-pressed="showMinimap"
         @click="showMinimap = !showMinimap"
       >
         Minimap
@@ -69,6 +72,7 @@ const emit = defineEmits<{
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': showDiagnostics }"
+        :aria-pressed="showDiagnostics"
         @click="showDiagnostics = !showDiagnostics"
       >
         Diag
@@ -76,6 +80,7 @@ const emit = defineEmits<{
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': showPanel }"
+        :aria-pressed="showPanel"
         @click="showPanel = !showPanel"
       >
         Panel

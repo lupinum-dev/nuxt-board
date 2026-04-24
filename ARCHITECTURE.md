@@ -4,7 +4,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  L6  Framework integrations  (@lupinum/nuxt-board)           │
+│  L6  Framework integrations  (nuxt-board)                    │
 │  L5  Plugins                 (history, connections, …)       │
 │  L4  Components              (BoardRoot, BoardNode, …)       │
 │  L3  Adapters                (vue-board adapter)             │

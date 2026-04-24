@@ -10,7 +10,7 @@ export function defaultNodeData(type: string): NodeData {
     return { content: '' }
   }
   if (type === 'group') {
-    return { title: 'Untitled group', accent: '#0d9488' }
+    return { title: 'Untitled group' }
   }
   return {}
 }
@@ -25,6 +25,7 @@ export function normalizeExistingNode<R extends NodeTypeRegistry>(
   return {
     ...node,
     data: cloneData(node.data),
+    color: node.color,
     locked: Boolean(node.locked),
     visible: node.visible !== false,
     parentId,

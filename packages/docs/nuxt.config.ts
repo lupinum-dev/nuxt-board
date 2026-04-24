@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   ],
 
   devtools: {
-    enabled: true,
+    enabled: process.env.NUXT_DEVTOOLS === 'true',
   },
 
   css: ['~/assets/css/main.css'],
@@ -52,6 +52,9 @@ export default defineNuxtConfig({
   },
 
   alias: {
+    '@lupinum/vue-board/style.css': fileURLToPath(
+      new URL('../vue-board/dist/index.css', import.meta.url),
+    ),
     '@lupinum/board-core': fileURLToPath(
       new URL('../board-core/src/index.ts', import.meta.url),
     ),
@@ -105,7 +108,9 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    provider: 'iconify',
+    fetchTimeout: 10000,
+    provider: 'server',
+    serverBundle: 'local',
   },
 
   llms: {

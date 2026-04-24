@@ -6,6 +6,13 @@ export { createBatchController, createSubscribable } from './subscribable'
 export type { BatchController } from './subscribable'
 /** Identifier branding helpers for nodes and edges. */
 export { asEdgeId, asNodeId } from './types'
+/** Shared Obsidian-compatible node color presets. */
+export {
+  BOARD_COLOR_PRESETS,
+  colorForPreset,
+  isBoardColorPreset,
+  type BoardColorOption,
+} from './colors'
 /** Low-level action types emitted by reducer-backed commands. */
 export type { Action, NodeMoveDelta } from './state/actions'
 
@@ -61,6 +68,7 @@ export type {
   BoxSelectBehavior,
   BoxSelectMode,
   BoxSelectSettings,
+  BoardColorPreset,
   BoardSnapshot,
   BoardState,
   Bounds,

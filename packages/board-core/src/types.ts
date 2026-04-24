@@ -77,6 +77,9 @@ export type NodeData = Record<string, unknown>
 /** Registry mapping node type names to their payload shapes. */
 export type NodeTypeRegistry = Record<string, NodeData>
 
+/** Obsidian-compatible color preset stored on nodes and resolved by renderers. */
+export type BoardColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
+
 /** Public immutable node shape returned by snapshots, selectors, and commands. */
 export interface BoardNode<
   TType extends string = string,
@@ -89,6 +92,7 @@ export interface BoardNode<
   readonly width: number
   readonly height: number
   readonly data: TData
+  readonly color?: BoardColorPreset
   readonly zIndex: number
   readonly locked: boolean
   readonly visible: boolean
@@ -113,6 +117,7 @@ export interface NodeInput<
   width?: number
   height?: number
   data?: R[T]
+  color?: BoardColorPreset
   locked?: boolean
   visible?: boolean
   parentId?: NodeId
@@ -126,7 +131,15 @@ export type NodePatch<
 > = Partial<
   Pick<
     ResolvedNode<R, T>,
-    'x' | 'y' | 'width' | 'height' | 'data' | 'locked' | 'visible' | 'parentId'
+    | 'x'
+    | 'y'
+    | 'width'
+    | 'height'
+    | 'data'
+    | 'color'
+    | 'locked'
+    | 'visible'
+    | 'parentId'
   >
 >
 
@@ -321,6 +334,7 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
   readonly $interaction: Subscribable<InteractionState>
   readonly $snapGuides: Subscribable<readonly SnapGuide[]>
+  destroy(): void
   batch(fn: () => void): void
   getState(): BoardState<R>
   getSnapshot(): BoardSnapshot<R>

@@ -123,7 +123,7 @@ function groupNode(
   width: number,
   height: number,
   title: string,
-  accent: string,
+  color: DemoNode['color'],
   zIndex: number,
 ): DemoNode {
   return {
@@ -133,7 +133,8 @@ function groupNode(
     y,
     width,
     height,
-    data: { title, accent },
+    color,
+    data: { title },
     zIndex,
     locked: false,
     visible: true,
@@ -173,9 +174,9 @@ function snapshotFrom(
 
 function createWorkflowScene(): DemoScene {
   const nodes: DemoNode[] = [
-    groupNode('workflow-intake', 48, 56, 340, 320, 'Discovery', '#ef4444', 1),
-    groupNode('workflow-build', 430, 36, 430, 360, 'Delivery', '#0f766e', 2),
-    groupNode('workflow-launch', 910, 76, 300, 280, 'Launch', '#2563eb', 3),
+    groupNode('workflow-intake', 48, 56, 340, 320, 'Discovery', '1', 1),
+    groupNode('workflow-build', 430, 36, 430, 360, 'Delivery', '4', 2),
+    groupNode('workflow-launch', 910, 76, 300, 280, 'Launch', '5', 3),
     textNode(
       'brief',
       88,
@@ -289,9 +290,9 @@ function createWorkflowScene(): DemoScene {
 
 function createSystemsScene(): DemoScene {
   const nodes: DemoNode[] = [
-    groupNode('sys-web', 80, 100, 270, 270, 'Surface', '#7c3aed', 1),
-    groupNode('sys-platform', 410, 56, 420, 360, 'Platform', '#0f766e', 2),
-    groupNode('sys-ops', 876, 92, 330, 304, 'Ops', '#f59e0b', 3),
+    groupNode('sys-web', 80, 100, 270, 270, 'Surface', '6', 1),
+    groupNode('sys-platform', 410, 56, 420, 360, 'Platform', '4', 2),
+    groupNode('sys-ops', 876, 92, 330, 304, 'Ops', '2', 3),
     textNode(
       'landing',
       116,
@@ -368,7 +369,7 @@ function createDenseScene(): DemoScene {
   const edges: Array<Record<string, unknown>> = []
   const laneIds = ['dense-plan', 'dense-build', 'dense-ship']
   const laneTitles = ['Plan', 'Build', 'Ship']
-  const laneAccents = ['#dc2626', '#059669', '#2563eb']
+  const laneAccents = ['1', '4', '5'] as const
 
   for (let lane = 0; lane < laneIds.length; lane += 1) {
     nodes.push(
@@ -451,7 +452,7 @@ function createDenseScene(): DemoScene {
 
 function createPolishScene(): DemoScene {
   const nodes: DemoNode[] = [
-    groupNode('polish-flow', 56, 52, 1120, 520, 'Canvas Polish', '#0f766e', 1),
+    groupNode('polish-flow', 56, 52, 1120, 520, 'Canvas Polish', '4', 1),
     textNode(
       'polish-brief',
       104,
@@ -622,7 +623,9 @@ export function getDemoCounts(engine: BoardEngine): {
   }
 }
 
-export function wrapSelectionInGroup(engine: BoardEngine): void {
+export function wrapSelectionInGroup(
+  engine: BoardEngine,
+): 'created' | 'grouped' {
   const selection = engine.getSelection()
   const snapshot = engine.getSnapshot()
   const groupPadding = 32
@@ -641,19 +644,20 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
       y: Math.round(center.y - 130),
       width: 360,
       height: 260,
-      data: { title: 'New group', accent: '#ea580c' },
+      color: '2',
+      data: { title: 'New group' },
       select: false,
     })
     engine.sendToBack(group.id)
     engine.select(group.id)
-    return
+    return 'created'
   }
 
   const selectedNodes = snapshot.nodes.filter((node) =>
     selection.includes(node.id),
   )
   if (selectedNodes.length === 0) {
-    return
+    return 'created'
   }
 
   let minX = Infinity
@@ -675,7 +679,8 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
     y: minY - groupPadding,
     width: maxX - minX + groupPadding * 2,
     height: maxY - minY + groupPadding * 2,
-    data: { title: 'Selection group', accent: '#ea580c' },
+    color: '2',
+    data: { title: 'Selection group' },
     select: false,
   })
 
@@ -687,6 +692,7 @@ export function wrapSelectionInGroup(engine: BoardEngine): void {
   }
   engine.syncGroupZOrder(group.id)
   engine.select([group.id, ...selection.filter((id) => id !== group.id)])
+  return 'grouped'
 }
 
 export function getSceneSummary(id: DemoSceneId): DemoSceneOption {

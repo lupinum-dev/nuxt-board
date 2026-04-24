@@ -2,6 +2,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { createBoardEngine, type BoardPlugin } from '../src'
 
 describe('board engine', () => {
+  it('runs plugin cleanups once when destroyed', () => {
+    const cleanup = vi.fn()
+    const engine = createBoardEngine({
+      plugins: [
+        {
+          name: 'cleanup-test',
+          install() {
+            return cleanup
+          },
+        },
+      ],
+    })
+
+    engine.destroy()
+    engine.destroy()
+
+    expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps zoom anchored to the cursor', () => {
     const engine = createBoardEngine()
     const point = { x: 320, y: 240 }
@@ -41,6 +60,32 @@ describe('board engine', () => {
       x: 150,
       y: 70,
     })
+  })
+
+  it('creates, updates, copies, and pastes node colors', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      color: '4',
+      data: { content: 'Color' },
+    })
+
+    expect(node.color).toBe('4')
+
+    engine.updateNode(node.id, { color: '6' })
+    expect(engine.getNode(node.id).color).toBe('6')
+
+    engine.select([node.id])
+    const copied = engine.copySelected()
+    expect(copied[0]?.color).toBe('6')
+
+    const pasted = engine.pasteClipboard({ x: 100, y: 0 })
+    expect(pasted[0]?.color).toBe('6')
+
+    engine.updateNode(node.id, { color: undefined })
+    expect(engine.getNode(node.id).color).toBeUndefined()
   })
 
   it('locks node dragging to the dominant axis while shift is held', () => {
@@ -651,6 +696,44 @@ describe('board engine', () => {
       expect(
         engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
       ).toBeUndefined()
+    })
+
+    it('captures stationary nodes when a group is dragged over them', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const group = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 0,
+        width: 220,
+        height: 180,
+        select: false,
+      })
+      const card = engine.createNode({
+        type: 'text',
+        x: 340,
+        y: 40,
+        width: 80,
+        height: 60,
+        select: false,
+        data: { content: 'captured' },
+      })
+      engine.syncGroupZOrder(group.id)
+
+      engine.select([group.id])
+      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
+      engine.updatePointer(1, { x: 260, y: 0 })
+      engine.endInteraction(1)
+
+      const snapshot = engine.getSnapshot()
+      expect(snapshot.nodes.find((node) => node.id === group.id)).toMatchObject(
+        {
+          x: 260,
+          y: 0,
+        },
+      )
+      expect(snapshot.nodes.find((node) => node.id === card.id)?.parentId).toBe(
+        group.id,
+      )
     })
 
     it('picks the smallest containing group when nested', () => {

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import prettier from 'prettier'
 
 const root = process.cwd()
 
@@ -10,91 +11,6 @@ const packages = [
     description: 'Headless engine, math helpers, and shared types.',
     install: 'pnpm add @lupinum/board-core',
     source: 'packages/board-core/src/index.ts',
-  },
-  {
-    slug: '2.vue-board',
-    title: '@lupinum/vue-board',
-    description: 'Vue components and composables for interactive boards.',
-    install: 'pnpm add @lupinum/vue-board @lupinum/board-core',
-    source: 'packages/vue-board/src/index.ts',
-  },
-  {
-    slug: '3.nuxt-board',
-    title: '@lupinum/nuxt-board',
-    description: 'Nuxt module with component and composable auto-imports.',
-    install: 'pnpm add @lupinum/nuxt-board',
-    manualSections: [
-      {
-        heading: 'Module options',
-        rows: [
-          [
-            '`prefix`',
-            'string',
-            'Prefixes auto-imported board component names.',
-          ],
-          [
-            '`autoImportComponents`',
-            'boolean',
-            'Enables `Board*` component auto-imports.',
-          ],
-          [
-            '`autoImportComposables`',
-            'boolean',
-            'Enables `useBoardEngine`, `useCamera`, and related composables.',
-          ],
-        ],
-      },
-      {
-        heading: 'Auto-imports',
-        rows: [
-          [
-            'Components',
-            '`BoardRoot`, `BoardViewport`, `BoardNode`, `BoardNodeHandle`, `BoardGrid`, `BoardBoxSelect`, `BoardSnapGuides`',
-            'Template globals injected by the module.',
-          ],
-          [
-            'Composables',
-            '`useBoardEngine`, `useCamera`, `useNodes`, `useSelection`, `useInteraction`, `useVisibleBounds`, `useVisibleNodes`, `useGridStyle`, `useNode`, `useBoxSelectBounds`, `createBoardEngine`',
-            'Runtime helpers available without manual imports.',
-          ],
-        ],
-      },
-    ],
-  },
-  {
-    slug: '4.board-connections',
-    title: '@lupinum/board-connections',
-    description: 'Edge data model, routing helpers, and connection layer.',
-    install: 'pnpm add @lupinum/board-connections @lupinum/vue-board',
-    source: 'packages/board-connections/src/index.ts',
-  },
-  {
-    slug: '5.board-minimap',
-    title: '@lupinum/board-minimap',
-    description: 'Minimap composable and renderer for large boards.',
-    install: 'pnpm add @lupinum/board-minimap @lupinum/vue-board',
-    source: 'packages/board-minimap/src/index.ts',
-  },
-  {
-    slug: '6.board-history',
-    title: '@lupinum/board-history',
-    description: 'Undo and redo support.',
-    install: 'pnpm add @lupinum/board-history @lupinum/board-core',
-    source: 'packages/board-history/src/index.ts',
-  },
-  {
-    slug: '7.board-selection',
-    title: '@lupinum/board-selection',
-    description: 'Selection helpers for current snapshots.',
-    install: 'pnpm add @lupinum/board-selection @lupinum/board-core',
-    source: 'packages/board-selection/src/index.ts',
-  },
-  {
-    slug: '8.board-serializer',
-    title: '@lupinum/board-serializer',
-    description: 'JSON Canvas import and export helpers.',
-    install: 'pnpm add @lupinum/board-serializer @lupinum/board-core',
-    source: 'packages/board-serializer/src/index.ts',
   },
 ]
 
@@ -262,19 +178,33 @@ function table(rows) {
   ].join('\n')
 }
 
+function anchorFor(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
+function exportDetails(entries) {
+  return entries
+    .map((entry) => {
+      const notes = entry.notes || `Exported from this package.`
+      return `### ${entry.name}\n\n${notes}\n\nKind: \`${entry.kind}\`.`
+    })
+    .join('\n\n')
+}
+
 async function writePackageDoc(pkg) {
-  const target = resolve(root, 'packages/docs/content/4.api', `${pkg.slug}.md`)
+  const target = resolve(root, 'packages/docs/content/6.api', `${pkg.slug}.md`)
   const sections = []
 
   if (pkg.source) {
     const source = await readFile(resolve(root, pkg.source), 'utf8')
     const exports = parseExports(source)
     const rows = exports.map((entry) => [
-      `\`${entry.name}\``,
+      `[\`${entry.name}\`](#${anchorFor(entry.name)})`,
       entry.kind,
       entry.notes || `Exported from \`${pkg.title}\`.`,
     ])
     sections.push(`## Exports\n\n${table(rows)}`)
+    sections.push(`## Export Details\n\n${exportDetails(exports)}`)
   }
 
   for (const section of pkg.manualSections ?? []) {
@@ -296,7 +226,12 @@ ${sections.join('\n\n')}
 `
 
   await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, body)
+  const prettierOptions = await prettier.resolveConfig(target)
+  const formatted = await prettier.format(body, {
+    ...prettierOptions,
+    filepath: target,
+  })
+  await writeFile(target, formatted)
 }
 
 await Promise.all(packages.map(writePackageDoc))

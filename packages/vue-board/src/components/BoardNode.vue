@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import type { BoardNode, ResizeHandle } from '@lupinum/board-core'
 import { useBoardEngine } from '../useBoardEngine'
+import { resolveNodeColorStyle } from '../nodeColors'
 import BoardNodeHandle from './BoardNodeHandle.vue'
 
 const props = defineProps<{
@@ -24,6 +25,7 @@ const style = computed(() => ({
   width: `${props.node.width}px`,
   height: `${props.node.height}px`,
   zIndex: String(props.node.zIndex),
+  ...resolveNodeColorStyle(props.node.color),
 }))
 
 const slotProps = computed(() => ({
@@ -40,6 +42,19 @@ const hasCustomRenderer = computed(() =>
   props.customRenderer !== undefined
     ? props.customRenderer
     : Boolean(slots.default),
+)
+
+const accessibleLabel = computed(() => {
+  if (props.node.type === 'text') {
+    return getTextContent(props.node) || 'Empty text node'
+  }
+  return `${props.node.type} node`
+})
+
+const editorHelp = computed(() =>
+  `${props.node.id}-editor-help`
+    .replace(/[^A-Za-z0-9_-]/g, '-')
+    .replace(/-+/g, '-'),
 )
 
 watch(
@@ -73,6 +88,41 @@ function cancel(): void {
   engine.endInteraction()
 }
 
+function onEditorKeydown(event: KeyboardEvent): void {
+  event.stopPropagation()
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    cancel()
+    return
+  }
+
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault()
+    commit()
+  }
+}
+
+function beginKeyboardEdit(event: KeyboardEvent): void {
+  if (isEditingTarget(event.target)) {
+    return
+  }
+  event.preventDefault()
+  engine.beginTextEdit(props.node.id)
+}
+
+function selectOnFocus(): void {
+  if (!props.selected) {
+    engine.select(props.node.id)
+  }
+}
+
+function isEditingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement && Boolean(target.closest('[data-editor]'))
+  )
+}
+
 function getTextContent(node: BoardNode): string {
   if (node.type !== 'text') {
     return ''
@@ -90,26 +140,39 @@ function getTextContent(node: BoardNode): string {
       'is-editing': editing,
       'is-locked': node.locked,
       'is-group': node.type === 'group',
+      'is-colored': Boolean(node.color),
     }"
     :style="style"
     :data-node-id="node.id"
+    tabindex="0"
+    role="button"
+    :aria-label="accessibleLabel"
+    :aria-selected="selected"
+    @focus="selectOnFocus"
+    @keydown.enter.stop="beginKeyboardEdit"
   >
     <!-- Custom renderer / user-provided slot -->
     <slot v-if="hasCustomRenderer" v-bind="slotProps" />
 
     <!-- Built-in text display / editing (no custom renderer) -->
     <template v-else>
-      <textarea
-        v-if="editing && node.type === 'text'"
-        ref="textareaRef"
-        v-model="draft"
-        class="board-node__editor"
-        data-editor="true"
-        @blur="commit"
-        @keydown.enter.meta.prevent="commit"
-        @keydown.enter.ctrl.prevent="commit"
-        @keydown.esc.prevent="cancel"
-      />
+      <template v-if="editing && node.type === 'text'">
+        <textarea
+          ref="textareaRef"
+          v-model="draft"
+          class="board-node__editor"
+          data-editor="true"
+          :aria-describedby="editorHelp"
+          spellcheck="true"
+          @blur="commit"
+          @keydown="onEditorKeydown"
+          @pointerdown.stop
+          @dblclick.stop
+        />
+        <span :id="editorHelp" class="board-node__editor-help">
+          Enter inserts a new line. Control Enter or Command Enter saves.
+        </span>
+      </template>
       <div v-else class="board-node__content">
         <template v-if="node.type === 'text'">
           {{ getTextContent(node) || 'Double-click to edit' }}
@@ -150,28 +213,38 @@ function getTextContent(node: BoardNode): string {
     border-color 140ms ease,
     box-shadow 140ms ease,
     background-color 140ms ease,
-    outline-color 140ms ease,
-    transform 140ms ease;
+    outline-color 140ms ease;
 }
 
 .board-node:hover:not(.is-group):not(.is-editing) {
   border-color: var(--board-node-border-hover, rgba(100, 116, 139, 0.42));
-  box-shadow: var(--board-node-shadow-hover, 0 4px 12px rgba(0, 0, 0, 0.08));
-  transform: translateY(calc(-1px / var(--board-zoom, 1)));
+  box-shadow: var(--board-node-shadow-hover, 0 2px 8px rgba(0, 0, 0, 0.08));
+}
+
+.board-node:focus-visible {
+  outline: calc(3px / var(--board-zoom, 1)) solid
+    var(--board-node-ring, rgba(15, 118, 110, 0.58));
+  outline-offset: calc(3px / var(--board-zoom, 1));
 }
 
 .board-node.is-selected {
-  outline: calc(2.5px / var(--board-zoom, 1)) solid
-    var(--board-node-ring, rgba(15, 118, 110, 0.38));
-  outline-offset: calc(1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
+  outline: calc(2px / var(--board-zoom, 1)) solid
+    var(
+      --board-node-color-ring,
+      var(--board-node-selection, var(--board-accent, #0f766e))
+    );
+  outline-offset: calc(-1px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow-selected, var(--board-node-shadow, none));
 }
 
 .board-node.is-editing {
-  outline: calc(2.5px / var(--board-zoom, 1)) solid
-    var(--board-node-ring, rgba(15, 118, 110, 0.38));
-  outline-offset: calc(1px / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow-selected, 0 4px 16px rgba(0, 0, 0, 0.1));
+  outline: calc(2px / var(--board-zoom, 1)) solid
+    var(
+      --board-node-color-ring,
+      var(--board-node-selection, var(--board-accent, #0f766e))
+    );
+  outline-offset: calc(-1px / var(--board-zoom, 1));
+  box-shadow: var(--board-node-shadow-selected, var(--board-node-shadow, none));
 }
 
 .board-node.is-locked {
@@ -185,7 +258,21 @@ function getTextContent(node: BoardNode): string {
   border-color: var(--board-group-border, rgba(15, 23, 42, 0.12));
   outline: none;
   box-shadow: none;
-  transform: none;
+}
+
+.board-node.is-colored:not(.is-group) {
+  background: var(--board-node-tint);
+  border-color: var(--board-node-color);
+}
+
+.board-node.is-colored:not(.is-group):hover:not(.is-editing) {
+  background: var(--board-node-tint-strong);
+  border-color: var(--board-node-color);
+}
+
+.board-node.is-group.is-colored {
+  background: var(--board-node-tint);
+  border-color: var(--board-node-color);
 }
 
 .board-node__content,
@@ -199,6 +286,7 @@ function getTextContent(node: BoardNode): string {
   font: inherit;
   resize: none;
   outline: none;
+  overflow: auto;
   white-space: pre-wrap;
 }
 
@@ -207,6 +295,35 @@ function getTextContent(node: BoardNode): string {
   align-items: flex-start;
   line-height: 1.45;
   letter-spacing: -0.01em;
+}
+
+.board-node__editor {
+  display: block;
+  user-select: text;
+  cursor: text;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  caret-color: var(--board-node-selection, var(--board-accent, #0f766e));
+}
+
+.board-node__editor::selection {
+  background: color-mix(
+    in srgb,
+    var(--board-node-selection, var(--board-accent, #0f766e)) 22%,
+    transparent
+  );
+}
+
+.board-node__editor-help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

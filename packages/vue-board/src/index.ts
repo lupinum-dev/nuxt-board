@@ -6,6 +6,15 @@ export { default as BoardViewport } from './components/BoardViewport.vue'
 export { default as BoardNode } from './components/BoardNode.vue'
 /** Resize handle component for interactive node resizing. */
 export { default as BoardNodeHandle } from './components/BoardNodeHandle.vue'
+/** Floating toolbar for selected nodes with remove, color, zoom, and edit actions. */
+export { default as BoardSelectionToolbar } from './components/BoardSelectionToolbar.vue'
+/** Node color presets and CSS variable resolver used by default and custom renderers. */
+export {
+  BOARD_COLOR_PRESETS,
+  colorForPreset,
+  resolveNodeColorStyle,
+  type BoardColorPreset,
+} from './nodeColors'
 /** Decorative grid overlay component. */
 export { default as BoardGrid } from './components/BoardGrid.vue'
 /** Screen-space box selection overlay. */

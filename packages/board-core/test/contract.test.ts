@@ -4,6 +4,7 @@ import type { BoardEngine, NodeId } from '../src'
 
 const engineMethods = [
   'batch',
+  'destroy',
   'getState',
   'getSnapshot',
   'getGridSettings',

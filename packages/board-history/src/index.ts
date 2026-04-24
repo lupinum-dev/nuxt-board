@@ -73,6 +73,23 @@ function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
   return true
 }
 
+function isCoalescableNodeUpdate(
+  prev: HistoryEntry,
+  next: HistoryEntry,
+): boolean {
+  if (prev.label !== next.label) return false
+  if (prev.actions.length !== 1 || next.actions.length !== 1) return false
+  const a = prev.actions[0]
+  const b = next.actions[0]
+  return Boolean(
+    a &&
+    b &&
+    a.type === 'NODE_UPDATED' &&
+    b.type === 'NODE_UPDATED' &&
+    a.id === b.id,
+  )
+}
+
 function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
   const a = prev.actions[0] as Action & { type: 'NODES_MOVED' }
   const b = next.actions[0] as Action & { type: 'NODES_MOVED' }
@@ -86,6 +103,33 @@ function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
     actions: [{ type: 'NODES_MOVED', deltas: merged }],
     timestamp: next.timestamp,
   }
+}
+
+function mergeNodeUpdate(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+  const a = prev.actions[0] as Action & { type: 'NODE_UPDATED' }
+  const b = next.actions[0] as Action & { type: 'NODE_UPDATED' }
+  return {
+    label: prev.label,
+    actions: [
+      {
+        type: 'NODE_UPDATED',
+        id: a.id,
+        before: a.before,
+        after: b.after,
+      },
+    ],
+    timestamp: next.timestamp,
+  }
+}
+
+function canCoalesce(prev: HistoryEntry, next: HistoryEntry): boolean {
+  return isCoalescableMoves(prev, next) || isCoalescableNodeUpdate(prev, next)
+}
+
+function mergeCoalesced(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+  return isCoalescableMoves(prev, next)
+    ? mergeMoves(prev, next)
+    : mergeNodeUpdate(prev, next)
 }
 
 function undoReplayPriority(action: Action): number {
@@ -154,8 +198,8 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
         const entry = pending
         pending = null
         const last = undoStack[undoStack.length - 1]
-        if (last && isCoalescableMoves(last, entry)) {
-          undoStack[undoStack.length - 1] = mergeMoves(last, entry)
+        if (last && canCoalesce(last, entry)) {
+          undoStack[undoStack.length - 1] = mergeCoalesced(last, entry)
         } else {
           undoStack.push(entry)
           if (undoStack.length > maxSteps) {
@@ -169,8 +213,8 @@ export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
 
       function schedulePending(entry: HistoryEntry): void {
         if (pending) {
-          if (isCoalescableMoves(pending, entry)) {
-            pending = mergeMoves(pending, entry)
+          if (canCoalesce(pending, entry)) {
+            pending = mergeCoalesced(pending, entry)
           } else {
             commitPending()
             pending = entry

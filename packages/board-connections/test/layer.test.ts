@@ -174,9 +174,134 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(document.body.querySelector('[data-connection-label]')).toBeNull()
+    const lowZoomLabel = document.body.querySelector<HTMLElement>(
+      '[data-connection-label]',
+    )
+    expect(lowZoomLabel).not.toBeNull()
+    expect(lowZoomLabel?.style.background).toBe('transparent')
+    expect(lowZoomLabel?.style.boxShadow).toBe('none')
     expect(path.getAttribute('opacity')).toBe('0.24')
     expect(Number(path.getAttribute('stroke-width'))).toBeCloseTo(1.15, 6)
+    wrapper.unmount()
+  })
+
+  it('removes a selected edge label without deleting the edge', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 260,
+      y: 20,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+    const edge = engine.ext.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      label: 'sync',
+      data: {},
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    dispatchPointerEvent(query('[data-connection-hit="true"]'), 'pointerdown', {
+      pointerId: 8,
+      button: 0,
+      clientX: 140,
+      clientY: 60,
+    })
+    await nextTick()
+    ;(query('[data-connection-remove-label]') as HTMLButtonElement).click()
+    await nextTick()
+    await nextTick()
+
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      id: edge.id,
+      label: undefined,
+    })
+    expect(document.body.querySelector('[data-connection-label]')).toBeNull()
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('sets edge direction through the direction menu', async () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      data: { content: 'A' },
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 260,
+      y: 20,
+      width: 120,
+      height: 80,
+      data: { content: 'B' },
+    })
+    const edge = engine.ext.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      fromEnd: 'none',
+      toEnd: 'arrow',
+      data: {},
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () => h(BoardConnectionLayer),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    dispatchPointerEvent(query('[data-connection-hit="true"]'), 'pointerdown', {
+      pointerId: 9,
+      button: 0,
+      clientX: 140,
+      clientY: 60,
+    })
+    await nextTick()
+    ;(
+      query('[data-connection-direction-menu-button]') as HTMLButtonElement
+    ).click()
+    await nextTick()
+    expect(queryAll('[data-connection-direction-option]')).toHaveLength(3)
+    ;(
+      query('[data-connection-direction-option="both"]') as HTMLButtonElement
+    ).click()
+    await nextTick()
+
+    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+      fromEnd: 'arrow',
+      toEnd: 'arrow',
+    })
+    expect(
+      document.body.querySelector('[data-connection-direction-menu]'),
+    ).toBeNull()
     wrapper.unmount()
   })
 
@@ -218,22 +343,29 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
 
     const marker = query('.board-connection-layer defs marker')
-    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(6, 6)
-    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(6, 6)
+    expect(marker.getAttribute('markerUnits')).toBe('userSpaceOnUse')
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(16, 6)
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(16, 6)
 
     await engine.zoomTo(0.5)
     await nextTick()
     await nextTick()
 
-    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(12, 6)
-    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(12, 6)
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(
+      (16 * Math.sqrt(0.5)) / 0.5,
+      6,
+    )
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(
+      (16 * Math.sqrt(0.5)) / 0.5,
+      6,
+    )
 
     await engine.zoomTo(2)
     await nextTick()
     await nextTick()
 
-    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(3, 6)
-    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(3, 6)
+    expect(Number(marker.getAttribute('markerWidth'))).toBeCloseTo(11, 6)
+    expect(Number(marker.getAttribute('markerHeight'))).toBeCloseTo(11, 6)
     wrapper.unmount()
   })
 
@@ -598,19 +730,20 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const hotspot = query(
-      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
-    )
-    dispatchPointerEvent(hotspot, 'pointerenter', {
+    const root = query('.board-root')
+    dispatchPointerEvent(root, 'pointermove', {
       pointerId: 9,
       clientX: 160,
       clientY: 80,
     })
     await nextTick()
 
-    expect(queryAll('[data-connection-create-handle="true"]')).toHaveLength(1)
+    const createHandle = query(
+      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
+    )
+    expect(queryAll('[data-connection-create-handle="true"]')).toHaveLength(4)
 
-    dispatchPointerEvent(hotspot, 'pointerdown', {
+    dispatchPointerEvent(createHandle, 'pointerdown', {
       pointerId: 9,
       button: 0,
       clientX: 160,
@@ -663,10 +796,18 @@ describe('BoardConnectionLayer', () => {
     })
 
     await nextTick()
-    const hotspot = query(
+    const root = query('.board-root')
+    dispatchPointerEvent(root, 'pointermove', {
+      pointerId: 10,
+      clientX: 160,
+      clientY: 80,
+    })
+    await nextTick()
+
+    const createHandle = query(
       `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
     )
-    dispatchPointerEvent(hotspot, 'pointerdown', {
+    dispatchPointerEvent(createHandle, 'pointerdown', {
       pointerId: 10,
       button: 0,
       clientX: 160,

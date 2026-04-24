@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 
 // Intentionally no imports from @lupinum/* here.
-// This component exercises the auto-imports provided by @lupinum/nuxt-board.
+// This component exercises the auto-imports provided by nuxt-board.
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
 })

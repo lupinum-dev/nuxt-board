@@ -5,6 +5,7 @@ import {
   h,
   nextTick,
   shallowRef,
+  useId,
   watch,
   type PropType,
 } from 'vue'
@@ -75,13 +76,20 @@ type PendingCreateDrag = {
 type PendingDragState = PendingReconnectDrag | PendingCreateDrag
 
 const CONNECTION_DRAG_THRESHOLD = 6
-const EDGE_LABEL_LOD_FADE_START = 0.85
-const EDGE_LABEL_LOD_HIDE_AT = 0.55
 const EDGE_STROKE_LOD_FADE_START = 0.95
 const EDGE_STROKE_LOD_SOFTEN_AT = 0.45
-const EDGE_ARROW_MARKER_SIZE = 6
-
-let markerCounter = 0
+const EDGE_ARROW_MARKER_SIZE = 18
+const EDGE_ARROW_SCREEN_SIZE = 16
+const EDGE_ARROW_MIN_SCREEN_SIZE = 10
+const EDGE_ARROW_MAX_SCREEN_SIZE = 22
+const EDGE_LABEL_MIN_ZOOM = 0.1
+const EDGE_LABEL_MAX_SCREEN_WIDTH = 220
+const EDGE_LABEL_HORIZONTAL_PADDING = 20
+const EDGE_LABEL_IDLE_HEIGHT = 18
+const EDGE_LABEL_ACTIVE_HEIGHT = 24
+const EDGE_LABEL_SCREEN_FONT_SIZE = 14
+const EDGE_LABEL_ACTIVE_FONT_SIZE = 13
+const TOOLBAR_ICON_SIZE = 24
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -99,6 +107,16 @@ function resolveLodAmount(
     return 0
   }
   return clamp01((zoom - minDetailAt) / (fadeStart - minDetailAt))
+}
+
+function resolveArrowScreenSize(zoom: number): number {
+  return Math.max(
+    EDGE_ARROW_MIN_SCREEN_SIZE,
+    Math.min(
+      EDGE_ARROW_MAX_SCREEN_SIZE,
+      EDGE_ARROW_SCREEN_SIZE * Math.sqrt(zoom),
+    ),
+  )
 }
 
 function edgeIdFromTarget(target: EventTarget | null): string | null {
@@ -165,7 +183,7 @@ export const BoardConnectionLayer = defineComponent({
     const injected = useBoardEngine()
     const engine = computed(() => props.engine ?? injected.engine)
     const version = shallowRef(0)
-    const markerId = `board-connection-arrow-${(markerCounter += 1)}`
+    const markerId = `board-connection-arrow-${useId().replace(/[^A-Za-z0-9_-]/g, '-')}`
     const sideCache = new Map<
       string,
       { source: AnchorSide; target: AnchorSide }
@@ -178,6 +196,11 @@ export const BoardConnectionLayer = defineComponent({
     const dragState = shallowRef<DragState | null>(null)
     const editingEdgeId = shallowRef<string | null>(null)
     const labelDraft = shallowRef<string>('')
+    const colorMenuEdgeId = shallowRef<string | null>(null)
+    const directionMenuEdgeId = shallowRef<string | null>(null)
+    const coarsePointer =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(pointer: coarse)').matches
 
     let versionDirty = false
     function scheduleVersion(): void {
@@ -229,6 +252,8 @@ export const BoardConnectionLayer = defineComponent({
           selectedEdgeId.value = null
           hoveredEdgeId.value = null
           hoveredNodeHandle.value = null
+          colorMenuEdgeId.value = null
+          directionMenuEdgeId.value = null
           commitLabelEdit()
         }
 
@@ -237,11 +262,6 @@ export const BoardConnectionLayer = defineComponent({
             return
           }
           const edgeId = edgeIdFromTarget(event.target)
-          const nodeHandle = nodeHandleFromTarget(event.target)
-          hoveredEdgeId.value =
-            edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
-          hoveredNodeHandle.value = nodeHandle
-
           const currentEngine = engine.value
           const worldPoint = worldPointFromClient(
             injected,
@@ -250,6 +270,13 @@ export const BoardConnectionLayer = defineComponent({
             event.clientY,
           )
           const nodeUnderCursor = currentEngine.getNodeAt(worldPoint)
+          const nodeHandle =
+            nodeHandleFromTarget(event.target) ??
+            resolveNodeHandleAtWorldPoint(worldPoint)
+
+          hoveredEdgeId.value =
+            edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
+          hoveredNodeHandle.value = edgeId ? null : nodeHandle
           hoveredNodeId.value = nodeUnderCursor?.id ?? null
         }
 
@@ -505,7 +532,10 @@ export const BoardConnectionLayer = defineComponent({
       () => 5 / Math.max(injected.$camera.value.z, 0.25),
     )
     const handleHitRadius = computed(() =>
-      Math.max(14, 20 / Math.max(injected.$camera.value.z, 0.25)),
+      Math.max(
+        10,
+        (coarsePointer ? 22 : 12) / Math.max(injected.$camera.value.z, 0.25),
+      ),
     )
     const edgeStrokeWidth = computed(() => 1.85)
     const edgeHitWidth = computed(() =>
@@ -520,6 +550,58 @@ export const BoardConnectionLayer = defineComponent({
     const hotspotCornerClearance = computed(
       () => 18 / Math.max(injected.$camera.value.z, 0.25),
     )
+
+    function resolveNodeHandleAtWorldPoint(
+      point: Point,
+    ): HoveredNodeHandle | null {
+      const threshold = hotspotThickness.value
+      const candidates = Array.from(injected.$nodes.value.values())
+        .filter((node) => node.visible)
+        .sort((left, right) => right.zIndex - left.zIndex)
+
+      for (const node of candidates) {
+        const left = node.x
+        const right = node.x + node.width
+        const top = node.y
+        const bottom = node.y + node.height
+        if (
+          point.x < left - threshold ||
+          point.x > right + threshold ||
+          point.y < top - threshold ||
+          point.y > bottom + threshold
+        ) {
+          continue
+        }
+
+        const clearance = Math.min(
+          hotspotCornerClearance.value,
+          Math.min(node.width, node.height) / 3,
+        )
+        const distances: Array<{ side: AnchorSide; distance: number }> = []
+        if (point.x >= left + clearance && point.x <= right - clearance) {
+          distances.push(
+            { side: 'top', distance: Math.abs(point.y - top) },
+            { side: 'bottom', distance: Math.abs(point.y - bottom) },
+          )
+        }
+        if (point.y >= top + clearance && point.y <= bottom - clearance) {
+          distances.push(
+            { side: 'left', distance: Math.abs(point.x - left) },
+            { side: 'right', distance: Math.abs(point.x - right) },
+          )
+        }
+
+        const closest = distances.sort(
+          (leftDistance, rightDistance) =>
+            leftDistance.distance - rightDistance.distance,
+        )[0]
+        if (closest && closest.distance <= threshold) {
+          return { nodeId: node.id, side: closest.side }
+        }
+      }
+
+      return null
+    }
 
     function onEdgePointerDown(edgeId: string, event: PointerEvent): void {
       event.preventDefault()
@@ -573,34 +655,45 @@ export const BoardConnectionLayer = defineComponent({
       })
     }
 
+    function clearLabel(edgeId: string): void {
+      const entry = entryById.value.get(edgeId)
+      if (!entry || !entry.edge.label) {
+        return
+      }
+      if (editingEdgeId.value === edgeId) {
+        editingEdgeId.value = null
+      }
+      engine.value.ext.connections.updateEdge(entry.edge.id, {
+        label: undefined,
+      })
+    }
+
     function cancelLabelEdit(): void {
       editingEdgeId.value = null
       labelDraft.value = ''
     }
 
-    function cycleDirectionality(edgeId: string): void {
+    function setDirectionality(
+      edgeId: string,
+      direction: 'none' | 'to' | 'both',
+    ): void {
       const entry = entryById.value.get(edgeId)
       if (!entry) {
         return
       }
-      const from = entry.edge.fromEnd ?? 'none'
-      const to = entry.edge.toEnd ?? 'arrow'
-      let nextFrom: EdgeEnd
-      let nextTo: EdgeEnd
-      if (from === 'none' && to === 'arrow') {
-        nextFrom = 'arrow'
-        nextTo = 'arrow'
-      } else if (from === 'arrow' && to === 'arrow') {
-        nextFrom = 'arrow'
-        nextTo = 'none'
-      } else {
-        nextFrom = 'none'
-        nextTo = 'arrow'
+      const next: Record<
+        'none' | 'to' | 'both',
+        { fromEnd: EdgeEnd; toEnd: EdgeEnd }
+      > = {
+        none: { fromEnd: 'none', toEnd: 'none' },
+        to: { fromEnd: 'none', toEnd: 'arrow' },
+        both: { fromEnd: 'arrow', toEnd: 'arrow' },
       }
       engine.value.ext.connections.updateEdge(entry.edge.id, {
-        fromEnd: nextFrom,
-        toEnd: nextTo,
+        fromEnd: next[direction].fromEnd,
+        toEnd: next[direction].toEnd,
       })
+      directionMenuEdgeId.value = null
     }
 
     function applyEdgeColor(edgeId: string, color: string | undefined): void {
@@ -609,6 +702,7 @@ export const BoardConnectionLayer = defineComponent({
         return
       }
       engine.value.ext.connections.updateEdge(entry.edge.id, { color })
+      colorMenuEdgeId.value = null
     }
 
     function deleteEdge(edgeId: string): void {
@@ -624,6 +718,12 @@ export const BoardConnectionLayer = defineComponent({
       }
       if (hoveredEdgeId.value === edgeId) {
         hoveredEdgeId.value = null
+      }
+      if (colorMenuEdgeId.value === edgeId) {
+        colorMenuEdgeId.value = null
+      }
+      if (directionMenuEdgeId.value === edgeId) {
+        directionMenuEdgeId.value = null
       }
       engine.value.ext.connections.deleteEdge(entry.edge.id as EdgeId)
     }
@@ -721,6 +821,9 @@ export const BoardConnectionLayer = defineComponent({
     ): void {
       event.preventDefault()
       event.stopPropagation()
+      ;(event.currentTarget as Element | null)?.setPointerCapture?.(
+        event.pointerId,
+      )
 
       const currentEngine = engine.value
       const nextWorld = worldPointFromClient(
@@ -748,6 +851,9 @@ export const BoardConnectionLayer = defineComponent({
     ): void {
       event.preventDefault()
       event.stopPropagation()
+      ;(event.currentTarget as Element | null)?.setPointerCapture?.(
+        event.pointerId,
+      )
 
       const currentEngine = engine.value
       const nextWorld = worldPointFromClient(
@@ -794,6 +900,9 @@ export const BoardConnectionLayer = defineComponent({
         if (event.key === 'Delete' || event.key === 'Backspace') {
           event.preventDefault()
           deleteEdge(id)
+        } else if (event.key === 'Escape') {
+          colorMenuEdgeId.value = null
+          directionMenuEdgeId.value = null
         }
       }
       window.addEventListener('keydown', handleKey)
@@ -879,14 +988,26 @@ export const BoardConnectionLayer = defineComponent({
         dragState.value = null
       }
 
+      const handleCancel = (event: PointerEvent) => {
+        if (
+          pendingDrag.value &&
+          event.pointerId === pendingDrag.value.pointerId
+        ) {
+          pendingDrag.value = null
+        }
+        if (dragState.value && event.pointerId === dragState.value.pointerId) {
+          dragState.value = null
+        }
+      }
+
       window.addEventListener('pointermove', handleMove)
       window.addEventListener('pointerup', handleUp)
-      window.addEventListener('pointercancel', handleUp)
+      window.addEventListener('pointercancel', handleCancel)
 
       onCleanup(() => {
         window.removeEventListener('pointermove', handleMove)
         window.removeEventListener('pointerup', handleUp)
-        window.removeEventListener('pointercancel', handleUp)
+        window.removeEventListener('pointercancel', handleCancel)
       })
     })
 
@@ -991,108 +1112,25 @@ export const BoardConnectionLayer = defineComponent({
               hoveredNodeHandle.value.side,
             )
           : null
+      const hoveredNodeHandles =
+        hoveredNodeId.value &&
+        (!activeCreate || hoveredNodeId.value !== activeCreate.sourceNodeId)
+          ? (['top', 'right', 'bottom', 'left'] as const)
+              .filter(
+                (side) =>
+                  !hoveredNodeHandle.value ||
+                  hoveredNodeHandle.value.nodeId !== hoveredNodeId.value ||
+                  hoveredNodeHandle.value.side !== side,
+              )
+              .map((side) =>
+                renderCreateHandle(hoveredNodeId.value as NodeId, side),
+              )
+          : []
 
-      const hotspots = Array.from(injected.$nodes.value.values())
-        .filter((node) => node.visible)
-        .flatMap((node) => {
-          const clearance = Math.min(
-            hotspotCornerClearance.value,
-            Math.min(node.width, node.height) / 3,
-          )
-          const horizontalWidth = Math.max(
-            node.width - clearance * 2,
-            hotspotThickness.value,
-          )
-          const verticalHeight = Math.max(
-            node.height - clearance * 2,
-            hotspotThickness.value,
-          )
-          const specs: Array<{
-            side: AnchorSide
-            x: number
-            y: number
-            width: number
-            height: number
-          }> = [
-            {
-              side: 'top',
-              x: node.x + (node.width - horizontalWidth) / 2,
-              y: node.y - hotspotThickness.value / 2,
-              width: horizontalWidth,
-              height: hotspotThickness.value,
-            },
-            {
-              side: 'right',
-              x: node.x + node.width - hotspotThickness.value / 2,
-              y: node.y + (node.height - verticalHeight) / 2,
-              width: hotspotThickness.value,
-              height: verticalHeight,
-            },
-            {
-              side: 'bottom',
-              x: node.x + (node.width - horizontalWidth) / 2,
-              y: node.y + node.height - hotspotThickness.value / 2,
-              width: horizontalWidth,
-              height: hotspotThickness.value,
-            },
-            {
-              side: 'left',
-              x: node.x - hotspotThickness.value / 2,
-              y: node.y + (node.height - verticalHeight) / 2,
-              width: hotspotThickness.value,
-              height: verticalHeight,
-            },
-          ]
-
-          return specs.map((spec) =>
-            h('rect', {
-              x: spec.x,
-              y: spec.y,
-              width: spec.width,
-              height: spec.height,
-              rx: hotspotThickness.value / 2,
-              ry: hotspotThickness.value / 2,
-              fill: 'rgba(15, 23, 42, 0.001)',
-              stroke: 'none',
-              'data-board-interactive': 'true',
-              'data-connection-interactive': 'true',
-              'data-connection-node-id': String(node.id),
-              'data-connection-side': spec.side,
-              style: {
-                pointerEvents: 'all',
-                cursor: 'crosshair',
-              },
-              onPointerenter: () => {
-                if (!dragState.value && !pendingDrag.value) {
-                  hoveredNodeHandle.value = { nodeId: node.id, side: spec.side }
-                  hoveredEdgeId.value = null
-                }
-              },
-              onPointermove: () => {
-                if (!dragState.value && !pendingDrag.value) {
-                  hoveredNodeHandle.value = { nodeId: node.id, side: spec.side }
-                  hoveredEdgeId.value = null
-                }
-              },
-              onPointerleave: () => {
-                if (
-                  !dragState.value &&
-                  !pendingDrag.value &&
-                  hoveredNodeHandle.value?.nodeId === node.id &&
-                  hoveredNodeHandle.value.side === spec.side
-                ) {
-                  hoveredNodeHandle.value = null
-                }
-              },
-              onPointerdown: (event: PointerEvent) =>
-                beginCreateDrag(node.id, spec.side, event),
-            }),
-          )
-        })
       return [
-        ...hotspots,
         ...(activeHandle ? [activeHandle] : []),
         ...(hoveredHandle ? [hoveredHandle] : []),
+        ...hoveredNodeHandles,
       ]
     }
 
@@ -1110,25 +1148,21 @@ export const BoardConnectionLayer = defineComponent({
         return null
       }
 
-      const zoom = Math.max(injected.$camera.value.z, 0.25)
-      const labelOpacity =
-        isEditing || state.isSelected || state.isHovered
-          ? 1
-          : resolveLodAmount(
-              zoom,
-              EDGE_LABEL_LOD_FADE_START,
-              EDGE_LABEL_LOD_HIDE_AT,
-            )
-      if (!isEditing && labelOpacity <= 0.02) {
-        return null
-      }
+      const active = isEditing || state.isSelected || state.isHovered
+      const labelZoom = Math.max(injected.$camera.value.z, EDGE_LABEL_MIN_ZOOM)
       const stroke = entry.edge.color ?? 'var(--board-edge-color)'
-      const size = 1 / zoom
+      const size = 1 / labelZoom
       const approxWidth = Math.max(
-        40,
-        ((isEditing ? labelDraft.value : label).length || 1) * 8 + 24,
+        active ? 40 : 24,
+        Math.min(
+          EDGE_LABEL_MAX_SCREEN_WIDTH,
+          ((isEditing ? labelDraft.value : label).length || 1) * 8 +
+            EDGE_LABEL_HORIZONTAL_PADDING,
+        ),
       )
-      const approxHeight = 22
+      const approxHeight = active
+        ? EDGE_LABEL_ACTIVE_HEIGHT
+        : EDGE_LABEL_IDLE_HEIGHT
       const width = approxWidth * size
       const height = approxHeight * size
       const x = entry.route.labelPoint.x - width / 2
@@ -1138,6 +1172,7 @@ export const BoardConnectionLayer = defineComponent({
         ? h('input', {
             'data-connection-label-input': edgeId,
             'data-board-interactive': 'true',
+            'data-connection-edge-id': edgeId,
             type: 'text',
             value: labelDraft.value,
             onInput: (event: Event) => {
@@ -1165,7 +1200,7 @@ export const BoardConnectionLayer = defineComponent({
               background: 'var(--board-node-bg, #fff)',
               color: 'inherit',
               font: 'inherit',
-              fontSize: '12px',
+              fontSize: `${EDGE_LABEL_ACTIVE_FONT_SIZE}px`,
               lineHeight: '1',
               outline: 'none',
               boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
@@ -1176,6 +1211,8 @@ export const BoardConnectionLayer = defineComponent({
             {
               'data-connection-label': edgeId,
               'data-board-interactive': 'true',
+              'data-connection-edge-id': edgeId,
+              title: label,
               onPointerdown: (event: PointerEvent) =>
                 onEdgePointerDown(edgeId, event),
               onDblclick: (event: MouseEvent) => {
@@ -1187,16 +1224,27 @@ export const BoardConnectionLayer = defineComponent({
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2px 8px',
+                padding: active ? '2px 8px' : '0 3px',
+                maxWidth: `${EDGE_LABEL_MAX_SCREEN_WIDTH}px`,
                 borderRadius: '999px',
-                border: '1px solid currentColor',
-                background: 'var(--board-node-bg, #fff)',
-                fontSize: '12px',
-                lineHeight: '1',
+                border: active
+                  ? '1px solid currentColor'
+                  : '1px solid transparent',
+                background: active
+                  ? 'var(--board-node-bg, #fff)'
+                  : 'transparent',
+                fontSize: `${active ? EDGE_LABEL_ACTIVE_FONT_SIZE : EDGE_LABEL_SCREEN_FONT_SIZE}px`,
+                lineHeight: active ? '1' : '1.2',
+                fontWeight: active ? '500' : '600',
                 color: 'inherit',
                 cursor: 'text',
                 whiteSpace: 'nowrap',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                textShadow: active
+                  ? 'none'
+                  : '0 1px 0 var(--board-node-bg, #fff), 0 -1px 0 var(--board-node-bg, #fff), 1px 0 0 var(--board-node-bg, #fff), -1px 0 0 var(--board-node-bg, #fff)',
+                boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
               },
             },
             label || '\u00A0',
@@ -1226,9 +1274,7 @@ export const BoardConnectionLayer = defineComponent({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transform: `scale(${size})`,
-                transformOrigin: 'center center',
-                opacity: String(labelOpacity),
+                opacity: '1',
               },
             },
             [
@@ -1462,21 +1508,18 @@ export const BoardConnectionLayer = defineComponent({
       const currentColor = entry.edge.color
       const from = entry.edge.fromEnd ?? 'none'
       const to = entry.edge.toEnd ?? 'arrow'
-      const directionLabel =
-        from === 'none' && to === 'arrow'
-          ? '→'
-          : from === 'arrow' && to === 'arrow'
-            ? '↔'
-            : from === 'arrow' && to === 'none'
-              ? '←'
-              : '—'
-
+      const activeDirection =
+        from === 'arrow' && to === 'arrow'
+          ? 'both'
+          : from === 'none' && to === 'none'
+            ? 'none'
+            : 'to'
       const buttonStyle = {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '28px',
-        height: '28px',
+        width: '32px',
+        height: '32px',
         padding: '0',
         border: 'none',
         background: 'transparent',
@@ -1484,13 +1527,13 @@ export const BoardConnectionLayer = defineComponent({
         cursor: 'pointer',
         fontSize: '14px',
         lineHeight: '1',
-        color: 'var(--board-fg, #0f172a)',
+        color: 'var(--board-muted-fg, #6b7280)',
       } as const
 
       const swatchStyle = (hex: string, active: boolean) =>
         ({
-          width: '18px',
-          height: '18px',
+          width: '20px',
+          height: '20px',
           borderRadius: '50%',
           background: hex,
           border: active
@@ -1500,6 +1543,118 @@ export const BoardConnectionLayer = defineComponent({
           padding: '0',
           boxSizing: 'border-box',
         }) as const
+
+      const renderIcon = (
+        paths: string[],
+        options?: { viewBox?: string; fill?: string },
+      ) =>
+        h(
+          'svg',
+          {
+            xmlns: 'http://www.w3.org/2000/svg',
+            width: TOOLBAR_ICON_SIZE,
+            height: TOOLBAR_ICON_SIZE,
+            viewBox: options?.viewBox ?? '0 0 24 24',
+            fill: options?.fill ?? 'none',
+            stroke: 'currentColor',
+            'stroke-width': '2',
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round',
+            'aria-hidden': 'true',
+            focusable: 'false',
+          },
+          paths.map((d) => h('path', { d })),
+        )
+
+      const toolbarButton = (
+        title: string,
+        icon: ReturnType<typeof h>,
+        onClick: (event: MouseEvent) => void,
+        options?: { disabled?: boolean; danger?: boolean; testId?: string },
+      ) =>
+        h(
+          'button',
+          {
+            'data-board-interactive': 'true',
+            ...(options?.testId ? { [options.testId]: edgeId } : {}),
+            type: 'button',
+            title,
+            'aria-label': title,
+            disabled: options?.disabled,
+            style: {
+              ...buttonStyle,
+              opacity: options?.disabled ? '0.38' : '1',
+              color: options?.danger
+                ? '#b45353'
+                : 'var(--board-muted-fg, #6b7280)',
+              cursor: options?.disabled ? 'default' : 'pointer',
+            },
+            onClick,
+          },
+          [icon],
+        )
+
+      const divider = () =>
+        h('span', {
+          style: {
+            display: 'inline-block',
+            width: '1px',
+            height: '22px',
+            background: 'rgba(15,23,42,0.12)',
+            margin: '0 2px',
+          },
+        })
+      const directionItem = (
+        label: string,
+        icon: ReturnType<typeof h>,
+        direction: 'none' | 'to' | 'both',
+      ) =>
+        h(
+          'button',
+          {
+            'data-board-interactive': 'true',
+            'data-connection-direction-option': direction,
+            type: 'button',
+            title: label,
+            'aria-label': label,
+            style: {
+              display: 'grid',
+              gridTemplateColumns: '32px 1fr 24px',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              minWidth: '250px',
+              height: '42px',
+              padding: '0 12px',
+              border: 'none',
+              borderRadius: '7px',
+              background:
+                activeDirection === direction
+                  ? 'rgba(107, 114, 128, 0.16)'
+                  : 'transparent',
+              color: 'var(--board-fg, #111827)',
+              cursor: 'pointer',
+              font: 'inherit',
+              fontSize: '18px',
+              lineHeight: '1',
+              textAlign: 'left',
+            },
+            onClick: (event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setDirectionality(edgeId, direction)
+            },
+          },
+          [
+            h('span', { style: { color: 'var(--board-muted-fg, #6b7280)' } }, [
+              icon,
+            ]),
+            h('span', label),
+            activeDirection === direction
+              ? renderIcon(['m20 6-11 11-5-5'])
+              : h('span'),
+          ],
+        )
 
       return h(
         'div',
@@ -1516,12 +1671,12 @@ export const BoardConnectionLayer = defineComponent({
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
-            padding: '4px 6px',
+            padding: '5px',
             background: 'var(--board-node-bg, #ffffff)',
             border: '1px solid var(--board-node-border, rgba(15,23,42,0.1))',
-            borderRadius: '10px',
+            borderRadius: '6px',
             boxShadow:
-              '0 6px 20px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08)',
+              '0 4px 14px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08)',
             fontSize: '12px',
             color: 'var(--board-fg, #0f172a)',
             whiteSpace: 'nowrap',
@@ -1530,84 +1685,203 @@ export const BoardConnectionLayer = defineComponent({
           },
         },
         [
-          h(
-            'button',
-            {
-              'data-board-interactive': 'true',
-              type: 'button',
-              title: 'Cycle direction',
-              style: buttonStyle,
-              onClick: (event: MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-                cycleDirectionality(edgeId)
-              },
-            },
-            directionLabel,
-          ),
-          h('span', {
-            style: {
-              display: 'inline-block',
-              width: '1px',
-              height: '18px',
-              background: 'rgba(15,23,42,0.12)',
-              margin: '0 2px',
-            },
-          }),
-          h('button', {
-            'data-board-interactive': 'true',
-            type: 'button',
-            title: 'Default color',
-            style: {
-              ...swatchStyle('transparent', !currentColor),
-              backgroundImage:
-                'repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 3px, transparent 3px 6px)',
-            },
-            onClick: (event: MouseEvent) => {
+          toolbarButton(
+            'Remove',
+            renderIcon([
+              'M10 11v6',
+              'M14 11v6',
+              'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6',
+              'M3 6h18',
+              'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+            ]),
+            (event) => {
               event.preventDefault()
               event.stopPropagation()
-              applyEdgeColor(edgeId, undefined)
+              deleteEdge(edgeId)
             },
-          }),
-          ...EDGE_COLOR_PRESETS.map((option) =>
-            h('button', {
-              'data-board-interactive': 'true',
-              type: 'button',
-              title: option.label,
-              style: swatchStyle(
-                option.hex,
-                resolvePresetColor(currentColor) === option.hex,
-              ),
-              onClick: (event: MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-                applyEdgeColor(edgeId, option.hex)
-              },
-            }),
+            { danger: true },
           ),
-          h('span', {
-            style: {
-              display: 'inline-block',
-              width: '1px',
-              height: '18px',
-              background: 'rgba(15,23,42,0.12)',
-              margin: '0 2px',
-            },
-          }),
           h(
-            'button',
+            'div',
             {
-              'data-board-interactive': 'true',
-              type: 'button',
-              title: 'Delete',
-              style: { ...buttonStyle, color: '#b91c1c' },
-              onClick: (event: MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-                deleteEdge(edgeId)
+              style: {
+                position: 'relative',
+                display: 'inline-flex',
               },
             },
-            '✕',
+            [
+              toolbarButton(
+                'Set colour',
+                renderIcon([
+                  'M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z',
+                  'M13.5 6.5h.01',
+                  'M17.5 10.5h.01',
+                  'M6.5 12.5h.01',
+                  'M8.5 7.5h.01',
+                ]),
+                (event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  colorMenuEdgeId.value =
+                    colorMenuEdgeId.value === edgeId ? null : edgeId
+                  directionMenuEdgeId.value = null
+                },
+              ),
+              colorMenuEdgeId.value === edgeId
+                ? h(
+                    'div',
+                    {
+                      'data-board-interactive': 'true',
+                      'data-connection-color-menu': edgeId,
+                      style: {
+                        position: 'absolute',
+                        left: '50%',
+                        top: 'calc(100% + 8px)',
+                        transform: 'translateX(-50%)',
+                        zIndex: '1',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 20px)',
+                        gap: '8px',
+                        padding: '8px',
+                        background: 'var(--board-node-bg, #ffffff)',
+                        border:
+                          '1px solid var(--board-node-border, rgba(15,23,42,0.1))',
+                        borderRadius: '6px',
+                        boxShadow:
+                          '0 6px 18px rgba(15, 23, 42, 0.14), 0 1px 2px rgba(15, 23, 42, 0.08)',
+                      },
+                    },
+                    [
+                      h('button', {
+                        'data-board-interactive': 'true',
+                        type: 'button',
+                        title: 'Default color',
+                        style: {
+                          ...swatchStyle('transparent', !currentColor),
+                          backgroundImage:
+                            'repeating-linear-gradient(45deg, rgba(148,163,184,0.35) 0 3px, transparent 3px 6px)',
+                        },
+                        onClick: (event: MouseEvent) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          applyEdgeColor(edgeId, undefined)
+                        },
+                      }),
+                      ...EDGE_COLOR_PRESETS.map((option) =>
+                        h('button', {
+                          'data-board-interactive': 'true',
+                          type: 'button',
+                          title: option.label,
+                          style: swatchStyle(
+                            option.hex,
+                            resolvePresetColor(currentColor) === option.hex,
+                          ),
+                          onClick: (event: MouseEvent) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            applyEdgeColor(edgeId, option.hex)
+                          },
+                        }),
+                      ),
+                    ],
+                  )
+                : null,
+            ],
+          ),
+          divider(),
+          h(
+            'div',
+            {
+              style: {
+                position: 'relative',
+                display: 'inline-flex',
+              },
+            },
+            [
+              toolbarButton(
+                'Line direction',
+                renderIcon(['M5 12h14', 'm12 5 7 7-7 7']),
+                (event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  directionMenuEdgeId.value =
+                    directionMenuEdgeId.value === edgeId ? null : edgeId
+                  colorMenuEdgeId.value = null
+                },
+                { testId: 'data-connection-direction-menu-button' },
+              ),
+              directionMenuEdgeId.value === edgeId
+                ? h(
+                    'div',
+                    {
+                      'data-board-interactive': 'true',
+                      'data-connection-direction-menu': edgeId,
+                      style: {
+                        position: 'absolute',
+                        left: '50%',
+                        top: 'calc(100% + 8px)',
+                        transform: 'translateX(-50%)',
+                        zIndex: '1',
+                        display: 'grid',
+                        gap: '2px',
+                        padding: '8px',
+                        background: 'var(--board-node-bg, #ffffff)',
+                        border:
+                          '1px solid var(--board-node-border, rgba(15,23,42,0.1))',
+                        borderRadius: '8px',
+                        boxShadow:
+                          '0 8px 22px rgba(15, 23, 42, 0.16), 0 1px 2px rgba(15, 23, 42, 0.08)',
+                      },
+                    },
+                    [
+                      directionItem(
+                        'Nondirectional',
+                        renderIcon(['M5 12h14']),
+                        'none',
+                      ),
+                      directionItem(
+                        'Unidirectional',
+                        renderIcon(['M5 12h14', 'm12 5 7 7-7 7']),
+                        'to',
+                      ),
+                      directionItem(
+                        'Bidirectional',
+                        renderIcon([
+                          'M7 7 3 12l4 5',
+                          'M17 7l4 5-4 5',
+                          'M4 12h16',
+                        ]),
+                        'both',
+                      ),
+                    ],
+                  )
+                : null,
+            ],
+          ),
+          toolbarButton(
+            'Remove label',
+            renderIcon(['M3 3h18v18H3z', 'm15 9-6 6', 'm9 9 6 6']),
+            (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              clearLabel(edgeId)
+            },
+            {
+              disabled: !entry.edge.label,
+              testId: 'data-connection-remove-label',
+            },
+          ),
+          toolbarButton(
+            'Edit label',
+            renderIcon([
+              'M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7',
+              'M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z',
+            ]),
+            (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              beginLabelEdit(edgeId)
+            },
           ),
         ],
       )
@@ -1615,7 +1889,7 @@ export const BoardConnectionLayer = defineComponent({
 
     function renderSvg() {
       const zoom = Math.max(injected.$camera.value.z, 0.25)
-      const markerSize = EDGE_ARROW_MARKER_SIZE / zoom
+      const markerSize = resolveArrowScreenSize(zoom) / zoom
 
       return h(
         'svg',
@@ -1642,15 +1916,15 @@ export const BoardConnectionLayer = defineComponent({
                 id: markerId,
                 markerWidth: markerSize,
                 markerHeight: markerSize,
-                refX: 4.6,
-                refY: 3,
+                refX: 13.8,
+                refY: 9,
                 orient: 'auto-start-reverse',
-                markerUnits: 'strokeWidth',
+                markerUnits: 'userSpaceOnUse',
                 viewBox: `0 0 ${EDGE_ARROW_MARKER_SIZE} ${EDGE_ARROW_MARKER_SIZE}`,
               },
               [
                 h('path', {
-                  d: 'M0.6,0.6 L5.2,3 L0.6,5.4 L2.1,3 Z',
+                  d: 'M1.8,1.8 L15.6,9 L1.8,16.2 L6.3,9 Z',
                   fill: 'currentColor',
                 }),
               ],

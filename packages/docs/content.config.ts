@@ -10,7 +10,7 @@ export default defineContentConfig({
       type: 'page',
       source: {
         include: '**',
-        exclude: ['index.md'],
+        exclude: ['index.md', '4.api/**'],
       },
       schema: z.object({
         links: z

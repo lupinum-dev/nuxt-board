@@ -23,12 +23,12 @@ import {
 } from '~/lib/demo'
 
 useHead({
-  title: '@lupinum/nuxt-board playground',
+  title: 'nuxt-board playground',
   meta: [
     {
       name: 'description',
       content:
-        'A Nuxt SSR demo for @lupinum/nuxt-board with deterministic seeded scenes, plugins, minimap, and JSON import/export.',
+        'A Nuxt SSR demo for nuxt-board with deterministic seeded scenes, plugins, minimap, and JSON import/export.',
     },
   ],
 })
@@ -164,8 +164,11 @@ function fitScene(): void {
 }
 
 function groupSelection(): void {
-  wrapSelectionInGroup(engine)
-  status.value = 'Grouped the current selection.'
+  const result = wrapSelectionInGroup(engine)
+  status.value =
+    result === 'grouped'
+      ? 'Grouped the current selection.'
+      : 'Created a new empty group.'
   version.value += 1
 }
 </script>
@@ -514,7 +517,27 @@ function groupSelection(): void {
 
 @media (max-width: 720px) {
   .demo-shell {
+    gap: 1rem;
+    padding: 0.75rem;
+  }
+
+  .demo-hero {
+    gap: 0.75rem;
+  }
+
+  .demo-hero__copy,
+  .demo-stats {
     padding: 1rem;
+    border-radius: 18px;
+  }
+
+  .demo-hero h1 {
+    max-width: none;
+    font-size: 2rem;
+  }
+
+  .demo-hero__lede {
+    display: none;
   }
 
   .demo-stats {
@@ -522,12 +545,12 @@ function groupSelection(): void {
   }
 
   .demo-board-shell {
-    min-height: 34rem;
+    min-height: min(34rem, 72dvh);
     padding: 0.75rem;
   }
 
   .demo-board {
-    min-height: 32rem;
+    min-height: min(32rem, calc(72dvh - 1.5rem));
   }
 
   .demo-minimap {

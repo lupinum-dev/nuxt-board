@@ -12,6 +12,9 @@ export type NodeLod = 'full' | 'simple' | 'hidden'
 /** Node record annotated with the level-of-detail chosen for the current viewport. */
 export type LodNode = BoardNodeState & { lod: NodeLod }
 
+const NODE_HIDE_SCREEN_SIZE = 6
+const NODE_SIMPLE_SCREEN_SIZE = 96
+
 /** Inputs required to compute viewport culling and node LOD. */
 export interface UseLodCullingOptions {
   engine: BoardEngine
@@ -29,8 +32,8 @@ function getNodeLod(
 ): NodeLod {
   if (selected) return 'full'
   const screenSize = Math.max(node.width, node.height) * zoom
-  if (screenSize < 8) return 'hidden'
-  if (screenSize < 120) return 'simple'
+  if (screenSize < NODE_HIDE_SCREEN_SIZE) return 'hidden'
+  if (screenSize < NODE_SIMPLE_SCREEN_SIZE) return 'simple'
   return 'full'
 }
 

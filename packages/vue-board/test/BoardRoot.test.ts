@@ -200,6 +200,45 @@ describe('BoardRoot', () => {
     expect(wrapper.find('.image-renderer').text()).toContain('Poster')
   })
 
+  it('renders colored nodes with color variables and applies toolbar color to selection', async () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      color: '2',
+      data: { content: 'First' },
+      select: false,
+    })
+    const second = engine.createNode({
+      type: 'group',
+      x: 220,
+      y: 40,
+      width: 160,
+      height: 120,
+      select: false,
+    })
+    engine.select([first.id, second.id])
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    const firstNode = wrapper.find(`[data-node-id="${first.id}"]`)
+    expect(firstNode.classes()).toContain('is-colored')
+    expect(firstNode.attributes('style')).toContain('--board-node-color')
+
+    await wrapper.find('[data-node-color-menu-button="true"]').trigger('click')
+    await nextTick()
+    await wrapper.find('[data-node-color-option="6"]').trigger('click')
+    await nextTick()
+
+    expect(engine.getNode(first.id).color).toBe('6')
+    expect(engine.getNode(second.id).color).toBe('6')
+  })
+
   it('draws a box select and updates selection from background drag', async () => {
     const engine = createBoardEngine()
     const first = engine.createNode({

@@ -199,6 +199,7 @@ export const BoardMinimap = defineComponent({
 
     function onPointerDown(event: PointerEvent): void {
       const element = event.currentTarget as HTMLElement
+      element.setPointerCapture?.(event.pointerId)
       activePointerId = event.pointerId
       void minimap.panToMinimapPoint(getMinimapPoint(element, event))
 
@@ -213,6 +214,7 @@ export const BoardMinimap = defineComponent({
         if (upEvent.pointerId !== activePointerId) {
           return
         }
+        element.releasePointerCapture?.(upEvent.pointerId)
         activePointerId = null
         detachDragListeners()
       }

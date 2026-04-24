@@ -1,10 +1,13 @@
 import { fileURLToPath } from 'node:url'
 
 export default defineNuxtConfig({
-  modules: ['@lupinum/nuxt-board'],
+  modules: ['nuxt-board'],
   devtools: { enabled: true },
   css: ['~/assets/playground.css'],
   alias: {
+    '@lupinum/vue-board/style.css': fileURLToPath(
+      new URL('../../vue-board/dist/index.css', import.meta.url),
+    ),
     '@lupinum/board-core': fileURLToPath(
       new URL('../../board-core/src/index.ts', import.meta.url),
     ),
@@ -32,7 +35,7 @@ export default defineNuxtConfig({
       '@lupinum/board-history',
       '@lupinum/board-minimap',
       '@lupinum/board-serializer',
-      '@lupinum/nuxt-board',
+      'nuxt-board',
     ],
   },
   compatibilityDate: '2026-04-13',

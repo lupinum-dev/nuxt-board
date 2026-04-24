@@ -1,4 +1,4 @@
-import type { Ref } from 'vue'
+import { onBeforeUnmount, onMounted, type Ref } from 'vue'
 import type { BoardEngine, BoardSnapshot } from '@lupinum/board-core'
 
 /** Options for wiring keyboard shortcuts to a board engine instance. */
@@ -24,6 +24,20 @@ function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   const { engine, snapshot, spacePressed } = options
+
+  function clearTransientKeys(): void {
+    spacePressed.value = false
+  }
+
+  onMounted(() => {
+    window.addEventListener('blur', clearTransientKeys)
+    document.addEventListener('visibilitychange', clearTransientKeys)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('blur', clearTransientKeys)
+    document.removeEventListener('visibilitychange', clearTransientKeys)
+  })
 
   function onKeyDown(event: KeyboardEvent): void {
     if (event.code === 'Space' && !shouldIgnoreHotkeys(event)) {
@@ -118,7 +132,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
   function onKeyUp(event: KeyboardEvent): void {
     if (event.code === 'Space') {
-      spacePressed.value = false
+      clearTransientKeys()
     }
   }
 

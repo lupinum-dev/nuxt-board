@@ -57,6 +57,61 @@ describe('history plugin', () => {
     vi.useRealTimers()
   })
 
+  it('undoes and redoes text edits from the built-in editor flow', () => {
+    const engine = createBoardEngine({
+      plugins: [historyPlugin({ debounceMs: 0 })],
+    })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'Before' },
+    })
+    engine.ext.history.clear()
+
+    engine.beginTextEdit(node.id)
+    engine.commitTextEdit(node.id, 'After')
+
+    expect(engine.findNode(node.id)?.data).toMatchObject({ content: 'After' })
+    expect(engine.ext.history.canUndo()).toBe(true)
+
+    engine.ext.history.undo()
+    expect(engine.findNode(node.id)?.data).toMatchObject({ content: 'Before' })
+
+    engine.ext.history.redo()
+    expect(engine.findNode(node.id)?.data).toMatchObject({ content: 'After' })
+  })
+
+  it('coalesces interactive resize updates into an undoable change', () => {
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      plugins: [historyPlugin({ debounceMs: 0 })],
+    })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      data: { content: 'Resize me' },
+    })
+    engine.ext.history.clear()
+
+    engine.beginResize(node.id, 'se', 1, { x: 120, y: 80 })
+    engine.updatePointer(1, { x: 160, y: 110 })
+    engine.updatePointer(1, { x: 180, y: 120 })
+    engine.endInteraction(1)
+
+    expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
+    expect(engine.ext.history.getState().undoDepth).toBe(1)
+
+    engine.ext.history.undo()
+    expect(engine.findNode(node.id)).toMatchObject({ width: 120, height: 80 })
+
+    engine.ext.history.redo()
+    expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
+  })
+
   it('restores connection plugin state during undo and redo', () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin(), historyPlugin({ debounceMs: 0 })],

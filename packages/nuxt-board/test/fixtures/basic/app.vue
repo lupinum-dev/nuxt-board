@@ -1,12 +1,14 @@
 <template>
   <div>
     <p class="board-module-ok">board-module-ok</p>
-    <BoardRoot :engine="engine" style="width: 400px; height: 300px" />
+    <BoardRoot :engine="engine" style="width: 400px; height: 300px">
+      <BoardProbe />
+    </BoardRoot>
   </div>
 </template>
 
 <script setup lang="ts">
-import { asNodeId, createBoardEngine } from '@lupinum/board-core'
+import { asNodeId } from '@lupinum/board-core'
 
 const engine = createBoardEngine({
   initialNodes: [

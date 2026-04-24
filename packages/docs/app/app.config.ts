@@ -34,7 +34,6 @@ export default defineAppConfig({
       {
         icon: 'i-lucide-square-play',
         to: '/examples/basic-board',
-        target: '_blank',
         'aria-label': 'Examples',
       },
     ],

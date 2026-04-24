@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@lupinum/nuxt-board-playground",
+  "name": "nuxt-board-playground",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
@@ -15,9 +15,9 @@
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
     "@lupinum/board-minimap": "workspace:*",
-    "@lupinum/nuxt-board": "workspace:*",
     "@lupinum/board-serializer": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
-    "nuxt": "^4.4.2"
+    "nuxt": "^4.4.2",
+    "nuxt-board": "workspace:*"
   }
 }

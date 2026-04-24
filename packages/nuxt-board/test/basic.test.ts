@@ -6,13 +6,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const host = '127.0.0.1'
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const fixtureRoot = fileURLToPath(new URL('./fixtures/basic', import.meta.url))
 
-let port = 0
-let serverProcess: ChildProcessWithoutNullStreams | undefined
-let serverOutput = ''
+interface FixtureServer {
+  baseUrl: string
+  fixtureName: string
+  output: string
+  port: number
+  process: ChildProcessWithoutNullStreams
+}
 
-const getBaseUrl = () => `http://${host}:${port}/`
+const getFixtureRoot = (fixtureName: string) =>
+  fileURLToPath(new URL(`./fixtures/${fixtureName}`, import.meta.url))
 
 async function getAvailablePort() {
   return await new Promise<number>((resolve, reject) => {
@@ -39,12 +43,12 @@ async function getAvailablePort() {
   })
 }
 
-async function waitForServerReady() {
+async function waitForServerReady(server: FixtureServer) {
   let lastError: Error | undefined
 
   for (let attempt = 0; attempt < 150; attempt += 1) {
     try {
-      const response = await fetch(getBaseUrl())
+      const response = await fetch(server.baseUrl)
       const html = await response.text()
 
       if (response.ok && !html.includes('__NUXT_LOADING__')) {
@@ -61,22 +65,25 @@ async function waitForServerReady() {
     await delay(100)
   }
 
-  const output = serverOutput.trim()
+  const output = server.output.trim()
   const detail = output ? `\n\nServer output:\n${output}` : ''
-  throw new Error(`Timed out waiting for the Nuxt fixture server.${detail}`, {
-    cause: lastError,
-  })
+  throw new Error(
+    `Timed out waiting for the Nuxt fixture "${server.fixtureName}".${detail}`,
+    {
+      cause: lastError,
+    },
+  )
 }
 
-beforeAll(async () => {
-  port = await getAvailablePort()
-  serverProcess = spawn(
+async function startFixtureServer(fixtureName: string): Promise<FixtureServer> {
+  const port = await getAvailablePort()
+  const childProcess = spawn(
     'pnpm',
     [
       'exec',
       'nuxi',
       'dev',
-      fixtureRoot,
+      getFixtureRoot(fixtureName),
       '--host',
       host,
       '--port',
@@ -92,44 +99,96 @@ beforeAll(async () => {
     },
   )
 
-  const collectOutput = (chunk: Buffer) => {
-    serverOutput += chunk.toString()
+  const server: FixtureServer = {
+    baseUrl: `http://${host}:${port}/`,
+    fixtureName,
+    output: '',
+    port,
+    process: childProcess,
+  }
 
-    if (serverOutput.length > 8000) {
-      serverOutput = serverOutput.slice(-8000)
+  const collectOutput = (chunk: Buffer) => {
+    server.output += chunk.toString()
+
+    if (server.output.length > 8000) {
+      server.output = server.output.slice(-8000)
     }
   }
 
-  serverProcess.stdout.on('data', collectOutput)
-  serverProcess.stderr.on('data', collectOutput)
+  childProcess.stdout.on('data', collectOutput)
+  childProcess.stderr.on('data', collectOutput)
 
-  await waitForServerReady()
-}, 120_000)
+  await waitForServerReady(server)
+  return server
+}
 
-afterAll(async () => {
-  if (!serverProcess) {
+async function stopFixtureServer(server: FixtureServer | undefined) {
+  if (!server) {
     return
   }
 
-  if (serverProcess.exitCode === null && !serverProcess.killed) {
-    serverProcess.kill('SIGTERM')
+  if (server.process.exitCode === null && !server.process.killed) {
+    server.process.kill('SIGTERM')
     await delay(250)
   }
 
-  if (serverProcess.exitCode === null && !serverProcess.killed) {
-    serverProcess.kill('SIGKILL')
+  if (server.process.exitCode === null && !server.process.killed) {
+    server.process.kill('SIGKILL')
   }
-}, 30_000)
+}
 
-describe('@lupinum/nuxt-board module', () => {
-  it('renders static page content server-side', async () => {
-    const html = await fetch(getBaseUrl()).then((response) => response.text())
-    expect(html).toContain('board-module-ok')
+describe('nuxt-board module', () => {
+  describe('default auto-imports', () => {
+    let server: FixtureServer | undefined
+
+    beforeAll(async () => {
+      server = await startFixtureServer('basic')
+    }, 120_000)
+
+    afterAll(async () => {
+      await stopFixtureServer(server)
+    }, 30_000)
+
+    it('renders static page content server-side', async () => {
+      const html = await fetch(server!.baseUrl).then((response) =>
+        response.text(),
+      )
+      expect(html).toContain('board-module-ok')
+    })
+
+    it('renders component, helper, and composable auto-imports', async () => {
+      const html = await fetch(server!.baseUrl).then((response) =>
+        response.text(),
+      )
+      expect(html).toContain('class="board-root"')
+      expect(html).toContain('fixture-node-content')
+      expect(html).toContain('class="board-probe"')
+      expect(html).toContain('data-nodes="1"')
+      expect(html).toContain('data-zoom="1"')
+    })
   })
 
-  it('server-renders the board markup and initial nodes', async () => {
-    const html = await fetch(getBaseUrl()).then((response) => response.text())
-    expect(html).toContain('class="board-root"')
-    expect(html).toContain('fixture-node-content')
+  describe('prefixed auto-imports', () => {
+    let server: FixtureServer | undefined
+
+    beforeAll(async () => {
+      server = await startFixtureServer('prefixed')
+    }, 120_000)
+
+    afterAll(async () => {
+      await stopFixtureServer(server)
+    }, 30_000)
+
+    it('renders prefixed component, helper, and composable aliases', async () => {
+      const html = await fetch(server!.baseUrl).then((response) =>
+        response.text(),
+      )
+      expect(html).toContain('prefixed-module-ok')
+      expect(html).toContain('class="board-root"')
+      expect(html).toContain('prefixed-node-content')
+      expect(html).toContain('class="prefixed-board-probe"')
+      expect(html).toContain('data-nodes="1"')
+      expect(html).toContain('data-zoom="1"')
+    })
   })
 })

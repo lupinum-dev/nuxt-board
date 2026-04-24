@@ -13,12 +13,10 @@ const { engine } = useBoardEngine()
 
 type GroupData = {
   title?: string
-  accent?: string
 }
 
 const groupData = computed(() => (props.node.data ?? {}) as GroupData)
 const title = computed(() => groupData.value.title?.trim() || 'Untitled group')
-const accent = computed(() => groupData.value.accent?.trim() || '#ea580c')
 const draft = ref(title.value)
 const inputRef = ref<HTMLInputElement | null>(null)
 
@@ -60,17 +58,7 @@ function cancel(): void {
 </script>
 
 <template>
-  <div
-    class="group-frame"
-    :class="{ 'is-selected': selected }"
-    :style="
-      {
-        '--group-accent': accent,
-        '--group-accent-soft': `${accent}18`,
-        '--group-accent-border': `${accent}6b`,
-      } as Record<string, string>
-    "
-  >
+  <div class="group-frame" :class="{ 'is-selected': selected }">
     <div class="group-frame__label">
       <input
         v-if="editing"
@@ -95,7 +83,8 @@ function cancel(): void {
   height: 100%;
   border-radius: inherit;
   border: calc(2px / var(--board-zoom, 1)) solid var(--group-accent-border);
-  background: var(--group-accent-soft);
+  border-color: var(--board-node-color-soft, var(--board-group-border));
+  background: var(--board-node-tint, var(--board-group-bg));
 }
 
 .group-frame.is-selected {
@@ -118,7 +107,7 @@ function cancel(): void {
   padding: 0.3rem 0.75rem;
   border: none;
   border-radius: 10px 10px 0 0;
-  background: var(--group-accent);
+  background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
   font-family: 'Avenir Next', 'Segoe UI', sans-serif;
   font-size: 0.8rem;

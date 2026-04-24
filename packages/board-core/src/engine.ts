@@ -151,6 +151,7 @@ export function createBoardEngine<
   const ext = {} as BoardEngineExtensions<R>
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
+  let destroyed = false
 
   const state: MutableBoardState<R> = {
     camera,
@@ -346,6 +347,7 @@ export function createBoardEngine<
       width,
       height,
       data: cloneData((input.data ?? defaultNodeData(type)) as R[keyof R]),
+      color: input.color,
       zIndex: state.nextZIndex++,
       locked: Boolean(input.locked),
       visible: input.visible !== false,
@@ -362,6 +364,7 @@ export function createBoardEngine<
       ...node,
       ...patch,
       parentId: 'parentId' in patch ? patch.parentId : node.parentId,
+      color: 'color' in patch ? patch.color : node.color,
       data: patch.data === undefined ? node.data : cloneData(patch.data),
     }
     const x = grid.snap ? snapValue(nextBase.x, grid.size) : nextBase.x
@@ -404,6 +407,17 @@ export function createBoardEngine<
       after: stored,
     })
     return stored
+  }
+
+  function emitNodeResize(before: StoredNode, after: StoredNode): void {
+    const publicNode = materializeNode(after)
+    emit('node:resized', publicNode, {
+      x: before.x,
+      y: before.y,
+      width: before.width,
+      height: before.height,
+    })
+    emit('node:updated', publicNode, materializeNode(before))
   }
 
   function getPublicNode(id: NodeId): ResolvedNode<R> {
@@ -522,6 +536,40 @@ export function createBoardEngine<
         nextParent ? assertStoredNode(nextParent) : null,
         id,
       )
+    }
+  }
+
+  function reparentNodesCapturedByMovedGroups(movedIds: NodeId[]): void {
+    const moved = new Set(movedIds)
+    const movedGroups = movedIds
+      .map((id) => state.nodes.get(id))
+      .filter((node): node is StoredNode => Boolean(node))
+      .filter((node) => node.type === 'group' && node.visible)
+
+    if (movedGroups.length === 0) {
+      return
+    }
+
+    const captured: NodeId[] = []
+    for (const node of state.nodes.values()) {
+      if (moved.has(node.id) || node.locked || !node.visible) {
+        continue
+      }
+      const center = {
+        x: node.x + node.width / 2,
+        y: node.y + node.height / 2,
+      }
+      if (
+        movedGroups.some((group) =>
+          pointInBounds(center, getBoundsFromNode(group)),
+        )
+      ) {
+        captured.push(node.id)
+      }
+    }
+
+    if (captured.length > 0) {
+      reparentAfterDrag(captured)
     }
   }
 
@@ -738,6 +786,19 @@ export function createBoardEngine<
     $selection: $selection as Subscribable<ReadonlySet<NodeId>>,
     $interaction,
     $snapGuides,
+    destroy() {
+      if (destroyed) {
+        return
+      }
+      destroyed = true
+      animationToken += 1
+      for (const cleanup of pluginCleanups.values()) {
+        cleanup()
+      }
+      pluginCleanups.clear()
+      pluginSlices.clear()
+      emit('destroy')
+    },
     extend(key, value) {
       ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
     },
@@ -1079,6 +1140,7 @@ export function createBoardEngine<
           dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
+        reparentNodesCapturedByMovedGroups(targets)
         return getPublicNode(id)
       })
     },
@@ -1124,6 +1186,7 @@ export function createBoardEngine<
           dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
+        reparentNodesCapturedByMovedGroups(targets)
       })
     },
     resizeNode(id, handle, dx, dy) {
@@ -1437,7 +1500,7 @@ export function createBoardEngine<
               ? cloneData(node.data)
               : {}
           ;(data as Record<string, unknown>).content = text
-          stored = replaceStoredNode(node, { ...node, data })
+          stored = replaceStoredNodeAndDispatch(node, { ...node, data })
           emit('node:updated', materializeNode(stored), materializeNode(node))
         }
         setInteraction({ mode: 'idle' })
@@ -1633,7 +1696,11 @@ export function createBoardEngine<
                     )
                   : raw
               setSnapGuides([])
-              replaceStoredNode(node, { ...node, ...nextBounds })
+              const stored = replaceStoredNodeAndDispatch(node, {
+                ...node,
+                ...nextBounds,
+              })
+              emitNodeResize(node, stored)
             } else {
               const gridSnapped =
                 !bypassSnapping && grid.snap
@@ -1646,7 +1713,11 @@ export function createBoardEngine<
                   : raw
               if (bypassSnapping || !grid.edgeSnap) {
                 setSnapGuides([])
-                replaceStoredNode(node, { ...node, ...gridSnapped })
+                const stored = replaceStoredNodeAndDispatch(node, {
+                  ...node,
+                  ...gridSnapped,
+                })
+                emitNodeResize(node, stored)
               } else {
                 const otherEdges = collectOtherNodeEdges(
                   state.nodes.values(),
@@ -1659,7 +1730,11 @@ export function createBoardEngine<
                   grid.edgeSnapThreshold / state.camera.z,
                 )
                 setSnapGuides(snapResult.guides)
-                replaceStoredNode(node, { ...node, ...snapResult.bounds })
+                const stored = replaceStoredNodeAndDispatch(node, {
+                  ...node,
+                  ...snapResult.bounds,
+                })
+                emitNodeResize(node, stored)
               }
             }
           },
@@ -1717,6 +1792,7 @@ export function createBoardEngine<
         setSnapGuides([])
         if (previous.mode === 'dragging-nodes') {
           reparentAfterDrag(previous.nodeIds)
+          reparentNodesCapturedByMovedGroups(previous.nodeIds)
         }
         setInteraction({ mode: 'idle' })
       })

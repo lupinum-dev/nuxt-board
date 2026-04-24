@@ -33,7 +33,11 @@ test('navigates to examples and api reference pages', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: '@lupinum/board-core' }),
   ).toBeVisible()
-  await expect(page.getByText('createBoardEngine')).toBeVisible()
+  await expect(
+    page.locator('#createboardengine').getByRole('link', {
+      name: 'createBoardEngine',
+    }),
+  ).toBeVisible()
 })
 
 test('links the docs introduction to the examples section', async ({

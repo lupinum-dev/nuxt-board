@@ -4,7 +4,7 @@ seo:
   description: Build node-based editors, whiteboards, and spatial tools in Vue 3 and Nuxt.
 ---
 
-## ::u-page-hero
+::u-page-hero
 
 orientation: horizontal
 class: "min-h-[70vh]"
