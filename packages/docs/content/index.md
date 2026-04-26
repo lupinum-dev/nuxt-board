@@ -49,7 +49,7 @@ Explore live examples
 
 ---
 
-to: https://github.com/Mat4m0/canvas
+to: https://github.com/lupinum/nuxt-board
 target: \_blank
 icon: i-simple-icons-github
 color: neutral

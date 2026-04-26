@@ -31,6 +31,95 @@ describe('board engine', () => {
     expect(engine.screenToWorld(point)).toEqual(before)
   })
 
+  it('rolls back strict validation failures after node updates', () => {
+    let readPluginState!: () => { updates: number }
+    const plugin: BoardPlugin = {
+      name: 'rollback-probe',
+      slice: {
+        initial: { updates: 0 },
+        reducer(state: { updates: number }, action) {
+          return action.type === 'NODE_UPDATED'
+            ? { updates: state.updates + 1 }
+            : state
+        },
+      },
+      install(engine) {
+        readPluginState = () => engine.getPluginState()
+      },
+    }
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      plugins: [plugin],
+    })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      data: { content: 'Valid' },
+    })
+    const before = engine.getSnapshot()
+
+    expect(() => engine.updateNode(node.id, { width: -1 })).toThrow(
+      /Board invariant failed/,
+    )
+
+    expect(engine.getSnapshot()).toEqual(before)
+    expect(readPluginState()).toEqual({ updates: 0 })
+  })
+
+  it('rolls back invalid node creation and import payloads', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const beforeCreate = engine.getSnapshot()
+
+    expect(() =>
+      engine.createNode({
+        type: 'text',
+        width: -1,
+        height: 80,
+        data: {},
+      }),
+    ).toThrow(/Board invariant failed/)
+    expect(engine.getSnapshot()).toEqual(beforeCreate)
+
+    const existing = engine.createNode({
+      type: 'text',
+      x: 10,
+      y: 20,
+      data: { content: 'Keep' },
+    })
+    const beforeImport = engine.getSnapshot()
+
+    expect(() =>
+      engine.importJSON(
+        JSON.stringify({
+          ...beforeImport,
+          nodes: [{ ...existing, width: -1 }],
+        }),
+        'replace',
+      ),
+    ).toThrow(/Invalid board document/)
+    expect(engine.getSnapshot()).toEqual(beforeImport)
+  })
+
+  it('runs middleware for async camera commands', async () => {
+    const engine = createBoardEngine()
+    const blocked: string[] = []
+    engine.addMiddleware((name) => {
+      if (name === 'panTo' || name === 'zoomToFit') {
+        blocked.push(name)
+        return
+      }
+    })
+
+    await engine.panTo({ x: 100, y: 100 })
+    await engine.zoomToFit()
+
+    expect(blocked).toEqual(['panTo', 'zoomToFit'])
+    expect(engine.getSnapshot().camera).toEqual({ x: 0, y: 0, z: 1 })
+  })
+
   it('moves all selected nodes during a drag', () => {
     const engine = createBoardEngine()
     const first = engine.createNode({

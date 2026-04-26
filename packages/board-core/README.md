@@ -1,5 +1,29 @@
 # @lupinum/board-core
 
-Headless engine for node-based boards: pure state reducer, action log, command/event layer, ephemeral interaction state, plugin host. Framework-agnostic — no DOM, no framework, no rendering. Vue/Nuxt bindings live in `@lupinum/vue-board` and `nuxt-board`.
+Headless engine for node-based boards: state, commands, selection, grouping,
+camera, snapping, middleware, events, and plugin hosting.
 
-See [`ARCHITECTURE.md`](../../ARCHITECTURE.md) for the layer model and how actions flow through the system.
+```bash
+pnpm add @lupinum/board-core
+```
+
+```ts
+import { createBoardEngine } from '@lupinum/board-core'
+
+const engine = createBoardEngine({ grid: { size: 20, snap: true } })
+const node = engine.createNode({
+  type: 'text',
+  x: 80,
+  y: 80,
+  data: { content: 'Plan launch tasks' },
+})
+
+engine.select(node.id)
+```
+
+Use this package directly for framework-agnostic state and with
+`@lupinum/vue-board` or `nuxt-board` for rendering.
+
+- Docs: https://vue-board.vercel.app
+- Issues: https://github.com/lupinum/nuxt-board/issues
+- License: MIT

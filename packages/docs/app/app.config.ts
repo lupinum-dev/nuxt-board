@@ -27,7 +27,7 @@ export default defineAppConfig({
     links: [
       {
         icon: 'i-tabler-brand-github',
-        to: 'https://github.com/Mat4m0/canvas',
+        to: 'https://github.com/lupinum/nuxt-board',
         target: '_blank',
         'aria-label': 'GitHub',
       },
@@ -44,7 +44,7 @@ export default defineAppConfig({
     links: [
       {
         icon: 'i-tabler-brand-github',
-        to: 'https://github.com/Mat4m0/canvas',
+        to: 'https://github.com/lupinum/nuxt-board',
         target: '_blank',
         'aria-label': 'Vue Board on GitHub',
       },
@@ -54,12 +54,12 @@ export default defineAppConfig({
     title: 'Table of Contents',
     bottom: {
       title: 'Project',
-      edit: 'https://github.com/Mat4m0/canvas/edit/main/packages/docs/content',
+      edit: 'https://github.com/lupinum/nuxt-board/edit/main/packages/docs/content',
       links: [
         {
           icon: 'i-tabler-star',
           label: 'Star on GitHub',
-          to: 'https://github.com/Mat4m0/canvas',
+          to: 'https://github.com/lupinum/nuxt-board',
           target: '_blank',
         },
         {

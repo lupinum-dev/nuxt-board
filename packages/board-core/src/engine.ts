@@ -21,7 +21,7 @@ import {
   getBoundsFromNode,
   sortIdsByZIndex,
 } from './hierarchy'
-import { cloneInteraction } from './invariants'
+import { cloneInteraction, validateState } from './invariants'
 import {
   applyResizeDelta,
   applyResizeDeltaLocked,
@@ -182,6 +182,7 @@ export function createBoardEngine<
     $snapGuides,
     getPublicNodeMap,
     notifyNodesChanged,
+    notifyCameraChanged,
     notifySelectionChanged,
     notifyInteractionChanged,
     notifySnapGuidesChanged,
@@ -245,6 +246,56 @@ export function createBoardEngine<
     return buildPublicState<R>(state, getPublicNodeMap())
   }
 
+  interface EngineRestorePoint {
+    camera: Camera
+    nodes: Map<NodeId, StoredNode>
+    selection: Set<NodeId>
+    interaction: InteractionState
+    snapGuides: SnapGuide[]
+    nextZIndex: number
+    grid: GridSettings
+    pluginStates: Map<string, unknown>
+  }
+
+  function createRestorePoint(): EngineRestorePoint {
+    return {
+      camera: { ...state.camera },
+      nodes: new Map(state.nodes),
+      selection: new Set(state.selection),
+      interaction: cloneInteraction(state.interaction),
+      snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
+      nextZIndex: state.nextZIndex,
+      grid: { ...grid },
+      pluginStates: new Map(
+        Array.from(pluginSlices, ([name, slice]) => [
+          name,
+          structuredClone(slice.state),
+        ]),
+      ),
+    }
+  }
+
+  function restoreEngineState(restorePoint: EngineRestorePoint): void {
+    state.camera = { ...restorePoint.camera }
+    state.nodes = new Map(restorePoint.nodes)
+    state.selection = new Set(restorePoint.selection)
+    state.interaction = cloneInteraction(restorePoint.interaction)
+    state.snapGuides = restorePoint.snapGuides.map((guide) => ({ ...guide }))
+    state.nextZIndex = restorePoint.nextZIndex
+    Object.assign(grid, restorePoint.grid)
+    for (const [name, pluginState] of restorePoint.pluginStates) {
+      const slice = pluginSlices.get(name)
+      if (slice) {
+        slice.state = structuredClone(pluginState)
+      }
+    }
+    notifyCameraChanged()
+    notifyNodesChanged()
+    notifySelectionChanged()
+    notifyInteractionChanged()
+    notifySnapGuidesChanged()
+  }
+
   function runCommand<T>(
     name: string,
     args: unknown[],
@@ -262,18 +313,26 @@ export function createBoardEngine<
     if (!inTransaction) {
       emit('command:before', name, args)
     }
-    const result = fn()
-    if (!skipValidation) {
-      if (inTransaction) {
-        transactions.markValidationPending()
-      } else {
-        validate(name)
+    const restorePoint = skipValidation ? null : createRestorePoint()
+    try {
+      const result = fn()
+      if (!skipValidation) {
+        if (inTransaction) {
+          transactions.markValidationPending()
+        } else {
+          validate(name)
+        }
       }
+      if (!inTransaction) {
+        emit('command:after', name, args, performance.now() - started)
+      }
+      return result
+    } catch (error) {
+      if (restorePoint) {
+        restoreEngineState(restorePoint)
+      }
+      throw error
     }
-    if (!inTransaction) {
-      emit('command:after', name, args, performance.now() - started)
-    }
-    return result
   }
 
   async function runAsyncCommand<T>(
@@ -282,8 +341,13 @@ export function createBoardEngine<
     fn: () => Promise<T>,
     skipValidation = false,
   ): Promise<T> {
+    if (!middleware.run(name, args)) {
+      emit('command:blocked', name, args)
+      return undefined as T
+    }
     const started = performance.now()
     emit('command:before', name, args)
+    const restorePoint = skipValidation ? null : createRestorePoint()
     try {
       const result = await fn()
       if (!skipValidation) {
@@ -294,6 +358,9 @@ export function createBoardEngine<
     } catch (error) {
       if (error instanceof AnimationCancelled) {
         return undefined as T
+      }
+      if (restorePoint) {
+        restoreEngineState(restorePoint)
       }
       throw error
     }
@@ -667,24 +734,37 @@ export function createBoardEngine<
     mode: 'replace' | 'merge',
   ): void {
     if (mode === 'replace') {
-      state.nodes = new Map(
-        snapshot.nodes.map((node) => [node.id, normalizeExistingNode(node)]),
-      )
+      const existingIds = deletionOrderPostOrder(new Set(state.nodes.keys()))
+      for (const id of existingIds) {
+        const prevNode = state.nodes.get(id)
+        if (!prevNode) {
+          continue
+        }
+        state.nodes.delete(id)
+        dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
+        emit('node:deleted', id, materializeNode(prevNode))
+      }
+
+      state.nextZIndex = snapshot.nextZIndex
+      for (const rawNode of snapshot.nodes) {
+        const node = normalizeExistingNode(rawNode)
+        state.nodes.set(node.id, node)
+        dispatcher.dispatch({ type: 'NODE_CREATED', node })
+        emit('node:created', materializeNode(node))
+      }
+
       state.selection = new Set(
         snapshot.selection.filter((id) => state.nodes.has(id)),
       )
       state.interaction = { mode: 'idle' }
-      state.nextZIndex = snapshot.nextZIndex
+      state.snapGuides = []
+      state.camera = { ...snapshot.camera }
+      Object.assign(grid, snapshot.grid)
+      notifyCameraChanged()
       notifyNodesChanged()
       notifySelectionChanged()
       notifyInteractionChanged()
-      setCamera({ ...snapshot.camera })
-      grid.size = snapshot.grid.size
-      grid.majorEvery = snapshot.grid.majorEvery
-      grid.snap = snapshot.grid.snap
-      grid.edgeSnap = snapshot.grid.edgeSnap ?? true
-      grid.edgeSnapThreshold = snapshot.grid.edgeSnapThreshold ?? 8
-      grid.pattern = snapshot.grid.pattern
+      notifySnapGuidesChanged()
       return
     }
 
@@ -694,6 +774,74 @@ export function createBoardEngine<
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
     }
     notifyNodesChanged()
+  }
+
+  function normalizeSnapshotForImport(raw: unknown): BoardSnapshot<R> {
+    const parsed = raw as Partial<BoardSnapshot<R>> | null
+    if (!parsed || !Array.isArray(parsed.nodes)) {
+      throw new Error('Invalid board document: missing nodes array.')
+    }
+
+    const seen = new Set<NodeId>()
+    const nodes = parsed.nodes.map((node) => {
+      if (
+        typeof node.id !== 'string' ||
+        !Number.isFinite(node.x) ||
+        !Number.isFinite(node.y) ||
+        !Number.isFinite(node.width) ||
+        !Number.isFinite(node.height)
+      ) {
+        throw new Error(
+          `Invalid board document: node "${String(node.id ?? '?')}" has invalid geometry.`,
+        )
+      }
+      const normalized = normalizeExistingNode(node)
+      if (seen.has(normalized.id)) {
+        throw new Error(
+          `Invalid board document: duplicate node id "${normalized.id}".`,
+        )
+      }
+      seen.add(normalized.id)
+      return normalized as unknown as ResolvedNode<R>
+    })
+
+    const gridSettings: GridSettings = {
+      ...DEFAULT_GRID,
+      ...(parsed.grid ?? {}),
+    }
+    const snapshot: BoardSnapshot<R> = {
+      camera: { ...DEFAULT_CAMERA, ...(parsed.camera ?? {}) },
+      grid: gridSettings,
+      nodes,
+      selection: Array.isArray(parsed.selection)
+        ? parsed.selection.filter((id): id is NodeId => typeof id === 'string')
+        : [],
+      interaction: { mode: 'idle' },
+      snapGuides: [],
+      nextZIndex: Number.isFinite(parsed.nextZIndex)
+        ? parsed.nextZIndex!
+        : nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1,
+    }
+
+    const failures = validateState<R>(
+      {
+        camera: snapshot.camera,
+        nodes: new Map(snapshot.nodes.map((node) => [node.id, node])),
+        selection: new Set(snapshot.selection),
+        interaction: snapshot.interaction,
+        snapGuides: snapshot.snapGuides,
+        nextZIndex: snapshot.nextZIndex,
+      },
+      snapshot.grid,
+      'importJSON',
+    )
+    if (failures.length > 0) {
+      throw new Error(
+        `Invalid board document: ${failures[0]?.message ?? 'invariant failed.'}`,
+      )
+    }
+
+    return snapshot
   }
 
   function replay(action: import('./state/actions').Action): void {
@@ -806,7 +954,13 @@ export function createBoardEngine<
       ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
     },
     batch(fn) {
-      transactions.batch(fn)
+      const restorePoint = createRestorePoint()
+      try {
+        transactions.batch(fn)
+      } catch (error) {
+        restoreEngineState(restorePoint)
+        throw error
+      }
     },
     getState,
     getSnapshot,
@@ -1820,23 +1974,7 @@ export function createBoardEngine<
     },
     importJSON(json, mode = 'replace') {
       runCommand('importJSON', [mode], () => {
-        const parsed = JSON.parse(json) as BoardSnapshot<R>
-        if (!parsed || !Array.isArray(parsed.nodes)) {
-          throw new Error('Invalid board document: missing nodes array.')
-        }
-        for (const node of parsed.nodes) {
-          if (
-            typeof node.id !== 'string' ||
-            !Number.isFinite(node.x) ||
-            !Number.isFinite(node.y) ||
-            !Number.isFinite(node.width) ||
-            !Number.isFinite(node.height)
-          ) {
-            throw new Error(
-              `Invalid board document: node "${String(node.id ?? '?')}" has invalid geometry.`,
-            )
-          }
-        }
+        const parsed = normalizeSnapshotForImport(JSON.parse(json))
         restoreSnapshot(parsed, mode)
       })
     },

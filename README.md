@@ -8,6 +8,7 @@ The engine is headless. It owns board state, commands, selection, grouping, came
 <script setup lang="ts">
 import { createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
+import '@lupinum/vue-board/style.css'
 
 const engine = createBoardEngine({
   grid: { size: 20, snap: true },
@@ -53,7 +54,7 @@ pnpm add @lupinum/board-core @lupinum/vue-board
 For Nuxt:
 
 ```bash
-pnpm add nuxt-board
+pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 ```ts

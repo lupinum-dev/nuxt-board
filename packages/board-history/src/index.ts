@@ -57,6 +57,7 @@ const DEFAULT_EXCLUDE = new Set([
   'beginBoxSelect',
   'beginTextEdit',
   'endInteraction',
+  'importJSON',
 ])
 
 function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {

@@ -41,12 +41,15 @@ export function createTransactionController(
   function end(): void {
     depth -= 1
     if (depth !== 0) return
-    if (validationPending) {
-      deps.validate('batch')
+    try {
+      if (validationPending) {
+        deps.validate('batch')
+      }
+    } finally {
       validationPending = false
+      deps.batchCtrl.depth -= 1
+      flushBatchNotifications()
     }
-    deps.batchCtrl.depth -= 1
-    flushBatchNotifications()
     deps.emitCommandAfter('batch', [], performance.now() - startedAt)
   }
 

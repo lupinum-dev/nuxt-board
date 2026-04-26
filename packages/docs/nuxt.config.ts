@@ -29,14 +29,14 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  colorMode: {
-    classSuffix: '',
-    dataValue: 'theme',
-  },
-
   site: {
     url: siteUrl,
     name: 'Vue Board',
+  },
+
+  colorMode: {
+    classSuffix: '',
+    dataValue: 'theme',
   },
 
   content: {
@@ -52,7 +52,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       siteUrl,
-      githubUrl: 'https://github.com/Mat4m0/canvas',
+      githubUrl: 'https://github.com/lupinum/nuxt-board',
     },
   },
 

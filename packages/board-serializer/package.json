@@ -18,12 +18,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "url": "git+https://github.com/lupinum/nuxt-board.git",
     "directory": "packages/board-serializer"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/Mat4m0/canvas/issues"
+    "url": "https://github.com/lupinum/nuxt-board/issues"
   },
   "keywords": [
     "board",
@@ -34,7 +34,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --tsconfig tsconfig.build.json"
+    "build": "tsup src/index.ts --format esm --clean && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
     "@lupinum/board-connections": "workspace:^",

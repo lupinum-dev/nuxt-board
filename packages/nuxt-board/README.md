@@ -4,7 +4,7 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that aut
 
 ## What It Does
 
-- Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, and `BoardSnapGuides`
+- Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, and `BoardSnapGuides`
 - Auto-imports the core board composables from `@lupinum/vue-board`
 - Auto-imports `createBoardEngine`
 - Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
@@ -14,7 +14,7 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that aut
 ## Install
 
 ```bash
-pnpm add nuxt-board
+pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 Then register the module:
@@ -30,17 +30,24 @@ export default defineNuxtConfig({
 
 ```vue
 <script setup lang="ts">
+import { asNodeId } from '@lupinum/board-core'
+
 const engine = createBoardEngine({
   grid: { size: 24, snap: true },
-})
-
-engine.createNode({
-  type: 'text',
-  x: 64,
-  y: 64,
-  width: 220,
-  height: 96,
-  data: { content: 'Nuxt SSR board' },
+  initialNodes: [
+    {
+      id: asNodeId('nuxt-ssr-board'),
+      type: 'text',
+      x: 64,
+      y: 64,
+      width: 220,
+      height: 96,
+      data: { content: 'Nuxt SSR board' },
+      zIndex: 1,
+      locked: false,
+      visible: true,
+    },
+  ],
 })
 </script>
 
@@ -51,7 +58,7 @@ engine.createNode({
 
 ## SSR Notes
 
-`nuxt-board` server-renders the board shell and any deterministic initial nodes. If you seed the engine during SSR, use stable IDs for initial content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/Mat4m0/canvas/tree/main/packages/nuxt-board/playground).
+`nuxt-board` server-renders the board shell and any deterministic initial nodes. If you seed the engine during SSR, use stable IDs for initial content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
 
 ## Module Options
 

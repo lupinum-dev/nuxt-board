@@ -91,6 +91,42 @@ describe('connections plugin', () => {
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
 
+  it('clears stale edges when replacing the board document', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'A' },
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 200,
+      y: 100,
+      data: { content: 'B' },
+    })
+    engine.ext.connections.createEdge({
+      from: first.id,
+      to: second.id,
+      data: {},
+    })
+
+    engine.importJSON(
+      JSON.stringify({
+        ...engine.getSnapshot(),
+        nodes: [],
+        selection: [],
+        nextZIndex: 1,
+      }),
+      'replace',
+    )
+
+    expect(engine.getSnapshot().nodes).toHaveLength(0)
+    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+  })
+
   it('resolves auto sides with hysteresis across diagonal thresholds', () => {
     const source = { x: 0, y: 0, width: 100, height: 60 }
     const target = { x: 140, y: 20, width: 100, height: 60 }

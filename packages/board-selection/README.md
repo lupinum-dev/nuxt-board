@@ -1,3 +1,26 @@
 # @lupinum/board-selection
 
-Box-selection visualization and selection-rectangle commands. Draws the marquee during a `box-select` interaction and resolves the final selection set when the gesture ends.
+Snapshot-based selection helpers for `@lupinum/board-core`.
+
+```bash
+pnpm add @lupinum/board-selection @lupinum/board-core
+```
+
+```ts
+import { getSelectionBounds, getSelectionNodes } from '@lupinum/board-selection'
+
+const selectedNodes = getSelectionNodes(engine)
+const bounds = getSelectionBounds(engine)
+```
+
+Exports:
+
+- `getSelectionNodes(engine)`
+- `getSelectionBounds(engine)`
+- `toggleIds(current, ids)`
+
+Peer dependency: `@lupinum/board-core`.
+
+- Docs: https://vue-board.vercel.app/api/board-selection
+- Issues: https://github.com/lupinum/nuxt-board/issues
+- License: MIT

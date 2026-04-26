@@ -1,3 +1,26 @@
 # @lupinum/board-history
 
-Undo/redo plugin for `@lupinum/board-core`. Captures dispatched actions between `command:before` and `command:after`, coalesces consecutive moves of the same node into a single undoable step, and replays inverses to undo. No state snapshots — just an append-only action log.
+Undo and redo plugin for `@lupinum/board-core`.
+
+```bash
+pnpm add @lupinum/board-history @lupinum/board-core
+```
+
+```ts
+import { createBoardEngine } from '@lupinum/board-core'
+import { historyPlugin } from '@lupinum/board-history'
+
+const engine = createBoardEngine({
+  plugins: [historyPlugin({ maxSteps: 200 })],
+})
+
+engine.ext.history.undo()
+engine.ext.history.redo()
+```
+
+The plugin captures reducer actions between command lifecycle events and replays
+inverse actions for undo/redo.
+
+- Docs: https://vue-board.vercel.app/api/board-history
+- Issues: https://github.com/lupinum/nuxt-board/issues
+- License: MIT

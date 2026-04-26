@@ -213,6 +213,34 @@ describe('history plugin', () => {
     expect(engine.getSnapshot().nextZIndex).toBe(before + 1)
   })
 
+  it('does not record board replacement imports in history', () => {
+    const engine = createBoardEngine({
+      plugins: [historyPlugin({ debounceMs: 0 })],
+    })
+    const existing = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      data: { content: 'Existing' },
+    })
+    engine.ext.history.clear()
+
+    engine.importJSON(
+      JSON.stringify({
+        ...engine.getSnapshot(),
+        nodes: [{ ...existing, data: { content: 'Imported' } }],
+        selection: [existing.id],
+      }),
+      'replace',
+    )
+
+    expect(engine.ext.history.canUndo()).toBe(false)
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getSnapshot().nodes[0]?.data).toMatchObject({
+      content: 'Imported',
+    })
+  })
+
   it('undoes and redoes edge reconnect updates', () => {
     const engine = createBoardEngine({
       plugins: [connectionPlugin(), historyPlugin({ debounceMs: 0 })],

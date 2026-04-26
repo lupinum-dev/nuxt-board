@@ -26,6 +26,7 @@ export interface ReactiveLayer<R extends NodeTypeRegistry> {
   getPublicNodeMap: () => ReadonlyMap<NodeId, ResolvedNode<R>>
   invalidateNodeCache: () => void
   notifyNodesChanged: () => void
+  notifyCameraChanged: () => void
   notifySelectionChanged: () => void
   notifyInteractionChanged: () => void
   notifySnapGuidesChanged: () => void
@@ -87,6 +88,10 @@ export function createReactiveLayer<R extends NodeTypeRegistry>(
   function notifyNodesChanged(): void {
     cachedPublicNodeMap = null
     $nodes.set(new Map(getPublicNodeMap()))
+  }
+
+  function notifyCameraChanged(): void {
+    $camera.set(freezeClone({ ...state.camera }))
   }
 
   function notifySelectionChanged(): void {
@@ -151,6 +156,7 @@ export function createReactiveLayer<R extends NodeTypeRegistry>(
     getPublicNodeMap,
     invalidateNodeCache,
     notifyNodesChanged,
+    notifyCameraChanged,
     notifySelectionChanged,
     notifyInteractionChanged,
     notifySnapGuidesChanged,
