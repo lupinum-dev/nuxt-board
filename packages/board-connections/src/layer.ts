@@ -11,7 +11,6 @@ import {
 } from 'vue'
 import {
   type BoardEngine,
-  type BoardNode,
   type EdgeId,
   type NodeId,
   type Point,
@@ -31,20 +30,38 @@ import type {
   BoardEdge,
   ConnectionEndpointMode,
   ConnectionRouting,
-  ConnectionsExtension,
   EdgeEnd,
   ResolvedConnectionEndpoint,
 } from './types'
+import {
+  CONNECTION_DRAG_THRESHOLD,
+  EDGE_ARROW_MARKER_SIZE,
+  EDGE_LABEL_ACTIVE_FONT_SIZE,
+  EDGE_LABEL_ACTIVE_HEIGHT,
+  EDGE_LABEL_HORIZONTAL_PADDING,
+  EDGE_LABEL_IDLE_HEIGHT,
+  EDGE_LABEL_MAX_SCREEN_WIDTH,
+  EDGE_LABEL_MIN_ZOOM,
+  EDGE_LABEL_SCREEN_FONT_SIZE,
+  EDGE_STROKE_LOD_FADE_START,
+  EDGE_STROKE_LOD_SOFTEN_AT,
+  anchorForPointOnNode,
+  clamp01,
+  edgeIdFromTarget,
+  floatingNodeAt,
+  nodeHandleFromTarget,
+  resolveArrowScreenSize,
+  resolveLodAmount,
+  sameAnchor,
+  sameEdgeTarget,
+  worldPointFromClient,
+  type HoveredNodeHandle,
+} from './layer-helpers'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
 }
 type DragEnd = 'from' | 'to'
-type HoveredNodeHandle = {
-  nodeId: NodeId
-  side: AnchorSide
-  offset: number
-}
 type ReconnectDragState = {
   mode: 'reconnect'
   edgeId: string
@@ -80,125 +97,7 @@ type PendingCreateDrag = {
 }
 type PendingDragState = PendingReconnectDrag | PendingCreateDrag
 
-const CONNECTION_DRAG_THRESHOLD = 6
-const EDGE_STROKE_LOD_FADE_START = 0.95
-const EDGE_STROKE_LOD_SOFTEN_AT = 0.45
-const EDGE_ARROW_MARKER_SIZE = 18
-const EDGE_ARROW_SCREEN_SIZE = 16
-const EDGE_ARROW_MIN_SCREEN_SIZE = 10
-const EDGE_ARROW_MAX_SCREEN_SIZE = 22
-const EDGE_LABEL_MIN_ZOOM = 0.1
-const EDGE_LABEL_MAX_SCREEN_WIDTH = 220
-const EDGE_LABEL_HORIZONTAL_PADDING = 20
-const EDGE_LABEL_IDLE_HEIGHT = 18
-const EDGE_LABEL_ACTIVE_HEIGHT = 24
-const EDGE_LABEL_SCREEN_FONT_SIZE = 14
-const EDGE_LABEL_ACTIVE_FONT_SIZE = 13
 const TOOLBAR_ICON_SIZE = 24
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value))
-}
-
-function resolveLodAmount(
-  zoom: number,
-  fadeStart: number,
-  minDetailAt: number,
-): number {
-  if (zoom >= fadeStart) {
-    return 1
-  }
-  if (zoom <= minDetailAt) {
-    return 0
-  }
-  return clamp01((zoom - minDetailAt) / (fadeStart - minDetailAt))
-}
-
-function resolveArrowScreenSize(zoom: number): number {
-  return Math.max(
-    EDGE_ARROW_MIN_SCREEN_SIZE,
-    Math.min(
-      EDGE_ARROW_MAX_SCREEN_SIZE,
-      EDGE_ARROW_SCREEN_SIZE * Math.sqrt(zoom),
-    ),
-  )
-}
-
-function edgeIdFromTarget(target: EventTarget | null): string | null {
-  return target instanceof Element
-    ? (target.closest<HTMLElement>('[data-connection-edge-id]')?.dataset
-        .connectionEdgeId ?? null)
-    : null
-}
-
-function nodeHandleFromTarget(
-  target: EventTarget | null,
-): HoveredNodeHandle | null {
-  if (!(target instanceof Element)) {
-    return null
-  }
-  const element = target.closest<HTMLElement>(
-    '[data-connection-node-id][data-connection-side]',
-  )
-  if (!element?.dataset.connectionNodeId || !element.dataset.connectionSide) {
-    return null
-  }
-  return {
-    nodeId: element.dataset.connectionNodeId as NodeId,
-    side: element.dataset.connectionSide as AnchorSide,
-    offset: clamp01(Number(element.dataset.connectionOffset ?? 0.5)),
-  }
-}
-
-function sameEdgeTarget(target: EventTarget | null, edgeId: string): boolean {
-  return edgeIdFromTarget(target) === edgeId
-}
-
-function worldPointFromClient(
-  ctx: ReturnType<typeof useBoardEngine>,
-  engine: BoardEngine,
-  clientX: number,
-  clientY: number,
-): Point {
-  return engine.screenToWorld(ctx.toLocalPoint(clientX, clientY))
-}
-
-function floatingNodeAt(
-  point: Point,
-  role: 'source' | 'target',
-): Pick<BoardNode, 'id' | 'x' | 'y' | 'width' | 'height'> {
-  return {
-    id: `floating-${role}` as NodeId,
-    x: point.x,
-    y: point.y,
-    width: 0,
-    height: 0,
-  }
-}
-
-function anchorForPointOnNode(
-  node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
-  side: AnchorSide,
-  point: Point,
-): AnchorPosition {
-  const offset =
-    side === 'top' || side === 'bottom'
-      ? clamp01((point.x - node.x) / Math.max(node.width, 1))
-      : clamp01((point.y - node.y) / Math.max(node.height, 1))
-  return { side, offset }
-}
-
-function sameAnchor(
-  left: AnchorPosition | undefined,
-  right: AnchorPosition | null,
-): boolean {
-  return Boolean(
-    left &&
-    right &&
-    left.side === right.side &&
-    Math.abs(left.offset - right.offset) < 0.001,
-  )
-}
 
 export const BoardConnectionLayer = defineComponent({
   name: 'BoardConnectionLayer',
@@ -343,13 +242,7 @@ export const BoardConnectionLayer = defineComponent({
       const nodes = injected.$nodes.value
       const currentEngine = engine.value
       const routing =
-        props.routing ??
-        (
-          currentEngine.ext.connections as ConnectionsExtension & {
-            __routing?: ConnectionRouting
-          }
-        ).__routing ??
-        'bezier'
+        props.routing ?? currentEngine.ext.connections.getConfig().routing
       const nextCache = new Map<
         string,
         { source: AnchorSide; target: AnchorSide }
@@ -408,12 +301,7 @@ export const BoardConnectionLayer = defineComponent({
     const endpointMode = computed<ConnectionEndpointMode>(
       () =>
         props.endpointMode ??
-        (
-          engine.value.ext.connections as ConnectionsExtension & {
-            __endpointMode?: ConnectionEndpointMode
-          }
-        ).__endpointMode ??
-        'auto',
+        engine.value.ext.connections.getConfig().endpointMode,
     )
 
     watch(entries, (current) => {
@@ -449,13 +337,7 @@ export const BoardConnectionLayer = defineComponent({
         ? nodes.get(active.candidateNodeId)
         : undefined
       const routing =
-        props.routing ??
-        (
-          engine.value.ext.connections as ConnectionsExtension & {
-            __routing?: ConnectionRouting
-          }
-        ).__routing ??
-        'bezier'
+        props.routing ?? engine.value.ext.connections.getConfig().routing
 
       if (active.mode === 'reconnect') {
         const entry = entryById.value.get(active.edgeId)

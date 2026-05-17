@@ -20,7 +20,6 @@ const packageDirs = [
   'packages/board-core',
   'packages/vue-board',
   'packages/board-history',
-  'packages/board-selection',
   'packages/board-connections',
   'packages/board-minimap',
   'packages/nuxt-board',
@@ -189,13 +188,13 @@ writeFileSync(
   `import { createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
 import { historyPlugin } from '@lupinum/board-history'
-import { getSelectionBounds } from '@lupinum/board-selection'
+import { getSelectionBounds } from '@lupinum/board-core'
 import { connectionPlugin } from '@lupinum/board-connections'
 import { BoardMinimap } from '@lupinum/board-minimap'
 import nuxtBoard from 'nuxt-board'
 
-const engine = createBoardEngine({ plugins: [historyPlugin(), connectionPlugin()] })
-const node = engine.createNode({ type: 'text', data: { content: 'packed' } })
+const engine = createBoardEngine({ extensions: [historyPlugin(), connectionPlugin()] })
+const node = engine.createNode({ type: 'text', text: 'packed' })
 engine.select(node.id)
 getSelectionBounds(engine)
 engine.exportJSON()

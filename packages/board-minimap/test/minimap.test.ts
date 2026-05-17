@@ -13,7 +13,7 @@ describe('minimap', () => {
       y: 0,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -21,7 +21,7 @@ describe('minimap', () => {
       y: 400,
       width: 100,
       height: 80,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const scope = effectScope()
@@ -46,7 +46,7 @@ describe('minimap', () => {
       y: 0,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -54,7 +54,7 @@ describe('minimap', () => {
       y: 400,
       width: 100,
       height: 80,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const scope = effectScope()
@@ -87,7 +87,7 @@ describe('minimap', () => {
       y: 0,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -95,7 +95,7 @@ describe('minimap', () => {
       y: 400,
       width: 100,
       height: 80,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const scope = effectScope()
@@ -123,7 +123,7 @@ describe('minimap', () => {
       y: 0,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -131,7 +131,7 @@ describe('minimap', () => {
       y: 400,
       width: 100,
       height: 80,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const scope = effectScope()

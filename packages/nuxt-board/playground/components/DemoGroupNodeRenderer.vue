@@ -11,12 +11,7 @@ const props = defineProps<{
 
 const { engine } = useBoardEngine()
 
-type GroupData = {
-  title?: string
-}
-
-const groupData = computed(() => (props.node.data ?? {}) as GroupData)
-const title = computed(() => groupData.value.title?.trim() || 'Untitled group')
+const title = computed(() => props.node.label?.trim() || 'Untitled group')
 const draft = ref(title.value)
 const inputRef = ref<HTMLInputElement | null>(null)
 
@@ -43,10 +38,7 @@ watch(title, (value) => {
 
 function commit(): void {
   engine.updateNode(props.node.id, {
-    data: {
-      ...props.node.data,
-      title: draft.value.trim() || 'Untitled group',
-    },
+    label: draft.value.trim() || 'Untitled group',
   })
   engine.endInteraction()
 }

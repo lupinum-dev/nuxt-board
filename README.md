@@ -2,7 +2,7 @@
 
 Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors, canvas tools, workflow builders, and spatial planning surfaces.
 
-The engine is headless. It owns board state, commands, selection, grouping, camera state, middleware, and events. Vue renders that state through components and composables. Optional packages add history, connections, minimaps, and JSON Canvas import/export when your product needs them.
+The engine is headless. It owns board state, commands, selection, grouping, camera state, command guards, and events. Vue renders that state through components and composables. Optional packages add history, connections, minimaps, and JSON Canvas import/export when your product needs them.
 
 ```vue
 <script setup lang="ts">
@@ -21,7 +21,7 @@ engine.createNode({
   width: 260,
   height: 140,
   color: '5',
-  data: { content: 'Plan launch tasks' },
+  text: 'Node',
 })
 </script>
 
@@ -40,7 +40,6 @@ engine.createNode({
 | `@lupinum/board-connections` | Edges, anchors, labels, routing, and connection rendering.                   |
 | `@lupinum/board-history`     | Undo and redo integration for engine commands.                               |
 | `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
-| `@lupinum/board-selection`   | Snapshot-based selection helpers.                                            |
 
 ## Install
 
@@ -88,4 +87,4 @@ pnpm test:e2e
 - [API Reference](packages/docs/content/6.api)
 - [Contributing](packages/docs/content/8.oss/1.contributing.md)
 
-Run `pnpm docs:api` after changing exported package APIs. The generated API pages live in `packages/docs/content/6.api`.
+API reference pages are maintained with the docs content in `packages/docs/content/6.api`.

@@ -10,12 +10,12 @@ pnpm add @lupinum/board-connections @lupinum/board-core @lupinum/vue-board
 import { createBoardEngine } from '@lupinum/board-core'
 import { connectionPlugin } from '@lupinum/board-connections'
 
-const engine = createBoardEngine({ plugins: [connectionPlugin()] })
-const first = engine.createNode({ type: 'text', data: { content: 'A' } })
+const engine = createBoardEngine({ extensions: [connectionPlugin()] })
+const first = engine.createNode({ type: 'text', text: 'First node' })
 const second = engine.createNode({
   type: 'text',
   x: 280,
-  data: { content: 'B' },
+  text: 'Node',
 })
 
 engine.ext.connections.createEdge({

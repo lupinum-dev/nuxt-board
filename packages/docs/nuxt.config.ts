@@ -69,9 +69,6 @@ export default defineNuxtConfig({
     '@lupinum/board-history': fileURLToPath(
       new URL('../board-history/src/index.ts', import.meta.url),
     ),
-    '@lupinum/board-selection': fileURLToPath(
-      new URL('../board-selection/src/index.ts', import.meta.url),
-    ),
     '@lupinum/board-connections': fileURLToPath(
       new URL('../board-connections/src/index.ts', import.meta.url),
     ),

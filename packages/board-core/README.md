@@ -1,7 +1,7 @@
 # @lupinum/board-core
 
 Headless engine for node-based boards: state, commands, selection, grouping,
-camera, snapping, middleware, events, and plugin hosting.
+camera, snapping, command guards, events, and first-party feature hooks.
 
 ```bash
 pnpm add @lupinum/board-core
@@ -15,7 +15,7 @@ const node = engine.createNode({
   type: 'text',
   x: 80,
   y: 80,
-  data: { content: 'Plan launch tasks' },
+  text: 'Node',
 })
 
 engine.select(node.id)

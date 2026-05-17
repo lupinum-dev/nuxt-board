@@ -42,7 +42,7 @@ const engine = createBoardEngine({
       y: 64,
       width: 220,
       height: 96,
-      data: { content: 'Nuxt SSR board' },
+      text: 'Node',
       zIndex: 1,
       locked: false,
       visible: true,

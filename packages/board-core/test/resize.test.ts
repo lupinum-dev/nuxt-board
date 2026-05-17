@@ -472,7 +472,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 0,
       width: 200,
       height: 100,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
@@ -493,7 +493,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 100,
       width: 200,
       height: 100,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'nw', 1, { x: 100, y: 100 })
@@ -513,7 +513,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 0,
       width: 200,
       height: 100,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
@@ -535,7 +535,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 0,
       width: 200,
       height: 100,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
@@ -555,7 +555,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 0,
       width: 300,
       height: 200,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
@@ -575,7 +575,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       y: 0,
       width: 200,
       height: 100,
-      data: {},
+      text: '',
     })
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
@@ -609,7 +609,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
         y: 100,
         width: 200,
         height: 100,
-        data: {},
+        text: '',
       })
       const d = deltas[handle]!
 

@@ -84,7 +84,7 @@ function textNode(
     y,
     width,
     height,
-    data: { content },
+    text: content,
     zIndex,
     locked: false,
     visible: true,
@@ -110,7 +110,6 @@ function imageNode(
     width,
     height,
     file: alt,
-    data: { alt, type: 'image' },
     zIndex,
     locked: false,
     visible: true,
@@ -136,7 +135,7 @@ function groupNode(
     width,
     height,
     color,
-    data: { title },
+    label: title,
     zIndex,
     locked: false,
     visible: true,
@@ -190,29 +189,20 @@ function demoSceneToDocument(scene: DemoScene): JsonCanvasDocument {
         return {
           ...base,
           type: 'group',
-          label:
-            node.label ??
-            (typeof node.data?.title === 'string' ? node.data.title : ''),
+          label: node.label ?? '',
         }
       }
       if (node.type === 'file') {
         return {
           ...base,
           type: 'file',
-          file:
-            typeof node.data?.src === 'string'
-              ? node.data.src
-              : typeof node.data?.alt === 'string'
-                ? node.data.alt
-                : '',
+          file: node.file ?? '',
         }
       }
       return {
         ...base,
         type: 'text',
-        text:
-          node.text ??
-          (typeof node.data?.content === 'string' ? node.data.content : ''),
+        text: node.text ?? '',
       }
     }),
     edges: scene.edges,
@@ -612,7 +602,7 @@ export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
   const engine = createBoardEngine({
     diagnostics: { traceLimit: 400 },
     grid: DEFAULT_GRID,
-    plugins: [historyPlugin(), connectionPlugin()],
+    extensions: [historyPlugin(), connectionPlugin()],
   })
 
   const scene = loadDemoScene(engine, initialSceneId)
@@ -683,7 +673,7 @@ export function wrapSelectionInGroup(
       width: 360,
       height: 260,
       color: '2',
-      data: { title: 'New group' },
+      label: 'New group',
       select: false,
     })
     engine.sendToBack(group.id)
@@ -718,7 +708,7 @@ export function wrapSelectionInGroup(
     width: maxX - minX + groupPadding * 2,
     height: maxY - minY + groupPadding * 2,
     color: '2',
-    data: { title: 'Selection group' },
+    label: 'Selection group',
     select: false,
   })
 

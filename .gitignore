@@ -2,6 +2,7 @@ node_modules
 .pnpm-store
 .turbo
 .cache
+.fallow
 .DS_Store
 
 dist

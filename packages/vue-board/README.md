@@ -17,7 +17,7 @@ engine.createNode({
   type: 'text',
   x: 80,
   y: 80,
-  data: { content: 'Hello board' },
+  text: 'Node',
 })
 </script>
 

@@ -13,11 +13,11 @@ type StepStatus = 'pending' | 'active' | 'done'
 
 const engine = createBoardEngine({
   grid: { size: 24, majorEvery: 4, snap: true, pattern: 'line' },
-  plugins: [historyPlugin(), connectionPlugin({ routing: 'step' })],
+  extensions: [historyPlugin(), connectionPlugin({ routing: 'step' })],
 })
 
 const renderers: BoardRendererRegistry = {
-  step: WorkflowStepNode,
+  text: WorkflowStepNode,
 }
 
 const historyState = computed(() => engine.ext.history.getState())
@@ -25,62 +25,46 @@ const historyState = computed(() => engine.ext.history.getState())
 function seed() {
   engine.importJSON(
     JSON.stringify({
-      camera: { x: -40, y: -30, z: 1 },
-      grid: engine.getGridSettings(),
       nodes: [
         {
           id: 'capture',
-          type: 'step',
+          type: 'text',
           x: 40,
           y: 110,
           width: 220,
           height: 130,
-          data: {
-            label: 'Capture lead',
-            summary: 'Collect the request and normalize inputs.',
-            status: 'done',
-          },
-          zIndex: 1,
-          locked: false,
-          visible: true,
+          text: 'done\nCapture lead\nCollect the request and normalize inputs.',
         },
         {
           id: 'qualify',
-          type: 'step',
+          type: 'text',
           x: 340,
           y: 110,
           width: 220,
           height: 130,
-          data: {
-            label: 'Qualify',
-            summary: 'Score, tag, and route the lead.',
-            status: 'active',
-          },
-          zIndex: 2,
-          locked: false,
-          visible: true,
+          text: 'active\nQualify\nScore, tag, and route the lead.',
         },
         {
           id: 'handoff',
-          type: 'step',
+          type: 'text',
           x: 640,
           y: 110,
           width: 220,
           height: 130,
-          data: {
-            label: 'Handoff',
-            summary: 'Create the downstream record and alert the owner.',
-            status: 'pending',
-          },
-          zIndex: 3,
-          locked: false,
-          visible: true,
+          text: 'pending\nHandoff\nCreate the downstream record and alert the owner.',
         },
       ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 4,
+      'x-nuxt-board': {
+        camera: { x: -40, y: -30, z: 1 },
+        grid: engine.getGridSettings(),
+        selection: [],
+        nextZIndex: 4,
+        nodes: {
+          capture: { zIndex: 1, locked: false, visible: true },
+          qualify: { zIndex: 2, locked: false, visible: true },
+          handoff: { zIndex: 3, locked: false, visible: true },
+        },
+      },
     }),
     'replace',
   )
@@ -113,15 +97,18 @@ function advanceSelected() {
   const selected = engine.getSelection()[0]
   const target = selected ?? ('qualify' as NodeId)
   const node = engine.getNode(target)
-  if (!node || node.data?.type !== 'step') {
+  if (!node || node.type !== 'text') {
     return
   }
+  const [, label = '', summary = ''] = (node.text ?? '').split('\n')
   engine.updateNode(node.id, {
-    data: {
-      ...node.data,
-      status: nextStatus(node.data?.status as StepStatus),
-    },
+    text: `${nextStatus(parseStepStatus(node.text))}\n${label}\n${summary}`,
   })
+}
+
+function parseStepStatus(text: string | undefined): StepStatus {
+  const status = text?.split('\n')[0]
+  return status === 'active' || status === 'done' ? status : 'pending'
 }
 
 onMounted(async () => {

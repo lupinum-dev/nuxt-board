@@ -15,8 +15,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command:
-        'pnpm docs:api && pnpm --filter docs dev --host 127.0.0.1 --port 4174',
+      command: 'pnpm --filter docs dev --host 127.0.0.1 --port 4174',
       port: 4174,
       reuseExistingServer: true,
       timeout: 120_000,

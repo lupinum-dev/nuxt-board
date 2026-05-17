@@ -1,28 +1,102 @@
 import {
   asEdgeId,
-  type BoardPlugin,
   type EdgeId,
+  type InternalBoardAction,
+  type InternalBoardExtension,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
   type JsonCanvasSide,
   type NodeId,
 } from '@lupinum/board-core'
-import {
-  SLICE_NAME,
-  initialState,
-  invert,
-  reducer,
-  type ConnectionsSliceState,
-} from './slice'
 import type {
   BoardEdge,
   BoardEdgePatch,
+  ConnectionConfig,
   ConnectionPluginOptions,
   ConnectionEndpointMode,
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
 } from './types'
+
+const CONNECTIONS_FEATURE_NAME = 'connections'
+
+interface ConnectionsState {
+  readonly edges: ReadonlyMap<EdgeId, BoardEdge>
+  readonly nextZIndex: number
+}
+
+type ConnectionsAction =
+  | { type: 'EDGE_CREATED'; edge: BoardEdge }
+  | { type: 'EDGE_UPDATED'; id: EdgeId; before: BoardEdge; after: BoardEdge }
+  | { type: 'EDGE_DELETED'; id: EdgeId; edge: BoardEdge }
+
+const initialConnectionsState: ConnectionsState = {
+  edges: new Map(),
+  nextZIndex: 1,
+}
+
+function isConnectionsAction(
+  action: InternalBoardAction,
+): action is InternalBoardAction & {
+  type: 'PLUGIN'
+  plugin: typeof CONNECTIONS_FEATURE_NAME
+  action: ConnectionsAction
+} {
+  return action.type === 'PLUGIN' && action.plugin === CONNECTIONS_FEATURE_NAME
+}
+
+function invertConnectionAction(action: ConnectionsAction): ConnectionsAction {
+  switch (action.type) {
+    case 'EDGE_CREATED':
+      return { type: 'EDGE_DELETED', id: action.edge.id, edge: action.edge }
+    case 'EDGE_DELETED':
+      return { type: 'EDGE_CREATED', edge: action.edge }
+    case 'EDGE_UPDATED':
+      return {
+        type: 'EDGE_UPDATED',
+        id: action.id,
+        before: action.after,
+        after: action.before,
+      }
+  }
+}
+
+function reduceConnectionsState(
+  state: ConnectionsState,
+  action: InternalBoardAction,
+): ConnectionsState {
+  if (isConnectionsAction(action)) {
+    const inner = action.action
+    switch (inner.type) {
+      case 'EDGE_CREATED': {
+        const edges = new Map(state.edges)
+        edges.set(inner.edge.id, inner.edge)
+        return {
+          edges,
+          nextZIndex: Math.max(state.nextZIndex, inner.edge.zIndex + 1),
+        }
+      }
+      case 'EDGE_UPDATED': {
+        const edges = new Map(state.edges)
+        edges.set(inner.id, inner.after)
+        return { ...state, edges }
+      }
+      case 'EDGE_DELETED': {
+        if (!state.edges.has(inner.id)) return state
+        const edges = new Map(state.edges)
+        edges.delete(inner.id)
+        return { ...state, edges }
+      }
+    }
+  }
+
+  if (action.type === 'BATCH') {
+    return action.actions.reduce(reduceConnectionsState, state)
+  }
+
+  return state
+}
 
 declare module '@lupinum/board-core' {
   interface BoardEventMap {
@@ -31,7 +105,7 @@ declare module '@lupinum/board-core' {
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
-  interface BoardEngineExtensions {
+  interface InternalBoardExtensions {
     connections: ConnectionsExtension
   }
 }
@@ -82,18 +156,23 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionPlugin(
   options: ConnectionPluginOptions = {},
-): BoardPlugin {
+): InternalBoardExtension {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
+  const config: ConnectionConfig = {
+    routing,
+    endpointMode,
+    defaultArrow,
+  }
   const defaults = defaultEnds(defaultArrow)
 
   return {
-    name: SLICE_NAME,
+    name: CONNECTIONS_FEATURE_NAME,
     slice: {
-      initial: initialState,
-      reducer,
-      invert: invert as (innerAction: never) => unknown,
+      initial: initialConnectionsState,
+      reducer: reduceConnectionsState,
+      invert: invertConnectionAction as (innerAction: never) => unknown,
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
@@ -160,11 +239,11 @@ export function connectionPlugin(
       },
     },
     install(engine) {
-      const getSlice = (): ConnectionsSliceState =>
-        engine.getPluginState<ConnectionsSliceState>()
+      const getState = (): ConnectionsState =>
+        engine.getPluginState<ConnectionsState>()
 
       function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
-        const edge = getSlice().edges.get(id)
+        const edge = getState().edges.get(id)
         if (!edge) {
           throw new Error(`Cannot ${op} edge: edge "${id}" does not exist.`)
         }
@@ -190,7 +269,7 @@ export function connectionPlugin(
               )
             }
 
-            const slice = getSlice()
+            const state = getState()
             const edge: BoardEdge<T> = {
               id: input.id ?? asEdgeId(crypto.randomUUID()),
               from: input.from,
@@ -202,12 +281,12 @@ export function connectionPlugin(
               label: input.label,
               color: input.color,
               data: structuredClone(input.data ?? ({} as T)),
-              zIndex: input.zIndex ?? slice.nextZIndex,
+              zIndex: input.zIndex ?? state.nextZIndex,
             }
 
             engine.dispatch({
               type: 'PLUGIN',
-              plugin: SLICE_NAME,
+              plugin: CONNECTIONS_FEATURE_NAME,
               action: { type: 'EDGE_CREATED', edge: edge as BoardEdge },
             })
             return cloneEdge(edge)
@@ -252,7 +331,7 @@ export function connectionPlugin(
 
             engine.dispatch({
               type: 'PLUGIN',
-              plugin: SLICE_NAME,
+              plugin: CONNECTIONS_FEATURE_NAME,
               action: {
                 type: 'EDGE_UPDATED',
                 id,
@@ -264,22 +343,22 @@ export function connectionPlugin(
           }) as BoardEdge<T>
         },
         deleteEdge(id) {
-          const current = getSlice().edges.get(id)
+          const current = getState().edges.get(id)
           if (!current) return
           engine.runCommand('edge:delete', [id], () => {
             engine.dispatch({
               type: 'PLUGIN',
-              plugin: SLICE_NAME,
+              plugin: CONNECTIONS_FEATURE_NAME,
               action: { type: 'EDGE_DELETED', id, edge: current },
             })
           })
         },
         getEdge(id) {
-          const edge = getSlice().edges.get(id)
+          const edge = getState().edges.get(id)
           return edge ? cloneEdge(edge) : undefined
         },
         getEdges() {
-          return Array.from(getSlice().edges.values(), (edge) =>
+          return Array.from(getState().edges.values(), (edge) =>
             cloneEdge(edge),
           )
         },
@@ -294,49 +373,31 @@ export function connectionPlugin(
             .getEdges()
             .filter((edge) => edge.from === from && edge.to === to)
         },
+        getConfig() {
+          return { ...config }
+        },
       }
 
       engine.extend('connections', api)
-      ;(
-        engine.ext.connections as ConnectionsExtension & {
-          __routing?: ConnectionRouting
-          __endpointMode?: ConnectionEndpointMode
-          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
-        }
-      ).__routing = routing
-      ;(
-        engine.ext.connections as ConnectionsExtension & {
-          __routing?: ConnectionRouting
-          __endpointMode?: ConnectionEndpointMode
-          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
-        }
-      ).__endpointMode = endpointMode
-      ;(
-        engine.ext.connections as ConnectionsExtension & {
-          __routing?: ConnectionRouting
-          __endpointMode?: ConnectionEndpointMode
-          __defaultArrow?: ConnectionPluginOptions['defaultArrow']
-        }
-      ).__defaultArrow = defaultArrow
 
       const cascadeUnsubscribe = engine.onAction((action) => {
         if (action.type !== 'NODE_DELETED') return
         const nodeId = action.node.id
-        const edges = getSlice().edges
+        const edges = getState().edges
         for (const [id, edge] of edges) {
           if (edge.from === nodeId || edge.to === nodeId) {
             engine.dispatch({
               type: 'PLUGIN',
-              plugin: SLICE_NAME,
+              plugin: CONNECTIONS_FEATURE_NAME,
               action: { type: 'EDGE_DELETED', id, edge },
             })
           }
         }
       })
 
-      let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getSlice().edges
+      let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getState().edges
       const unsubscribe = engine.onAction(() => {
-        const next = getSlice().edges
+        const next = getState().edges
         if (next === prevEdges) return
         for (const [id, edge] of next) {
           const before = prevEdges.get(id)

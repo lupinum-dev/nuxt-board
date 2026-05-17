@@ -1,14 +1,14 @@
 import type { BatchController } from '../subscribable'
 
-interface TransactionDeps {
+interface BatchDeps {
   batchCtrl: BatchController
   emitCommandBefore: (name: string, args: unknown[]) => void
   emitCommandAfter: (name: string, args: unknown[], duration: number) => void
   validate: (context: string) => void
 }
 
-interface TransactionController {
-  isInTransaction(): boolean
+interface BatchCommandController {
+  isBatching(): boolean
   markValidationPending(): void
   begin(): void
   end(): void
@@ -16,9 +16,9 @@ interface TransactionController {
   flushBatchNotifications(): void
 }
 
-export function createTransactionController(
-  deps: TransactionDeps,
-): TransactionController {
+export function createBatchCommandController(
+  deps: BatchDeps,
+): BatchCommandController {
   let depth = 0
   let startedAt = 0
   let validationPending = false
@@ -63,7 +63,7 @@ export function createTransactionController(
   }
 
   return {
-    isInTransaction: () => depth > 0,
+    isBatching: () => depth > 0,
     markValidationPending: () => {
       validationPending = true
     },

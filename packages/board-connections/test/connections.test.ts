@@ -8,22 +8,52 @@ import {
   resolveEdgeRenderState,
 } from '../src'
 
+function expectEdgesReferenceExistingNodes(
+  engine: ReturnType<typeof createBoardEngine>,
+): void {
+  for (const edge of engine.ext.connections.getEdges()) {
+    expect(engine.hasNode(edge.from)).toBe(true)
+    expect(engine.hasNode(edge.to)).toBe(true)
+  }
+}
+
 describe('connections plugin', () => {
+  it('exposes resolved connection defaults through the public extension', () => {
+    const engine = createBoardEngine({
+      extensions: [
+        connectionPlugin({
+          routing: 'smooth-step',
+          endpointMode: 'manual',
+          defaultArrow: 'both',
+        }),
+      ],
+    })
+
+    expect(engine.ext.connections.getConfig()).toEqual({
+      routing: 'smooth-step',
+      endpointMode: 'manual',
+      defaultArrow: 'both',
+    })
+    expect(
+      Object.keys(engine.ext.connections).filter((key) => key.startsWith('__')),
+    ).toEqual([])
+  })
+
   it('creates edges, queries them, and removes them with deleted nodes', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
       x: 0,
       y: 0,
-      data: { content: 'A' },
+      text: 'Node',
     })
     const second = engine.createNode({
       type: 'text',
       x: 200,
       y: 100,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const edge = engine.ext.connections.createEdge({
@@ -44,13 +74,13 @@ describe('connections plugin', () => {
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
   })
 
-  it('exports and imports edges through the connections plugin only', () => {
+  it('exports and imports edges through the connections extension only', () => {
     const firstId = asNodeId('first')
     const secondId = asNodeId('second')
     const edgeId = asEdgeId('edge-a')
-    const withoutPlugin = createBoardEngine()
-    withoutPlugin.importJSON(
-      JSON.stringify({
+    const engine = createBoardEngine({
+      extensions: [connectionPlugin()],
+      initialDocument: {
         nodes: [
           {
             id: firstId,
@@ -71,15 +101,8 @@ describe('connections plugin', () => {
             text: 'B',
           },
         ],
-        edges: [{ id: edgeId, fromNode: firstId, toNode: secondId }],
-      }),
-    )
-    expect(JSON.parse(withoutPlugin.exportJSON()).edges).toBeUndefined()
-
-    const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      },
     })
-    engine.importJSON(JSON.stringify(JSON.parse(withoutPlugin.exportJSON())))
     engine.ext.connections.createEdge({
       id: edgeId,
       from: firstId,
@@ -111,7 +134,7 @@ describe('connections plugin', () => {
       data: { weight: 2 },
     })
 
-    const restored = createBoardEngine({ plugins: [connectionPlugin()] })
+    const restored = createBoardEngine({ extensions: [connectionPlugin()] })
     restored.importJSON(JSON.stringify(exported), 'replace')
 
     expect(restored.ext.connections.getEdges()).toEqual([
@@ -127,9 +150,43 @@ describe('connections plugin', () => {
     ])
   })
 
+  it('fails clearly instead of silently dropping imported edges without the connections extension', () => {
+    const withoutExtension = createBoardEngine()
+
+    expect(() =>
+      withoutExtension.importJSON(
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'first',
+              type: 'text',
+              x: 0,
+              y: 0,
+              width: 120,
+              height: 80,
+              text: 'A',
+            },
+            {
+              id: 'second',
+              type: 'text',
+              x: 200,
+              y: 0,
+              width: 120,
+              height: 80,
+              text: 'B',
+            },
+          ],
+          edges: [{ id: 'edge-a', fromNode: 'first', toNode: 'second' }],
+        }),
+      ),
+    ).toThrow(/edges require the connections extension/)
+
+    expect(withoutExtension.getSnapshot().nodes).toHaveLength(0)
+  })
+
   it('removes edges when deleting a group that still has child nodes', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
       grid: { snap: false },
     })
     const group = engine.createNode({
@@ -148,7 +205,7 @@ describe('connections plugin', () => {
       height: 60,
       parentId: group.id,
       select: false,
-      data: { content: 'inner' },
+      text: 'Node',
     })
     const outer = engine.createNode({
       type: 'text',
@@ -157,7 +214,7 @@ describe('connections plugin', () => {
       width: 80,
       height: 60,
       select: false,
-      data: { content: 'outer' },
+      text: 'Node',
     })
     engine.syncGroupZOrder(group.id)
     engine.ext.connections.createEdge({
@@ -172,23 +229,24 @@ describe('connections plugin', () => {
 
     expect(engine.getSnapshot().nodes).toHaveLength(1)
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expectEdgesReferenceExistingNodes(engine)
   })
 
   it('clears stale edges when replacing the board document', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
       x: 0,
       y: 0,
-      data: { content: 'A' },
+      text: 'Node',
     })
     const second = engine.createNode({
       type: 'text',
       x: 200,
       y: 100,
-      data: { content: 'B' },
+      text: 'Node',
     })
     engine.ext.connections.createEdge({
       from: first.id,
@@ -209,11 +267,12 @@ describe('connections plugin', () => {
 
     expect(engine.getSnapshot().nodes).toHaveLength(0)
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expectEdgesReferenceExistingNodes(engine)
   })
 
   it('hydrates initialDocument edges after installing the connections plugin', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
       initialDocument: {
         nodes: [
           {
@@ -258,7 +317,7 @@ describe('connections plugin', () => {
 
   it('remaps imported edges to cloned node ids during merge imports', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
     })
     engine.createNode({
       id: asNodeId('source'),
@@ -317,6 +376,108 @@ describe('connections plugin', () => {
     expect(edge).toMatchObject({ label: 'merged' })
     expect(imported.map((node) => node.id)).toContain(edge?.from)
     expect(imported.map((node) => node.id)).toContain(edge?.to)
+    expectEdgesReferenceExistingNodes(engine)
+  })
+
+  it('keeps every edge attached to existing nodes across replace and merge imports', () => {
+    const engine = createBoardEngine({
+      extensions: [connectionPlugin()],
+    })
+    const first = engine.createNode({
+      id: asNodeId('first'),
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'First',
+    })
+    const second = engine.createNode({
+      id: asNodeId('second'),
+      type: 'text',
+      x: 220,
+      y: 0,
+      text: 'Second',
+    })
+    engine.ext.connections.createEdge({
+      id: asEdgeId('stale-edge'),
+      from: first.id,
+      to: second.id,
+      data: {},
+    })
+
+    engine.importJSON(
+      JSON.stringify({
+        nodes: [
+          {
+            id: 'replacement-a',
+            type: 'text',
+            x: 0,
+            y: 160,
+            width: 120,
+            height: 80,
+            text: 'Replacement A',
+          },
+          {
+            id: 'replacement-b',
+            type: 'text',
+            x: 220,
+            y: 160,
+            width: 120,
+            height: 80,
+            text: 'Replacement B',
+          },
+        ],
+        edges: [
+          {
+            id: 'replacement-edge',
+            fromNode: 'replacement-a',
+            toNode: 'replacement-b',
+          },
+        ],
+      }),
+      'replace',
+    )
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(
+      engine.ext.connections.getEdge(asEdgeId('stale-edge')),
+    ).toBeUndefined()
+    expectEdgesReferenceExistingNodes(engine)
+
+    engine.importJSON(
+      JSON.stringify({
+        nodes: [
+          {
+            id: 'replacement-a',
+            type: 'text',
+            x: 0,
+            y: 320,
+            width: 120,
+            height: 80,
+            text: 'Merged A',
+          },
+          {
+            id: 'replacement-b',
+            type: 'text',
+            x: 220,
+            y: 320,
+            width: 120,
+            height: 80,
+            text: 'Merged B',
+          },
+        ],
+        edges: [
+          {
+            id: 'replacement-edge',
+            fromNode: 'replacement-a',
+            toNode: 'replacement-b',
+          },
+        ],
+      }),
+      'merge',
+    )
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(2)
+    expectEdgesReferenceExistingNodes(engine)
   })
 
   it('resolves auto sides with hysteresis across diagonal thresholds', () => {
@@ -482,25 +643,25 @@ describe('connections plugin', () => {
 
   it('updates edges and emits edge:updated while preserving identity fields', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
       x: 0,
       y: 0,
-      data: { content: 'A' },
+      text: 'Node',
     })
     const second = engine.createNode({
       type: 'text',
       x: 200,
       y: 0,
-      data: { content: 'B' },
+      text: 'Node',
     })
     const third = engine.createNode({
       type: 'text',
       x: 400,
       y: 0,
-      data: { content: 'C' },
+      text: 'Node',
     })
     const updated = vi.fn()
     engine.on('edge:updated', updated)
@@ -550,13 +711,13 @@ describe('connections plugin', () => {
 
   it('throws when creating an edge with non-existent nodes', () => {
     const engine = createBoardEngine({
-      plugins: [connectionPlugin()],
+      extensions: [connectionPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
       x: 0,
       y: 0,
-      data: { content: 'A' },
+      text: 'Node',
     })
 
     expect(() =>

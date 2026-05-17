@@ -7,8 +7,12 @@ const props = defineProps<{
   selected: boolean
 }>()
 
-const data = computed(() => props.node.data ?? {})
-const depth = computed(() => Number(data.value.depth ?? 0))
+const data = computed(() => {
+  const [depth = '0', title = 'Topic', detail = ''] =
+    props.node.text?.split('\n') ?? []
+  return { depth: Number(depth), title, detail }
+})
+const depth = computed(() => data.value.depth)
 
 const style = computed(() => {
   if (depth.value === 0) {

@@ -29,7 +29,7 @@ function seed() {
           y: 80,
           width: 220,
           height: 100,
-          data: { content: 'Select me\nDrag me around' },
+          text: 'Node',
           zIndex: 1,
           locked: false,
           visible: true,
@@ -41,7 +41,7 @@ function seed() {
           y: 200,
           width: 220,
           height: 100,
-          data: { content: 'Watch the log\nupdate in real time' },
+          text: 'Node',
           zIndex: 2,
           locked: false,
           visible: true,
@@ -63,7 +63,7 @@ function addNode() {
     y: 80 + Math.round(Math.random() * 180),
     width: 220,
     height: 110,
-    data: { content: 'New event\nWatch the log' },
+    text: 'Node',
   })
 }
 

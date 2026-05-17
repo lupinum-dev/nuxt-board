@@ -19,7 +19,7 @@ const engine = createBoardEngine({
       y: 32,
       width: 180,
       height: 80,
-      data: { content: 'fixture-node-content' },
+      text: 'fixture-node-content',
       zIndex: 1,
       locked: false,
       visible: true,

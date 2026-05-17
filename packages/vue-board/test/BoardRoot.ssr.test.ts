@@ -17,7 +17,7 @@ describe('BoardRoot SSR', () => {
           y: 48,
           width: 220,
           height: 120,
-          data: { content: 'Server rendered node' },
+          text: 'Server rendered node',
           zIndex: 1,
           locked: false,
           visible: true,

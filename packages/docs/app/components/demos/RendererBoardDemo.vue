@@ -10,48 +10,32 @@ const engine = createBoardEngine({
 })
 
 const renderers: BoardRendererRegistry = {
-  insight: DocsInsightNode,
-  metric: DocsMetricNode,
+  text: DocsInsightNode,
+  group: DocsMetricNode,
 }
 
 function seed() {
   engine.importJSON(
     JSON.stringify({
-      camera: { x: 0, y: 0, z: 1 },
-      grid: engine.getGridSettings(),
       nodes: [
         {
           id: 'why',
-          type: 'insight',
+          type: 'text',
           x: 80,
           y: 80,
           width: 250,
           height: 160,
-          data: {
-            title: 'Use custom renderers',
-            body: 'Render any domain object with your own Vue component.',
-          },
-          zIndex: 1,
-          locked: false,
-          visible: true,
+          text: 'Why custom renderers\nSwap the default card view for a Vue component while keeping JSON Canvas node data explicit.',
         },
         {
           id: 'metric',
-          type: 'metric',
+          type: 'group',
           x: 390,
           y: 90,
           width: 230,
           height: 160,
-          data: {
-            label: 'Adoption',
-            value: '83%',
-            delta: '+12%',
-            caption:
-              'The renderer can look nothing like the default text card.',
-          },
-          zIndex: 2,
-          locked: false,
-          visible: true,
+          label:
+            'Adoption\n83%\n+12%\nThe renderer can look nothing like the default text card.',
         },
         {
           id: 'flow',
@@ -60,16 +44,20 @@ function seed() {
           y: 130,
           width: 230,
           height: 100,
-          data: { content: 'Default text renderer\nmixed with custom ones' },
-          zIndex: 3,
-          locked: false,
-          visible: true,
+          text: 'Default JSON Canvas\nRenderers are keyed by real node type.',
         },
       ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 4,
+      'x-nuxt-board': {
+        camera: { x: 0, y: 0, z: 1 },
+        grid: engine.getGridSettings(),
+        selection: [],
+        nextZIndex: 4,
+        nodes: {
+          why: { zIndex: 1, locked: false, visible: true },
+          metric: { zIndex: 2, locked: false, visible: true },
+          flow: { zIndex: 3, locked: false, visible: true },
+        },
+      },
     }),
     'replace',
   )
@@ -77,32 +65,24 @@ function seed() {
 
 function addInsight() {
   engine.createNode({
-    type: 'insight',
+    type: 'text',
     x: 160 + Math.round(Math.random() * 260),
     y: 80 + Math.round(Math.random() * 160),
     width: 250,
     height: 160,
-    data: {
-      title: 'Another renderer',
-      body: 'Node data stays serializable while presentation stays fully custom.',
-    },
+    text: 'New insight\nUse a text node with a renderer registered for the JSON Canvas text type.',
   })
 }
 
 function addMetric() {
   engine.createNode({
-    type: 'metric',
+    type: 'group',
     x: 180 + Math.round(Math.random() * 320),
     y: 90 + Math.round(Math.random() * 140),
     width: 230,
     height: 160,
-    data: {
-      label: 'Confidence',
-      value: '91%',
-      delta: '+4%',
-      caption:
-        'Different node types can have their own layout and visual language.',
-    },
+    label:
+      'Confidence\n91%\n+4%\nDifferent JSON Canvas node types can have their own layout.',
   })
 }
 

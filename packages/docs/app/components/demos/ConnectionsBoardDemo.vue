@@ -11,7 +11,7 @@ import { BoardMinimap } from '@lupinum/board-minimap'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
-  plugins: [historyPlugin(), connectionPlugin()],
+  extensions: [historyPlugin(), connectionPlugin()],
 })
 
 const historyState = computed(() => engine.ext.history.getState())
@@ -30,7 +30,7 @@ function seed() {
           y: 150,
           width: 180,
           height: 96,
-          data: { content: 'Input' },
+          text: 'Node',
           zIndex: 1,
           locked: false,
           visible: true,
@@ -42,7 +42,7 @@ function seed() {
           y: 80,
           width: 200,
           height: 96,
-          data: { content: 'Parse' },
+          text: 'Node',
           zIndex: 2,
           locked: false,
           visible: true,
@@ -54,7 +54,7 @@ function seed() {
           y: 240,
           width: 200,
           height: 96,
-          data: { content: 'Score' },
+          text: 'Node',
           zIndex: 3,
           locked: false,
           visible: true,
@@ -66,7 +66,7 @@ function seed() {
           y: 150,
           width: 180,
           height: 96,
-          data: { content: 'Output' },
+          text: 'Node',
           zIndex: 4,
           locked: false,
           visible: true,

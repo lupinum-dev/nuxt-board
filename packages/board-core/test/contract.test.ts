@@ -235,4 +235,108 @@ describe('board-core public document API', () => {
     expect(engine.getSnapshot()).toEqual(before)
     expect(engine.getNode(existing.id).text).toBe('keep')
   })
+
+  it('rejects edge documents without the connections extension before mutating state', () => {
+    const engine = createBoardEngine()
+    const existing = engine.createNode({ type: 'text', text: 'keep' })
+    const before = engine.getSnapshot()
+
+    expect(() =>
+      engine.importJSON(
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'source',
+              type: 'text',
+              x: 0,
+              y: 0,
+              width: 120,
+              height: 80,
+              text: 'Source',
+            },
+            {
+              id: 'target',
+              type: 'text',
+              x: 180,
+              y: 0,
+              width: 120,
+              height: 80,
+              text: 'Target',
+            },
+          ],
+          edges: [{ id: 'edge', fromNode: 'source', toNode: 'target' }],
+        }),
+      ),
+    ).toThrow(/edges require the connections extension/)
+
+    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getNode(existing.id).text).toBe('keep')
+  })
+
+  it('rolls back core and extension state when an extension import hook fails', () => {
+    let extensionState!: () => { imports: number }
+    const engine = createBoardEngine({
+      extensions: [
+        {
+          name: 'failing-import',
+          slice: {
+            initial: { imports: 0 },
+            reducer(state: { imports: number }, action) {
+              return action.type === 'PLUGIN' &&
+                action.plugin === 'failing-import'
+                ? { imports: state.imports + 1 }
+                : state
+            },
+          },
+          persistence: {
+            importDocument(extensionEngine) {
+              extensionEngine.dispatch({
+                type: 'PLUGIN',
+                plugin: 'failing-import',
+                action: { type: 'IMPORT_STARTED' },
+              })
+              throw new Error('extension import failed')
+            },
+          },
+          install(extensionEngine) {
+            extensionState = () => extensionEngine.getPluginState()
+          },
+        },
+      ],
+    })
+    const existing = engine.createNode({
+      id: asNodeId('keep'),
+      type: 'text',
+      text: 'keep',
+    })
+    engine.select(existing.id)
+    engine.panBy(12, 8)
+    const before = engine.getSnapshot()
+
+    expect(() =>
+      engine.importJSON(
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'replacement',
+              type: 'text',
+              x: 50,
+              y: 60,
+              width: 120,
+              height: 80,
+              text: 'replacement',
+            },
+          ],
+          'x-nuxt-board': {
+            selection: ['replacement'],
+            nextZIndex: 10,
+          },
+        }),
+        'replace',
+      ),
+    ).toThrow(/extension import failed/)
+
+    expect(engine.getSnapshot()).toEqual(before)
+    expect(extensionState()).toEqual({ imports: 0 })
+  })
 })

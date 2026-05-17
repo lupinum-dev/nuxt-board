@@ -8,7 +8,7 @@ import {
 
 const engine = createBoardEngine({
   grid: { size: 18, majorEvery: 6, snap: true, pattern: 'line' },
-  plugins: [connectionPlugin()],
+  extensions: [connectionPlugin()],
 })
 
 const payload = ref('')

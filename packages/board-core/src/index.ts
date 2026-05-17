@@ -1,9 +1,5 @@
 /** Create a headless board engine with commands, events, and plugin hooks. */
 export { CommandBlockedError, createBoardEngine } from './engine'
-/** Reactive primitives used internally by the engine and reusable in host adapters. */
-export { createBatchController, createSubscribable } from './subscribable'
-/** Type for the batch controller used by engine subscribables. */
-export type { BatchController } from './subscribable'
 /** Identifier branding helpers for nodes and edges. */
 export { asEdgeId, asNodeId } from './types'
 /** Shared Obsidian-compatible node color presets. */
@@ -13,57 +9,24 @@ export {
   isBoardColorPreset,
   type BoardColorOption,
 } from './colors'
-/** Low-level action types emitted by reducer-backed commands. */
-export type { Action, NodeMoveDelta } from './state/actions'
+/** @internal First-party extension action stream. Not a public plugin API. */
+export type {
+  Action as InternalBoardAction,
+  NodeMoveDelta as InternalNodeMoveDelta,
+} from './state/actions'
 
-/** Hierarchy helpers for grouping, subtree traversal, and drag target expansion. */
-export {
-  addDescendants,
-  collectSubtreeIds,
-  collectUniformTranslationTargets,
-  expandGroupDragSeeds,
-  findContainingGroup,
-  getBoundsFromNode,
-  groupArea,
-  isStrictDescendantOf,
-  sortIdsByZIndex,
-} from './hierarchy'
+/** Selection helpers that operate on the public board engine state. */
+export { getSelectionBounds, getSelectionNodes, toggleIds } from './selection'
 
-/** Math helpers for bounds, viewport transforms, interpolation, and grid snapping. */
+/** Geometry helpers used by renderers and framework adapters. */
 export {
-  boundsContain,
   boundsIntersect,
   clamp,
   getBoundsFromPoints,
   getVisibleBounds,
-  lerp,
-  lerpCamera,
-  pointInBounds,
-  screenToWorld,
-  snapBounds,
-  snapPoint,
-  snapSize,
-  snapValue,
-  worldToScreen,
-  zoomCameraAtScreenPoint,
 } from './math'
 
-/** Resize helpers for drag handles, aspect-ratio locks, and snapping. */
-export {
-  applyResizeDelta,
-  applyResizeDeltaLocked,
-  snapResizedBounds,
-  snapResizedBoundsLocked,
-} from './resize'
-
-/** Edge-snapping helpers used during move and resize interactions. */
-export {
-  collectNodeEdges,
-  snapBoundsToEdges,
-  snapPositionToEdges,
-} from './snap'
-
-/** Core engine, snapshot, geometry, plugin, and node model types. */
+/** Core engine, document, geometry, and node model types. */
 export type {
   BoxSelectBehavior,
   BoxSelectMode,
@@ -76,12 +39,8 @@ export type {
   CanvasColor,
   BoardEngine,
   BoardEngineOptions,
-  BoardEngineExtensions,
   BoardEventMap,
   BoardNode,
-  BoardPlugin,
-  BoardPluginContext,
-  BoardPluginPersistence,
   EdgeId,
   GridPattern,
   GridSettings,
@@ -89,6 +48,10 @@ export type {
   InteractionState,
   InvariantFailure,
   InvariantMode,
+  InternalBoardExtension,
+  InternalBoardExtensionContext,
+  InternalBoardExtensionPersistence,
+  InternalBoardExtensions,
   JsonCanvasBackgroundStyle,
   JsonCanvasDocument,
   JsonCanvasEdge,
@@ -101,14 +64,12 @@ export type {
   JsonCanvasSide,
   JsonCanvasTextNode,
   NodeConstraints,
-  NodeData,
   NodeId,
   NodeInput,
   NuxtBoardDocumentMetadata,
   NuxtBoardEdgeMetadata,
   NuxtBoardNodeMetadata,
   NodePatch,
-  PluginCleanup,
   Point,
   ResizeHandle,
   SelectionMode,
@@ -119,6 +80,3 @@ export type {
   Unsubscribe,
   ZoomSettings,
 } from './types'
-
-/** Result types returned by edge-snapping helpers. */
-export type { SnapResult, DragSnapResult } from './snap'

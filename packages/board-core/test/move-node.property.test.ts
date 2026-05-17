@@ -13,7 +13,7 @@ const buildEngineWithNodes = (count: number) => {
   const ids: ReturnType<typeof engine.createNode>[] = []
   for (let i = 0; i < count; i++) {
     ids.push(
-      engine.createNode({ type: 'text', x: i * 50, y: i * 30, data: {} }),
+      engine.createNode({ type: 'text', x: i * 50, y: i * 30, text: '' }),
     )
   }
   return { engine, ids }

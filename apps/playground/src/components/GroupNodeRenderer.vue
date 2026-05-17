@@ -11,13 +11,9 @@ const props = defineProps<{
 
 const { engine } = useBoardEngine()
 
-type GroupData = { title?: string }
-
-const data = computed((): GroupData => (props.node.data ?? {}) as GroupData)
-
 const title = computed(() =>
-  typeof data.value.title === 'string' && data.value.title.length > 0
-    ? data.value.title
+  typeof props.node.label === 'string' && props.node.label.length > 0
+    ? props.node.label
     : 'Untitled group',
 )
 
@@ -46,7 +42,7 @@ watch(title, (v) => {
 function commit(): void {
   const trimmed = draft.value.trim()
   engine.updateNode(props.node.id, {
-    data: { ...props.node.data, title: trimmed || 'Untitled group' },
+    label: trimmed || 'Untitled group',
   })
   engine.endInteraction()
 }

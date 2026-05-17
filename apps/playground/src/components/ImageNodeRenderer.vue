@@ -6,17 +6,15 @@ defineProps<{
   selected: boolean
 }>()
 
-function getData(node: BoardNode): { src?: string; alt?: string } {
-  return node.data as { src?: string; alt?: string }
-}
+const imageAlt = (node: BoardNode): string => node.file ?? 'Image'
 </script>
 
 <template>
   <div class="relative size-full overflow-hidden rounded-[inherit]">
     <img
-      v-if="getData(node).src"
-      :src="getData(node).src"
-      :alt="getData(node).alt ?? 'Image'"
+      v-if="node.file"
+      :src="node.file"
+      :alt="imageAlt(node)"
       class="size-full object-cover"
       draggable="false"
     />
@@ -38,7 +36,7 @@ function getData(node: BoardNode): { src?: string; alt?: string } {
         <circle cx="8.5" cy="8.5" r="1.5" />
         <path d="M21 15l-5-5L5 21" />
       </svg>
-      <span>{{ getData(node).alt ?? 'No image' }}</span>
+      <span>{{ node.file ?? 'No image' }}</span>
     </div>
   </div>
 </template>

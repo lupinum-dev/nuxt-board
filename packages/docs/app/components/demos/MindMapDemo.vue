@@ -11,11 +11,11 @@ import MindMapTopicNode from './MindMapTopicNode.vue'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
-  plugins: [historyPlugin(), connectionPlugin({ routing: 'bezier' })],
+  extensions: [historyPlugin(), connectionPlugin({ routing: 'bezier' })],
 })
 
 const renderers: BoardRendererRegistry = {
-  topic: MindMapTopicNode,
+  text: MindMapTopicNode,
 }
 
 const selection = ref<NodeId[]>([])
@@ -23,82 +23,86 @@ const selection = ref<NodeId[]>([])
 function seed() {
   engine.importJSON(
     JSON.stringify({
-      camera: { x: -60, y: -40, z: 1 },
-      grid: engine.getGridSettings(),
       nodes: [
         {
           id: 'root',
-          type: 'topic',
+          type: 'text',
           x: 300,
           y: 160,
           width: 220,
           height: 110,
-          data: { title: 'Product roadmap', detail: 'Q3 priorities', depth: 0 },
-          zIndex: 1,
-          locked: false,
-          visible: true,
+          text: '0\nProduct roadmap\nQ3 priorities',
         },
         {
           id: 'eng',
-          type: 'topic',
+          type: 'text',
           x: 40,
           y: 40,
           width: 200,
           height: 100,
-          data: {
-            title: 'Engineering',
-            detail: 'Performance + infra',
-            depth: 1,
-          },
-          parentId: 'root',
-          zIndex: 2,
-          locked: false,
-          visible: true,
+          text: '1\nEngineering\nAPI, canvas, exports',
         },
         {
           id: 'design',
-          type: 'topic',
+          type: 'text',
           x: 40,
           y: 290,
           width: 200,
           height: 100,
-          data: { title: 'Design', detail: 'Design system v2', depth: 1 },
-          parentId: 'root',
-          zIndex: 3,
-          locked: false,
-          visible: true,
+          text: '1\nDesign\nInteraction polish',
         },
         {
           id: 'growth',
-          type: 'topic',
+          type: 'text',
           x: 610,
           y: 40,
           width: 200,
           height: 100,
-          data: { title: 'Growth', detail: 'Activation funnels', depth: 1 },
-          parentId: 'root',
-          zIndex: 4,
-          locked: false,
-          visible: true,
+          text: '1\nGrowth\nActivation paths',
         },
         {
           id: 'api',
-          type: 'topic',
+          type: 'text',
           x: 610,
           y: 290,
           width: 200,
           height: 90,
-          data: { title: 'API v3', depth: 2 },
-          parentId: 'eng',
-          zIndex: 5,
-          locked: false,
-          visible: true,
+          text: '2\nPublic API\nKeep it boring',
         },
       ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 6,
+      'x-nuxt-board': {
+        camera: { x: -60, y: -40, z: 1 },
+        grid: engine.getGridSettings(),
+        selection: [],
+        nextZIndex: 6,
+        nodes: {
+          root: { zIndex: 1, locked: false, visible: true },
+          eng: {
+            parentId: 'root' as NodeId,
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+          design: {
+            parentId: 'root' as NodeId,
+            zIndex: 3,
+            locked: false,
+            visible: true,
+          },
+          growth: {
+            parentId: 'root' as NodeId,
+            zIndex: 4,
+            locked: false,
+            visible: true,
+          },
+          api: {
+            parentId: 'eng' as NodeId,
+            zIndex: 5,
+            locked: false,
+            visible: true,
+          },
+        },
+      },
     }),
     'replace',
   )
@@ -119,17 +123,14 @@ function addBranch() {
   const parentNode = engine.getNode(parent)
   if (!parentNode) return
 
-  const parentDepth = Number(parentNode.data?.depth ?? 0)
+  const parentDepth = Number(parentNode.text?.split('\n')[0] ?? 0)
   const newNode = engine.createNode({
-    type: 'topic',
+    type: 'text',
     x: parentNode.x + 260 + Math.round(Math.random() * 40),
     y: parentNode.y + Math.round(Math.random() * 120 - 60),
     width: 200,
     height: 90,
-    data: {
-      title: `New topic ${branchCount}`,
-      depth: Math.min(parentDepth + 1, 2),
-    },
+    text: `${Math.min(parentDepth + 1, 2)}\nNew topic ${branchCount}`,
     parentId: parent,
     select: true,
   })

@@ -20,7 +20,7 @@ function seed() {
           y: 100,
           width: 240,
           height: 100,
-          data: { content: 'Nuxt module\nZero manual imports' },
+          text: 'Node',
           zIndex: 1,
           locked: false,
           visible: true,
@@ -32,9 +32,7 @@ function seed() {
           y: 180,
           width: 240,
           height: 100,
-          data: {
-            content: 'Components, composables\nand engine auto-imported',
-          },
+          text: 'Node',
           zIndex: 2,
           locked: false,
           visible: true,
@@ -68,7 +66,7 @@ onMounted(async () => {
             y: 80,
             width: 220,
             height: 100,
-            data: { content: 'Auto-imported\nfrom Nuxt module' },
+            text: 'Node',
           })
         "
       >

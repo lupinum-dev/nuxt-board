@@ -58,7 +58,7 @@ describe('BoardMinimap', () => {
       y: 0,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -66,7 +66,7 @@ describe('BoardMinimap', () => {
       y: 400,
       width: 100,
       height: 80,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     const wrapper = mount(BoardMinimap, {

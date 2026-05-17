@@ -30,7 +30,7 @@ type PlaygroundApi = {
 const engine = createBoardEngine({
   diagnostics: { traceLimit: 500 },
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
-  plugins: [historyPlugin(), connectionPlugin()],
+  extensions: [historyPlugin(), connectionPlugin()],
 })
 
 // ━━ UI state ━━
@@ -50,7 +50,6 @@ const showMinimap = ref(true)
 // ━━ Renderers ━━
 const renderers: BoardRendererRegistry = {
   file: ImageNodeRenderer,
-  image: ImageNodeRenderer,
   group: GroupNodeRenderer,
 }
 
@@ -86,18 +85,18 @@ async function seedScene(count: number): Promise<void> {
         y: row * 220,
         width: 240,
         height: 140,
-        data: { content: `Node ${i + 1}\n${col}:${row}` },
+        text: `Node ${i + 1}\n${col}:${row}`,
       }),
     )
   }
 
   engine.createNode({
-    type: 'image',
+    type: 'file',
     x: -360,
     y: 120,
     width: 280,
     height: 180,
-    data: { alt: 'Reference tile' },
+    file: 'Reference tile',
   })
 
   if (created.length >= 3) {
@@ -244,12 +243,12 @@ function onImageFileSelected(event: Event): void {
 
       const { x, y } = worldCenterForViewportBox(width, height)
       engine.createNode({
-        type: 'image',
+        type: 'file',
         x,
         y,
         width,
         height,
-        data: { src, alt: file.name },
+        file: src,
       })
     }
     img.src = src

@@ -167,9 +167,6 @@ export interface JsonCanvasDocument {
   readonly 'x-nuxt-board'?: NuxtBoardDocumentMetadata
 }
 
-/** Arbitrary payload carried by legacy custom nodes. Kept only for source compatibility. */
-export type NodeData = Record<string, unknown>
-
 /** Public immutable node shape returned by snapshots, selectors, and commands. */
 export interface BoardNode {
   readonly id: NodeId
@@ -186,8 +183,6 @@ export interface BoardNode {
   readonly label?: string
   readonly background?: string
   readonly backgroundStyle?: JsonCanvasBackgroundStyle
-  /** @deprecated Runtime-only projection for legacy renderers. Not persisted. */
-  readonly data?: NodeData
   readonly zIndex: number
   readonly locked: boolean
   readonly visible: boolean
@@ -209,8 +204,6 @@ export interface NodeInput {
   label?: string
   background?: string
   backgroundStyle?: JsonCanvasBackgroundStyle
-  /** @deprecated Runtime-only input projection. Persisted documents use JSON Canvas fields. */
-  data?: NodeData
   color?: CanvasColor
   locked?: boolean
   visible?: boolean
@@ -233,7 +226,6 @@ export type NodePatch = Partial<
     | 'label'
     | 'background'
     | 'backgroundStyle'
-    | 'data'
     | 'color'
     | 'locked'
     | 'visible'
@@ -334,7 +326,7 @@ export interface BoardSnapshot {
 /** Invariant handling strategy for development and tests. */
 export type InvariantMode = 'strict' | 'warn' | 'off'
 
-export interface BoardEngineExtensions {}
+export interface InternalBoardExtensions {}
 
 /** Engine factory options shared by all commands, plugins, and renderers. */
 export interface BoardEngineOptions {
@@ -343,7 +335,7 @@ export interface BoardEngineOptions {
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  plugins?: BoardPlugin[]
+  extensions?: InternalBoardExtension[]
   diagnostics?: boolean | { traceLimit?: number }
   invariants?: InvariantMode
   initialNodes?: ReadonlyArray<BoardNode>
@@ -393,16 +385,11 @@ export type PluginCleanup = () => void
 export type Unsubscribe = () => void
 
 /**
- * A middleware function that intercepts engine commands before they execute.
- * Call `next()` to allow the command to proceed; omit it to cancel.
- *
- * @example
- * engine.addMiddleware((name, args, next) => {
- *   if (name === 'moveNode') return  // block all moves
- *   next()
- * })
+ * A synchronous command gate for host-level policy such as read-only mode.
+ * Call `next()` to allow the command to proceed; omit it to block before state,
+ * events, history, or extension reducers are touched.
  */
-export type CommandMiddleware = (
+export type CommandGuard = (
   name: string,
   args: unknown[],
   next: () => void,
@@ -421,7 +408,7 @@ export interface Subscribable<T> {
  * and events let plugins or host applications observe lifecycle changes.
  */
 export interface BoardEngine {
-  readonly ext: BoardEngineExtensions
+  readonly ext: InternalBoardExtensions
   readonly $camera: Subscribable<Camera>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
@@ -445,14 +432,13 @@ export interface BoardEngine {
   ): Unsubscribe
   off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
-  use(plugin: BoardPlugin): void
+  use(extension: InternalBoardExtension): void
   /**
-   * Register a middleware that intercepts every command.
-   * Middleware runs synchronously before the command body.
-   * Call `next()` to allow the command to proceed; omit it to cancel silently.
-   * Returns an unsubscribe function that removes the middleware.
+   * Register a synchronous command gate. Intended for concrete host policy such
+   * as read-only mode, not broad application orchestration. Returns an
+   * unsubscribe function that removes the guard.
    */
-  addMiddleware(fn: CommandMiddleware): Unsubscribe
+  addMiddleware(fn: CommandGuard): Unsubscribe
   screenToWorld(point: Point): Point
   worldToScreen(point: Point): Point
   getVisibleBounds(width: number, height: number): Bounds
@@ -523,11 +509,11 @@ export interface BoardEngine {
     listener: (action: import('./state/actions').Action) => void,
   ): Unsubscribe
   /**
-   * Apply an action directly to engine state without running middleware or
+   * Apply an action directly to engine state without running command guards or
    * command lifecycle events. Used by the history plugin to replay inverse
    * actions during undo/redo.
    */
-  replay(action: import('./state/actions').Action): void
+  applyRecordedAction(action: import('./state/actions').Action): void
   /**
    * Compute the inverse of an action. Used by the history plugin.
    * Plugin-tunneled actions are inverted via the registering plugin's
@@ -539,25 +525,23 @@ export interface BoardEngine {
 }
 
 /**
- * Internal plugin-facing engine surface.
- *
- * Plugins receive the full public engine plus imperative hooks for extending
- * the engine surface, emitting events, and dispatching actions.
+ * First-party extension surface used by workspace packages such as history and
+ * connections. This is internal infrastructure, not a general extension surface.
  */
-export interface BoardPluginContext extends BoardEngine {
+export interface InternalBoardExtensionContext extends BoardEngine {
   emit<K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
   ): void
-  extend<K extends keyof BoardEngineExtensions & string>(
+  extend<K extends keyof InternalBoardExtensions & string>(
     key: K,
-    value: BoardEngineExtensions[K],
+    value: InternalBoardExtensions[K],
   ): void
   /**
    * Execute a named command through the full engine pipeline:
-   * middleware chain → command:before → fn() → invariant validation → command:after.
+   * command guards → command:before → fn() → invariant validation → command:after.
    * Use this in plugins so that edge/connection operations appear in traces,
-   * are interceptable by middleware, and are captured by the history plugin.
+   * are interceptable by command guards, and are captured by the history plugin.
    */
   runCommand<T>(name: string, args: unknown[], fn: () => T): T
   /**
@@ -571,8 +555,8 @@ export interface BoardPluginContext extends BoardEngine {
   getPluginState<S>(): S
 }
 
-/** Reducer-backed persistent state owned by a plugin. */
-interface BoardPluginSlice {
+/** Reducer-backed persistent state owned by a first-party extension. */
+interface InternalBoardExtensionSlice {
   initial: unknown
   reducer: (state: never, action: import('./state/actions').Action) => unknown
   /**
@@ -583,26 +567,26 @@ interface BoardPluginSlice {
   invert?: (innerAction: never) => unknown
 }
 
-/** Optional plugin hook for persisted JSON Canvas document data. */
-export interface BoardPluginPersistence {
+/** Optional first-party hook for persisted JSON Canvas document data. */
+export interface InternalBoardExtensionPersistence {
   exportDocument?(
-    engine: BoardPluginContext,
+    engine: InternalBoardExtensionContext,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: BoardPluginContext,
+    engine: InternalBoardExtensionContext,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
   ): void
 }
 
-/** Plugin contract used to extend the engine with state, commands, and side effects. */
-export interface BoardPlugin {
+/** First-party extension contract for state, commands, and side effects. */
+export interface InternalBoardExtension {
   name: string
-  slice?: BoardPluginSlice
-  persistence?: BoardPluginPersistence
+  slice?: InternalBoardExtensionSlice
+  persistence?: InternalBoardExtensionPersistence
   install(
-    engine: BoardPluginContext,
+    engine: InternalBoardExtensionContext,
     options?: Record<string, unknown>,
   ): void | PluginCleanup
 }

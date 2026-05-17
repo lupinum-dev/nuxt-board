@@ -7,7 +7,11 @@ const props = defineProps<{
   selected: boolean
 }>()
 
-const data = computed(() => props.node.data ?? {})
+const data = computed(() => {
+  const [label = 'Metric', value = '-', delta = '', caption = ''] =
+    props.node.label?.split('\n') ?? []
+  return { label, value, delta, caption }
+})
 const deltaPositive = computed(() => {
   const d = String(data.value.delta ?? '')
   return d.startsWith('+')

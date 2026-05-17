@@ -30,11 +30,11 @@ defineProps<{
       Insight node
     </div>
     <div class="mt-2 text-sm font-semibold text-highlighted">
-      {{ (node.data as { title?: string }).title ?? 'Untitled' }}
+      {{ node.text?.split('\n')[0] ?? 'Untitled' }}
     </div>
     <div class="mt-2 text-xs leading-5 text-muted">
       {{
-        (node.data as { body?: string }).body ??
+        node.text?.split('\n').slice(1).join('\n') ||
         'Use custom renderers to swap the default card view for any Vue component.'
       }}
     </div>

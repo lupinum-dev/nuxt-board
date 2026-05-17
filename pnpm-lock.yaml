@@ -122,12 +122,6 @@ importers:
         specifier: ^3.5.0
         version: 3.5.33(typescript@6.0.3)
 
-  packages/board-selection:
-    dependencies:
-      '@lupinum/board-core':
-        specifier: workspace:^
-        version: link:../board-core
-
   packages/docs:
     dependencies:
       '@iconify-json/lucide':

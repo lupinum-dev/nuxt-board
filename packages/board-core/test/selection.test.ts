@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { asNodeId, createBoardEngine } from '@lupinum/board-core'
-import { getSelectionBounds, toggleIds } from '../src'
+import {
+  asNodeId,
+  createBoardEngine,
+  getSelectionBounds,
+  toggleIds,
+} from '../src'
 
 describe('selection helpers', () => {
   it('computes selection bounds from the current engine snapshot', () => {
@@ -11,7 +15,7 @@ describe('selection helpers', () => {
       y: 20,
       width: 100,
       height: 80,
-      data: { content: 'A' },
+      text: 'Node',
     })
     const second = engine.createNode({
       type: 'text',
@@ -19,7 +23,7 @@ describe('selection helpers', () => {
       y: 60,
       width: 120,
       height: 90,
-      data: { content: 'B' },
+      text: 'Node',
     })
 
     engine.select([first.id, second.id])

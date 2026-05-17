@@ -15,9 +15,6 @@ export default defineConfig({
       '@lupinum/board-history': fileURLToPath(
         new URL('./packages/board-history/src/index.ts', import.meta.url),
       ),
-      '@lupinum/board-selection': fileURLToPath(
-        new URL('./packages/board-selection/src/index.ts', import.meta.url),
-      ),
       '@lupinum/board-connections': fileURLToPath(
         new URL('./packages/board-connections/src/index.ts', import.meta.url),
       ),

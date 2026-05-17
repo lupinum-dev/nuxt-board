@@ -61,7 +61,13 @@ export interface ConnectionPluginOptions {
   routing?: ConnectionRouting
   endpointMode?: ConnectionEndpointMode
   defaultArrow?: 'none' | 'start' | 'end' | 'both'
-  snapDistance?: number
+}
+
+/** Resolved connection defaults installed with the engine extension. */
+export interface ConnectionConfig {
+  routing: ConnectionRouting
+  endpointMode: ConnectionEndpointMode
+  defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>
 }
 
 /** Engine extension installed by the connections plugin. */
@@ -82,6 +88,7 @@ export interface ConnectionsExtension {
   getEdgesFrom(id: NodeId): BoardEdge[]
   getEdgesTo(id: NodeId): BoardEdge[]
   getEdgesBetween(from: NodeId, to: NodeId): BoardEdge[]
+  getConfig(): ConnectionConfig
 }
 
 /** Fully resolved endpoint used for rendering and hit-testing an edge. */

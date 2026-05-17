@@ -206,13 +206,7 @@ const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
 })
 
 function resolveRenderer(node: BoardNodeState): Component | null {
-  const legacyType =
-    typeof node.data?.type === 'string' ? node.data.type : undefined
-  return (
-    renderersRef.value[node.type] ??
-    (legacyType ? renderersRef.value[legacyType] : undefined) ??
-    props.fallbackRenderer
-  )
+  return renderersRef.value[node.type] ?? props.fallbackRenderer
 }
 
 function hasCustomContentForNode(node: BoardNodeState): boolean {

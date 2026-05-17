@@ -69,7 +69,7 @@ describe('BoardRoot', () => {
       type: 'text',
       x: 40,
       y: 40,
-      data: { content: 'Drag me' },
+      text: 'Node',
     })
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -170,19 +170,15 @@ describe('BoardRoot', () => {
     })
   })
 
-  it('renders a registry renderer for typed nodes', () => {
+  it('renders a registry renderer for JSON Canvas node types', () => {
     const engine = createBoardEngine()
-    engine.createNode({ type: 'image', x: 40, y: 40, data: { alt: 'Poster' } })
-    const ImageRenderer = markRaw(
+    engine.createNode({ type: 'file', x: 40, y: 40, file: 'Poster' })
+    const FileRenderer = markRaw(
       defineComponent({
         props: ['node'],
         setup(props) {
           return () =>
-            h(
-              'div',
-              { class: 'image-renderer' },
-              String((props.node.data as Record<string, unknown>).alt),
-            )
+            h('div', { class: 'file-renderer' }, String(props.node.file))
         },
       }),
     )
@@ -191,13 +187,13 @@ describe('BoardRoot', () => {
       props: {
         engine,
         renderers: {
-          image: ImageRenderer,
+          file: FileRenderer,
         },
       },
       attachTo: document.body,
     })
 
-    expect(wrapper.find('.image-renderer').text()).toContain('Poster')
+    expect(wrapper.find('.file-renderer').text()).toContain('Poster')
   })
 
   it('renders colored nodes with color variables and applies toolbar color to selection', async () => {
@@ -207,7 +203,7 @@ describe('BoardRoot', () => {
       x: 40,
       y: 40,
       color: '2',
-      data: { content: 'First' },
+      text: 'Node',
       select: false,
     })
     const second = engine.createNode({
@@ -247,7 +243,7 @@ describe('BoardRoot', () => {
       y: 20,
       width: 80,
       height: 60,
-      data: { content: 'A' },
+      text: 'Node',
     })
     engine.createNode({
       type: 'text',
@@ -255,7 +251,7 @@ describe('BoardRoot', () => {
       y: 320,
       width: 80,
       height: 60,
-      data: { content: 'B' },
+      text: 'Node',
     })
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -312,7 +308,7 @@ describe('BoardRoot', () => {
       type: 'text',
       x: 40,
       y: 40,
-      data: { content: 'Keyboard' },
+      text: 'Node',
     })
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -333,7 +329,7 @@ describe('BoardRoot', () => {
       type: 'text',
       x: 40,
       y: 40,
-      data: { content: 'Clone me' },
+      text: 'Node',
     })
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -363,13 +359,13 @@ describe('BoardRoot', () => {
     expect(engine.getSelection()).toHaveLength(1)
   })
 
-  it('respects middleware-blocked drag, duplicate, and create commands without crashing', async () => {
+  it('respects guard-blocked drag, duplicate, and create commands without crashing', async () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({
       type: 'text',
       x: 40,
       y: 40,
-      data: { content: 'Locked down' },
+      text: 'Node',
     })
     const blocked: string[] = []
     engine.addMiddleware((name, _args, next) => {
@@ -473,13 +469,13 @@ describe('BoardRoot', () => {
 
   it('keeps slot snapshot state in sync with undo and redo replays', async () => {
     const engine = createBoardEngine({
-      plugins: [historyPlugin({ debounceMs: 0 })],
+      extensions: [historyPlugin({ debounceMs: 0 })],
     })
     const node = engine.createNode({
       type: 'text',
       x: 20,
       y: 20,
-      data: { content: 'Undo me' },
+      text: 'Node',
     })
     engine.ext.history.clear()
 

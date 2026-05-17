@@ -11,7 +11,7 @@ import { createBoardEngine } from '@lupinum/board-core'
 import { historyPlugin } from '@lupinum/board-history'
 
 const engine = createBoardEngine({
-  plugins: [historyPlugin({ maxSteps: 200 })],
+  extensions: [historyPlugin({ maxSteps: 200 })],
 })
 
 engine.ext.history.undo()

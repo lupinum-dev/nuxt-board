@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "packages/docs/content.config.ts",
+    "packages/docs/server/mcp/tools/*.ts",
+    "packages/nuxt-board/test/fixtures/*/app.vue",
+    "packages/nuxt-board/test/fixtures/*/components/*.vue"
+  ],
+  "ignoreDependencies": [
+    "~icons",
+    "@iconify-json/lucide",
+    "@iconify-json/simple-icons",
+    "@iconify-json/tabler",
+    "@iconify-json/vscode-icons",
+    "@nuxtjs/mdc",
+    "better-sqlite3",
+    "satori",
+    "unist-util-visit"
+  ]
+}

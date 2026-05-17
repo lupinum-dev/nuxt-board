@@ -31,7 +31,7 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
       type: 'text',
       x: 420,
       y: 220,
-      data: { content: 'Bench note' },
+      text: 'Node',
     })
     api.engine.commitTextEdit(node.id, 'Bench note')
     return { id: node.id, count: api.engine.getSnapshot().nodes.length }
@@ -67,7 +67,7 @@ test('supports multiline text editing inside a node', async ({ page }) => {
       type: 'text',
       x: 420,
       y: 220,
-      data: { content: 'First line' },
+      text: 'Node',
     })
     return { id: node.id, count: api.engine.getSnapshot().nodes.length }
   })
@@ -191,7 +191,7 @@ test('colors selected cards and groups through the selection toolbar', async ({
       y: 240,
       width: 220,
       height: 120,
-      data: { content: 'Color card' },
+      text: 'Node',
     })
     const group = api.engine.createNode({
       type: 'group',
@@ -199,7 +199,7 @@ test('colors selected cards and groups through the selection toolbar', async ({
       y: 200,
       width: 320,
       height: 220,
-      data: { title: 'Color group' },
+      label: 'Group',
     })
     api.engine.select([card.id, group.id])
     return { cardId: card.id, groupId: group.id }
@@ -265,7 +265,7 @@ test('dragging a group over cards captures them as children', async ({
       y: 220,
       width: 220,
       height: 180,
-      data: { title: 'Capture group' },
+      label: 'Group',
     })
     const card = api.engine.createNode({
       type: 'text',
@@ -273,7 +273,7 @@ test('dragging a group over cards captures them as children', async ({
       y: 260,
       width: 120,
       height: 80,
-      data: { content: 'Captured card' },
+      text: 'Node',
     })
     api.engine.syncGroupZOrder(group.id)
     api.engine.select([group.id])

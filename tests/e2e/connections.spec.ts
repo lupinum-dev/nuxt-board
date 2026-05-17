@@ -96,25 +96,25 @@ async function seedConnectionScene(page: Page) {
       from: 'input',
       to: 'parse',
       label: 'clean',
-      data: {},
+      text: '',
     })
     connections.createEdge({
       from: 'input',
       to: 'score',
       label: 'rank',
-      data: {},
+      text: '',
     })
     connections.createEdge({
       from: 'parse',
       to: 'output',
       label: 'emit',
-      data: {},
+      text: '',
     })
     connections.createEdge({
       from: 'score',
       to: 'output',
       label: 'merge',
-      data: {},
+      text: '',
     })
   })
 }

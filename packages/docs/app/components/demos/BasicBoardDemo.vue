@@ -19,7 +19,7 @@ function seed() {
           y: 32,
           width: 896,
           height: 306,
-          data: { content: 'group' },
+          text: 'Node',
           zIndex: 0,
           locked: false,
           visible: true,
@@ -31,7 +31,7 @@ function seed() {
           y: 60,
           width: 240,
           height: 100,
-          data: { content: 'User research\nSynthesize interview findings' },
+          text: 'Node',
           zIndex: 1,
           locked: false,
           visible: true,
@@ -44,7 +44,7 @@ function seed() {
           y: 200,
           width: 260,
           height: 110,
-          data: { content: 'Prototype\nOnboarding redesign flows' },
+          text: 'Node',
           zIndex: 2,
           locked: false,
           visible: true,
@@ -57,7 +57,7 @@ function seed() {
           y: 80,
           width: 220,
           height: 100,
-          data: { content: 'Design review\nAlign with eng' },
+          text: 'Node',
           zIndex: 3,
           locked: false,
           visible: true,
@@ -80,7 +80,7 @@ function addNode() {
     y: 140 + Math.round(Math.random() * 160),
     width: 220,
     height: 100,
-    data: { content: 'New note\nDouble-click to edit' },
+    text: 'Node',
   })
 }
 
@@ -105,7 +105,7 @@ function wrapSelectionInGroup() {
     y: minY - 28,
     width: maxX - minX + 56,
     height: maxY - minY + 56,
-    data: { title: 'Cluster' },
+    label: 'Group',
     select: false,
   })
   engine.sendToBack(group.id)

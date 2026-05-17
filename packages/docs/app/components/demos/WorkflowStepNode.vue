@@ -7,7 +7,11 @@ const props = defineProps<{
   selected: boolean
 }>()
 
-const data = computed(() => props.node.data ?? {})
+const data = computed(() => {
+  const [status = 'pending', label = 'Step', summary = ''] =
+    props.node.text?.split('\n') ?? []
+  return { status, label, summary }
+})
 const tone = computed(() => {
   const status = String(data.value.status ?? 'pending')
   if (status === 'done') {

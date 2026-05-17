@@ -19,7 +19,7 @@ const engine = createAcmeBoardEngine({
       y: 32,
       width: 180,
       height: 80,
-      data: { content: 'prefixed-node-content' },
+      text: 'prefixed-node-content',
       zIndex: 1,
       locked: false,
       visible: true,
