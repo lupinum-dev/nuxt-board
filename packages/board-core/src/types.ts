@@ -323,27 +323,27 @@ export interface BoardSnapshot {
   readonly nextZIndex: number
 }
 
-/** Invariant handling strategy for development and tests. */
-export type InvariantMode = 'strict' | 'warn' | 'off'
+/** Validation handling strategy for development and tests. */
+export type ValidationMode = 'strict' | 'warn' | 'off'
 
-export interface InternalBoardExtensions {}
+export interface BoardFeatureExtensions {}
 
-/** Engine factory options shared by all commands, plugins, and renderers. */
+/** Engine factory options shared by commands, first-party features, and renderers. */
 export interface BoardEngineOptions {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  extensions?: InternalBoardExtension[]
+  extensions?: FirstPartyBoardFeature[]
   diagnostics?: boolean | { traceLimit?: number }
-  invariants?: InvariantMode
+  validation?: ValidationMode
   initialNodes?: ReadonlyArray<BoardNode>
   initialDocument?: JsonCanvasDocument
 }
 
-/** Structured invariant violation emitted when validation fails. */
-export interface InvariantFailure {
+/** Structured validation failure emitted when validation fails. */
+export interface ValidationFailure {
   name: string
   message: string
   snapshot: BoardSnapshot
@@ -357,7 +357,7 @@ export interface TraceEntry {
   args: unknown[]
 }
 
-/** Event contract emitted by the board engine. Plugins extend this interface via module augmentation. */
+/** Event contract emitted by the board engine. First-party features extend this interface via module augmentation. */
 export interface BoardEventMap {
   ready: () => void
   destroy: () => void
@@ -378,7 +378,7 @@ export interface BoardEventMap {
   'command:before': (name: string, args: unknown[]) => void
   'command:after': (name: string, args: unknown[], duration: number) => void
   'command:blocked': (name: string, args: unknown[]) => void
-  'invariant:failed': (failure: InvariantFailure) => void
+  'validation:failed': (failure: ValidationFailure) => void
 }
 
 export type PluginCleanup = () => void
@@ -387,7 +387,7 @@ export type Unsubscribe = () => void
 /**
  * A synchronous command gate for host-level policy such as read-only mode.
  * Call `next()` to allow the command to proceed; omit it to block before state,
- * events, history, or extension reducers are touched.
+ * events, history, or feature reducers are touched.
  */
 export type CommandGuard = (
   name: string,
@@ -405,10 +405,10 @@ export interface Subscribable<T> {
  * Public board engine interface.
  *
  * Commands mutate persistent board state, subscribables expose reactive state,
- * and events let plugins or host applications observe lifecycle changes.
+ * and events let host applications observe lifecycle changes.
  */
 export interface BoardEngine {
-  readonly ext: InternalBoardExtensions
+  readonly ext: BoardFeatureExtensions
   readonly $camera: Subscribable<Camera>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
@@ -432,13 +432,13 @@ export interface BoardEngine {
   ): Unsubscribe
   off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
-  use(extension: InternalBoardExtension): void
+  use(feature: FirstPartyBoardFeature): void
   /**
    * Register a synchronous command gate. Intended for concrete host policy such
    * as read-only mode, not broad application orchestration. Returns an
    * unsubscribe function that removes the guard.
    */
-  addMiddleware(fn: CommandGuard): Unsubscribe
+  addCommandGuard(fn: CommandGuard): Unsubscribe
   screenToWorld(point: Point): Point
   worldToScreen(point: Point): Point
   getVisibleBounds(width: number, height: number): Bounds
@@ -501,22 +501,53 @@ export interface BoardEngine {
   syncGroupZOrder(groupId: NodeId): void
   exportJSON(): string
   importJSON(json: string, mode?: 'replace' | 'merge'): void
+}
+
+/**
+ * First-party feature surface used by workspace packages such as history and
+ * connections. This is internal infrastructure, not a general plugin surface.
+ */
+export interface FirstPartyBoardFeatureContext extends BoardEngine {
+  emit<K extends keyof BoardEventMap>(
+    event: K,
+    ...args: Parameters<BoardEventMap[K]>
+  ): void
+  extend<K extends keyof BoardFeatureExtensions & string>(
+    key: K,
+    value: BoardFeatureExtensions[K],
+  ): void
+  /**
+   * Execute a named mutation through guarded command handling:
+   * command guards → command:before → fn() → validation → command:after.
+   * Use this in first-party features so edge/connection operations appear in traces,
+   * are interceptable by command guards, and are captured by the history feature.
+   */
+  runCommand<T>(name: string, args: unknown[], fn: () => T): T
+  /**
+   * Dispatch an action. Called by command implementations to record state mutations
+   * and notify subscribers (history, feature reducers).
+   */
+  dispatch(action: import('./state/actions').Action): void
+  /**
+   * Read the current slice state for this feature, as last produced by its reducer.
+   */
+  getPluginState<S>(): S
   /**
    * Subscribe to actions dispatched by commands.
-   * Used by plugins to react to state mutations without polling individual events.
+   * Used by first-party features to react to state mutations without polling individual events.
    */
   onAction(
     listener: (action: import('./state/actions').Action) => void,
   ): Unsubscribe
   /**
    * Apply an action directly to engine state without running command guards or
-   * command lifecycle events. Used by the history plugin to replay inverse
+   * command lifecycle events. Used by the history feature to replay inverse
    * actions during undo/redo.
    */
   applyRecordedAction(action: import('./state/actions').Action): void
   /**
-   * Compute the inverse of an action. Used by the history plugin.
-   * Plugin-tunneled actions are inverted via the registering plugin's
+   * Compute the inverse of an action. Used by the history feature.
+   * Feature-tunneled actions are inverted via the registering feature's
    * `slice.invert` if present; otherwise an error is thrown.
    */
   invertAction(
@@ -524,43 +555,12 @@ export interface BoardEngine {
   ): import('./state/actions').Action
 }
 
-/**
- * First-party extension surface used by workspace packages such as history and
- * connections. This is internal infrastructure, not a general extension surface.
- */
-export interface InternalBoardExtensionContext extends BoardEngine {
-  emit<K extends keyof BoardEventMap>(
-    event: K,
-    ...args: Parameters<BoardEventMap[K]>
-  ): void
-  extend<K extends keyof InternalBoardExtensions & string>(
-    key: K,
-    value: InternalBoardExtensions[K],
-  ): void
-  /**
-   * Execute a named command through the full engine pipeline:
-   * command guards → command:before → fn() → invariant validation → command:after.
-   * Use this in plugins so that edge/connection operations appear in traces,
-   * are interceptable by command guards, and are captured by the history plugin.
-   */
-  runCommand<T>(name: string, args: unknown[], fn: () => T): T
-  /**
-   * Dispatch an action. Called by command implementations to record state mutations
-   * and notify subscribers (history, plugin reducers).
-   */
-  dispatch(action: import('./state/actions').Action): void
-  /**
-   * Read the current slice state for this plugin, as last produced by its reducer.
-   */
-  getPluginState<S>(): S
-}
-
-/** Reducer-backed persistent state owned by a first-party extension. */
-interface InternalBoardExtensionSlice {
+/** Reducer-backed persistent state owned by a first-party feature. */
+interface FirstPartyBoardFeatureSlice {
   initial: unknown
   reducer: (state: never, action: import('./state/actions').Action) => unknown
   /**
-   * Optionally invert a plugin-tunneled action so that history can replay its inverse.
+   * Optionally invert a feature-tunneled action so that history can replay its inverse.
    * Receives the inner action body (i.e. `(action as { type: 'PLUGIN' }).action`).
    * Must return an inner action shape suitable for re-dispatching as a PLUGIN action.
    */
@@ -568,25 +568,25 @@ interface InternalBoardExtensionSlice {
 }
 
 /** Optional first-party hook for persisted JSON Canvas document data. */
-export interface InternalBoardExtensionPersistence {
+export interface FirstPartyBoardFeaturePersistence {
   exportDocument?(
-    engine: InternalBoardExtensionContext,
+    engine: FirstPartyBoardFeatureContext,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: InternalBoardExtensionContext,
+    engine: FirstPartyBoardFeatureContext,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
   ): void
 }
 
-/** First-party extension contract for state, commands, and side effects. */
-export interface InternalBoardExtension {
+/** First-party feature contract for state, commands, and side effects. */
+export interface FirstPartyBoardFeature {
   name: string
-  slice?: InternalBoardExtensionSlice
-  persistence?: InternalBoardExtensionPersistence
+  slice?: FirstPartyBoardFeatureSlice
+  persistence?: FirstPartyBoardFeaturePersistence
   install(
-    engine: InternalBoardExtensionContext,
+    engine: FirstPartyBoardFeatureContext,
     options?: Record<string, unknown>,
   ): void | PluginCleanup
 }

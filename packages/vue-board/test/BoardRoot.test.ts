@@ -368,7 +368,7 @@ describe('BoardRoot', () => {
       text: 'Node',
     })
     const blocked: string[] = []
-    engine.addMiddleware((name, _args, next) => {
+    engine.addCommandGuard((name, _args, next) => {
       if (
         name === 'beginNodeDrag' ||
         name === 'duplicateNodes' ||

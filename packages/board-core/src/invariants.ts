@@ -3,7 +3,7 @@ import type {
   BoardState,
   BoardNode,
   GridSettings,
-  InvariantFailure,
+  ValidationFailure,
   InteractionState,
   NodeId,
 } from './types'
@@ -77,8 +77,8 @@ export function validateState(
   state: BoardState,
   grid: GridSettings,
   context: string,
-): InvariantFailure[] {
-  const failures: InvariantFailure[] = []
+): ValidationFailure[] {
+  const failures: ValidationFailure[] = []
   let snapshot: BoardSnapshot | null = null
   const lazySnapshot = () =>
     snapshot ?? (snapshot = createSnapshot(state, grid))

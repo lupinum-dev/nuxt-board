@@ -1,8 +1,8 @@
 import {
   asEdgeId,
   type EdgeId,
-  type InternalBoardAction,
-  type InternalBoardExtension,
+  type FirstPartyBoardAction,
+  type FirstPartyBoardFeature,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
   type JsonCanvasSide,
@@ -37,8 +37,8 @@ const initialConnectionsState: ConnectionsState = {
 }
 
 function isConnectionsAction(
-  action: InternalBoardAction,
-): action is InternalBoardAction & {
+  action: FirstPartyBoardAction,
+): action is FirstPartyBoardAction & {
   type: 'PLUGIN'
   plugin: typeof CONNECTIONS_FEATURE_NAME
   action: ConnectionsAction
@@ -64,7 +64,7 @@ function invertConnectionAction(action: ConnectionsAction): ConnectionsAction {
 
 function reduceConnectionsState(
   state: ConnectionsState,
-  action: InternalBoardAction,
+  action: FirstPartyBoardAction,
 ): ConnectionsState {
   if (isConnectionsAction(action)) {
     const inner = action.action
@@ -105,7 +105,7 @@ declare module '@lupinum/board-core' {
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
-  interface InternalBoardExtensions {
+  interface BoardFeatureExtensions {
     connections: ConnectionsExtension
   }
 }
@@ -156,7 +156,7 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionPlugin(
   options: ConnectionPluginOptions = {},
-): InternalBoardExtension {
+): FirstPartyBoardFeature {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'

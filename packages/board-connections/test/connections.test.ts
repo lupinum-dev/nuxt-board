@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
+import {
+  asEdgeId,
+  asNodeId,
+  createBoardEngine,
+  type FirstPartyBoardFeature,
+} from '@lupinum/board-core'
 import {
   buildConnectionRoute,
   connectionPlugin,
@@ -477,6 +482,75 @@ describe('connections plugin', () => {
     )
 
     expect(engine.ext.connections.getEdges()).toHaveLength(2)
+    expectEdgesReferenceExistingNodes(engine)
+  })
+
+  it('rolls back imported connection state when a later feature import fails', () => {
+    const failingFeature: FirstPartyBoardFeature = {
+      name: 'failing-import',
+      persistence: {
+        importDocument() {
+          throw new Error('feature import failed')
+        },
+      },
+      install() {},
+    }
+    const engine = createBoardEngine({
+      extensions: [connectionPlugin(), failingFeature],
+    })
+    const keepA = engine.createNode({
+      id: asNodeId('keep-a'),
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'Keep A',
+    })
+    const keepB = engine.createNode({
+      id: asNodeId('keep-b'),
+      type: 'text',
+      x: 220,
+      y: 0,
+      text: 'Keep B',
+    })
+    const keepEdge = engine.ext.connections.createEdge({
+      id: asEdgeId('keep-edge'),
+      from: keepA.id,
+      to: keepB.id,
+      data: {},
+    })
+    const before = engine.getSnapshot()
+
+    expect(() =>
+      engine.importJSON(
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'new-a',
+              type: 'text',
+              x: 0,
+              y: 160,
+              width: 120,
+              height: 80,
+              text: 'New A',
+            },
+            {
+              id: 'new-b',
+              type: 'text',
+              x: 220,
+              y: 160,
+              width: 120,
+              height: 80,
+              text: 'New B',
+            },
+          ],
+          edges: [{ id: 'new-edge', fromNode: 'new-a', toNode: 'new-b' }],
+        }),
+        'replace',
+      ),
+    ).toThrow(/feature import failed/)
+
+    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.ext.connections.getEdges()).toEqual([keepEdge])
     expectEdgesReferenceExistingNodes(engine)
   })
 

@@ -8,7 +8,7 @@ describe('history plugin', () => {
     const engine = createBoardEngine({
       extensions: [historyPlugin({ debounceMs: 0 })],
     })
-    engine.addMiddleware((name, _args, next) => {
+    engine.addCommandGuard((name, _args, next) => {
       if (name === 'createNode') return
       next()
     })
@@ -390,6 +390,51 @@ describe('history plugin', () => {
     expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
       to: third.id,
       toAnchor: undefined,
+    })
+  })
+
+  it('undoes and redoes mixed node and connection changes captured in one batch', () => {
+    const engine = createBoardEngine({
+      extensions: [connectionPlugin(), historyPlugin({ debounceMs: 0 })],
+    })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'Before',
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 200,
+      y: 0,
+      text: 'Target',
+    })
+    engine.ext.history.clear()
+
+    engine.batch(() => {
+      engine.updateNode(first.id, { text: 'After' })
+      engine.ext.connections.createEdge({
+        from: first.id,
+        to: second.id,
+        label: 'batched',
+        data: {},
+      })
+    })
+
+    expect(engine.getNode(first.id).text).toBe('After')
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+
+    engine.ext.history.undo()
+    expect(engine.getNode(first.id).text).toBe('Before')
+    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+
+    engine.ext.history.redo()
+    expect(engine.getNode(first.id).text).toBe('After')
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      from: first.id,
+      to: second.id,
+      label: 'batched',
     })
   })
 })

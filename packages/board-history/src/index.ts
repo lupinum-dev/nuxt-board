@@ -1,6 +1,7 @@
 import type {
-  InternalBoardAction,
-  InternalBoardExtension,
+  FirstPartyBoardAction,
+  FirstPartyBoardFeature,
+  FirstPartyBoardFeatureContext,
 } from '@lupinum/board-core'
 
 /** Public history state exposed by the history plugin extension. */
@@ -13,7 +14,7 @@ export interface HistoryState {
 /** A single undoable history frame captured from dispatched actions. */
 export interface HistoryEntry {
   label: string
-  actions: InternalBoardAction[]
+  actions: FirstPartyBoardAction[]
   timestamp: number
 }
 
@@ -32,7 +33,7 @@ declare module '@lupinum/board-core' {
     'history:clear': () => void
   }
 
-  interface InternalBoardExtensions {
+  interface BoardFeatureExtensions {
     history: {
       undo: () => void
       redo: () => void
@@ -92,8 +93,8 @@ function isCoalescableNodeUpdate(
 }
 
 function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
-  const a = prev.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
-  const b = next.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
+  const a = prev.actions[0] as FirstPartyBoardAction & { type: 'NODES_MOVED' }
+  const b = next.actions[0] as FirstPartyBoardAction & { type: 'NODES_MOVED' }
   const merged = a.deltas.map((delta, i) => ({
     id: delta.id,
     before: delta.before,
@@ -107,8 +108,8 @@ function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
 }
 
 function mergeNodeUpdate(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
-  const a = prev.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
-  const b = next.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
+  const a = prev.actions[0] as FirstPartyBoardAction & { type: 'NODE_UPDATED' }
+  const b = next.actions[0] as FirstPartyBoardAction & { type: 'NODE_UPDATED' }
   return {
     label: prev.label,
     actions: [
@@ -133,7 +134,7 @@ function mergeCoalesced(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
     : mergeNodeUpdate(prev, next)
 }
 
-function undoReplayPriority(action: InternalBoardAction): number {
+function undoReplayPriority(action: FirstPartyBoardAction): number {
   switch (action.type) {
     case 'NODE_CREATED':
       return 0
@@ -154,9 +155,9 @@ function undoReplayPriority(action: InternalBoardAction): number {
 }
 
 function getUndoReplayActions(
-  engine: import('@lupinum/board-core').BoardEngine,
+  engine: FirstPartyBoardFeatureContext,
   entry: HistoryEntry,
-): InternalBoardAction[] {
+): FirstPartyBoardAction[] {
   return [...entry.actions]
     .reverse()
     .map((action) => engine.invertAction(action))
@@ -171,7 +172,7 @@ function getUndoReplayActions(
  */
 export function historyPlugin(
   options: HistoryPluginOptions = {},
-): InternalBoardExtension {
+): FirstPartyBoardFeature {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)
   const excluded = new Set([...(options.exclude ?? []), ...DEFAULT_EXCLUDE])
@@ -183,7 +184,7 @@ export function historyPlugin(
       const redoStack: HistoryEntry[] = []
 
       let activeCommand: string | null = null
-      let activeActions: InternalBoardAction[] = []
+      let activeActions: FirstPartyBoardAction[] = []
       let pending: HistoryEntry | null = null
       let pendingTimer: ReturnType<typeof setTimeout> | null = null
       let replaying = false

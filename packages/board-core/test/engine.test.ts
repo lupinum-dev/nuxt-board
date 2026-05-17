@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  asNodeId,
   CommandBlockedError,
   createBoardEngine,
-  type InternalBoardExtension,
+  type FirstPartyBoardFeature,
 } from '../src'
 
 describe('board engine', () => {
@@ -37,7 +38,8 @@ describe('board engine', () => {
 
   it('rolls back strict validation failures after node updates', () => {
     let readPluginState!: () => { updates: number }
-    const plugin: InternalBoardExtension = {
+    const actions: string[] = []
+    const plugin: FirstPartyBoardFeature = {
       name: 'rollback-probe',
       slice: {
         initial: { updates: 0 },
@@ -49,6 +51,7 @@ describe('board engine', () => {
       },
       install(engine) {
         readPluginState = () => engine.getPluginState()
+        return engine.onAction((action) => actions.push(action.type))
       },
     }
     const engine = createBoardEngine({
@@ -64,10 +67,9 @@ describe('board engine', () => {
       text: 'original',
     })
     const before = engine.getSnapshot()
+    actions.length = 0
 
-    const actions: string[] = []
     const events: string[] = []
-    engine.onAction((action) => actions.push(action.type))
     engine.on('node:updated', () => events.push('node:updated'))
 
     expect(() => engine.updateNode(node.id, { width: -1 })).toThrow(
@@ -81,11 +83,19 @@ describe('board engine', () => {
   })
 
   it('rolls back invalid node creation and import payloads', () => {
-    const engine = createBoardEngine({ grid: { snap: false } })
-    const beforeCreate = engine.getSnapshot()
     const actions: string[] = []
+    const actionProbe: FirstPartyBoardFeature = {
+      name: 'action-probe',
+      install(engine) {
+        return engine.onAction((action) => actions.push(action.type))
+      },
+    }
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      extensions: [actionProbe],
+    })
+    const beforeCreate = engine.getSnapshot()
     const events: string[] = []
-    engine.onAction((action) => actions.push(action.type))
     engine.on('node:created', () => events.push('node:created'))
 
     expect(() =>
@@ -138,7 +148,7 @@ describe('board engine', () => {
   it('runs command guards for async camera commands', async () => {
     const engine = createBoardEngine()
     const blocked: string[] = []
-    engine.addMiddleware((name) => {
+    engine.addCommandGuard((name) => {
       if (name === 'panTo' || name === 'zoomToFit') {
         blocked.push(name)
         return
@@ -435,7 +445,7 @@ describe('board engine', () => {
   it('fires command hooks and installs plugins only once per name', () => {
     const events: string[] = []
     let installs = 0
-    const plugin: InternalBoardExtension = {
+    const plugin: FirstPartyBoardFeature = {
       name: 'audit',
       install(engine) {
         installs += 1
@@ -709,6 +719,95 @@ describe('board engine', () => {
       const gz = snap.nodes.find((node) => node.id === group.id)!.zIndex
       const cz = snap.nodes.find((node) => node.id === child.id)!.zIndex
       expect(cz).toBeGreaterThan(gz)
+    })
+
+    it('keeps imported descendants above their group after hierarchy changes', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+
+      engine.importJSON(
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'group',
+              type: 'group',
+              x: 0,
+              y: 0,
+              width: 300,
+              height: 300,
+            },
+            {
+              id: 'child',
+              type: 'text',
+              x: 40,
+              y: 40,
+              width: 80,
+              height: 60,
+              text: 'Child',
+            },
+          ],
+          'x-nuxt-board': {
+            nodes: {
+              group: { zIndex: 10, visible: true },
+              child: { zIndex: 4, visible: true, parentId: 'group' },
+            },
+          },
+        }),
+        'replace',
+      )
+
+      engine.syncGroupZOrder(asNodeId('group'))
+      engine.sendToBack(asNodeId('group'))
+
+      const group = engine.getNode(asNodeId('group'))
+      const child = engine.getNode(asNodeId('child'))
+      expect(child.parentId).toBe(group.id)
+      expect(child.zIndex).toBeGreaterThan(group.zIndex)
+    })
+
+    it('rejects parent links to non-groups and parent cycles before mutating', () => {
+      const engine = createBoardEngine({ grid: { snap: false } })
+      const nonGroup = engine.createNode({
+        type: 'text',
+        x: 0,
+        y: 0,
+        text: 'Not a group',
+      })
+      const child = engine.createNode({
+        type: 'text',
+        x: 120,
+        y: 0,
+        text: 'Child',
+      })
+      const before = engine.getSnapshot()
+
+      expect(() =>
+        engine.updateNode(child.id, { parentId: nonGroup.id }),
+      ).toThrow(/must be a group/)
+      expect(engine.getSnapshot()).toEqual(before)
+
+      const parentGroup = engine.createNode({
+        type: 'group',
+        x: 0,
+        y: 120,
+        width: 200,
+        height: 200,
+        select: false,
+      })
+      const childGroup = engine.createNode({
+        type: 'group',
+        x: 40,
+        y: 160,
+        width: 100,
+        height: 100,
+        parentId: parentGroup.id,
+        select: false,
+      })
+      const beforeCycle = engine.getSnapshot()
+
+      expect(() =>
+        engine.updateNode(parentGroup.id, { parentId: childGroup.id }),
+      ).toThrow(/parent cycle/)
+      expect(engine.getSnapshot()).toEqual(beforeCycle)
     })
 
     it('does not move the group when dragging a child alone', () => {

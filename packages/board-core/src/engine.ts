@@ -88,11 +88,11 @@ import type {
   BoardEngineOptions,
   BoardNode,
   GridSettings,
-  InternalBoardExtension,
-  InternalBoardExtensionContext,
-  InternalBoardExtensions,
+  FirstPartyBoardFeature,
+  FirstPartyBoardFeatureContext,
+  BoardFeatureExtensions,
   InteractionState,
-  InvariantMode,
+  ValidationMode,
   JsonCanvasDocument,
   NodeConstraints,
   NodeId,
@@ -115,10 +115,10 @@ export class CommandBlockedError extends Error {
   }
 }
 
-const CONNECTIONS_EXTENSION_NAME = 'connections'
+const CONNECTIONS_FEATURE_NAME = 'connections'
 
 /**
- * Create a headless board engine with commands, reactive state, and plugin hooks.
+ * Create a headless board engine with commands, reactive state, and first-party feature hooks.
  *
  * @example
  * const engine = createBoardEngine({
@@ -137,7 +137,7 @@ export function createBoardEngine(
     ...DEFAULT_NODE_CONSTRAINTS,
     ...options.nodes,
   }
-  const invariantMode: InvariantMode = options.invariants ?? 'strict'
+  const validationMode: ValidationMode = options.validation ?? 'strict'
   const diagnosticsEnabled = options.diagnostics !== false
   const traceLimit =
     typeof options.diagnostics === 'object' && options.diagnostics.traceLimit
@@ -148,7 +148,7 @@ export function createBoardEngine(
   const { emit, on, once, off } = eventBus
   const commandGuards = createCommandGuardRegistry()
   const dispatcher = createDispatcher()
-  const pluginCleanups = new Map<string, () => void>()
+  const featureCleanups = new Map<string, () => void>()
   const featureStates = new Map<
     string,
     {
@@ -160,11 +160,11 @@ export function createBoardEngine(
       state: unknown
     }
   >()
-  const pluginPersistence = new Map<
+  const featurePersistence = new Map<
     string,
     {
-      context: InternalBoardExtensionContext
-      hooks: NonNullable<InternalBoardExtension['persistence']>
+      context: FirstPartyBoardFeatureContext
+      hooks: NonNullable<FirstPartyBoardFeature['persistence']>
     }
   >()
   dispatcher.onAction((action) => {
@@ -173,7 +173,7 @@ export function createBoardEngine(
     }
   })
   const clipboard: StoredNode[] = []
-  const ext = {} as InternalBoardExtensions
+  const ext = {} as BoardFeatureExtensions
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
   let destroyed = false
@@ -296,7 +296,7 @@ export function createBoardEngine(
     snapGuides: SnapGuide[]
     nextZIndex: number
     grid: GridSettings
-    pluginStates: Map<string, unknown>
+    featureStatesSnapshot: Map<string, unknown>
   }
 
   function createRestorePoint(): EngineRestorePoint {
@@ -308,7 +308,7 @@ export function createBoardEngine(
       snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
       nextZIndex: state.nextZIndex,
       grid: { ...grid },
-      pluginStates: new Map(
+      featureStatesSnapshot: new Map(
         Array.from(featureStates, ([name, featureState]) => [
           name,
           structuredClone(featureState.state),
@@ -325,10 +325,13 @@ export function createBoardEngine(
     state.snapGuides = restorePoint.snapGuides.map((guide) => ({ ...guide }))
     state.nextZIndex = restorePoint.nextZIndex
     Object.assign(grid, restorePoint.grid)
-    for (const [name, pluginState] of restorePoint.pluginStates) {
+    for (const [
+      name,
+      featureStateSnapshot,
+    ] of restorePoint.featureStatesSnapshot) {
       const featureState = featureStates.get(name)
       if (featureState) {
-        featureState.state = structuredClone(pluginState)
+        featureState.state = structuredClone(featureStateSnapshot)
       }
     }
     notifyCameraChanged()
@@ -409,10 +412,10 @@ export function createBoardEngine(
   }
 
   const validate = createValidator({
-    invariantMode,
+    validationMode,
     getState: () => getState(),
     getGrid: () => grid,
-    emitFailure: (failure) => emit('invariant:failed', failure),
+    emitFailure: (failure) => emit('validation:failed', failure),
   })
 
   function assertStoredNode(id: NodeId): StoredNode {
@@ -880,7 +883,7 @@ export function createBoardEngine(
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId> = new Map(),
   ): void {
-    for (const entry of pluginPersistence.values()) {
+    for (const entry of featurePersistence.values()) {
       entry.hooks.importDocument?.(entry.context, document, mode, idMap)
     }
   }
@@ -888,7 +891,7 @@ export function createBoardEngine(
   function assertCanRestoreDocument(document: JsonCanvasDocument): void {
     if (
       document.edges?.length &&
-      !pluginPersistence.has(CONNECTIONS_EXTENSION_NAME)
+      !featurePersistence.has(CONNECTIONS_FEATURE_NAME)
     ) {
       throw new Error(
         'Invalid board document: edges require the connections extension.',
@@ -978,11 +981,11 @@ export function createBoardEngine(
   ): import('./state/actions').Action {
     return invertAction(
       action,
-      (pluginName) => featureStates.get(pluginName)?.invert,
+      (featureName) => featureStates.get(featureName)?.invert,
     )
   }
 
-  const engine: InternalBoardExtensionContext = {
+  const engine: FirstPartyBoardFeatureContext = {
     ext,
     $camera,
     $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
@@ -995,12 +998,12 @@ export function createBoardEngine(
       }
       destroyed = true
       animationToken += 1
-      for (const cleanup of pluginCleanups.values()) {
+      for (const cleanup of featureCleanups.values()) {
         cleanup()
       }
-      pluginCleanups.clear()
+      featureCleanups.clear()
       featureStates.clear()
-      pluginPersistence.clear()
+      featurePersistence.clear()
       emit('destroy')
     },
     extend(key, value) {
@@ -1065,46 +1068,46 @@ export function createBoardEngine(
     once,
     off,
     exportTrace: eventBus.exportTrace,
-    use(extension: InternalBoardExtension) {
-      if (pluginCleanups.has(extension.name)) {
+    use(feature: FirstPartyBoardFeature) {
+      if (featureCleanups.has(feature.name)) {
         return
       }
-      if (extension.slice) {
-        featureStates.set(extension.name, {
-          reducer: extension.slice.reducer as (
+      if (feature.slice) {
+        featureStates.set(feature.name, {
+          reducer: feature.slice.reducer as (
             state: unknown,
             action: import('./state/actions').Action,
           ) => unknown,
-          invert: extension.slice.invert as
+          invert: feature.slice.invert as
             | ((innerAction: unknown) => unknown)
             | undefined,
-          state: extension.slice.initial,
+          state: feature.slice.initial,
         })
       }
-      const pluginCtx: InternalBoardExtensionContext = Object.assign(
-        Object.create(engine) as InternalBoardExtensionContext,
+      const featureCtx: FirstPartyBoardFeatureContext = Object.assign(
+        Object.create(engine) as FirstPartyBoardFeatureContext,
         {
           getPluginState: <S>(): S => {
-            const entry = featureStates.get(extension.name)
+            const entry = featureStates.get(feature.name)
             if (!entry) {
               throw new Error(
-                `Extension "${extension.name}" did not register a slice; getPluginState is unavailable.`,
+                `Feature "${feature.name}" did not register a slice; getPluginState is unavailable.`,
               )
             }
             return entry.state as S
           },
         },
       )
-      const cleanup = extension.install(pluginCtx)
-      if (extension.persistence) {
-        pluginPersistence.set(extension.name, {
-          context: pluginCtx,
-          hooks: extension.persistence,
+      const cleanup = feature.install(featureCtx)
+      if (feature.persistence) {
+        featurePersistence.set(feature.name, {
+          context: featureCtx,
+          hooks: feature.persistence,
         })
       }
-      pluginCleanups.set(extension.name, cleanup ?? (() => undefined))
+      featureCleanups.set(feature.name, cleanup ?? (() => undefined))
     },
-    addMiddleware: commandGuards.add,
+    addCommandGuard: commandGuards.add,
     runCommand<T>(name: string, args: unknown[], fn: () => T): T {
       return runCommand(name, args, fn)
     },
@@ -1114,7 +1117,7 @@ export function createBoardEngine(
     invertAction: invertActionImpl,
     getPluginState<S>(): S {
       throw new Error(
-        'getPluginState is only available inside a plugin install() context.',
+        'getPluginState is only available inside a first-party feature install() context.',
       )
     },
     screenToWorld(point) {
@@ -2014,11 +2017,13 @@ export function createBoardEngine(
       })
     },
     exportJSON() {
-      const pluginDocuments = Array.from(
-        pluginPersistence.values(),
+      const featureDocuments = Array.from(
+        featurePersistence.values(),
         (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
       )
-      return JSON.stringify(toPersistedDocument(getSnapshot(), pluginDocuments))
+      return JSON.stringify(
+        toPersistedDocument(getSnapshot(), featureDocuments),
+      )
     },
     importJSON(json, mode = 'replace') {
       runCommand('importJSON', [mode], () => {
@@ -2033,8 +2038,8 @@ export function createBoardEngine(
 
   notifyNodesChanged()
 
-  for (const extension of options.extensions ?? []) {
-    engine.use(extension)
+  for (const feature of options.extensions ?? []) {
+    engine.use(feature)
   }
 
   if (initialDocument) {

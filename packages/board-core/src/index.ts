@@ -1,4 +1,4 @@
-/** Create a headless board engine with commands, events, and plugin hooks. */
+/** Create a headless board engine with commands, events, and first-party feature hooks. */
 export { CommandBlockedError, createBoardEngine } from './engine'
 /** Identifier branding helpers for nodes and edges. */
 export { asEdgeId, asNodeId } from './types'
@@ -9,10 +9,10 @@ export {
   isBoardColorPreset,
   type BoardColorOption,
 } from './colors'
-/** @internal First-party extension action stream. Not a public plugin API. */
+/** @internal First-party feature action stream. Not a public plugin API. */
 export type {
-  Action as InternalBoardAction,
-  NodeMoveDelta as InternalNodeMoveDelta,
+  Action as FirstPartyBoardAction,
+  NodeMoveDelta as FirstPartyNodeMoveDelta,
 } from './state/actions'
 
 /** Selection helpers that operate on the public board engine state. */
@@ -46,12 +46,12 @@ export type {
   GridSettings,
   InteractionMode,
   InteractionState,
-  InvariantFailure,
-  InvariantMode,
-  InternalBoardExtension,
-  InternalBoardExtensionContext,
-  InternalBoardExtensionPersistence,
-  InternalBoardExtensions,
+  ValidationFailure,
+  ValidationMode,
+  FirstPartyBoardFeature,
+  FirstPartyBoardFeatureContext,
+  FirstPartyBoardFeaturePersistence,
+  BoardFeatureExtensions,
   JsonCanvasBackgroundStyle,
   JsonCanvasDocument,
   JsonCanvasEdge,

@@ -140,11 +140,15 @@ const debugState = computed(() => ({
 }))
 
 let snapshotDirty = false
+function refreshSnapshot(): void {
+  snapshot.value = engine.getSnapshot()
+}
+
 function scheduleSnapshotRefresh(): void {
   if (!snapshotDirty) {
     snapshotDirty = true
     queueMicrotask(() => {
-      snapshot.value = engine.getSnapshot()
+      refreshSnapshot()
       snapshotDirty = false
     })
   }
@@ -152,21 +156,25 @@ function scheduleSnapshotRefresh(): void {
 
 const unsubscribes = [
   engine.on('command:after', scheduleSnapshotRefresh),
-  engine.onAction(scheduleSnapshotRefresh),
   engine.$camera.subscribe((v) => {
     $camera.value = v
+    refreshSnapshot()
   }),
   engine.$nodes.subscribe((v) => {
     $nodes.value = v
+    refreshSnapshot()
   }),
   engine.$selection.subscribe((v) => {
     $selection.value = v
+    refreshSnapshot()
   }),
   engine.$interaction.subscribe((v) => {
     $interaction.value = v
+    refreshSnapshot()
   }),
   engine.$snapGuides.subscribe((v) => {
     $snapGuides.value = v
+    refreshSnapshot()
   }),
 ]
 

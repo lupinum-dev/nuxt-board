@@ -78,7 +78,7 @@ function applyReadOnly() {
     return
   }
 
-  unsubscribeReadOnly = engine.addMiddleware((name, _args, next) => {
+  unsubscribeReadOnly = engine.addCommandGuard((name, _args, next) => {
     if (blockedCommands.has(name)) {
       blockedCount.value += 1
       return
