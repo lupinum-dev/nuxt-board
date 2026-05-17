@@ -2,6 +2,7 @@ import {
   BOARD_COLOR_PRESETS,
   colorForPreset,
   type BoardColorPreset,
+  type CanvasColor,
 } from '@lupinum/board-core'
 
 export { BOARD_COLOR_PRESETS, colorForPreset }
@@ -14,12 +15,15 @@ export type { BoardColorPreset }
  * SSR fallback for consumers that haven't loaded theme.css yet.
  */
 export function resolveNodeColorStyle(
-  color: BoardColorPreset | undefined,
+  color: CanvasColor | undefined,
 ): Record<string, string> {
-  const hex = colorForPreset(color)
-  if (!color || !hex) {
+  if (!color) {
     return {}
   }
+  const hex = color.startsWith('#')
+    ? color
+    : colorForPreset(color as BoardColorPreset)
+  if (!hex) return {}
   const themed = `var(--board-preset-${color}, ${hex})`
   return {
     '--board-node-color': themed,

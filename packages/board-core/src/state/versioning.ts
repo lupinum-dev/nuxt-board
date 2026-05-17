@@ -1,9 +1,6 @@
-import type { BoardNode, NodeData } from '../types'
+import type { BoardNode } from '../types'
 
-export interface StoredNode<
-  TType extends string = string,
-  TData extends NodeData = NodeData,
-> extends BoardNode<TType, TData> {
+export interface StoredNode extends BoardNode {
   readonly version: number
   readonly geometryVersion: number
   readonly dataVersion: number
@@ -21,7 +18,14 @@ export function bumpVersions(prev: StoredNode, next: StoredNode): StoredNode {
     prev.y !== next.y ||
     prev.width !== next.width ||
     prev.height !== next.height
-  const dataChanged = prev.data !== next.data
+  const dataChanged =
+    prev.text !== next.text ||
+    prev.file !== next.file ||
+    prev.subpath !== next.subpath ||
+    prev.url !== next.url ||
+    prev.label !== next.label ||
+    prev.background !== next.background ||
+    prev.backgroundStyle !== next.backgroundStyle
   return {
     ...next,
     version: prev.version + 1,

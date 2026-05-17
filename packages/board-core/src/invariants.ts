@@ -6,7 +6,6 @@ import type {
   InvariantFailure,
   InteractionState,
   NodeId,
-  NodeTypeRegistry,
 } from './types'
 
 export function cloneInteraction(
@@ -59,16 +58,14 @@ export function cloneInteraction(
   }
 }
 
-export function createSnapshot<R extends NodeTypeRegistry>(
-  state: BoardState<R>,
-  grid: GridSettings,
-): BoardSnapshot<R> {
+function createSnapshot(state: BoardState, grid: GridSettings): BoardSnapshot {
+  const nodes = Array.from(state.nodes.values()).sort(
+    (a, b) => a.zIndex - b.zIndex,
+  )
   return {
     camera: { ...state.camera },
     grid: { ...grid },
-    nodes: Array.from(state.nodes.values())
-      .map((node) => ({ ...node, data: cloneData(node.data) }))
-      .sort((a, b) => a.zIndex - b.zIndex),
+    nodes,
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
     snapGuides: [...state.snapGuides],
@@ -76,17 +73,13 @@ export function createSnapshot<R extends NodeTypeRegistry>(
   }
 }
 
-function cloneData<T>(data: T): T {
-  return structuredClone(data)
-}
-
-export function validateState<R extends NodeTypeRegistry>(
-  state: BoardState<R>,
+export function validateState(
+  state: BoardState,
   grid: GridSettings,
   context: string,
-): InvariantFailure<R>[] {
-  const failures: InvariantFailure<R>[] = []
-  let snapshot: BoardSnapshot<R> | null = null
+): InvariantFailure[] {
+  const failures: InvariantFailure[] = []
+  let snapshot: BoardSnapshot | null = null
   const lazySnapshot = () =>
     snapshot ?? (snapshot = createSnapshot(state, grid))
 
@@ -180,9 +173,9 @@ function validateNode(
   }
 }
 
-function validateNodeParent<R extends NodeTypeRegistry>(
+function validateNodeParent(
   node: BoardNode,
-  state: BoardState<R>,
+  state: BoardState,
   push: (name: string, message: string) => void,
 ): void {
   if (node.parentId === undefined) {

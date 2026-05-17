@@ -2,6 +2,8 @@ import {
   asEdgeId,
   asNodeId,
   createBoardEngine,
+  type JsonCanvasDocument,
+  type JsonCanvasEdge,
   type BoardSnapshot,
   type BoardEngine,
   type BoardNode,
@@ -11,7 +13,6 @@ import {
 } from '@lupinum/board-core'
 import { connectionPlugin } from '../../../board-connections/src/index'
 import { historyPlugin } from '../../../board-history/src/index'
-import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 
 export type DemoSceneId = 'workflow' | 'systems' | 'dense' | 'polish'
 
@@ -26,10 +27,10 @@ interface DemoScene {
   label: string
   summary: string
   snapshot: BoardSnapshot
-  edges: Array<Record<string, unknown>>
+  edges: JsonCanvasEdge[]
 }
 
-type DemoNode = BoardSnapshot['nodes'][number]
+type DemoNode = BoardNode
 
 const DEFAULT_GRID: GridSettings = {
   size: 24,
@@ -103,12 +104,13 @@ function imageNode(
 ): DemoNode {
   return {
     id: asNodeId(id),
-    type: 'image',
+    type: 'file',
     x,
     y,
     width,
     height,
-    data: { alt },
+    file: alt,
+    data: { alt, type: 'image' },
     zIndex,
     locked: false,
     visible: true,
@@ -146,13 +148,13 @@ function connection(
   from: string,
   to: string,
   label: string,
-): Record<string, unknown> {
+): JsonCanvasEdge {
   return {
     id: asEdgeId(id),
-    from: asNodeId(from),
-    to: asNodeId(to),
-    data: { label },
-    zIndex: 1,
+    fromNode: asNodeId(from),
+    toNode: asNodeId(to),
+    toEnd: 'arrow',
+    label,
   }
 }
 
@@ -169,6 +171,68 @@ function snapshotFrom(
     interaction: { mode: 'idle' },
     snapGuides: [],
     nextZIndex: nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1,
+  }
+}
+
+function demoSceneToDocument(scene: DemoScene): JsonCanvasDocument {
+  return {
+    nodes: scene.snapshot.nodes.map((node) => {
+      const base = {
+        id: node.id,
+        type: node.type,
+        x: node.x,
+        y: node.y,
+        width: node.width,
+        height: node.height,
+        ...(node.color ? { color: node.color } : {}),
+      }
+      if (node.type === 'group') {
+        return {
+          ...base,
+          type: 'group',
+          label:
+            node.label ??
+            (typeof node.data?.title === 'string' ? node.data.title : ''),
+        }
+      }
+      if (node.type === 'file') {
+        return {
+          ...base,
+          type: 'file',
+          file:
+            typeof node.data?.src === 'string'
+              ? node.data.src
+              : typeof node.data?.alt === 'string'
+                ? node.data.alt
+                : '',
+        }
+      }
+      return {
+        ...base,
+        type: 'text',
+        text:
+          node.text ??
+          (typeof node.data?.content === 'string' ? node.data.content : ''),
+      }
+    }),
+    edges: scene.edges,
+    'x-nuxt-board': {
+      camera: scene.snapshot.camera,
+      grid: scene.snapshot.grid,
+      selection: [],
+      nextZIndex: scene.snapshot.nextZIndex,
+      nodes: Object.fromEntries(
+        scene.snapshot.nodes.map((node) => [
+          node.id,
+          {
+            zIndex: node.zIndex,
+            locked: node.locked,
+            visible: node.visible,
+            ...(node.parentId ? { parentId: node.parentId } : {}),
+          },
+        ]),
+      ),
+    },
   }
 }
 
@@ -366,7 +430,7 @@ function createSystemsScene(): DemoScene {
 
 function createDenseScene(): DemoScene {
   const nodes: DemoNode[] = []
-  const edges: Array<Record<string, unknown>> = []
+  const edges: JsonCanvasEdge[] = []
   const laneIds = ['dense-plan', 'dense-build', 'dense-ship']
   const laneTitles = ['Plan', 'Build', 'Ship']
   const laneAccents = ['1', '4', '5'] as const
@@ -541,29 +605,6 @@ function getScene(id: DemoSceneId): DemoScene {
   }
 }
 
-type ConnectionApi = {
-  getEdges: () => Array<Record<string, unknown>>
-  deleteEdge: (id: string) => void
-  createEdge: (input: Record<string, unknown>) => Record<string, unknown>
-}
-
-function getConnections(engine: BoardEngine): ConnectionApi {
-  return engine.ext.connections as unknown as ConnectionApi
-}
-
-function replaceEdges(
-  engine: BoardEngine,
-  edges: Array<Record<string, unknown>>,
-): void {
-  const connections = getConnections(engine)
-  for (const edge of connections.getEdges()) {
-    connections.deleteEdge(String(edge.id))
-  }
-  for (const edge of edges) {
-    connections.createEdge(structuredClone(edge))
-  }
-}
-
 export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
   engine: BoardEngine
   scene: DemoSceneOption
@@ -583,8 +624,7 @@ export function loadDemoScene(
   sceneId: DemoSceneId,
 ): DemoSceneOption {
   const scene = getScene(sceneId)
-  engine.importJSON(JSON.stringify(scene.snapshot), 'replace')
-  replaceEdges(engine, scene.edges)
+  engine.importJSON(JSON.stringify(demoSceneToDocument(scene)), 'replace')
   engine.clearSelection()
   engine.endInteraction()
   engine.ext.history.clear()
@@ -596,13 +636,11 @@ export function loadDemoScene(
 }
 
 export function exportDemoDocument(engine: BoardEngine): string {
-  return jsonCanvasSerializer.export(engine)
+  return engine.exportJSON()
 }
 
 export function importDemoDocument(engine: BoardEngine, json: string): void {
-  const document = jsonCanvasSerializer.parse(json)
-  jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
-  replaceEdges(engine, document.edges ?? document['x-canvas']?.edges ?? [])
+  engine.importJSON(json, 'replace')
   engine.clearSelection()
   engine.endInteraction()
   engine.ext.history.clear()
@@ -617,7 +655,7 @@ export function getDemoCounts(engine: BoardEngine): {
   const snapshot = engine.getSnapshot()
   return {
     nodes: snapshot.nodes.length,
-    edges: getConnections(engine).getEdges().length,
+    edges: engine.ext.connections.getEdges().length,
     selection: snapshot.selection.length,
     history: engine.ext.history.getState().undoDepth,
   }
@@ -695,25 +733,6 @@ export function wrapSelectionInGroup(
   return 'grouped'
 }
 
-export function getSceneSummary(id: DemoSceneId): DemoSceneOption {
-  const scene = getScene(id)
-  return {
-    id: scene.id,
-    label: scene.label,
-    summary: scene.summary,
-  }
-}
-
 export function getLastTraceLabel(engine: BoardEngine): string {
   return engine.exportTrace().at(-1)?.event ?? 'ready'
-}
-
-export function getNodeLabel(node: BoardNode): string {
-  if (node.type === 'text') {
-    return String((node.data as { content?: string }).content ?? 'Text node')
-  }
-  if (node.type === 'group') {
-    return String((node.data as { title?: string }).title ?? 'Group')
-  }
-  return String((node.data as { alt?: string }).alt ?? node.type)
 }

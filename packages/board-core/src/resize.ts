@@ -1,7 +1,7 @@
 import { snapSize, snapValue } from './math'
 import type { BoardNode, ResizeHandle } from './types'
 
-export interface ResizeConstraints {
+interface ResizeConstraints {
   minWidth: number
   minHeight: number
 }

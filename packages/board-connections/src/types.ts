@@ -20,7 +20,7 @@ export type ConnectionEndpointMode = 'auto' | 'manual'
 /** Marker rendered at either end of an edge. */
 export type EdgeEnd = 'none' | 'arrow'
 /** Whether an endpoint came from an explicit anchor or automatic side resolution. */
-export type EndpointResolutionKind = 'explicit' | 'auto'
+type EndpointResolutionKind = 'explicit' | 'auto'
 
 /** Anchor location along a given node side, with `offset` normalized from 0 to 1. */
 export interface AnchorPosition {

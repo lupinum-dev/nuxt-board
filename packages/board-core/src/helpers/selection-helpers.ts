@@ -1,29 +1,18 @@
 import { expandGroupDragSeeds } from '../hierarchy'
 import { snapValue } from '../math'
-import type {
-  BoardNode,
-  GridSettings,
-  NodeId,
-  NodeTypeRegistry,
-  Point,
-} from '../types'
+import type { BoardNode, GridSettings, NodeId, Point } from '../types'
 import type { StoredNode } from '../state/versioning'
 import { ZERO_VERSIONS } from '../state/versioning'
 import type { MutableBoardState } from '../state/types'
-import { cloneData } from './clone'
 import { createNodeId } from './ids'
 
-export function getSelectionNodes<R extends NodeTypeRegistry>(
-  state: MutableBoardState<R>,
-): StoredNode[] {
+export function getSelectionNodes(state: MutableBoardState): StoredNode[] {
   return Array.from(state.selection.values())
     .map((id) => state.nodes.get(id))
     .filter((node): node is StoredNode => Boolean(node))
 }
 
-export function getCopyClosureNodes<R extends NodeTypeRegistry>(
-  state: MutableBoardState<R>,
-): StoredNode[] {
+export function getCopyClosureNodes(state: MutableBoardState): StoredNode[] {
   const selected = getSelectionNodes(state)
   const ids = expandGroupDragSeeds(
     selected.map((node) => node.id),
@@ -35,8 +24,8 @@ export function getCopyClosureNodes<R extends NodeTypeRegistry>(
     .sort((a, b) => a.zIndex - b.zIndex)
 }
 
-export function duplicateForest<R extends NodeTypeRegistry>(
-  state: MutableBoardState<R>,
+export function duplicateForest(
+  state: MutableBoardState,
   grid: GridSettings,
   nodes: StoredNode[],
   offset: Point,
@@ -49,7 +38,6 @@ export function duplicateForest<R extends NodeTypeRegistry>(
   return sorted.map((node) => ({
     ...node,
     id: idMap.get(node.id)!,
-    data: cloneData(node.data),
     parentId:
       node.parentId && idMap.has(node.parentId)
         ? idMap.get(node.parentId)

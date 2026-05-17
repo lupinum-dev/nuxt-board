@@ -836,7 +836,7 @@ export const BoardConnectionLayer = defineComponent({
             type: 'text',
             x: active.pointerWorld.x,
             y: active.pointerWorld.y,
-            data: { content: '' },
+            text: '',
           })
           const centered = currentEngine.updateNode(created.id, {
             x: created.x - created.width / 2,

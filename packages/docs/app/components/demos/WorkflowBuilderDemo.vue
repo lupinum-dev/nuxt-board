@@ -113,13 +113,13 @@ function advanceSelected() {
   const selected = engine.getSelection()[0]
   const target = selected ?? ('qualify' as NodeId)
   const node = engine.getNode(target)
-  if (!node || node.type !== 'step') {
+  if (!node || node.data?.type !== 'step') {
     return
   }
   engine.updateNode(node.id, {
     data: {
       ...node.data,
-      status: nextStatus(node.data.status as StepStatus),
+      status: nextStatus(node.data?.status as StepStatus),
     },
   })
 }

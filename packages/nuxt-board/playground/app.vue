@@ -52,6 +52,7 @@ const status = ref('Scene seeded from deterministic data for SSR hydration.')
 const version = ref(0)
 
 const renderers: BoardRendererRegistry = {
+  file: DemoImageNodeRenderer,
   image: DemoImageNodeRenderer,
   group: DemoGroupNodeRenderer,
 }

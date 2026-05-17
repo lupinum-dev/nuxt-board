@@ -119,7 +119,7 @@ function addBranch() {
   const parentNode = engine.getNode(parent)
   if (!parentNode) return
 
-  const parentDepth = Number(parentNode.data.depth ?? 0)
+  const parentDepth = Number(parentNode.data?.depth ?? 0)
   const newNode = engine.createNode({
     type: 'topic',
     x: parentNode.x + 260 + Math.round(Math.random() * 40),

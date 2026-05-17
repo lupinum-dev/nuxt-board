@@ -11,7 +11,7 @@ import {
 } from '../grid'
 
 /** Inputs used to merge the `BoardRoot` grid prop with engine grid state. */
-export interface UseResolvedGridOptions {
+interface UseResolvedGridOptions {
   engine: BoardEngine
   snapshot: Ref<BoardSnapshot>
   gridProp: Ref<boolean | BoardGridOptions>
@@ -61,7 +61,10 @@ export function useResolvedGrid(
   options: UseResolvedGridOptions,
 ): ComputedRef<ResolvedBoardGridOptions> {
   const resolvedGrid = computed(() =>
-    resolveGridOptions(options.gridProp.value, options.snapshot.value.grid),
+    resolveGridOptions(
+      options.gridProp.value,
+      options.snapshot.value.grid ?? options.engine.getGridSettings(),
+    ),
   )
 
   watch(

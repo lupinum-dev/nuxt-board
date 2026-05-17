@@ -1,40 +1,35 @@
-import type { BoardEventMap, NodeTypeRegistry, TraceEntry } from '../types'
+import type { BoardEventMap, TraceEntry } from '../types'
 import type { ListenerMap } from '../state/types'
 
-export interface EventBusOptions {
+interface EventBusOptions {
   diagnosticsEnabled: boolean
   traceLimit: number
 }
 
-export interface EventBus<R extends NodeTypeRegistry> {
-  emit<K extends keyof BoardEventMap<R>>(
+interface EventBus {
+  emit<K extends keyof BoardEventMap>(
     event: K,
-    ...args: Parameters<BoardEventMap<R>[K]>
+    ...args: Parameters<BoardEventMap[K]>
   ): void
-  on<K extends keyof BoardEventMap<R>>(
+  on<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ): () => void
-  once<K extends keyof BoardEventMap<R>>(
+  once<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ): () => void
-  off<K extends keyof BoardEventMap<R>>(
-    event: K,
-    handler: BoardEventMap<R>[K],
-  ): void
+  off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
 }
 
-export function createEventBus<R extends NodeTypeRegistry>(
-  opts: EventBusOptions,
-): EventBus<R> {
-  const listeners: ListenerMap<R> = new Map()
+export function createEventBus(opts: EventBusOptions): EventBus {
+  const listeners: ListenerMap = new Map()
   const trace: TraceEntry[] = []
 
-  function emit<K extends keyof BoardEventMap<R>>(
+  function emit<K extends keyof BoardEventMap>(
     event: K,
-    ...args: Parameters<BoardEventMap<R>[K]>
+    ...args: Parameters<BoardEventMap[K]>
   ): void {
     if (opts.diagnosticsEnabled) {
       trace.push({ event: String(event), timestamp: Date.now(), args })
@@ -44,7 +39,7 @@ export function createEventBus<R extends NodeTypeRegistry>(
     }
     for (const handler of listeners.get(event) ?? []) {
       try {
-        ;(handler as (...payload: Parameters<BoardEventMap<R>[K]>) => void)(
+        ;(handler as (...payload: Parameters<BoardEventMap[K]>) => void)(
           ...args,
         )
       } catch (error) {
@@ -53,9 +48,9 @@ export function createEventBus<R extends NodeTypeRegistry>(
     }
   }
 
-  function on<K extends keyof BoardEventMap<R>>(
+  function on<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ) {
     const set = listeners.get(event) ?? new Set<(...args: unknown[]) => void>()
     set.add(handler as (...args: unknown[]) => void)
@@ -63,20 +58,20 @@ export function createEventBus<R extends NodeTypeRegistry>(
     return () => off(event, handler)
   }
 
-  function once<K extends keyof BoardEventMap<R>>(
+  function once<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ) {
     const unsubscribe = on(event, ((...args: unknown[]) => {
       unsubscribe()
       ;(handler as (...payload: unknown[]) => void)(...args)
-    }) as BoardEventMap<R>[K])
+    }) as BoardEventMap[K])
     return unsubscribe
   }
 
-  function off<K extends keyof BoardEventMap<R>>(
+  function off<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ): void {
     listeners.get(event)?.delete(handler as (...args: unknown[]) => void)
   }

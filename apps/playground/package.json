@@ -12,7 +12,6 @@
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
     "@lupinum/board-minimap": "workspace:*",
-    "@lupinum/board-serializer": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
     "vue": "^3.5.33"
   },

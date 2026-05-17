@@ -5,7 +5,6 @@ import type {
   InteractionState,
   NodeConstraints,
   NodeId,
-  NodeTypeRegistry,
   Point,
   SnapGuide,
   ZoomSettings,
@@ -30,7 +29,7 @@ export const DEFAULT_NODE_CONSTRAINTS: NodeConstraints = {
 }
 export const DEFAULT_VIEWPORT_SIZE: Point = { x: 1280, y: 720 }
 
-export interface MutableBoardState<R extends NodeTypeRegistry> {
+export interface MutableBoardState {
   camera: Camera
   nodes: Map<NodeId, StoredNode>
   selection: Set<NodeId>
@@ -39,7 +38,7 @@ export interface MutableBoardState<R extends NodeTypeRegistry> {
   nextZIndex: number
 }
 
-export type ListenerMap<R extends NodeTypeRegistry> = Map<
-  keyof BoardEventMap<R>,
+export type ListenerMap = Map<
+  keyof BoardEventMap,
   Set<(...args: unknown[]) => void>
 >

@@ -1,4 +1,4 @@
-export interface AnimationFrameDriver {
+interface AnimationFrameDriver {
   raf: (cb: FrameRequestCallback) => number
   caf: (handle: number) => void
 }

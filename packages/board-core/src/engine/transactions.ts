@@ -1,13 +1,13 @@
 import type { BatchController } from '../subscribable'
 
-export interface TransactionDeps {
+interface TransactionDeps {
   batchCtrl: BatchController
   emitCommandBefore: (name: string, args: unknown[]) => void
   emitCommandAfter: (name: string, args: unknown[], duration: number) => void
   validate: (context: string) => void
 }
 
-export interface TransactionController {
+interface TransactionController {
   isInTransaction(): boolean
   markValidationPending(): void
   begin(): void

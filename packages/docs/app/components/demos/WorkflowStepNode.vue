@@ -7,8 +7,9 @@ const props = defineProps<{
   selected: boolean
 }>()
 
+const data = computed(() => props.node.data ?? {})
 const tone = computed(() => {
-  const status = String(props.node.data.status ?? 'pending')
+  const status = String(data.value.status ?? 'pending')
   if (status === 'done') {
     return {
       badge: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300/60',
@@ -67,15 +68,15 @@ const tone = computed(() => {
         <span
           class="rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide"
           :class="tone.badge"
-          >{{ node.data.status }}</span
+          >{{ data.status }}</span
         >
       </div>
       <div>
         <h3 class="text-lg font-semibold tracking-tight text-highlighted">
-          {{ node.data.label }}
+          {{ data.label }}
         </h3>
         <p class="mt-2 text-sm leading-6 text-muted">
-          {{ node.data.summary }}
+          {{ data.summary }}
         </p>
       </div>
     </div>

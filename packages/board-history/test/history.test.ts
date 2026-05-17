@@ -227,9 +227,20 @@ describe('history plugin', () => {
 
     engine.importJSON(
       JSON.stringify({
-        ...engine.getSnapshot(),
-        nodes: [{ ...existing, data: { content: 'Imported' } }],
-        selection: [existing.id],
+        nodes: [
+          {
+            id: existing.id,
+            type: 'text',
+            x: existing.x,
+            y: existing.y,
+            width: existing.width,
+            height: existing.height,
+            text: 'Imported',
+          },
+        ],
+        'x-nuxt-board': {
+          selection: [existing.id],
+        },
       }),
       'replace',
     )

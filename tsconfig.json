@@ -20,8 +20,7 @@
       "@lupinum/board-history": ["packages/board-history/src/index.ts"],
       "@lupinum/board-selection": ["packages/board-selection/src/index.ts"],
       "@lupinum/board-connections": ["packages/board-connections/src/index.ts"],
-      "@lupinum/board-minimap": ["packages/board-minimap/src/index.ts"],
-      "@lupinum/board-serializer": ["packages/board-serializer/src/index.ts"]
+      "@lupinum/board-minimap": ["packages/board-minimap/src/index.ts"]
     }
   },
   "include": [
@@ -29,7 +28,6 @@
     "packages/board-core/**/*.ts",
     "packages/board-history/**/*.ts",
     "packages/board-selection/**/*.ts",
-    "packages/board-serializer/**/*.ts",
     "packages/board-connections/**/*.ts",
     "packages/board-connections/**/*.vue",
     "packages/board-minimap/**/*.ts",

@@ -1,5 +1,5 @@
 /** Create a headless board engine with commands, events, and plugin hooks. */
-export { createBoardEngine } from './engine'
+export { CommandBlockedError, createBoardEngine } from './engine'
 /** Reactive primitives used internally by the engine and reusable in host adapters. */
 export { createBatchController, createSubscribable } from './subscribable'
 /** Type for the batch controller used by engine subscribables. */
@@ -73,6 +73,7 @@ export type {
   BoardState,
   Bounds,
   Camera,
+  CanvasColor,
   BoardEngine,
   BoardEngineOptions,
   BoardEngineExtensions,
@@ -80,6 +81,7 @@ export type {
   BoardNode,
   BoardPlugin,
   BoardPluginContext,
+  BoardPluginPersistence,
   EdgeId,
   GridPattern,
   GridSettings,
@@ -87,15 +89,27 @@ export type {
   InteractionState,
   InvariantFailure,
   InvariantMode,
+  JsonCanvasBackgroundStyle,
+  JsonCanvasDocument,
+  JsonCanvasEdge,
+  JsonCanvasEdgeEnd,
+  JsonCanvasFileNode,
+  JsonCanvasGroupNode,
+  JsonCanvasLinkNode,
+  JsonCanvasNode,
+  JsonCanvasNodeType,
+  JsonCanvasSide,
+  JsonCanvasTextNode,
   NodeConstraints,
   NodeData,
   NodeId,
   NodeInput,
-  NodeTypeRegistry,
+  NuxtBoardDocumentMetadata,
+  NuxtBoardEdgeMetadata,
+  NuxtBoardNodeMetadata,
   NodePatch,
   PluginCleanup,
   Point,
-  ResolvedNode,
   ResizeHandle,
   SelectionMode,
   SnapAxis,

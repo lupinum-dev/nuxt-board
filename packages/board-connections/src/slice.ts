@@ -6,7 +6,7 @@ export interface ConnectionsSliceState {
   readonly nextZIndex: number
 }
 
-export type ConnectionsAction =
+type ConnectionsAction =
   | { type: 'EDGE_CREATED'; edge: BoardEdge }
   | { type: 'EDGE_UPDATED'; id: EdgeId; before: BoardEdge; after: BoardEdge }
   | { type: 'EDGE_DELETED'; id: EdgeId; edge: BoardEdge }

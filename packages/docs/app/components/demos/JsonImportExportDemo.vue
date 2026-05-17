@@ -5,7 +5,6 @@ import {
   connectionPlugin,
   BoardConnectionLayer,
 } from '@lupinum/board-connections'
-import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 
 const engine = createBoardEngine({
   grid: { size: 18, majorEvery: 6, snap: true, pattern: 'line' },
@@ -15,8 +14,8 @@ const engine = createBoardEngine({
 const payload = ref('')
 const formatMode = ref<'pretty' | 'compact'>('pretty')
 
-function serializeBoard() {
-  const raw = jsonCanvasSerializer.export(engine)
+function exportDocument() {
+  const raw = engine.exportJSON()
   if (formatMode.value === 'compact') {
     return JSON.stringify(JSON.parse(raw))
   }
@@ -26,8 +25,6 @@ function serializeBoard() {
 function seed() {
   engine.importJSON(
     JSON.stringify({
-      camera: { x: 0, y: 0, z: 1 },
-      grid: engine.getGridSettings(),
       nodes: [
         {
           id: 'source',
@@ -36,10 +33,7 @@ function seed() {
           y: 110,
           width: 220,
           height: 100,
-          data: { content: 'Serialize me\nto JSON Canvas' },
-          zIndex: 1,
-          locked: false,
-          visible: true,
+          text: 'Export me\nto JSON Canvas',
         },
         {
           id: 'target',
@@ -48,16 +42,18 @@ function seed() {
           y: 110,
           width: 220,
           height: 100,
-          data: { content: 'Edit the JSON\nthen import back' },
-          zIndex: 2,
-          locked: false,
-          visible: true,
+          text: 'Edit the JSON\nthen import back',
         },
       ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 3,
+      'x-nuxt-board': {
+        camera: { x: 0, y: 0, z: 1 },
+        grid: engine.getGridSettings(),
+        nextZIndex: 3,
+        nodes: {
+          source: { zIndex: 1, locked: false, visible: true },
+          target: { zIndex: 2, locked: false, visible: true },
+        },
+      },
     }),
     'replace',
   )
@@ -70,11 +66,11 @@ function seed() {
     label: 'json-canvas',
     data: {},
   })
-  payload.value = serializeBoard()
+  payload.value = exportDocument()
 }
 
 function exportBoard() {
-  payload.value = serializeBoard()
+  payload.value = exportDocument()
 }
 
 function setFormatMode(nextMode: 'pretty' | 'compact') {
@@ -84,8 +80,7 @@ function setFormatMode(nextMode: 'pretty' | 'compact') {
 
 function importBoard() {
   if (!payload.value.trim()) return
-  const document = jsonCanvasSerializer.parse(payload.value)
-  jsonCanvasSerializer.hydrateEngine(engine, document, 'replace')
+  engine.importJSON(payload.value, 'replace')
 }
 
 onMounted(async () => {

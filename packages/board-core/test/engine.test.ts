@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createBoardEngine, type BoardPlugin } from '../src'
+import {
+  CommandBlockedError,
+  createBoardEngine,
+  type BoardPlugin,
+} from '../src'
 
 describe('board engine', () => {
   it('runs plugin cleanups once when destroyed', () => {
@@ -61,17 +65,28 @@ describe('board engine', () => {
     })
     const before = engine.getSnapshot()
 
+    const actions: string[] = []
+    const events: string[] = []
+    engine.onAction((action) => actions.push(action.type))
+    engine.on('node:updated', () => events.push('node:updated'))
+
     expect(() => engine.updateNode(node.id, { width: -1 })).toThrow(
-      /Board invariant failed/,
+      /Invalid node geometry/,
     )
 
     expect(engine.getSnapshot()).toEqual(before)
     expect(readPluginState()).toEqual({ updates: 0 })
+    expect(actions).toEqual([])
+    expect(events).toEqual([])
   })
 
   it('rolls back invalid node creation and import payloads', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const beforeCreate = engine.getSnapshot()
+    const actions: string[] = []
+    const events: string[] = []
+    engine.onAction((action) => actions.push(action.type))
+    engine.on('node:created', () => events.push('node:created'))
 
     expect(() =>
       engine.createNode({
@@ -80,8 +95,10 @@ describe('board engine', () => {
         height: 80,
         data: {},
       }),
-    ).toThrow(/Board invariant failed/)
+    ).toThrow(/Invalid node geometry/)
     expect(engine.getSnapshot()).toEqual(beforeCreate)
+    expect(actions).toEqual([])
+    expect(events).toEqual([])
 
     const existing = engine.createNode({
       type: 'text',
@@ -94,13 +111,28 @@ describe('board engine', () => {
     expect(() =>
       engine.importJSON(
         JSON.stringify({
-          ...beforeImport,
-          nodes: [{ ...existing, width: -1 }],
+          nodes: [
+            {
+              id: existing.id,
+              type: 'text',
+              x: existing.x,
+              y: existing.y,
+              width: -1,
+              height: existing.height,
+              text: existing.text ?? '',
+            },
+          ],
         }),
         'replace',
       ),
     ).toThrow(/Invalid board document/)
     expect(engine.getSnapshot()).toEqual(beforeImport)
+    expect(actions).toEqual([
+      'NODE_CREATED',
+      'NEXT_Z_INDEX_BUMPED',
+      'SELECTION_SET',
+    ])
+    expect(events).toEqual(['node:created'])
   })
 
   it('runs middleware for async camera commands', async () => {
@@ -113,8 +145,10 @@ describe('board engine', () => {
       }
     })
 
-    await engine.panTo({ x: 100, y: 100 })
-    await engine.zoomToFit()
+    await expect(engine.panTo({ x: 100, y: 100 })).rejects.toBeInstanceOf(
+      CommandBlockedError,
+    )
+    await expect(engine.zoomToFit()).rejects.toBeInstanceOf(CommandBlockedError)
 
     expect(blocked).toEqual(['panTo', 'zoomToFit'])
     expect(engine.getSnapshot().camera).toEqual({ x: 0, y: 0, z: 1 })
@@ -489,7 +523,7 @@ describe('board engine', () => {
 
     const snapshot = engine.getSnapshot()
     expect(snapshot.nodes).toHaveLength(0)
-    expect(snapshot.interaction.mode).toBe('idle')
+    expect(engine.getState().interaction.mode).toBe('idle')
   })
 
   it('returns detached public nodes from snapshots', () => {
@@ -533,8 +567,6 @@ describe('board engine', () => {
     })
 
     const importData = {
-      camera: { x: 0, y: 0, z: 1 },
-      grid: { size: 10, majorEvery: 5, snap: true, pattern: 'line' },
       nodes: [
         {
           id: existing.id,
@@ -543,15 +575,13 @@ describe('board engine', () => {
           y: 500,
           width: 240,
           height: 160,
-          data: { content: 'imported' },
-          zIndex: 1,
-          locked: false,
-          visible: true,
+          text: 'imported',
         },
       ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      nextZIndex: 2,
+      'x-nuxt-board': {
+        camera: { x: 0, y: 0, z: 1 },
+        grid: { size: 10, majorEvery: 5, snap: true, pattern: 'line' },
+      },
     }
 
     engine.importJSON(JSON.stringify(importData), 'merge')
@@ -676,8 +706,8 @@ describe('board engine', () => {
       engine.syncGroupZOrder(group.id)
       engine.bringToFront(group.id)
       const snap = engine.getSnapshot()
-      const gz = snap.nodes.find((n) => n.id === group.id)!.zIndex
-      const cz = snap.nodes.find((n) => n.id === child.id)!.zIndex
+      const gz = snap.nodes.find((node) => node.id === group.id)!.zIndex
+      const cz = snap.nodes.find((node) => node.id === child.id)!.zIndex
       expect(cz).toBeGreaterThan(gz)
     })
 
@@ -1116,8 +1146,8 @@ describe('board engine', () => {
       engine.syncGroupZOrder(group.id)
       engine.sendToBack(group.id)
       const snap = engine.getSnapshot()
-      const gz = snap.nodes.find((n) => n.id === group.id)!.zIndex
-      const cz = snap.nodes.find((n) => n.id === child.id)!.zIndex
+      const gz = snap.nodes.find((node) => node.id === group.id)!.zIndex
+      const cz = snap.nodes.find((node) => node.id === child.id)!.zIndex
       expect(cz).toBeGreaterThan(gz)
     })
 

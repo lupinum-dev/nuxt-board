@@ -23,7 +23,6 @@ const packageDirs = [
   'packages/board-selection',
   'packages/board-connections',
   'packages/board-minimap',
-  'packages/board-serializer',
   'packages/nuxt-board',
 ]
 
@@ -193,14 +192,13 @@ import { historyPlugin } from '@lupinum/board-history'
 import { getSelectionBounds } from '@lupinum/board-selection'
 import { connectionPlugin } from '@lupinum/board-connections'
 import { BoardMinimap } from '@lupinum/board-minimap'
-import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 import nuxtBoard from 'nuxt-board'
 
 const engine = createBoardEngine({ plugins: [historyPlugin(), connectionPlugin()] })
 const node = engine.createNode({ type: 'text', data: { content: 'packed' } })
 engine.select(node.id)
 getSelectionBounds(engine)
-jsonCanvasSerializer.export(engine)
+engine.exportJSON()
 void BoardRoot
 void BoardMinimap
 void nuxtBoard

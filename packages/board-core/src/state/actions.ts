@@ -17,5 +17,3 @@ export type Action =
   | { type: 'NEXT_Z_INDEX_BUMPED'; before: number; after: number }
   | { type: 'BATCH'; actions: Action[] }
   | { type: 'PLUGIN'; plugin: string; action: unknown }
-
-export type ActionType = Action['type']

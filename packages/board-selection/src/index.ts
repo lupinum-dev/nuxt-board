@@ -8,7 +8,9 @@ import type {
 /** Return the currently selected nodes in snapshot order. */
 export function getSelectionNodes(engine: BoardEngine): BoardNode[] {
   const selected = new Set(engine.getSelection())
-  return engine.getSnapshot().nodes.filter((node) => selected.has(node.id))
+  return Array.from(engine.getState().nodes.values()).filter((node) =>
+    selected.has(node.id),
+  )
 }
 
 /** Compute the bounding box of the current selection, or `null` when empty. */

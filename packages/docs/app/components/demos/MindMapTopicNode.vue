@@ -7,7 +7,8 @@ const props = defineProps<{
   selected: boolean
 }>()
 
-const depth = computed(() => Number(props.node.data.depth ?? 0))
+const data = computed(() => props.node.data ?? {})
+const depth = computed(() => Number(data.value.depth ?? 0))
 
 const style = computed(() => {
   if (depth.value === 0) {
@@ -73,10 +74,10 @@ const style = computed(() => {
       </span>
       <div>
         <h3 class="text-base font-semibold tracking-tight" :class="style.text">
-          {{ node.data.title }}
+          {{ data.title }}
         </h3>
-        <p v-if="node.data.detail" class="mt-1.5 text-sm leading-5 text-dimmed">
-          {{ node.data.detail }}
+        <p v-if="data.detail" class="mt-1.5 text-sm leading-5 text-dimmed">
+          {{ data.detail }}
         </p>
       </div>
     </div>

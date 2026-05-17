@@ -1,7 +1,7 @@
 /**
  * A nominal type helper used to distinguish identifiers that are both strings at runtime.
  */
-export type Brand<T, K extends string> = T & { readonly __brand: K }
+type Brand<T, K extends string> = T & { readonly __brand: K }
 
 /** Unique identifier for a board node. */
 export type NodeId = Brand<string, 'NodeId'>
@@ -72,52 +72,146 @@ export interface NodeConstraints {
   defaultHeight: number
 }
 
-/** Arbitrary payload carried by a board node. */
-export type NodeData = Record<string, unknown>
-/** Registry mapping node type names to their payload shapes. */
-export type NodeTypeRegistry = Record<string, NodeData>
+/** JSON Canvas 1.0 node type. */
+export type JsonCanvasNodeType = 'text' | 'file' | 'link' | 'group'
+
+/** JSON Canvas side name used by edges. */
+export type JsonCanvasSide = 'top' | 'right' | 'bottom' | 'left'
+
+/** JSON Canvas endpoint marker. */
+export type JsonCanvasEdgeEnd = 'none' | 'arrow'
+
+/** JSON Canvas group background rendering style. */
+export type JsonCanvasBackgroundStyle = 'cover' | 'ratio' | 'repeat'
 
 /** Obsidian-compatible color preset stored on nodes and resolved by renderers. */
 export type BoardColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
+/** JSON Canvas color value: a preset id or a concrete hex color. */
+export type CanvasColor = BoardColorPreset | `#${string}`
 
-/** Public immutable node shape returned by snapshots, selectors, and commands. */
-export interface BoardNode<
-  TType extends string = string,
-  TData extends NodeData = NodeData,
-> {
+interface JsonCanvasNodeBase<TType extends JsonCanvasNodeType> {
   readonly id: NodeId
   readonly type: TType
   readonly x: number
   readonly y: number
   readonly width: number
   readonly height: number
-  readonly data: TData
-  readonly color?: BoardColorPreset
+  readonly color?: CanvasColor
+}
+
+export interface JsonCanvasTextNode extends JsonCanvasNodeBase<'text'> {
+  readonly text: string
+}
+
+export interface JsonCanvasFileNode extends JsonCanvasNodeBase<'file'> {
+  readonly file: string
+  readonly subpath?: string
+}
+
+export interface JsonCanvasLinkNode extends JsonCanvasNodeBase<'link'> {
+  readonly url: string
+}
+
+export interface JsonCanvasGroupNode extends JsonCanvasNodeBase<'group'> {
+  readonly label?: string
+  readonly background?: string
+  readonly backgroundStyle?: JsonCanvasBackgroundStyle
+}
+
+/** JSON Canvas 1.0 node record. */
+export type JsonCanvasNode =
+  | JsonCanvasTextNode
+  | JsonCanvasFileNode
+  | JsonCanvasLinkNode
+  | JsonCanvasGroupNode
+
+/** JSON Canvas 1.0 edge record. */
+export interface JsonCanvasEdge {
+  readonly id: EdgeId
+  readonly fromNode: NodeId
+  readonly fromSide?: JsonCanvasSide
+  readonly fromEnd?: JsonCanvasEdgeEnd
+  readonly toNode: NodeId
+  readonly toSide?: JsonCanvasSide
+  readonly toEnd?: JsonCanvasEdgeEnd
+  readonly color?: CanvasColor
+  readonly label?: string
+}
+
+export interface NuxtBoardNodeMetadata {
+  readonly zIndex?: number
+  readonly locked?: boolean
+  readonly visible?: boolean
+  readonly parentId?: NodeId
+}
+
+export interface NuxtBoardEdgeMetadata {
+  readonly zIndex?: number
+  readonly data?: Record<string, unknown>
+}
+
+/** nuxt-board metadata for engine state that JSON Canvas 1.0 does not define. */
+export interface NuxtBoardDocumentMetadata {
+  readonly camera?: Camera
+  readonly grid?: GridSettings
+  readonly selection?: readonly NodeId[]
+  readonly nextZIndex?: number
+  readonly nodes?: Readonly<Record<string, NuxtBoardNodeMetadata>>
+  readonly edges?: Readonly<Record<string, NuxtBoardEdgeMetadata>>
+}
+
+/** Canonical persisted board document. */
+export interface JsonCanvasDocument {
+  readonly nodes: readonly JsonCanvasNode[]
+  readonly edges?: readonly JsonCanvasEdge[]
+  readonly 'x-nuxt-board'?: NuxtBoardDocumentMetadata
+}
+
+/** Arbitrary payload carried by legacy custom nodes. Kept only for source compatibility. */
+export type NodeData = Record<string, unknown>
+
+/** Public immutable node shape returned by snapshots, selectors, and commands. */
+export interface BoardNode {
+  readonly id: NodeId
+  readonly type: JsonCanvasNodeType
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+  readonly color?: CanvasColor
+  readonly text?: string
+  readonly file?: string
+  readonly subpath?: string
+  readonly url?: string
+  readonly label?: string
+  readonly background?: string
+  readonly backgroundStyle?: JsonCanvasBackgroundStyle
+  /** @deprecated Runtime-only projection for legacy renderers. Not persisted. */
+  readonly data?: NodeData
   readonly zIndex: number
   readonly locked: boolean
   readonly visible: boolean
   readonly parentId?: NodeId
 }
 
-/** Resolve a typed node from a registry by node type key. */
-export type ResolvedNode<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R,
-> = T extends keyof R ? BoardNode<T & string, R[T]> : never
-
 /** Input accepted by `createNode`, with sensible defaults for omitted fields. */
-export interface NodeInput<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R,
-> {
+export interface NodeInput {
   id?: NodeId
-  type?: T & string
+  type?: JsonCanvasNodeType | string
   x?: number
   y?: number
   width?: number
   height?: number
-  data?: R[T]
-  color?: BoardColorPreset
+  text?: string
+  file?: string
+  subpath?: string
+  url?: string
+  label?: string
+  background?: string
+  backgroundStyle?: JsonCanvasBackgroundStyle
+  /** @deprecated Runtime-only input projection. Persisted documents use JSON Canvas fields. */
+  data?: NodeData
+  color?: CanvasColor
   locked?: boolean
   visible?: boolean
   parentId?: NodeId
@@ -125,16 +219,20 @@ export interface NodeInput<
 }
 
 /** Partial update payload accepted by `updateNode`. */
-export type NodePatch<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-  T extends keyof R = keyof R,
-> = Partial<
+export type NodePatch = Partial<
   Pick<
-    ResolvedNode<R, T>,
+    BoardNode,
     | 'x'
     | 'y'
     | 'width'
     | 'height'
+    | 'text'
+    | 'file'
+    | 'subpath'
+    | 'url'
+    | 'label'
+    | 'background'
+    | 'backgroundStyle'
     | 'data'
     | 'color'
     | 'locked'
@@ -161,17 +259,17 @@ export type InteractionMode =
   | 'box-select'
   | 'editing-text'
 
-export interface IdleInteractionState {
+interface IdleInteractionState {
   mode: 'idle'
 }
 
-export interface PanInteractionState {
+interface PanInteractionState {
   mode: 'panning'
   pointerId: number
   lastScreenPoint: Point
 }
 
-export interface DragInteractionState {
+interface DragInteractionState {
   mode: 'dragging-nodes'
   pointerId: number
   nodeIds: NodeId[]
@@ -179,7 +277,7 @@ export interface DragInteractionState {
   startNodePositions: Record<NodeId, Point>
 }
 
-export interface ResizeInteractionState {
+interface ResizeInteractionState {
   mode: 'resizing-node'
   pointerId: number
   nodeId: NodeId
@@ -189,7 +287,7 @@ export interface ResizeInteractionState {
   aspectRatio: number
 }
 
-export interface BoxSelectInteractionState {
+interface BoxSelectInteractionState {
   mode: 'box-select'
   pointerId: number
   selectionMode: BoxSelectMode
@@ -199,7 +297,7 @@ export interface BoxSelectInteractionState {
   currentWorldPoint: Point
 }
 
-export interface EditingInteractionState {
+interface EditingInteractionState {
   mode: 'editing-text'
   nodeId: NodeId
 }
@@ -213,20 +311,20 @@ export type InteractionState =
   | EditingInteractionState
 
 /** Internal immutable engine state exposed through `getState()`. */
-export interface BoardState<R extends NodeTypeRegistry = NodeTypeRegistry> {
+export interface BoardState {
   readonly camera: Camera
-  readonly nodes: ReadonlyMap<NodeId, ResolvedNode<R>>
+  readonly nodes: ReadonlyMap<NodeId, BoardNode>
   readonly selection: ReadonlySet<NodeId>
   readonly interaction: InteractionState
   readonly snapGuides: readonly SnapGuide[]
   readonly nextZIndex: number
 }
 
-/** Serializable board snapshot used by import, export, and tests. */
-export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
+/** Runtime board snapshot used by selectors, renderers, and tests. */
+export interface BoardSnapshot {
   readonly camera: Camera
   readonly grid: GridSettings
-  readonly nodes: readonly ResolvedNode<R>[]
+  readonly nodes: readonly BoardNode[]
   readonly selection: readonly NodeId[]
   readonly interaction: InteractionState
   readonly snapGuides: readonly SnapGuide[]
@@ -236,32 +334,27 @@ export interface BoardSnapshot<R extends NodeTypeRegistry = NodeTypeRegistry> {
 /** Invariant handling strategy for development and tests. */
 export type InvariantMode = 'strict' | 'warn' | 'off'
 
-export interface BoardEngineExtensions<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-> {}
+export interface BoardEngineExtensions {}
 
 /** Engine factory options shared by all commands, plugins, and renderers. */
-export interface BoardEngineOptions<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-> {
+export interface BoardEngineOptions {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  plugins?: BoardPlugin<R>[]
+  plugins?: BoardPlugin[]
   diagnostics?: boolean | { traceLimit?: number }
   invariants?: InvariantMode
-  initialNodes?: ReadonlyArray<ResolvedNode<R>>
+  initialNodes?: ReadonlyArray<BoardNode>
+  initialDocument?: JsonCanvasDocument
 }
 
 /** Structured invariant violation emitted when validation fails. */
-export interface InvariantFailure<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-> {
+export interface InvariantFailure {
   name: string
   message: string
-  snapshot: BoardSnapshot<R>
+  snapshot: BoardSnapshot
   context: string
 }
 
@@ -273,18 +366,18 @@ export interface TraceEntry {
 }
 
 /** Event contract emitted by the board engine. Plugins extend this interface via module augmentation. */
-export interface BoardEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
+export interface BoardEventMap {
   ready: () => void
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
   'viewport:change': (size: Point, prev: Point) => void
-  'node:created': (node: ResolvedNode<R>) => void
-  'node:updated': (node: ResolvedNode<R>, prev: ResolvedNode<R>) => void
-  'node:deleted': (id: NodeId, prev: ResolvedNode<R>) => void
-  'node:moved': (node: ResolvedNode<R>, delta: Point) => void
+  'node:created': (node: BoardNode) => void
+  'node:updated': (node: BoardNode, prev: BoardNode) => void
+  'node:deleted': (id: NodeId, prev: BoardNode) => void
+  'node:moved': (node: BoardNode, delta: Point) => void
   'node:resized': (
-    node: ResolvedNode<R>,
-    prev: Pick<ResolvedNode<R>, 'x' | 'y' | 'width' | 'height'>,
+    node: BoardNode,
+    prev: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   ) => void
   'selection:change': (selected: NodeId[], prev: NodeId[]) => void
   'interaction:start': (state: InteractionState) => void
@@ -293,7 +386,7 @@ export interface BoardEventMap<R extends NodeTypeRegistry = NodeTypeRegistry> {
   'command:before': (name: string, args: unknown[]) => void
   'command:after': (name: string, args: unknown[], duration: number) => void
   'command:blocked': (name: string, args: unknown[]) => void
-  'invariant:failed': (failure: InvariantFailure<R>) => void
+  'invariant:failed': (failure: InvariantFailure) => void
 }
 
 export type PluginCleanup = () => void
@@ -327,35 +420,32 @@ export interface Subscribable<T> {
  * Commands mutate persistent board state, subscribables expose reactive state,
  * and events let plugins or host applications observe lifecycle changes.
  */
-export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
-  readonly ext: BoardEngineExtensions<R>
+export interface BoardEngine {
+  readonly ext: BoardEngineExtensions
   readonly $camera: Subscribable<Camera>
-  readonly $nodes: Subscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>
+  readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
   readonly $interaction: Subscribable<InteractionState>
   readonly $snapGuides: Subscribable<readonly SnapGuide[]>
   destroy(): void
   batch(fn: () => void): void
-  getState(): BoardState<R>
-  getSnapshot(): BoardSnapshot<R>
+  getState(): BoardState
+  getSnapshot(): BoardSnapshot
   getGridSettings(): GridSettings
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  on<K extends keyof BoardEventMap<R>>(
+  on<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ): Unsubscribe
-  once<K extends keyof BoardEventMap<R>>(
+  once<K extends keyof BoardEventMap>(
     event: K,
-    handler: BoardEventMap<R>[K],
+    handler: BoardEventMap[K],
   ): Unsubscribe
-  off<K extends keyof BoardEventMap<R>>(
-    event: K,
-    handler: BoardEventMap<R>[K],
-  ): void
+  off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
-  use(plugin: BoardPlugin<R>): void
+  use(plugin: BoardPlugin): void
   /**
    * Register a middleware that intercepts every command.
    * Middleware runs synchronously before the command body.
@@ -366,11 +456,11 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   screenToWorld(point: Point): Point
   worldToScreen(point: Point): Point
   getVisibleBounds(width: number, height: number): Bounds
-  getNode(id: NodeId): ResolvedNode<R>
-  findNode(id: NodeId): ResolvedNode<R> | null
+  getNode(id: NodeId): BoardNode
+  findNode(id: NodeId): BoardNode | null
   hasNode(id: NodeId): boolean
-  getNodeAt(worldPoint: Point): ResolvedNode<R> | null
-  getNodesInBounds(bounds: Bounds): ResolvedNode<R>[]
+  getNodeAt(worldPoint: Point): BoardNode | null
+  getNodesInBounds(bounds: Bounds): BoardNode[]
   panBy(dx: number, dy: number): void
   panTo(worldPoint: Point, animated?: boolean): Promise<void>
   zoomAt(screenPoint: Point, delta: number): void
@@ -381,29 +471,24 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
     padding?: number,
     animated?: boolean,
   ): Promise<void>
-  createNode<T extends keyof R = keyof R>(
-    input: NodeInput<R, T>,
-  ): ResolvedNode<R, T>
-  updateNode<T extends keyof R = keyof R>(
-    id: NodeId,
-    patch: NodePatch<R, T>,
-  ): ResolvedNode<R, T>
+  createNode(input: NodeInput): BoardNode
+  updateNode(id: NodeId, patch: NodePatch): BoardNode
   deleteNode(id: NodeId): void
-  moveNode(id: NodeId, dx: number, dy: number): ResolvedNode<R>
+  moveNode(id: NodeId, dx: number, dy: number): BoardNode
   translateSelectedNodes(dx: number, dy: number): void
   resizeNode(
     id: NodeId,
     handle: ResizeHandle,
     dx: number,
     dy: number,
-  ): ResolvedNode<R>
+  ): BoardNode
   bringToFront(id: NodeId): void
   sendToBack(id: NodeId): void
   lockNode(id: NodeId): void
   unlockNode(id: NodeId): void
-  duplicateNodes(ids: NodeId[], offset?: Point): ResolvedNode<R>[]
-  copySelected(): ResolvedNode<R>[]
-  pasteClipboard(offset?: Point): ResolvedNode<R>[]
+  duplicateNodes(ids: NodeId[], offset?: Point): BoardNode[]
+  copySelected(): BoardNode[]
+  pasteClipboard(offset?: Point): BoardNode[]
   select(ids: NodeId | NodeId[], mode?: SelectionMode): void
   selectAll(): void
   clearSelection(): void
@@ -419,7 +504,7 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   ): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
   beginTextEdit(id: NodeId): void
-  commitTextEdit(id: NodeId, text?: string): ResolvedNode<R>
+  commitTextEdit(id: NodeId, text?: string): BoardNode
   updatePointer(
     pointerId: number,
     screenPoint: Point,
@@ -432,8 +517,7 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
   importJSON(json: string, mode?: 'replace' | 'merge'): void
   /**
    * Subscribe to actions dispatched by commands.
-   * Used by plugins (history, connections) to react to state mutations
-   * without polling individual events.
+   * Used by plugins to react to state mutations without polling individual events.
    */
   onAction(
     listener: (action: import('./state/actions').Action) => void,
@@ -460,16 +544,14 @@ export interface BoardEngine<R extends NodeTypeRegistry = NodeTypeRegistry> {
  * Plugins receive the full public engine plus imperative hooks for extending
  * the engine surface, emitting events, and dispatching actions.
  */
-export interface BoardPluginContext<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
-> extends BoardEngine<R> {
-  emit<K extends keyof BoardEventMap<R>>(
+export interface BoardPluginContext extends BoardEngine {
+  emit<K extends keyof BoardEventMap>(
     event: K,
-    ...args: Parameters<BoardEventMap<R>[K]>
+    ...args: Parameters<BoardEventMap[K]>
   ): void
-  extend<K extends keyof BoardEngineExtensions<R> & string>(
+  extend<K extends keyof BoardEngineExtensions & string>(
     key: K,
-    value: BoardEngineExtensions<R>[K],
+    value: BoardEngineExtensions[K],
   ): void
   /**
    * Execute a named command through the full engine pipeline:
@@ -490,7 +572,7 @@ export interface BoardPluginContext<
 }
 
 /** Reducer-backed persistent state owned by a plugin. */
-export interface BoardPluginSlice {
+interface BoardPluginSlice {
   initial: unknown
   reducer: (state: never, action: import('./state/actions').Action) => unknown
   /**
@@ -501,12 +583,26 @@ export interface BoardPluginSlice {
   invert?: (innerAction: never) => unknown
 }
 
+/** Optional plugin hook for persisted JSON Canvas document data. */
+export interface BoardPluginPersistence {
+  exportDocument?(
+    engine: BoardPluginContext,
+  ): Partial<JsonCanvasDocument> | void
+  importDocument?(
+    engine: BoardPluginContext,
+    document: JsonCanvasDocument,
+    mode: 'replace' | 'merge',
+    idMap: ReadonlyMap<NodeId, NodeId>,
+  ): void
+}
+
 /** Plugin contract used to extend the engine with state, commands, and side effects. */
-export interface BoardPlugin<R extends NodeTypeRegistry = NodeTypeRegistry> {
+export interface BoardPlugin {
   name: string
   slice?: BoardPluginSlice
+  persistence?: BoardPluginPersistence
   install(
-    engine: BoardPluginContext<R>,
+    engine: BoardPluginContext,
     options?: Record<string, unknown>,
   ): void | PluginCleanup
 }

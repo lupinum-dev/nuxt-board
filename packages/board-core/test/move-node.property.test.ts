@@ -19,7 +19,7 @@ const buildEngineWithNodes = (count: number) => {
   return { engine, ids }
 }
 
-describe('moveNode invariants (refactor pin)', () => {
+describe('moveNode invariants', () => {
   it('preserves total node count under any move sequence', () => {
     fc.assert(
       fc.property(

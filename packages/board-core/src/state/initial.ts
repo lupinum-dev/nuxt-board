@@ -1,30 +1,47 @@
-import type { NodeData, NodeTypeRegistry, ResolvedNode } from '../types'
-import { cloneData } from '../helpers/clone'
+import type { BoardNode } from '../types'
 import type { StoredNode } from './versioning'
 import { ZERO_VERSIONS } from './versioning'
 import { DEFAULT_CAMERA } from './types'
 import type { MutableBoardState } from './types'
 
-export function defaultNodeData(type: string): NodeData {
-  if (type === 'text') {
-    return { content: '' }
-  }
-  if (type === 'group') {
-    return { title: 'Untitled group' }
-  }
-  return {}
-}
-
-export function normalizeExistingNode<R extends NodeTypeRegistry>(
-  node: ResolvedNode<R>,
-): StoredNode {
+export function normalizeExistingNode(node: BoardNode): StoredNode {
   const parentId =
     typeof node.parentId === 'string' && node.parentId.length > 0
       ? node.parentId
       : undefined
+  const data = node.data ?? {}
+  const normalizedFields =
+    node.type === 'text'
+      ? {
+          text:
+            typeof data.content === 'string' ? data.content : (node.text ?? ''),
+        }
+      : node.type === 'group'
+        ? {
+            label:
+              typeof data.title === 'string'
+                ? data.title
+                : typeof data.label === 'string'
+                  ? data.label
+                  : node.label,
+          }
+        : node.type === 'file'
+          ? {
+              file:
+                typeof data.file === 'string'
+                  ? data.file
+                  : typeof data.src === 'string'
+                    ? data.src
+                    : node.file,
+            }
+          : node.type === 'link'
+            ? {
+                url: typeof data.url === 'string' ? data.url : node.url,
+              }
+            : {}
   return {
     ...node,
-    data: cloneData(node.data),
+    ...normalizedFields,
     color: node.color,
     locked: Boolean(node.locked),
     visible: node.visible !== false,
@@ -33,11 +50,11 @@ export function normalizeExistingNode<R extends NodeTypeRegistry>(
   }
 }
 
-export function createInitialState<R extends NodeTypeRegistry>(
-  initialNodes: ReadonlyArray<ResolvedNode<R>> = [],
+function createInitialState(
+  initialNodes: ReadonlyArray<BoardNode> = [],
   cameraOverrides?: Partial<typeof DEFAULT_CAMERA>,
-): MutableBoardState<R> {
-  const state: MutableBoardState<R> = {
+): MutableBoardState {
+  const state: MutableBoardState = {
     camera: { ...DEFAULT_CAMERA, ...cameraOverrides },
     nodes: new Map(),
     selection: new Set(),
@@ -46,7 +63,7 @@ export function createInitialState<R extends NodeTypeRegistry>(
     nextZIndex: 1,
   }
   for (const node of initialNodes) {
-    const normalized = normalizeExistingNode<R>(node)
+    const normalized = normalizeExistingNode(node)
     state.nodes.set(normalized.id, normalized)
     state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
   }

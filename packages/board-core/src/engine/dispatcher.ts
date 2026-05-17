@@ -1,8 +1,8 @@
 import type { Action } from '../state/actions'
 
-export type ActionListener = (action: Action) => void
+type ActionListener = (action: Action) => void
 
-export interface Dispatcher {
+interface Dispatcher {
   dispatch(action: Action): void
   onAction(listener: ActionListener): () => void
   getLastAction(): Action | null

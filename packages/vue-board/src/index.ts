@@ -32,6 +32,9 @@ export type {
   ResolvedBoardGridOptions,
 } from './grid'
 
+/** Injection context returned by `useBoardEngine`. */
+export type { BoardEngineContext } from './context'
+
 /** Core board context composables for camera, nodes, selection, and node actions. */
 export {
   useBoardEngine,

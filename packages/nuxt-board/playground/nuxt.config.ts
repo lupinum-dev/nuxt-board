@@ -23,9 +23,6 @@ export default defineNuxtConfig({
     '@lupinum/board-minimap': fileURLToPath(
       new URL('../../board-minimap/src/index.ts', import.meta.url),
     ),
-    '@lupinum/board-serializer': fileURLToPath(
-      new URL('../../board-serializer/src/index.ts', import.meta.url),
-    ),
   },
   build: {
     transpile: [
@@ -34,7 +31,6 @@ export default defineNuxtConfig({
       '@lupinum/board-connections',
       '@lupinum/board-history',
       '@lupinum/board-minimap',
-      '@lupinum/board-serializer',
       'nuxt-board',
     ],
   },

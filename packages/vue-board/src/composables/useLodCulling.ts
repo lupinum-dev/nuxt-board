@@ -16,7 +16,7 @@ const NODE_HIDE_SCREEN_SIZE = 6
 const NODE_SIMPLE_SCREEN_SIZE = 96
 
 /** Inputs required to compute viewport culling and node LOD. */
-export interface UseLodCullingOptions {
+interface UseLodCullingOptions {
   engine: BoardEngine
   nodes: Ref<ReadonlyMap<NodeId, BoardNodeState>>
   camera: Ref<Camera>

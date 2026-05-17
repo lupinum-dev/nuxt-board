@@ -1,4 +1,12 @@
-import { asEdgeId, type BoardPlugin, type EdgeId } from '@lupinum/board-core'
+import {
+  asEdgeId,
+  type BoardPlugin,
+  type EdgeId,
+  type JsonCanvasDocument,
+  type JsonCanvasEdge,
+  type JsonCanvasSide,
+  type NodeId,
+} from '@lupinum/board-core'
 import {
   SLICE_NAME,
   initialState,
@@ -17,19 +25,13 @@ import type {
 } from './types'
 
 declare module '@lupinum/board-core' {
-  interface BoardEventMap<
-    R extends import('@lupinum/board-core').NodeTypeRegistry =
-      import('@lupinum/board-core').NodeTypeRegistry,
-  > {
+  interface BoardEventMap {
     'edge:created': (edge: BoardEdge) => void
     'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
-  interface BoardEngineExtensions<
-    R extends import('@lupinum/board-core').NodeTypeRegistry =
-      import('@lupinum/board-core').NodeTypeRegistry,
-  > {
+  interface BoardEngineExtensions {
     connections: ConnectionsExtension
   }
 }
@@ -60,6 +62,24 @@ function cloneEdge<T>(edge: BoardEdge<T>): BoardEdge<T> {
   }
 }
 
+function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
+  return {
+    id: edge.id,
+    fromNode: edge.from,
+    ...(edge.fromAnchor?.side
+      ? { fromSide: edge.fromAnchor.side as JsonCanvasSide }
+      : {}),
+    ...(edge.fromEnd ? { fromEnd: edge.fromEnd } : {}),
+    toNode: edge.to,
+    ...(edge.toAnchor?.side
+      ? { toSide: edge.toAnchor.side as JsonCanvasSide }
+      : {}),
+    ...(edge.toEnd ? { toEnd: edge.toEnd } : {}),
+    ...(edge.color ? { color: edge.color as JsonCanvasEdge['color'] } : {}),
+    ...(edge.label ? { label: edge.label } : {}),
+  }
+}
+
 export function connectionPlugin(
   options: ConnectionPluginOptions = {},
 ): BoardPlugin {
@@ -74,6 +94,70 @@ export function connectionPlugin(
       initial: initialState,
       reducer,
       invert: invert as (innerAction: never) => unknown,
+    },
+    persistence: {
+      exportDocument(engine): Partial<JsonCanvasDocument> {
+        const edges = engine.ext.connections.getEdges()
+        if (edges.length === 0) {
+          return {}
+        }
+        return {
+          edges: edges.map(edgeToJsonCanvas),
+          'x-nuxt-board': {
+            edges: Object.fromEntries(
+              edges.map((edge) => [
+                edge.id,
+                {
+                  zIndex: edge.zIndex,
+                  ...(Object.keys(edge.data).length > 0
+                    ? { data: edge.data }
+                    : {}),
+                },
+              ]),
+            ),
+          },
+        }
+      },
+      importDocument(engine, document, mode, idMap): void {
+        const api = engine.ext.connections
+        if (mode === 'replace') {
+          for (const edge of api.getEdges()) {
+            api.deleteEdge(edge.id)
+          }
+        }
+
+        for (const edge of document.edges ?? []) {
+          const from = idMap.get(edge.fromNode) ?? edge.fromNode
+          const to = idMap.get(edge.toNode) ?? edge.toNode
+          if (!engine.hasNode(from) || !engine.hasNode(to)) {
+            continue
+          }
+          const metadata = document['x-nuxt-board']?.edges?.[edge.id]
+          const id =
+            mode === 'merge' && api.getEdge(edge.id)
+              ? asEdgeId(crypto.randomUUID())
+              : edge.id
+          api.createEdge({
+            id,
+            from,
+            to,
+            ...(edge.fromSide
+              ? { fromAnchor: { side: edge.fromSide, offset: 0.5 } }
+              : {}),
+            ...(edge.toSide
+              ? { toAnchor: { side: edge.toSide, offset: 0.5 } }
+              : {}),
+            ...(edge.fromEnd ? { fromEnd: edge.fromEnd } : {}),
+            ...(edge.toEnd ? { toEnd: edge.toEnd } : {}),
+            ...(edge.color ? { color: edge.color } : {}),
+            ...(edge.label ? { label: edge.label } : {}),
+            data: metadata?.data ?? {},
+            ...(metadata?.zIndex !== undefined
+              ? { zIndex: metadata.zIndex }
+              : {}),
+          })
+        }
+      },
     },
     install(engine) {
       const getSlice = (): ConnectionsSliceState =>

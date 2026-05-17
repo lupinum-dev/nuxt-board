@@ -18,7 +18,7 @@ async function seedConnectionScene(page: Page) {
       window as unknown as {
         __boardPlayground: {
           engine: {
-            importJSON: (snapshot: string, mode: 'replace' | 'merge') => void
+            importJSON: (document: string, mode: 'replace' | 'merge') => void
             zoomTo: (level: number, animated?: boolean) => Promise<void>
             ext: {
               connections: {
@@ -34,8 +34,6 @@ async function seedConnectionScene(page: Page) {
 
     api.engine.importJSON(
       JSON.stringify({
-        camera: { x: -80, y: -40, z: 1 },
-        grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
         nodes: [
           {
             id: 'input',
@@ -44,10 +42,7 @@ async function seedConnectionScene(page: Page) {
             y: 150,
             width: 180,
             height: 96,
-            data: { content: 'Input' },
-            zIndex: 1,
-            locked: false,
-            visible: true,
+            text: 'Input',
           },
           {
             id: 'parse',
@@ -56,10 +51,7 @@ async function seedConnectionScene(page: Page) {
             y: 80,
             width: 200,
             height: 96,
-            data: { content: 'Parse' },
-            zIndex: 2,
-            locked: false,
-            visible: true,
+            text: 'Parse',
           },
           {
             id: 'score',
@@ -68,10 +60,7 @@ async function seedConnectionScene(page: Page) {
             y: 240,
             width: 200,
             height: 96,
-            data: { content: 'Score' },
-            zIndex: 3,
-            locked: false,
-            visible: true,
+            text: 'Score',
           },
           {
             id: 'output',
@@ -80,16 +69,21 @@ async function seedConnectionScene(page: Page) {
             y: 150,
             width: 180,
             height: 96,
-            data: { content: 'Output' },
-            zIndex: 4,
-            locked: false,
-            visible: true,
+            text: 'Output',
           },
         ],
-        selection: [],
-        interaction: { mode: 'idle' },
-        snapGuides: [],
-        nextZIndex: 5,
+        'x-nuxt-board': {
+          camera: { x: -80, y: -40, z: 1 },
+          grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
+          selection: [],
+          nextZIndex: 5,
+          nodes: {
+            input: { zIndex: 1, locked: false, visible: true },
+            parse: { zIndex: 2, locked: false, visible: true },
+            score: { zIndex: 3, locked: false, visible: true },
+            output: { zIndex: 4, locked: false, visible: true },
+          },
+        },
       }),
       'replace',
     )

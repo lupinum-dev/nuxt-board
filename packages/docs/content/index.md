@@ -113,7 +113,7 @@ icon: i-lucide-undo-2
 Focused plugins
 
 #description
-Add history, minimaps, connections, and serializer workflows only when the product needs them.
+Add history, minimaps, connections, and JSON import/export workflows only when the product needs them.
 :::
 ::
 

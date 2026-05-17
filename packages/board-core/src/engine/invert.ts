@@ -1,9 +1,7 @@
 import type { Action } from '../state/actions'
 
-export type PluginInverter = (innerAction: unknown) => unknown
-export type PluginInverterLookup = (
-  pluginName: string,
-) => PluginInverter | undefined
+type PluginInverter = (innerAction: unknown) => unknown
+type PluginInverterLookup = (pluginName: string) => PluginInverter | undefined
 
 export function invertAction(
   action: Action,

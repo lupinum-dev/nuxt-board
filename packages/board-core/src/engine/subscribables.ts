@@ -4,11 +4,10 @@ import { createBatchController, createSubscribable } from '../subscribable'
 import type { BatchController } from '../subscribable'
 import type {
   BoardEventMap,
+  BoardNode,
   Camera,
   InteractionState,
   NodeId,
-  NodeTypeRegistry,
-  ResolvedNode,
   SnapGuide,
   Subscribable,
 } from '../types'
@@ -16,14 +15,14 @@ import type { MutableBoardState } from '../state/types'
 import { buildPublicNodeMap } from '../state/selectors'
 import type { Action } from '../state/actions'
 
-export interface ReactiveLayer<R extends NodeTypeRegistry> {
+interface ReactiveLayer {
   batchCtrl: BatchController
   $camera: Subscribable<Camera>
-  $nodes: Subscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>
+  $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   $selection: Subscribable<ReadonlySet<NodeId>>
   $interaction: Subscribable<InteractionState>
   $snapGuides: Subscribable<readonly SnapGuide[]>
-  getPublicNodeMap: () => ReadonlyMap<NodeId, ResolvedNode<R>>
+  getPublicNodeMap: () => ReadonlyMap<NodeId, BoardNode>
   invalidateNodeCache: () => void
   notifyNodesChanged: () => void
   notifyCameraChanged: () => void
@@ -36,18 +35,16 @@ export interface ReactiveLayer<R extends NodeTypeRegistry> {
   setSnapGuides: (next: SnapGuide[]) => void
 }
 
-export interface ReactiveLayerDeps<R extends NodeTypeRegistry> {
-  state: MutableBoardState<R>
-  emit: <K extends keyof BoardEventMap<R>>(
+interface ReactiveLayerDeps {
+  state: MutableBoardState
+  emit: <K extends keyof BoardEventMap>(
     event: K,
-    ...args: Parameters<BoardEventMap<R>[K]>
+    ...args: Parameters<BoardEventMap[K]>
   ) => void
   dispatch: (action: Action) => void
 }
 
-export function createReactiveLayer<R extends NodeTypeRegistry>(
-  deps: ReactiveLayerDeps<R>,
-): ReactiveLayer<R> {
+export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   const { state, emit, dispatch } = deps
 
   const batchCtrl = createBatchController()
@@ -55,7 +52,7 @@ export function createReactiveLayer<R extends NodeTypeRegistry>(
     freezeClone({ ...state.camera }),
     batchCtrl,
   )
-  const $nodes = createSubscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>(
+  const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
     new Map(),
     batchCtrl,
   )
@@ -72,11 +69,11 @@ export function createReactiveLayer<R extends NodeTypeRegistry>(
     batchCtrl,
   )
 
-  let cachedPublicNodeMap: ReadonlyMap<NodeId, ResolvedNode<R>> | null = null
+  let cachedPublicNodeMap: ReadonlyMap<NodeId, BoardNode> | null = null
 
-  function getPublicNodeMap(): ReadonlyMap<NodeId, ResolvedNode<R>> {
+  function getPublicNodeMap(): ReadonlyMap<NodeId, BoardNode> {
     if (!cachedPublicNodeMap) {
-      cachedPublicNodeMap = buildPublicNodeMap<R>(state)
+      cachedPublicNodeMap = buildPublicNodeMap(state)
     }
     return cachedPublicNodeMap
   }

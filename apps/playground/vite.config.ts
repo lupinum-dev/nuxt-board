@@ -37,12 +37,6 @@ export default defineConfig({
       '@lupinum/board-minimap': fileURLToPath(
         new URL('../../packages/board-minimap/src/index.ts', import.meta.url),
       ),
-      '@lupinum/board-serializer': fileURLToPath(
-        new URL(
-          '../../packages/board-serializer/src/index.ts',
-          import.meta.url,
-        ),
-      ),
     },
   },
 })

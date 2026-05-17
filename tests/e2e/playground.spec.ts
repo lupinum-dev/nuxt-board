@@ -131,7 +131,7 @@ test('supports alt-drag duplication and benchmark reporting', async ({
   await expect(page.getByText(/total .* avg .* max/i)).toBeVisible()
 })
 
-test('renders connections, minimap, and serializer helpers', async ({
+test('renders connections, minimap, and import/export helpers', async ({
   page,
 }) => {
   await page.goto('/')

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { asNodeId, createBoardEngine } from '@lupinum/board-core'
+import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
 import {
   buildConnectionRoute,
   connectionPlugin,
@@ -42,6 +42,89 @@ describe('connections plugin', () => {
 
     engine.deleteNode(first.id)
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
+  })
+
+  it('exports and imports edges through the connections plugin only', () => {
+    const firstId = asNodeId('first')
+    const secondId = asNodeId('second')
+    const edgeId = asEdgeId('edge-a')
+    const withoutPlugin = createBoardEngine()
+    withoutPlugin.importJSON(
+      JSON.stringify({
+        nodes: [
+          {
+            id: firstId,
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'A',
+          },
+          {
+            id: secondId,
+            type: 'text',
+            x: 200,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'B',
+          },
+        ],
+        edges: [{ id: edgeId, fromNode: firstId, toNode: secondId }],
+      }),
+    )
+    expect(JSON.parse(withoutPlugin.exportJSON()).edges).toBeUndefined()
+
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    engine.importJSON(JSON.stringify(JSON.parse(withoutPlugin.exportJSON())))
+    engine.ext.connections.createEdge({
+      id: edgeId,
+      from: firstId,
+      to: secondId,
+      fromAnchor: { side: 'right', offset: 0.5 },
+      toAnchor: { side: 'left', offset: 0.5 },
+      label: 'edge label',
+      color: '#0f766e',
+      data: { weight: 2 },
+      zIndex: 4,
+    })
+
+    const exported = JSON.parse(engine.exportJSON())
+    expect(exported.edges).toEqual([
+      {
+        id: edgeId,
+        fromNode: firstId,
+        fromSide: 'right',
+        toNode: secondId,
+        toSide: 'left',
+        fromEnd: 'none',
+        toEnd: 'arrow',
+        color: '#0f766e',
+        label: 'edge label',
+      },
+    ])
+    expect(exported['x-nuxt-board'].edges[edgeId]).toEqual({
+      zIndex: 4,
+      data: { weight: 2 },
+    })
+
+    const restored = createBoardEngine({ plugins: [connectionPlugin()] })
+    restored.importJSON(JSON.stringify(exported), 'replace')
+
+    expect(restored.ext.connections.getEdges()).toEqual([
+      expect.objectContaining({
+        id: edgeId,
+        from: firstId,
+        to: secondId,
+        label: 'edge label',
+        color: '#0f766e',
+        data: { weight: 2 },
+        zIndex: 4,
+      }),
+    ])
   })
 
   it('removes edges when deleting a group that still has child nodes', () => {
@@ -115,16 +198,125 @@ describe('connections plugin', () => {
 
     engine.importJSON(
       JSON.stringify({
-        ...engine.getSnapshot(),
         nodes: [],
-        selection: [],
-        nextZIndex: 1,
+        'x-nuxt-board': {
+          selection: [],
+          nextZIndex: 1,
+        },
       }),
       'replace',
     )
 
     expect(engine.getSnapshot().nodes).toHaveLength(0)
     expect(engine.ext.connections.getEdges()).toHaveLength(0)
+  })
+
+  it('hydrates initialDocument edges after installing the connections plugin', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+      initialDocument: {
+        nodes: [
+          {
+            id: asNodeId('source'),
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'Source',
+          },
+          {
+            id: asNodeId('target'),
+            type: 'text',
+            x: 240,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'Target',
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-1' as never,
+            fromNode: asNodeId('source'),
+            toNode: asNodeId('target'),
+            fromSide: 'right',
+            toSide: 'left',
+            label: 'initial',
+          },
+        ],
+      },
+    })
+
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      from: asNodeId('source'),
+      to: asNodeId('target'),
+      label: 'initial',
+    })
+  })
+
+  it('remaps imported edges to cloned node ids during merge imports', () => {
+    const engine = createBoardEngine({
+      plugins: [connectionPlugin()],
+    })
+    engine.createNode({
+      id: asNodeId('source'),
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'Existing source',
+    })
+    engine.createNode({
+      id: asNodeId('target'),
+      type: 'text',
+      x: 240,
+      y: 0,
+      text: 'Existing target',
+    })
+
+    engine.importJSON(
+      JSON.stringify({
+        nodes: [
+          {
+            id: 'source',
+            type: 'text',
+            x: 0,
+            y: 160,
+            width: 120,
+            height: 80,
+            text: 'Imported source',
+          },
+          {
+            id: 'target',
+            type: 'text',
+            x: 240,
+            y: 160,
+            width: 120,
+            height: 80,
+            text: 'Imported target',
+          },
+        ],
+        edges: [
+          {
+            id: 'edge-merge',
+            fromNode: 'source',
+            toNode: 'target',
+            label: 'merged',
+          },
+        ],
+      }),
+      'merge',
+    )
+
+    const imported = Array.from(engine.getState().nodes.values()).filter(
+      (node) => node.text?.startsWith('Imported'),
+    )
+    const edge = engine.ext.connections.getEdges()[0]
+    expect(imported).toHaveLength(2)
+    expect(edge).toMatchObject({ label: 'merged' })
+    expect(imported.map((node) => node.id)).toContain(edge?.from)
+    expect(imported.map((node) => node.id)).toContain(edge?.to)
   })
 
   it('resolves auto sides with hysteresis across diagonal thresholds', () => {

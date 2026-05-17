@@ -73,5 +73,5 @@ The install context is the engine plus a `getPluginState<S>()` overload that ret
 The repository ships three layers of tests:
 
 - **Unit / integration** — `pnpm vitest` per package, exercising reducers, commands, plugin behavior.
-- **Public API contract** — [`packages/board-core/test/contract.test.ts`](packages/board-core/test/contract.test.ts) snapshot-tests the engine surface so accidental API removals are caught.
-- **End-to-end** — [`tests/e2e/safety-net.spec.ts`](tests/e2e/safety-net.spec.ts) drives the playground in a browser.
+- **Public API behavior** — [`packages/board-core/test/contract.test.ts`](packages/board-core/test/contract.test.ts) verifies the public document API and runtime snapshot boundary.
+- **End-to-end** — Playwright tests drive product behavior through the playground.

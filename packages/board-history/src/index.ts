@@ -29,10 +29,7 @@ declare module '@lupinum/board-core' {
     'history:clear': () => void
   }
 
-  interface BoardEngineExtensions<
-    R extends import('@lupinum/board-core').NodeTypeRegistry =
-      import('@lupinum/board-core').NodeTypeRegistry,
-  > {
+  interface BoardEngineExtensions {
     history: {
       undo: () => void
       redo: () => void

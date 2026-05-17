@@ -1,6 +1,6 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-export type BoardTheme = 'light' | 'dark'
+type BoardTheme = 'light' | 'dark'
 
 const STORAGE_KEY = 'board-theme'
 

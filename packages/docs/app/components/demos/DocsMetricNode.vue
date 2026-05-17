@@ -7,8 +7,9 @@ const props = defineProps<{
   selected: boolean
 }>()
 
+const data = computed(() => props.node.data ?? {})
 const deltaPositive = computed(() => {
-  const d = String(props.node.data.delta ?? '')
+  const d = String(data.value.delta ?? '')
   return d.startsWith('+')
 })
 </script>
@@ -33,7 +34,7 @@ const deltaPositive = computed(() => {
     <div class="flex items-center justify-between gap-3">
       <span
         class="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-dimmed"
-        >{{ node.data.label }}</span
+        >{{ data.label }}</span
       >
       <span
         class="rounded-full px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide ring-1"
@@ -43,7 +44,7 @@ const deltaPositive = computed(() => {
             : 'bg-amber-50 text-amber-700 ring-amber-200/60'
         "
       >
-        {{ node.data.delta }}
+        {{ data.delta }}
       </span>
     </div>
     <div>
@@ -51,10 +52,10 @@ const deltaPositive = computed(() => {
         class="text-3xl font-bold tracking-tight"
         style="color: var(--ui-primary)"
       >
-        {{ node.data.value }}
+        {{ data.value }}
       </p>
       <p class="mt-2 text-sm leading-6 text-muted">
-        {{ node.data.caption }}
+        {{ data.caption }}
       </p>
     </div>
   </div>

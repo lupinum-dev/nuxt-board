@@ -35,7 +35,7 @@ import {
   snapPositionToEdges,
 } from './snap'
 import { createBatchController, createSubscribable } from './subscribable'
-import { cloneData, freezeClone } from './helpers/clone'
+import { freezeClone } from './helpers/clone'
 import { createNodeId } from './helpers/ids'
 import {
   AnimationCancelled,
@@ -51,7 +51,7 @@ import {
   DEFAULT_VIEWPORT_SIZE,
   DEFAULT_ZOOM,
 } from './state/types'
-import { defaultNodeData, normalizeExistingNode } from './state/initial'
+import { normalizeExistingNode } from './state/initial'
 import { materializeNode as materializeNodePure } from './helpers/node-shape'
 import {
   buildPublicNodeMap,
@@ -83,33 +83,603 @@ import type {
   BoardNode,
   BoardPlugin,
   BoardPluginContext,
+  CanvasColor,
+  EdgeId,
   GridSettings,
   InteractionState,
   InvariantMode,
+  JsonCanvasDocument,
+  JsonCanvasEdge,
+  JsonCanvasEdgeEnd,
+  JsonCanvasNode,
+  JsonCanvasNodeType,
+  JsonCanvasSide,
   NodeConstraints,
   NodeId,
   NodeInput,
   NodePatch,
-  NodeTypeRegistry,
+  NuxtBoardDocumentMetadata,
   Point,
-  ResolvedNode,
   ResizeHandle,
   SnapGuide,
   Subscribable,
   ZoomSettings,
 } from './types'
 
+const JSON_CANVAS_NODE_TYPES = new Set<JsonCanvasNodeType>([
+  'text',
+  'file',
+  'link',
+  'group',
+])
+
+const JSON_CANVAS_SIDES = new Set<JsonCanvasSide>([
+  'top',
+  'right',
+  'bottom',
+  'left',
+])
+
+const JSON_CANVAS_EDGE_ENDS = new Set<JsonCanvasEdgeEnd>(['none', 'arrow'])
+
+const JSON_CANVAS_BACKGROUND_STYLES = new Set(['cover', 'ratio', 'repeat'])
+
+export class CommandBlockedError extends Error {
+  constructor(
+    readonly command: string,
+    readonly args: readonly unknown[],
+  ) {
+    super(`Command "${command}" was blocked by middleware.`)
+    this.name = 'CommandBlockedError'
+  }
+}
+
+function isJsonCanvasNodeType(value: unknown): value is JsonCanvasNodeType {
+  return (
+    typeof value === 'string' &&
+    JSON_CANVAS_NODE_TYPES.has(value as JsonCanvasNodeType)
+  )
+}
+
+function normalizeNodeType(value: unknown): JsonCanvasNodeType {
+  if (value === undefined) return 'text'
+  if (isJsonCanvasNodeType(value)) return value
+  if (value === 'image' || value === 'video') return 'file'
+  throw new Error(`Unsupported JSON Canvas node type "${String(value)}".`)
+}
+
+function withNodeFields<T extends { type: JsonCanvasNodeType }>(
+  base: T,
+  input: Omit<Partial<BoardNode>, 'type'> & {
+    type?: string
+    text?: string
+    file?: string
+    subpath?: string
+    url?: string
+    label?: string
+    background?: string
+    backgroundStyle?: string
+    data?: Record<string, unknown>
+  },
+): T & Partial<BoardNode> {
+  const data = input.data ?? {}
+  switch (base.type) {
+    case 'file':
+      return {
+        ...base,
+        file:
+          typeof data.file === 'string'
+            ? data.file
+            : typeof data.src === 'string'
+              ? data.src
+              : typeof input.file === 'string'
+                ? input.file
+                : '',
+        data: {
+          ...data,
+          ...(input.type && !isJsonCanvasNodeType(input.type)
+            ? { type: input.type }
+            : {}),
+        },
+        ...(typeof input.subpath === 'string'
+          ? { subpath: input.subpath }
+          : {}),
+      }
+    case 'link':
+      return {
+        ...base,
+        url:
+          typeof input.url === 'string'
+            ? input.url
+            : typeof data.url === 'string'
+              ? data.url
+              : '',
+      }
+    case 'group':
+      return {
+        ...base,
+        ...(typeof input.label === 'string'
+          ? { label: input.label }
+          : typeof data.label === 'string'
+            ? { label: data.label }
+            : typeof data.title === 'string'
+              ? { label: data.title }
+              : {}),
+        ...(typeof input.background === 'string'
+          ? { background: input.background }
+          : {}),
+        ...(input.backgroundStyle === 'cover' ||
+        input.backgroundStyle === 'ratio' ||
+        input.backgroundStyle === 'repeat'
+          ? { backgroundStyle: input.backgroundStyle }
+          : {}),
+      }
+    case 'text':
+    default:
+      return {
+        ...base,
+        text:
+          typeof data.content === 'string'
+            ? data.content
+            : typeof input.text === 'string'
+              ? input.text
+              : '',
+        ...(Object.keys(data).length > 0 ? { data } : {}),
+      }
+  }
+}
+
+function jsonNodeToBoardNode(
+  node: JsonCanvasNode,
+  meta:
+    | {
+        zIndex?: number
+        locked?: boolean
+        visible?: boolean
+        parentId?: NodeId
+      }
+    | undefined,
+  index: number,
+): BoardNode {
+  validateJsonCanvasNodeFields(node)
+  const base = {
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    ...(node.color !== undefined ? { color: node.color } : {}),
+    zIndex: Number.isFinite(meta?.zIndex) ? meta!.zIndex! : index + 1,
+    locked: Boolean(meta?.locked),
+    visible: meta?.visible !== false,
+    ...(typeof meta?.parentId === 'string' ? { parentId: meta.parentId } : {}),
+  }
+  return withNodeFields(base, node) as BoardNode
+}
+
+function validateJsonCanvasNodeFields(node: JsonCanvasNode): void {
+  if (node.type === 'text' && typeof node.text !== 'string') {
+    throw new Error(
+      `Invalid board document: text node "${node.id}" is missing required text.`,
+    )
+  }
+  if (node.type === 'file' && typeof node.file !== 'string') {
+    throw new Error(
+      `Invalid board document: file node "${node.id}" is missing required file.`,
+    )
+  }
+  if (node.type === 'link' && typeof node.url !== 'string') {
+    throw new Error(
+      `Invalid board document: link node "${node.id}" is missing required url.`,
+    )
+  }
+}
+
+function boardNodeToJsonNode(node: BoardNode): JsonCanvasNode {
+  const base = {
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    ...(node.color !== undefined ? { color: node.color as CanvasColor } : {}),
+  }
+  switch (node.type) {
+    case 'file':
+      return {
+        ...base,
+        type: 'file',
+        file: node.file ?? '',
+        ...(node.subpath !== undefined ? { subpath: node.subpath } : {}),
+      }
+    case 'link':
+      return { ...base, type: 'link', url: node.url ?? '' }
+    case 'group':
+      return {
+        ...base,
+        type: 'group',
+        ...(node.label !== undefined ? { label: node.label } : {}),
+        ...(node.background !== undefined
+          ? { background: node.background }
+          : {}),
+        ...(node.backgroundStyle !== undefined
+          ? { backgroundStyle: node.backgroundStyle }
+          : {}),
+      }
+    case 'text':
+    default:
+      return { ...base, type: 'text', text: node.text ?? '' }
+  }
+}
+
+function mergeMetadata(
+  base: NuxtBoardDocumentMetadata,
+  patch: NuxtBoardDocumentMetadata | undefined,
+): NuxtBoardDocumentMetadata {
+  if (!patch) return base
+  return {
+    ...base,
+    ...patch,
+    nodes:
+      base.nodes || patch.nodes
+        ? { ...(base.nodes ?? {}), ...(patch.nodes ?? {}) }
+        : undefined,
+    edges:
+      base.edges || patch.edges
+        ? { ...(base.edges ?? {}), ...(patch.edges ?? {}) }
+        : undefined,
+  }
+}
+
+function toPersistedDocument(
+  snapshot: BoardSnapshot,
+  pluginDocuments: Partial<JsonCanvasDocument>[],
+): JsonCanvasDocument {
+  let metadata: NuxtBoardDocumentMetadata = {
+    camera: snapshot.camera,
+    grid: snapshot.grid,
+    selection: snapshot.selection,
+    nextZIndex: snapshot.nextZIndex,
+    nodes: Object.fromEntries(
+      snapshot.nodes.map((node) => [
+        node.id,
+        {
+          zIndex: node.zIndex,
+          locked: node.locked,
+          visible: node.visible,
+          ...(node.parentId !== undefined ? { parentId: node.parentId } : {}),
+        },
+      ]),
+    ),
+  }
+  let edges: readonly JsonCanvasEdge[] | undefined
+
+  for (const pluginDocument of pluginDocuments) {
+    if (pluginDocument.edges !== undefined) {
+      edges = pluginDocument.edges
+    }
+    metadata = mergeMetadata(metadata, pluginDocument['x-nuxt-board'])
+  }
+
+  return {
+    nodes: snapshot.nodes.map((node) => boardNodeToJsonNode(node as BoardNode)),
+    ...(edges !== undefined ? { edges } : {}),
+    'x-nuxt-board': metadata,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function assertRecord(
+  value: unknown,
+  message: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(message)
+  }
+  return value
+}
+
+function assertOptionalFiniteNumber(
+  value: unknown,
+  message: string,
+): asserts value is number | undefined {
+  if (value !== undefined && !Number.isFinite(value)) {
+    throw new Error(message)
+  }
+}
+
+function assertOptionalBoolean(
+  value: unknown,
+  message: string,
+): asserts value is boolean | undefined {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new Error(message)
+  }
+}
+
+function validateDocumentMetadata(metadata: unknown): void {
+  if (metadata === undefined) return
+  const meta = assertRecord(
+    metadata,
+    'Invalid board document: x-nuxt-board metadata must be an object.',
+  )
+
+  if (meta.camera !== undefined) {
+    const camera = assertRecord(
+      meta.camera,
+      'Invalid board document: x-nuxt-board.camera must be an object.',
+    )
+    for (const key of ['x', 'y', 'z'] as const) {
+      assertOptionalFiniteNumber(
+        camera[key],
+        `Invalid board document: x-nuxt-board.camera.${key} must be finite.`,
+      )
+    }
+  }
+
+  if (meta.grid !== undefined) {
+    const grid = assertRecord(
+      meta.grid,
+      'Invalid board document: x-nuxt-board.grid must be an object.',
+    )
+    for (const key of ['size', 'majorEvery', 'edgeSnapThreshold'] as const) {
+      assertOptionalFiniteNumber(
+        grid[key],
+        `Invalid board document: x-nuxt-board.grid.${key} must be finite.`,
+      )
+    }
+    assertOptionalBoolean(
+      grid.snap,
+      'Invalid board document: x-nuxt-board.grid.snap must be boolean.',
+    )
+    assertOptionalBoolean(
+      grid.edgeSnap,
+      'Invalid board document: x-nuxt-board.grid.edgeSnap must be boolean.',
+    )
+    if (
+      grid.pattern !== undefined &&
+      grid.pattern !== 'dot' &&
+      grid.pattern !== 'line' &&
+      grid.pattern !== 'cross' &&
+      grid.pattern !== 'none'
+    ) {
+      throw new Error(
+        `Invalid board document: x-nuxt-board.grid.pattern "${String(grid.pattern)}" is unsupported.`,
+      )
+    }
+  }
+
+  if (meta.selection !== undefined && !Array.isArray(meta.selection)) {
+    throw new Error(
+      'Invalid board document: x-nuxt-board.selection must be an array.',
+    )
+  }
+  assertOptionalFiniteNumber(
+    meta.nextZIndex,
+    'Invalid board document: x-nuxt-board.nextZIndex must be finite.',
+  )
+
+  if (meta.nodes !== undefined) {
+    const nodes = assertRecord(
+      meta.nodes,
+      'Invalid board document: x-nuxt-board.nodes must be an object.',
+    )
+    for (const [id, nodeMeta] of Object.entries(nodes)) {
+      const node = assertRecord(
+        nodeMeta,
+        `Invalid board document: metadata for node "${id}" must be an object.`,
+      )
+      assertOptionalFiniteNumber(
+        node.zIndex,
+        `Invalid board document: metadata for node "${id}" has invalid zIndex.`,
+      )
+      assertOptionalBoolean(
+        node.locked,
+        `Invalid board document: metadata for node "${id}" has invalid locked flag.`,
+      )
+      assertOptionalBoolean(
+        node.visible,
+        `Invalid board document: metadata for node "${id}" has invalid visible flag.`,
+      )
+      if (node.parentId !== undefined && typeof node.parentId !== 'string') {
+        throw new Error(
+          `Invalid board document: metadata for node "${id}" has invalid parentId.`,
+        )
+      }
+    }
+  }
+
+  if (meta.edges !== undefined) {
+    const edges = assertRecord(
+      meta.edges,
+      'Invalid board document: x-nuxt-board.edges must be an object.',
+    )
+    for (const [id, edgeMeta] of Object.entries(edges)) {
+      const edge = assertRecord(
+        edgeMeta,
+        `Invalid board document: metadata for edge "${id}" must be an object.`,
+      )
+      assertOptionalFiniteNumber(
+        edge.zIndex,
+        `Invalid board document: metadata for edge "${id}" has invalid zIndex.`,
+      )
+      if (edge.data !== undefined && !isRecord(edge.data)) {
+        throw new Error(
+          `Invalid board document: metadata for edge "${id}" has invalid data.`,
+        )
+      }
+    }
+  }
+}
+
+function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
+  const parsed = assertRecord(
+    raw,
+    'Invalid board document: document must be an object.',
+  ) as Partial<JsonCanvasDocument>
+  if (!Array.isArray(parsed.nodes)) {
+    throw new Error('Invalid board document: missing nodes array.')
+  }
+  for (const key of [
+    'camera',
+    'grid',
+    'selection',
+    'interaction',
+    'snapGuides',
+    'nextZIndex',
+  ] as const) {
+    if (key in parsed) {
+      throw new Error(
+        `Invalid board document: runtime field "${key}" belongs under x-nuxt-board.`,
+      )
+    }
+  }
+  validateDocumentMetadata(parsed['x-nuxt-board'])
+
+  const seenNodes = new Set<NodeId>()
+  const nodes = parsed.nodes.map((node) => {
+    if (!isRecord(node)) {
+      throw new Error('Invalid board document: node entries must be objects.')
+    }
+    if (
+      typeof node.id !== 'string' ||
+      typeof node.x !== 'number' ||
+      typeof node.y !== 'number' ||
+      typeof node.width !== 'number' ||
+      typeof node.height !== 'number' ||
+      !Number.isFinite(node.x) ||
+      !Number.isFinite(node.y) ||
+      !Number.isFinite(node.width) ||
+      !Number.isFinite(node.height) ||
+      node.width <= 0 ||
+      node.height <= 0
+    ) {
+      throw new Error(
+        `Invalid board document: node "${String(node.id ?? '?')}" has invalid geometry.`,
+      )
+    }
+    if (!isJsonCanvasNodeType(node.type)) {
+      throw new Error(
+        `Invalid board document: node "${String(node.id)}" has unsupported type "${String(node.type)}".`,
+      )
+    }
+    if (
+      node.type === 'group' &&
+      node.backgroundStyle !== undefined &&
+      !JSON_CANVAS_BACKGROUND_STYLES.has(String(node.backgroundStyle))
+    ) {
+      throw new Error(
+        `Invalid board document: node "${String(node.id)}" has unsupported backgroundStyle "${String(node.backgroundStyle)}".`,
+      )
+    }
+    const normalized = { ...node, id: node.id as NodeId } as JsonCanvasNode
+    validateJsonCanvasNodeFields(normalized)
+    if (seenNodes.has(normalized.id)) {
+      throw new Error(
+        `Invalid board document: duplicate node id "${normalized.id}".`,
+      )
+    }
+    seenNodes.add(normalized.id)
+    return normalized
+  })
+
+  let edges: readonly JsonCanvasEdge[] | undefined
+  if (parsed.edges !== undefined) {
+    if (!Array.isArray(parsed.edges)) {
+      throw new Error('Invalid board document: edges must be an array.')
+    }
+    const seenEdges = new Set<EdgeId>()
+    edges = parsed.edges.map((edge) => {
+      if (!isRecord(edge)) {
+        throw new Error('Invalid board document: edge entries must be objects.')
+      }
+      if (
+        typeof edge.id !== 'string' ||
+        typeof edge.fromNode !== 'string' ||
+        typeof edge.toNode !== 'string'
+      ) {
+        throw new Error(
+          `Invalid board document: edge "${String(edge.id ?? '?')}" has invalid endpoints.`,
+        )
+      }
+      const id = edge.id as EdgeId
+      const fromNode = edge.fromNode as NodeId
+      const toNode = edge.toNode as NodeId
+      if (seenEdges.has(id)) {
+        throw new Error(`Invalid board document: duplicate edge id "${id}".`)
+      }
+      seenEdges.add(id)
+      if (!seenNodes.has(fromNode) || !seenNodes.has(toNode)) {
+        throw new Error(
+          `Invalid board document: edge "${id}" references a missing node.`,
+        )
+      }
+      if (
+        edge.fromSide !== undefined &&
+        !JSON_CANVAS_SIDES.has(edge.fromSide as JsonCanvasSide)
+      ) {
+        throw new Error(
+          `Invalid board document: edge "${id}" has unsupported fromSide "${String(edge.fromSide)}".`,
+        )
+      }
+      if (
+        edge.toSide !== undefined &&
+        !JSON_CANVAS_SIDES.has(edge.toSide as JsonCanvasSide)
+      ) {
+        throw new Error(
+          `Invalid board document: edge "${id}" has unsupported toSide "${String(edge.toSide)}".`,
+        )
+      }
+      if (
+        edge.fromEnd !== undefined &&
+        !JSON_CANVAS_EDGE_ENDS.has(edge.fromEnd as JsonCanvasEdgeEnd)
+      ) {
+        throw new Error(
+          `Invalid board document: edge "${id}" has unsupported fromEnd "${String(edge.fromEnd)}".`,
+        )
+      }
+      if (
+        edge.toEnd !== undefined &&
+        !JSON_CANVAS_EDGE_ENDS.has(edge.toEnd as JsonCanvasEdgeEnd)
+      ) {
+        throw new Error(
+          `Invalid board document: edge "${id}" has unsupported toEnd "${String(edge.toEnd)}".`,
+        )
+      }
+      if (edge.label !== undefined && typeof edge.label !== 'string') {
+        throw new Error(
+          `Invalid board document: edge "${id}" has invalid label.`,
+        )
+      }
+      return { ...edge, id, fromNode, toNode } as JsonCanvasEdge
+    })
+  }
+
+  return {
+    nodes,
+    ...(edges !== undefined ? { edges } : {}),
+    ...(parsed['x-nuxt-board'] !== undefined
+      ? { 'x-nuxt-board': parsed['x-nuxt-board'] }
+      : {}),
+  }
+}
+
 /**
  * Create a headless board engine with commands, reactive state, and plugin hooks.
  *
  * @example
  * const engine = createBoardEngine({
- *   initialNodes: [{ id: asNodeId('a'), type: 'text', x: 0, y: 0, width: 160, height: 80, data: { content: 'Hello' }, zIndex: 1, locked: false, visible: true }],
+ *   initialNodes: [{ id: asNodeId('a'), type: 'text', x: 0, y: 0, width: 160, height: 80, text: 'Hello', zIndex: 1, locked: false, visible: true }],
  * })
  */
-export function createBoardEngine<
-  R extends NodeTypeRegistry = NodeTypeRegistry,
->(options: BoardEngineOptions<R> = {}): BoardEngine<R> {
+export function createBoardEngine(
+  options: BoardEngineOptions = {},
+): BoardEngine {
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
   const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
@@ -126,7 +696,7 @@ export function createBoardEngine<
       ? options.diagnostics.traceLimit
       : 500
 
-  const eventBus = createEventBus<R>({ diagnosticsEnabled, traceLimit })
+  const eventBus = createEventBus({ diagnosticsEnabled, traceLimit })
   const { emit, on, once, off } = eventBus
   const middleware = createMiddlewareRegistry()
   const dispatcher = createDispatcher()
@@ -142,24 +712,50 @@ export function createBoardEngine<
       state: unknown
     }
   >()
+  const pluginPersistence = new Map<
+    string,
+    {
+      context: BoardPluginContext
+      hooks: NonNullable<BoardPlugin['persistence']>
+    }
+  >()
   dispatcher.onAction((action) => {
     for (const slice of pluginSlices.values()) {
       slice.state = slice.reducer(slice.state, action)
     }
   })
   const clipboard: StoredNode[] = []
-  const ext = {} as BoardEngineExtensions<R>
+  const ext = {} as BoardEngineExtensions
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
   let destroyed = false
 
-  const state: MutableBoardState<R> = {
+  const state: MutableBoardState = {
     camera,
     nodes: new Map(),
     selection: new Set(),
     interaction: { mode: 'idle' },
     snapGuides: [],
     nextZIndex: 1,
+  }
+  const initialDocument = options.initialDocument
+    ? normalizeDocumentForImport(options.initialDocument)
+    : null
+
+  if (initialDocument) {
+    const initial = documentToSnapshot(initialDocument)
+    state.camera = { ...initial.camera }
+    state.selection = new Set()
+    state.nextZIndex = initial.nextZIndex
+    Object.assign(grid, { ...initial.grid })
+    for (const rawNode of materializeSnapshotNodes(initial)) {
+      const normalized = normalizeExistingNode(rawNode)
+      state.nodes.set(normalized.id, normalized)
+      state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
+    }
+    state.selection = new Set(
+      initial.selection.filter((id) => state.nodes.has(id)),
+    )
   }
 
   for (const node of options.initialNodes ?? []) {
@@ -168,7 +764,7 @@ export function createBoardEngine<
     state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
   }
 
-  const reactive = createReactiveLayer<R>({
+  const reactive = createReactiveLayer({
     state,
     emit,
     dispatch: dispatcher.dispatch,
@@ -232,18 +828,16 @@ export function createBoardEngine<
     })
   }
 
-  function materializeNode<T extends keyof R = keyof R>(
-    node: StoredNode,
-  ): ResolvedNode<R, T> {
-    return materializeNodePure<R, T>(node)
+  function materializeNode(node: StoredNode): BoardNode {
+    return materializeNodePure(node)
   }
 
-  function getSnapshot(): BoardSnapshot<R> {
-    return buildSnapshot<R>(state, grid, getPublicNodeMap())
+  function getSnapshot(): BoardSnapshot {
+    return buildSnapshot(state, grid, getPublicNodeMap())
   }
 
-  function getState(): BoardState<R> {
-    return buildPublicState<R>(state, getPublicNodeMap())
+  function getState(): BoardState {
+    return buildPublicState(state, getPublicNodeMap())
   }
 
   interface EngineRestorePoint {
@@ -306,7 +900,7 @@ export function createBoardEngine<
     // If the chain doesn't call next(), the command is silently cancelled.
     if (!middleware.run(name, args)) {
       emit('command:blocked', name, args)
-      return undefined as unknown as T
+      throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
     const inTransaction = transactions.isInTransaction()
@@ -343,7 +937,7 @@ export function createBoardEngine<
   ): Promise<T> {
     if (!middleware.run(name, args)) {
       emit('command:blocked', name, args)
-      return undefined as T
+      throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
     emit('command:before', name, args)
@@ -366,7 +960,7 @@ export function createBoardEngine<
     }
   }
 
-  const validate = createValidator<R>({
+  const validate = createValidator({
     invariantMode,
     getState: () => getState(),
     getGrid: () => grid,
@@ -381,9 +975,51 @@ export function createBoardEngine<
     return node
   }
 
-  function normalizeNode<T extends keyof R = keyof R>(
-    input: NodeInput<R, T>,
-  ): StoredNode {
+  function assertValidNodeGeometry(
+    id: NodeId,
+    geometry: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
+  ): void {
+    if (
+      !Number.isFinite(geometry.x) ||
+      !Number.isFinite(geometry.y) ||
+      !Number.isFinite(geometry.width) ||
+      !Number.isFinite(geometry.height) ||
+      geometry.width <= 0 ||
+      geometry.height <= 0
+    ) {
+      throw new Error(`Invalid node geometry for "${id}".`)
+    }
+  }
+
+  function assertValidParentLink(
+    id: NodeId,
+    parentId: NodeId | undefined,
+  ): void {
+    if (parentId === undefined) {
+      return
+    }
+    if (parentId === id) {
+      throw new Error(`Node "${id}" cannot be its own parent.`)
+    }
+    const parent = state.nodes.get(parentId)
+    if (!parent) {
+      throw new Error(`Node "${id}" references missing parent "${parentId}".`)
+    }
+    if (parent.type !== 'group') {
+      throw new Error(`Node "${id}" parent "${parentId}" must be a group.`)
+    }
+    let walk: StoredNode | undefined = parent
+    const seen = new Set<NodeId>()
+    while (walk) {
+      if (walk.id === id || seen.has(walk.id)) {
+        throw new Error(`Node "${id}" cannot create a parent cycle.`)
+      }
+      seen.add(walk.id)
+      walk = walk.parentId ? state.nodes.get(walk.parentId) : undefined
+    }
+  }
+
+  function normalizeNode(input: NodeInput): StoredNode {
     const rawPoint = { x: input.x ?? 0, y: input.y ?? 0 }
     const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint
     const width = grid.snap
@@ -400,39 +1036,45 @@ export function createBoardEngine<
           nodeConstraints.minHeight,
         )
       : (input.height ?? nodeConstraints.defaultHeight)
-    const type = (input.type ?? 'text') as keyof R & string
+    const type = normalizeNodeType(input.type)
     const parentId =
       typeof input.parentId === 'string' && input.parentId.length > 0
         ? input.parentId
         : undefined
-
-    return {
-      id: input.id ?? createNodeId(),
-      type,
+    const id = input.id ?? createNodeId()
+    assertValidNodeGeometry(id, {
       x: snappedPoint.x,
       y: snappedPoint.y,
       width,
       height,
-      data: cloneData((input.data ?? defaultNodeData(type)) as R[keyof R]),
-      color: input.color,
-      zIndex: state.nextZIndex++,
-      locked: Boolean(input.locked),
-      visible: input.visible !== false,
-      parentId,
-      ...ZERO_VERSIONS,
-    }
+    })
+    assertValidParentLink(id, parentId)
+
+    return withNodeFields(
+      {
+        id,
+        type,
+        x: snappedPoint.x,
+        y: snappedPoint.y,
+        width,
+        height,
+        color: input.color,
+        zIndex: state.nextZIndex++,
+        locked: Boolean(input.locked),
+        visible: input.visible !== false,
+        parentId,
+        ...ZERO_VERSIONS,
+      },
+      input,
+    )
   }
 
-  function applyNodePatch<T extends keyof R = keyof R>(
-    node: StoredNode,
-    patch: NodePatch<R, T>,
-  ): StoredNode {
+  function applyNodePatch(node: StoredNode, patch: NodePatch): StoredNode {
     const nextBase = {
       ...node,
       ...patch,
       parentId: 'parentId' in patch ? patch.parentId : node.parentId,
       color: 'color' in patch ? patch.color : node.color,
-      data: patch.data === undefined ? node.data : cloneData(patch.data),
     }
     const x = grid.snap ? snapValue(nextBase.x, grid.size) : nextBase.x
     const y = grid.snap ? snapValue(nextBase.y, grid.size) : nextBase.y
@@ -442,6 +1084,8 @@ export function createBoardEngine<
     const height = grid.snap
       ? snapSize(nextBase.height, grid.size, nodeConstraints.minHeight)
       : nextBase.height
+    assertValidNodeGeometry(node.id, { x, y, width, height })
+    assertValidParentLink(node.id, nextBase.parentId)
 
     return {
       ...nextBase,
@@ -487,7 +1131,7 @@ export function createBoardEngine<
     emit('node:updated', publicNode, materializeNode(before))
   }
 
-  function getPublicNode(id: NodeId): ResolvedNode<R> {
+  function getPublicNode(id: NodeId): BoardNode {
     return materializeNode(assertStoredNode(id))
   }
 
@@ -729,10 +1373,69 @@ export function createBoardEngine<
     }
   }
 
+  function materializeSnapshotNodes(snapshot: BoardSnapshot): BoardNode[] {
+    return [...snapshot.nodes]
+  }
+
+  function documentToSnapshot(document: JsonCanvasDocument): BoardSnapshot {
+    const metadata = document['x-nuxt-board']
+    const nodes = document.nodes.map((node, index) =>
+      normalizeExistingNode(
+        jsonNodeToBoardNode(node, metadata?.nodes?.[node.id], index),
+      ),
+    )
+    const gridSettings: GridSettings = {
+      ...DEFAULT_GRID,
+      ...(metadata?.grid ?? {}),
+    }
+    const selection = Array.isArray(metadata?.selection)
+      ? metadata.selection.filter(
+          (id): id is NodeId =>
+            typeof id === 'string' && nodes.some((node) => node.id === id),
+        )
+      : []
+    const nextZIndex =
+      metadata?.nextZIndex ??
+      nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1
+    const camera = { ...DEFAULT_CAMERA, ...(metadata?.camera ?? {}) }
+
+    const snapshot: BoardSnapshot = {
+      camera,
+      grid: gridSettings,
+      nodes,
+      selection,
+      interaction: { mode: 'idle' },
+      snapGuides: [],
+      nextZIndex,
+    }
+
+    const failures = validateState(
+      {
+        camera,
+        nodes: new Map(nodes.map((node) => [node.id, node])),
+        selection: new Set(selection),
+        interaction: { mode: 'idle' },
+        snapGuides: [],
+        nextZIndex,
+      },
+      gridSettings,
+      'importJSON',
+    )
+    if (failures.length > 0) {
+      throw new Error(
+        `Invalid board document: ${failures[0]?.message ?? 'invariant failed.'}`,
+      )
+    }
+
+    return snapshot
+  }
+
   function restoreSnapshot(
-    snapshot: BoardSnapshot<R>,
+    snapshot: BoardSnapshot,
     mode: 'replace' | 'merge',
-  ): void {
+  ): Map<NodeId, NodeId> {
+    const snapshotNodes = materializeSnapshotNodes(snapshot)
+    const idMap = new Map<NodeId, NodeId>()
     if (mode === 'replace') {
       const existingIds = deletionOrderPostOrder(new Set(state.nodes.keys()))
       for (const id of existingIds) {
@@ -745,10 +1448,13 @@ export function createBoardEngine<
         emit('node:deleted', id, materializeNode(prevNode))
       }
 
-      state.nextZIndex = snapshot.nextZIndex
-      for (const rawNode of snapshot.nodes) {
+      state.nextZIndex =
+        snapshot.nextZIndex ??
+        snapshotNodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1
+      for (const rawNode of snapshotNodes) {
         const node = normalizeExistingNode(rawNode)
         state.nodes.set(node.id, node)
+        idMap.set(rawNode.id, node.id)
         dispatcher.dispatch({ type: 'NODE_CREATED', node })
         emit('node:created', materializeNode(node))
       }
@@ -759,89 +1465,33 @@ export function createBoardEngine<
       state.interaction = { mode: 'idle' }
       state.snapGuides = []
       state.camera = { ...snapshot.camera }
-      Object.assign(grid, snapshot.grid)
+      Object.assign(grid, { ...snapshot.grid })
       notifyCameraChanged()
       notifyNodesChanged()
       notifySelectionChanged()
       notifyInteractionChanged()
       notifySnapGuidesChanged()
-      return
+      return idMap
     }
 
-    for (const rawNode of snapshot.nodes) {
+    for (const rawNode of snapshotNodes) {
       const node = normalizeExistingNode(rawNode)
       const id = state.nodes.has(node.id) ? createNodeId() : node.id
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
+      idMap.set(node.id, id)
     }
     notifyNodesChanged()
+    return idMap
   }
 
-  function normalizeSnapshotForImport(raw: unknown): BoardSnapshot<R> {
-    const parsed = raw as Partial<BoardSnapshot<R>> | null
-    if (!parsed || !Array.isArray(parsed.nodes)) {
-      throw new Error('Invalid board document: missing nodes array.')
+  function restorePluginDocuments(
+    document: JsonCanvasDocument,
+    mode: 'replace' | 'merge',
+    idMap: ReadonlyMap<NodeId, NodeId> = new Map(),
+  ): void {
+    for (const entry of pluginPersistence.values()) {
+      entry.hooks.importDocument?.(entry.context, document, mode, idMap)
     }
-
-    const seen = new Set<NodeId>()
-    const nodes = parsed.nodes.map((node) => {
-      if (
-        typeof node.id !== 'string' ||
-        !Number.isFinite(node.x) ||
-        !Number.isFinite(node.y) ||
-        !Number.isFinite(node.width) ||
-        !Number.isFinite(node.height)
-      ) {
-        throw new Error(
-          `Invalid board document: node "${String(node.id ?? '?')}" has invalid geometry.`,
-        )
-      }
-      const normalized = normalizeExistingNode(node)
-      if (seen.has(normalized.id)) {
-        throw new Error(
-          `Invalid board document: duplicate node id "${normalized.id}".`,
-        )
-      }
-      seen.add(normalized.id)
-      return normalized as unknown as ResolvedNode<R>
-    })
-
-    const gridSettings: GridSettings = {
-      ...DEFAULT_GRID,
-      ...(parsed.grid ?? {}),
-    }
-    const snapshot: BoardSnapshot<R> = {
-      camera: { ...DEFAULT_CAMERA, ...(parsed.camera ?? {}) },
-      grid: gridSettings,
-      nodes,
-      selection: Array.isArray(parsed.selection)
-        ? parsed.selection.filter((id): id is NodeId => typeof id === 'string')
-        : [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: Number.isFinite(parsed.nextZIndex)
-        ? parsed.nextZIndex!
-        : nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1,
-    }
-
-    const failures = validateState<R>(
-      {
-        camera: snapshot.camera,
-        nodes: new Map(snapshot.nodes.map((node) => [node.id, node])),
-        selection: new Set(snapshot.selection),
-        interaction: snapshot.interaction,
-        snapGuides: snapshot.snapGuides,
-        nextZIndex: snapshot.nextZIndex,
-      },
-      snapshot.grid,
-      'importJSON',
-    )
-    if (failures.length > 0) {
-      throw new Error(
-        `Invalid board document: ${failures[0]?.message ?? 'invariant failed.'}`,
-      )
-    }
-
-    return snapshot
   }
 
   function replay(action: import('./state/actions').Action): void {
@@ -930,10 +1580,10 @@ export function createBoardEngine<
     )
   }
 
-  const engine: BoardPluginContext<R> = {
+  const engine: BoardPluginContext = {
     ext,
     $camera,
-    $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, ResolvedNode<R>>>,
+    $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
     $selection: $selection as Subscribable<ReadonlySet<NodeId>>,
     $interaction,
     $snapGuides,
@@ -948,6 +1598,7 @@ export function createBoardEngine<
       }
       pluginCleanups.clear()
       pluginSlices.clear()
+      pluginPersistence.clear()
       emit('destroy')
     },
     extend(key, value) {
@@ -1012,7 +1663,7 @@ export function createBoardEngine<
     once,
     off,
     exportTrace: eventBus.exportTrace,
-    use(plugin: BoardPlugin<R>) {
+    use(plugin: BoardPlugin) {
       if (pluginCleanups.has(plugin.name)) {
         return
       }
@@ -1028,8 +1679,8 @@ export function createBoardEngine<
           state: plugin.slice.initial,
         })
       }
-      const pluginCtx: BoardPluginContext<R> = Object.assign(
-        Object.create(engine) as BoardPluginContext<R>,
+      const pluginCtx: BoardPluginContext = Object.assign(
+        Object.create(engine) as BoardPluginContext,
         {
           getPluginState: <S>(): S => {
             const entry = pluginSlices.get(plugin.name)
@@ -1043,6 +1694,12 @@ export function createBoardEngine<
         },
       )
       const cleanup = plugin.install(pluginCtx)
+      if (plugin.persistence) {
+        pluginPersistence.set(plugin.name, {
+          context: pluginCtx,
+          hooks: plugin.persistence,
+        })
+      }
       pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
     },
     addMiddleware: middleware.add,
@@ -1204,7 +1861,7 @@ export function createBoardEngine<
         true,
       )
     },
-    createNode<T extends keyof R = keyof R>(input: NodeInput<R, T>) {
+    createNode(input: NodeInput) {
       return runCommand('createNode', [input], () => {
         const nextZIndexBefore = state.nextZIndex
         const node = normalizeNode(input)
@@ -1215,25 +1872,18 @@ export function createBoardEngine<
         if (input.select !== false) {
           setSelection([node.id])
         }
-        const publicNode = materializeNode(node) as ResolvedNode<R, T>
+        const publicNode = materializeNode(node)
         emit('node:created', publicNode)
         return publicNode
       })
     },
-    updateNode<T extends keyof R = keyof R>(
-      id: NodeId,
-      patch: NodePatch<R, T>,
-    ) {
+    updateNode(id: NodeId, patch: NodePatch) {
       return runCommand('updateNode', [id, patch], () => {
         const current = assertStoredNode(id)
         const next = applyNodePatch(current, patch)
         const stored = replaceStoredNodeAndDispatch(current, next)
-        const publicNode = materializeNode(stored) as ResolvedNode<R, T>
-        emit(
-          'node:updated',
-          publicNode,
-          materializeNode(current) as ResolvedNode<R, T>,
-        )
+        const publicNode = materializeNode(stored)
+        emit('node:updated', publicNode, materializeNode(current))
         return publicNode
       })
     },
@@ -1448,10 +2098,7 @@ export function createBoardEngine<
       return runCommand('copySelected', [], () => {
         clipboard.length = 0
         for (const node of getCopyClosureNodes()) {
-          clipboard.push({
-            ...node,
-            data: cloneData(node.data),
-          })
+          clipboard.push({ ...node })
         }
         return clipboard.map((node) => materializeNode(node))
       })
@@ -1652,12 +2299,7 @@ export function createBoardEngine<
         const node = assertStoredNode(id)
         let stored = node
         if (text !== undefined) {
-          const data =
-            typeof node.data === 'object' && node.data !== null
-              ? cloneData(node.data)
-              : {}
-          ;(data as Record<string, unknown>).content = text
-          stored = replaceStoredNodeAndDispatch(node, { ...node, data })
+          stored = replaceStoredNodeAndDispatch(node, { ...node, text })
           emit('node:updated', materializeNode(stored), materializeNode(node))
         }
         setInteraction({ mode: 'idle' })
@@ -1970,12 +2612,18 @@ export function createBoardEngine<
       })
     },
     exportJSON() {
-      return JSON.stringify(getSnapshot())
+      const pluginDocuments = Array.from(
+        pluginPersistence.values(),
+        (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
+      )
+      return JSON.stringify(toPersistedDocument(getSnapshot(), pluginDocuments))
     },
     importJSON(json, mode = 'replace') {
       runCommand('importJSON', [mode], () => {
-        const parsed = normalizeSnapshotForImport(JSON.parse(json))
-        restoreSnapshot(parsed, mode)
+        const document = normalizeDocumentForImport(JSON.parse(json))
+        const snapshot = documentToSnapshot(document)
+        const idMap = restoreSnapshot(snapshot, mode)
+        restorePluginDocuments(document, mode, idMap)
       })
     },
   }
@@ -1986,8 +2634,12 @@ export function createBoardEngine<
     engine.use(plugin)
   }
 
+  if (initialDocument) {
+    restorePluginDocuments(initialDocument, 'replace')
+  }
+
   validate('createBoardEngine')
   emit('ready')
 
-  return engine as BoardEngine<R>
+  return engine
 }

@@ -1,6 +1,6 @@
 import type { CommandMiddleware } from '../types'
 
-export interface MiddlewareRegistry {
+interface MiddlewareRegistry {
   add(fn: CommandMiddleware): () => void
   run(name: string, args: unknown[]): boolean
 }

@@ -8,7 +8,6 @@ import {
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 import { BoardMinimap } from '@lupinum/board-minimap'
-import { jsonCanvasSerializer } from '@lupinum/board-serializer'
 import { BoardRoot, type BoardRendererRegistry } from '@lupinum/vue-board'
 import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
 import ImageNodeRenderer from './components/ImageNodeRenderer.vue'
@@ -50,6 +49,7 @@ const showMinimap = ref(true)
 
 // ━━ Renderers ━━
 const renderers: BoardRendererRegistry = {
+  file: ImageNodeRenderer,
   image: ImageNodeRenderer,
   group: GroupNodeRenderer,
 }
@@ -144,14 +144,13 @@ async function runBenchmark(): Promise<void> {
 
 // ━━ JSON Canvas ━━
 function exportJsonCanvas(): string {
-  exportedJson.value = jsonCanvasSerializer.export(engine)
+  exportedJson.value = engine.exportJSON()
   return exportedJson.value
 }
 
 function importJsonCanvas(): void {
   if (!exportedJson.value) return
-  const doc = jsonCanvasSerializer.parse(exportedJson.value)
-  jsonCanvasSerializer.hydrateEngine(engine, doc, 'replace')
+  engine.importJSON(exportedJson.value, 'replace')
 }
 
 const GROUP_PAD = 36

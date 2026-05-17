@@ -1,7 +1,3 @@
-export function cloneData<T>(value: T): T {
-  return structuredClone(value)
-}
-
 export function freezeClone<T>(value: T): T {
   if (Array.isArray(value)) {
     for (const entry of value) {

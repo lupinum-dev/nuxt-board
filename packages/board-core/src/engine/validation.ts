@@ -4,22 +4,19 @@ import type {
   GridSettings,
   InvariantFailure,
   InvariantMode,
-  NodeTypeRegistry,
 } from '../types'
 
-export interface ValidationDeps<R extends NodeTypeRegistry> {
+interface ValidationDeps {
   invariantMode: InvariantMode
-  getState: () => BoardState<R>
+  getState: () => BoardState
   getGrid: () => GridSettings
-  emitFailure: (failure: InvariantFailure<R>) => void
+  emitFailure: (failure: InvariantFailure) => void
 }
 
-export function createValidator<R extends NodeTypeRegistry>(
-  deps: ValidationDeps<R>,
-) {
+export function createValidator(deps: ValidationDeps) {
   return function validate(context: string): void {
     if (deps.invariantMode === 'off') return
-    const failures = validateState<R>(deps.getState(), deps.getGrid(), context)
+    const failures = validateState(deps.getState(), deps.getGrid(), context)
     for (const failure of failures) {
       deps.emitFailure(failure)
     }

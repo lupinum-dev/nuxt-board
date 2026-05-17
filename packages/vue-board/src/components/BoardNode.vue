@@ -127,8 +127,7 @@ function getTextContent(node: BoardNode): string {
   if (node.type !== 'text') {
     return ''
   }
-  const content = (node.data as Record<string, unknown>)?.content
-  return typeof content === 'string' ? content : ''
+  return typeof node.text === 'string' ? node.text : ''
 }
 </script>
 

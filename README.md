@@ -41,7 +41,6 @@ engine.createNode({
 | `@lupinum/board-history`     | Undo and redo integration for engine commands.                               |
 | `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
 | `@lupinum/board-selection`   | Snapshot-based selection helpers.                                            |
-| `@lupinum/board-serializer`  | JSON Canvas import/export.                                                   |
 
 ## Install
 

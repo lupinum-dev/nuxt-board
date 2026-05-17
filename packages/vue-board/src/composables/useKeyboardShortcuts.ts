@@ -2,7 +2,7 @@ import { onBeforeUnmount, onMounted, type Ref } from 'vue'
 import type { BoardEngine, BoardSnapshot } from '@lupinum/board-core'
 
 /** Options for wiring keyboard shortcuts to a board engine instance. */
-export interface UseKeyboardShortcutsOptions {
+interface UseKeyboardShortcutsOptions {
   engine: BoardEngine
   snapshot: Ref<BoardSnapshot>
   spacePressed: Ref<boolean>
@@ -115,9 +115,8 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     }
     if (selection.length > 0 && event.key.startsWith('Arrow')) {
       event.preventDefault()
-      const step = event.shiftKey
-        ? snapshot.value.grid.size * snapshot.value.grid.majorEvery
-        : snapshot.value.grid.size
+      const grid = snapshot.value.grid ?? engine.getGridSettings()
+      const step = event.shiftKey ? grid.size * grid.majorEvery : grid.size
       const delta =
         event.key === 'ArrowLeft'
           ? { x: -step, y: 0 }

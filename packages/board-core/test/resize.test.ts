@@ -560,7 +560,7 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
 
     engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
 
-    const interaction = engine.getSnapshot().interaction
+    const interaction = engine.getState().interaction
     expect(interaction.mode).toBe('resizing-node')
     if (interaction.mode === 'resizing-node') {
       expect(interaction.aspectRatio).toBeCloseTo(1.5, 5)
