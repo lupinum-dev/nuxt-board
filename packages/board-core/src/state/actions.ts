@@ -16,4 +16,4 @@ export type Action =
   | { type: 'GRID_UPDATED'; before: GridSettings; after: GridSettings }
   | { type: 'NEXT_Z_INDEX_BUMPED'; before: number; after: number }
   | { type: 'BATCH'; actions: Action[] }
-  | { type: 'PLUGIN'; plugin: string; action: unknown }
+  | { type: 'FEATURE_ACTION'; feature: string; action: unknown }

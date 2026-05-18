@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 
 const engine = createBoardEngine({
   grid: {
@@ -20,52 +21,52 @@ watch(edgeSnap, (v) => engine.updateGridSettings({ edgeSnap: v }))
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      camera: { x: 0, y: 0, z: 1 },
-      grid: engine.getGridSettings(),
-      nodes: [
-        {
-          id: 'a',
-          type: 'text',
-          x: 70,
-          y: 70,
-          width: 210,
-          height: 100,
-          text: 'Node',
-          zIndex: 1,
-          locked: false,
-          visible: true,
-        },
-        {
-          id: 'b',
-          type: 'text',
-          x: 340,
-          y: 180,
-          width: 210,
-          height: 100,
-          text: 'Node',
-          zIndex: 2,
-          locked: false,
-          visible: true,
-        },
-        {
-          id: 'c',
-          type: 'text',
-          x: 200,
-          y: 320,
-          width: 210,
-          height: 100,
-          text: 'Node',
-          zIndex: 3,
-          locked: false,
-          visible: true,
-        },
-      ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 4,
-    }),
+    JSON.stringify(
+      createDemoDocument({
+        camera: { x: 0, y: 0, z: 1 },
+        grid: engine.getGridSettings(),
+        nodes: [
+          {
+            id: 'a',
+            type: 'text',
+            x: 70,
+            y: 70,
+            width: 210,
+            height: 100,
+            text: 'Node',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'b',
+            type: 'text',
+            x: 340,
+            y: 180,
+            width: 210,
+            height: 100,
+            text: 'Node',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'c',
+            type: 'text',
+            x: 200,
+            y: 320,
+            width: 210,
+            height: 100,
+            text: 'Node',
+            zIndex: 3,
+            locked: false,
+            visible: true,
+          },
+        ],
+        selection: [],
+        nextZIndex: 4,
+      }),
+    ),
     'replace',
   )
 }

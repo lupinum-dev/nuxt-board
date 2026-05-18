@@ -81,10 +81,10 @@ pnpm test:e2e
 
 ## Docs
 
-- [Quick Start](packages/docs/content/1.getting-started/3.quick-start.md)
-- [Core Concepts](packages/docs/content/2.essentials/1.core-concepts.md)
-- [Guides](packages/docs/content/3.guides)
-- [API Reference](packages/docs/content/6.api)
-- [Contributing](packages/docs/content/8.oss/1.contributing.md)
+- [Quick Start](apps/docs/content/1.getting-started/3.quick-start.md)
+- [Core Concepts](apps/docs/content/2.essentials/1.core-concepts.md)
+- [Guides](apps/docs/content/3.guides)
+- [API Reference](apps/docs/content/6.api)
+- [Contributing](apps/docs/content/8.oss/1.contributing.md)
 
-API reference pages are maintained with the docs content in `packages/docs/content/6.api`.
+API reference pages are maintained with the docs content in `apps/docs/content/6.api`.

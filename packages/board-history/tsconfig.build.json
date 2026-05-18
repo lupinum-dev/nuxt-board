@@ -8,7 +8,8 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@lupinum/board-core": ["../board-core/dist/index.d.ts"]
+      "@lupinum/board-core": ["../board-core/dist/index.d.ts"],
+      "@lupinum/board-core/internal": ["../board-core/dist/internal.d.ts"]
     }
   },
   "include": ["src/**/*.ts"]

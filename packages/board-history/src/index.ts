@@ -1,8 +1,13 @@
 import type {
-  FirstPartyBoardAction,
-  FirstPartyBoardFeature,
-  FirstPartyBoardFeatureContext,
+  BoardExtension,
+  BoardEventMap,
+  BoardFeatureExtensions,
 } from '@lupinum/board-core'
+import type {
+  InternalBoardAction,
+  InternalBoardFeature,
+  InternalFeatureContext,
+} from '@lupinum/board-core/internal'
 
 /** Public history state exposed by the history plugin extension. */
 export interface HistoryState {
@@ -14,7 +19,7 @@ export interface HistoryState {
 /** A single undoable history frame captured from dispatched actions. */
 export interface HistoryEntry {
   label: string
-  actions: FirstPartyBoardAction[]
+  actions: InternalBoardAction[]
   timestamp: number
 }
 
@@ -22,7 +27,6 @@ export interface HistoryEntry {
 export interface HistoryPluginOptions {
   maxSteps?: number
   debounceMs?: number
-  exclude?: string[]
 }
 
 declare module '@lupinum/board-core' {
@@ -39,27 +43,12 @@ declare module '@lupinum/board-core' {
       redo: () => void
       canUndo: () => boolean
       canRedo: () => boolean
+      flushPending: () => void
       clear: () => void
       getState: () => HistoryState
     }
   }
 }
-
-const DEFAULT_EXCLUDE = new Set([
-  'panBy',
-  'panTo',
-  'zoomAt',
-  'zoomTo',
-  'zoomToFit',
-  'zoomToNodes',
-  'beginPan',
-  'beginNodeDrag',
-  'beginResize',
-  'beginBoxSelect',
-  'beginTextEdit',
-  'endInteraction',
-  'importJSON',
-])
 
 function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
   if (prev.label !== next.label) return false
@@ -93,8 +82,8 @@ function isCoalescableNodeUpdate(
 }
 
 function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
-  const a = prev.actions[0] as FirstPartyBoardAction & { type: 'NODES_MOVED' }
-  const b = next.actions[0] as FirstPartyBoardAction & { type: 'NODES_MOVED' }
+  const a = prev.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
+  const b = next.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
   const merged = a.deltas.map((delta, i) => ({
     id: delta.id,
     before: delta.before,
@@ -108,8 +97,8 @@ function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
 }
 
 function mergeNodeUpdate(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
-  const a = prev.actions[0] as FirstPartyBoardAction & { type: 'NODE_UPDATED' }
-  const b = next.actions[0] as FirstPartyBoardAction & { type: 'NODE_UPDATED' }
+  const a = prev.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
+  const b = next.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
   return {
     label: prev.label,
     actions: [
@@ -134,7 +123,7 @@ function mergeCoalesced(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
     : mergeNodeUpdate(prev, next)
 }
 
-function undoReplayPriority(action: FirstPartyBoardAction): number {
+function undoReplayPriority(action: InternalBoardAction): number {
   switch (action.type) {
     case 'NODE_CREATED':
       return 0
@@ -143,7 +132,7 @@ function undoReplayPriority(action: FirstPartyBoardAction): number {
     case 'GRID_UPDATED':
     case 'NEXT_Z_INDEX_BUMPED':
       return 1
-    case 'PLUGIN':
+    case 'FEATURE_ACTION':
       return 2
     case 'SELECTION_SET':
       return 3
@@ -155,9 +144,9 @@ function undoReplayPriority(action: FirstPartyBoardAction): number {
 }
 
 function getUndoReplayActions(
-  engine: FirstPartyBoardFeatureContext,
+  engine: InternalFeatureContext,
   entry: HistoryEntry,
-): FirstPartyBoardAction[] {
+): InternalBoardAction[] {
   return [...entry.actions]
     .reverse()
     .map((action) => engine.invertAction(action))
@@ -172,19 +161,26 @@ function getUndoReplayActions(
  */
 export function historyPlugin(
   options: HistoryPluginOptions = {},
-): FirstPartyBoardFeature {
+): BoardExtension {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)
-  const excluded = new Set([...(options.exclude ?? []), ...DEFAULT_EXCLUDE])
 
-  return {
+  const feature: InternalBoardFeature = {
     name: 'history',
     install(engine) {
+      const emit = engine.emit as <K extends keyof BoardEventMap>(
+        event: K,
+        ...args: Parameters<BoardEventMap[K]>
+      ) => void
+      const extend = engine.extend as (
+        key: 'history',
+        value: BoardFeatureExtensions['history'],
+      ) => void
       const undoStack: HistoryEntry[] = []
       const redoStack: HistoryEntry[] = []
 
       let activeCommand: string | null = null
-      let activeActions: FirstPartyBoardAction[] = []
+      let activeActions: InternalBoardAction[] = []
       let pending: HistoryEntry | null = null
       let pendingTimer: ReturnType<typeof setTimeout> | null = null
       let replaying = false
@@ -212,7 +208,7 @@ export function historyPlugin(
         }
         redoStack.length = 0
         const final = undoStack[undoStack.length - 1]!
-        engine.emit('history:push', final)
+        emit('history:push', final)
       }
 
       function schedulePending(entry: HistoryEntry): void {
@@ -240,30 +236,38 @@ export function historyPlugin(
         activeActions.push(action)
       })
 
-      const offBefore = engine.on('command:before', (name) => {
+      const offBefore = engine.on('command:before', (name, _args, metadata) => {
         if (replaying) return
-        if (excluded.has(name)) return
-        activeCommand = name
-        activeActions = []
-      })
-
-      const offAfter = engine.on('command:after', (name) => {
-        if (replaying) return
-        if (activeCommand !== name) {
+        if (metadata.history === 'ignore') {
           activeCommand = null
           activeActions = []
           return
         }
-        const captured = activeActions
-        activeCommand = null
+        activeCommand = name
         activeActions = []
-        if (captured.length === 0) return
-        schedulePending({
-          label: name,
-          actions: captured,
-          timestamp: Date.now(),
-        })
       })
+
+      const offAfter = engine.on(
+        'command:after',
+        (name, _args, _duration, metadata) => {
+          if (replaying) return
+          if (metadata.history === 'ignore') return
+          if (activeCommand !== name) {
+            activeCommand = null
+            activeActions = []
+            return
+          }
+          const captured = activeActions
+          activeCommand = null
+          activeActions = []
+          if (captured.length === 0) return
+          schedulePending({
+            label: name,
+            actions: captured,
+            timestamp: Date.now(),
+          })
+        },
+      )
 
       function applyEntry(
         entry: HistoryEntry,
@@ -290,34 +294,36 @@ export function historyPlugin(
           commitPending()
           const entry = undoStack.pop() ?? null
           if (!entry) {
-            engine.emit('history:undo', null)
+            emit('history:undo', null)
             return
           }
           applyEntry(entry, 'undo')
           redoStack.push(entry)
-          engine.emit('history:undo', entry)
+          emit('history:undo', entry)
         },
 
         redo: () => {
           commitPending()
           const entry = redoStack.pop() ?? null
           if (!entry) {
-            engine.emit('history:redo', null)
+            emit('history:redo', null)
             return
           }
           applyEntry(entry, 'redo')
           undoStack.push(entry)
-          engine.emit('history:redo', entry)
+          emit('history:redo', entry)
         },
 
         canUndo: () => {
-          commitPending()
           return undoStack.length > 0
         },
 
         canRedo: () => {
-          commitPending()
           return redoStack.length > 0
+        },
+
+        flushPending: () => {
+          commitPending()
         },
 
         clear: () => {
@@ -327,7 +333,7 @@ export function historyPlugin(
           clearPendingTimer()
           activeCommand = null
           activeActions = []
-          engine.emit('history:clear')
+          emit('history:clear')
         },
 
         getState: (): HistoryState => ({
@@ -338,7 +344,7 @@ export function historyPlugin(
         }),
       }
 
-      engine.extend('history', api)
+      extend('history', api)
 
       return () => {
         offAction()
@@ -348,4 +354,6 @@ export function historyPlugin(
       }
     },
   }
+
+  return feature
 }

@@ -9,6 +9,9 @@ export default defineConfig({
       '@lupinum/board-core': fileURLToPath(
         new URL('../board-core/src/index.ts', import.meta.url),
       ),
+      '@lupinum/board-core/internal': fileURLToPath(
+        new URL('../board-core/src/internal.ts', import.meta.url),
+      ),
       '@lupinum/vue-board': fileURLToPath(
         new URL('../vue-board/src/index.ts', import.meta.url),
       ),
@@ -22,7 +25,12 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@lupinum/board-core', '@lupinum/vue-board'],
+      external: [
+        'vue',
+        '@lupinum/board-core',
+        '@lupinum/board-core/internal',
+        '@lupinum/vue-board',
+      ],
     },
   },
 })

@@ -45,7 +45,7 @@ function seed() {
           text: 'Edit the JSON\nthen import back',
         },
       ],
-      'x-nuxt-board': {
+      'x-vue-board': {
         camera: { x: 0, y: 0, z: 1 },
         grid: engine.getGridSettings(),
         nextZIndex: 3,

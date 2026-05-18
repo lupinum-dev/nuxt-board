@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 
 const demos = [
   { label: 'Line', pattern: 'line' as const },
@@ -19,40 +20,40 @@ function seedOne(
   engine: ReturnType<typeof createBoardEngine>,
 ) {
   engine.importJSON(
-    JSON.stringify({
-      camera: { x: 0, y: 0, z: 1 },
-      grid: { ...engine.getGridSettings(), pattern },
-      nodes: [
-        {
-          id: 'alpha',
-          type: 'text',
-          x: 70,
-          y: 70,
-          width: 200,
-          height: 100,
-          text: `${pattern}\nDrag me`,
-          zIndex: 1,
-          locked: false,
-          visible: true,
-        },
-        {
-          id: 'beta',
-          type: 'text',
-          x: 330,
-          y: 160,
-          width: 200,
-          height: 100,
-          text: 'Node',
-          zIndex: 2,
-          locked: false,
-          visible: true,
-        },
-      ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 3,
-    }),
+    JSON.stringify(
+      createDemoDocument({
+        camera: { x: 0, y: 0, z: 1 },
+        grid: { ...engine.getGridSettings(), pattern },
+        nodes: [
+          {
+            id: 'alpha',
+            type: 'text',
+            x: 70,
+            y: 70,
+            width: 200,
+            height: 100,
+            text: `${pattern}\nDrag me`,
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'beta',
+            type: 'text',
+            x: 330,
+            y: 160,
+            width: 200,
+            height: 100,
+            text: 'Node',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+        ],
+        selection: [],
+        nextZIndex: 3,
+      }),
+    ),
     'replace',
   )
 }

@@ -42,6 +42,7 @@ export type {
   ConnectionRouteSegment,
   ConnectionRouting,
   ConnectionsExtension,
+  CreateNodeForConnectionContext,
   EdgeEnd,
   ResolvedConnectionEndpoint,
 } from './types'

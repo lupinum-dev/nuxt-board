@@ -1,76 +1,83 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
 })
+const nodeCount = ref(0)
+
+function syncNodeCount() {
+  nodeCount.value = engine.getState().nodes.size
+}
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      camera: { x: -80, y: -20, z: 1 },
-      grid: engine.getGridSettings(),
-      nodes: [
-        {
-          id: 'group-1',
-          type: 'group',
-          x: 32,
-          y: 32,
-          width: 896,
-          height: 306,
-          text: 'Node',
-          zIndex: 0,
-          locked: false,
-          visible: true,
-        },
-        {
-          id: 'research',
-          type: 'text',
-          x: 60,
-          y: 60,
-          width: 240,
-          height: 100,
-          text: 'Node',
-          zIndex: 1,
-          locked: false,
-          visible: true,
-          parentId: 'group-1',
-        },
-        {
-          id: 'prototype',
-          type: 'text',
-          x: 370,
-          y: 200,
-          width: 260,
-          height: 110,
-          text: 'Node',
-          zIndex: 2,
-          locked: false,
-          visible: true,
-          parentId: 'group-1',
-        },
-        {
-          id: 'review',
-          type: 'text',
-          x: 680,
-          y: 80,
-          width: 220,
-          height: 100,
-          text: 'Node',
-          zIndex: 3,
-          locked: false,
-          visible: true,
-          parentId: 'group-1',
-        },
-      ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 4,
-    }),
+    JSON.stringify(
+      createDemoDocument({
+        camera: { x: -80, y: -20, z: 1 },
+        grid: engine.getGridSettings(),
+        nodes: [
+          {
+            id: 'group-1',
+            type: 'group',
+            x: 32,
+            y: 32,
+            width: 896,
+            height: 306,
+            text: 'Node',
+            zIndex: 0,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'research',
+            type: 'text',
+            x: 60,
+            y: 60,
+            width: 240,
+            height: 100,
+            text: 'Node',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+            parentId: 'group-1',
+          },
+          {
+            id: 'prototype',
+            type: 'text',
+            x: 370,
+            y: 200,
+            width: 260,
+            height: 110,
+            text: 'Node',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+            parentId: 'group-1',
+          },
+          {
+            id: 'review',
+            type: 'text',
+            x: 680,
+            y: 80,
+            width: 220,
+            height: 100,
+            text: 'Node',
+            zIndex: 3,
+            locked: false,
+            visible: true,
+            parentId: 'group-1',
+          },
+        ],
+        selection: [],
+        nextZIndex: 4,
+      }),
+    ),
     'replace',
   )
+  syncNodeCount()
 }
 
 function addNode() {
@@ -82,6 +89,7 @@ function addNode() {
     height: 100,
     text: 'Node',
   })
+  syncNodeCount()
 }
 
 function wrapSelectionInGroup() {
@@ -123,7 +131,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="demo-frame">
+  <div
+    class="demo-frame"
+    data-testid="basic-board-demo"
+    :data-node-count="nodeCount"
+  >
     <div class="demo-toolbar">
       <button class="demo-danger" @click="seed">Reset</button>
       <button class="demo-primary" @click="addNode">Add note</button>

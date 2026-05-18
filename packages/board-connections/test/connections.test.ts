@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  asEdgeId,
-  asNodeId,
-  createBoardEngine,
-  type FirstPartyBoardFeature,
-} from '@lupinum/board-core'
+import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
+import type { InternalBoardFeature } from '@lupinum/board-core/internal'
 import {
   buildConnectionRoute,
   connectionPlugin,
@@ -134,7 +130,7 @@ describe('connections plugin', () => {
         label: 'edge label',
       },
     ])
-    expect(exported['x-nuxt-board'].edges[edgeId]).toEqual({
+    expect(exported['x-vue-board'].edges[edgeId]).toEqual({
       zIndex: 4,
       data: { weight: 2 },
     })
@@ -262,7 +258,7 @@ describe('connections plugin', () => {
     engine.importJSON(
       JSON.stringify({
         nodes: [],
-        'x-nuxt-board': {
+        'x-vue-board': {
           selection: [],
           nextZIndex: 1,
         },
@@ -486,7 +482,7 @@ describe('connections plugin', () => {
   })
 
   it('rolls back imported connection state when a later feature import fails', () => {
-    const failingFeature: FirstPartyBoardFeature = {
+    const failingFeature: InternalBoardFeature = {
       name: 'failing-import',
       persistence: {
         importDocument() {

@@ -81,6 +81,42 @@ describe('history plugin', () => {
     vi.useRealTimers()
   })
 
+  it('keeps read methods pure while a debounced entry is pending', () => {
+    vi.useFakeTimers()
+    const engine = createBoardEngine({
+      extensions: [historyPlugin({ debounceMs: 50 })],
+    })
+
+    engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'Pending',
+    })
+
+    expect(engine.ext.history.getState()).toEqual({
+      undoDepth: 0,
+      redoDepth: 0,
+      current: 'createNode',
+    })
+    expect(engine.ext.history.canUndo()).toBe(false)
+    expect(engine.ext.history.canRedo()).toBe(false)
+    expect(engine.ext.history.getState()).toEqual({
+      undoDepth: 0,
+      redoDepth: 0,
+      current: 'createNode',
+    })
+
+    engine.ext.history.flushPending()
+    expect(engine.ext.history.getState()).toEqual({
+      undoDepth: 1,
+      redoDepth: 0,
+      current: 'createNode',
+    })
+    expect(engine.ext.history.canUndo()).toBe(true)
+    vi.useRealTimers()
+  })
+
   it('undoes and redoes text edits from the built-in editor flow', () => {
     const engine = createBoardEngine({
       extensions: [historyPlugin({ debounceMs: 0 })],
@@ -324,7 +360,7 @@ describe('history plugin', () => {
             text: 'Imported',
           },
         ],
-        'x-nuxt-board': {
+        'x-vue-board': {
           selection: [existing.id],
         },
       }),

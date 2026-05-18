@@ -11,6 +11,7 @@ import {
 } from 'vue'
 import {
   type BoardEngine,
+  type BoardNode,
   type EdgeId,
   type NodeId,
   type Point,
@@ -29,6 +30,7 @@ import type {
   AnchorSide,
   BoardEdge,
   ConnectionEndpointMode,
+  CreateNodeForConnectionContext,
   ConnectionRouting,
   EdgeEnd,
   ResolvedConnectionEndpoint,
@@ -113,6 +115,12 @@ export const BoardConnectionLayer = defineComponent({
     endpointMode: {
       type: String as PropType<ConnectionEndpointMode | undefined>,
       default: undefined,
+    },
+    createNodeForConnection: {
+      type: Function as PropType<
+        (context: CreateNodeForConnectionContext) => BoardNode | null
+      >,
+      default: null,
     },
   },
   setup(props, { slots }) {
@@ -709,24 +717,19 @@ export const BoardConnectionLayer = defineComponent({
         return
       }
 
-      const targetNode =
-        (active.candidateNodeId
-          ? currentEngine.findNode(active.candidateNodeId)
-          : null) ??
-        (() => {
-          const created = currentEngine.createNode({
-            type: 'text',
-            x: active.pointerWorld.x,
-            y: active.pointerWorld.y,
-            text: '',
+      const targetNode = active.candidateNodeId
+        ? currentEngine.findNode(active.candidateNodeId)
+        : props.createNodeForConnection?.({
+            sourceNodeId: active.sourceNodeId,
+            sourceSide: active.sourceSide,
+            pointerWorld: { ...active.pointerWorld },
+            candidateAnchor: active.candidateAnchor
+              ? { ...active.candidateAnchor }
+              : null,
           })
-          const centered = currentEngine.updateNode(created.id, {
-            x: created.x - created.width / 2,
-            y: created.y - created.height / 2,
-          })
-          currentEngine.beginTextEdit(centered.id)
-          return centered
-        })()
+      if (!targetNode) {
+        return
+      }
 
       const createdEdge = currentEngine.ext.connections.createEdge({
         from: sourceNode.id,

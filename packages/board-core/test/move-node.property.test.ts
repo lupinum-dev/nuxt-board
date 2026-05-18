@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { createBoardEngine } from '../src'
+import { createBoardEngine, type BoardNode } from '../src'
 
 const finiteInt = (min: number, max: number) => fc.integer({ min, max })
 const moveDelta = fc.record({
@@ -17,6 +17,19 @@ const buildEngineWithNodes = (count: number) => {
     )
   }
   return { engine, ids }
+}
+
+function expectNoParentCycles(nodes: readonly BoardNode[]): void {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  for (const node of nodes) {
+    const seen = new Set([node.id])
+    let parentId = node.parentId
+    while (parentId) {
+      expect(seen.has(parentId)).toBe(false)
+      seen.add(parentId)
+      parentId = byId.get(parentId)?.parentId
+    }
+  }
 }
 
 describe('moveNode invariants', () => {
@@ -95,6 +108,48 @@ describe('moveNode invariants', () => {
         },
       ),
       { numRuns: 30 },
+    )
+  })
+
+  it('preserves hierarchy invariants while moving grouped nodes', () => {
+    fc.assert(
+      fc.property(
+        fc.array(moveDelta, { minLength: 1, maxLength: 20 }),
+        (deltas) => {
+          const engine = createBoardEngine({ grid: { snap: false } })
+          const group = engine.createNode({
+            type: 'group',
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 240,
+            select: false,
+          })
+          const child = engine.createNode({
+            type: 'text',
+            x: 40,
+            y: 40,
+            width: 100,
+            height: 70,
+            text: '',
+            parentId: group.id,
+            select: false,
+          })
+
+          for (const { dx, dy } of deltas) {
+            engine.moveNode(group.id, dx, dy)
+            engine.moveNode(child.id, -dx / 2, -dy / 2)
+            const nodes = engine.getSnapshot().nodes
+            expectNoParentCycles(nodes)
+            const latestGroup = nodes.find((node) => node.id === group.id)!
+            const latestChild = nodes.find((node) => node.id === child.id)!
+            if (latestChild.parentId === latestGroup.id) {
+              expect(latestChild.zIndex).toBeGreaterThan(latestGroup.zIndex)
+            }
+          }
+        },
+      ),
+      { numRuns: 50 },
     )
   })
 })

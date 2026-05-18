@@ -1,13 +1,18 @@
 import {
   asEdgeId,
+  type BoardEventMap,
+  type BoardExtension,
+  type BoardFeatureExtensions,
   type EdgeId,
-  type FirstPartyBoardAction,
-  type FirstPartyBoardFeature,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
   type JsonCanvasSide,
   type NodeId,
 } from '@lupinum/board-core'
+import type {
+  InternalBoardAction,
+  InternalBoardFeature,
+} from '@lupinum/board-core/internal'
 import type {
   BoardEdge,
   BoardEdgePatch,
@@ -37,13 +42,16 @@ const initialConnectionsState: ConnectionsState = {
 }
 
 function isConnectionsAction(
-  action: FirstPartyBoardAction,
-): action is FirstPartyBoardAction & {
-  type: 'PLUGIN'
-  plugin: typeof CONNECTIONS_FEATURE_NAME
+  action: InternalBoardAction,
+): action is InternalBoardAction & {
+  type: 'FEATURE_ACTION'
+  feature: typeof CONNECTIONS_FEATURE_NAME
   action: ConnectionsAction
 } {
-  return action.type === 'PLUGIN' && action.plugin === CONNECTIONS_FEATURE_NAME
+  return (
+    action.type === 'FEATURE_ACTION' &&
+    action.feature === CONNECTIONS_FEATURE_NAME
+  )
 }
 
 function invertConnectionAction(action: ConnectionsAction): ConnectionsAction {
@@ -64,7 +72,7 @@ function invertConnectionAction(action: ConnectionsAction): ConnectionsAction {
 
 function reduceConnectionsState(
   state: ConnectionsState,
-  action: FirstPartyBoardAction,
+  action: InternalBoardAction,
 ): ConnectionsState {
   if (isConnectionsAction(action)) {
     const inner = action.action
@@ -156,7 +164,7 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionPlugin(
   options: ConnectionPluginOptions = {},
-): FirstPartyBoardFeature {
+): BoardExtension {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
@@ -167,7 +175,7 @@ export function connectionPlugin(
   }
   const defaults = defaultEnds(defaultArrow)
 
-  return {
+  const feature: InternalBoardFeature = {
     name: CONNECTIONS_FEATURE_NAME,
     slice: {
       initial: initialConnectionsState,
@@ -176,13 +184,15 @@ export function connectionPlugin(
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
-        const edges = engine.ext.connections.getEdges()
+        const edges = (
+          engine.ext as BoardFeatureExtensions
+        ).connections.getEdges()
         if (edges.length === 0) {
           return {}
         }
         return {
           edges: edges.map(edgeToJsonCanvas),
-          'x-nuxt-board': {
+          'x-vue-board': {
             edges: Object.fromEntries(
               edges.map((edge) => [
                 edge.id,
@@ -198,7 +208,7 @@ export function connectionPlugin(
         }
       },
       importDocument(engine, document, mode, idMap): void {
-        const api = engine.ext.connections
+        const api = (engine.ext as BoardFeatureExtensions).connections
         if (mode === 'replace') {
           for (const edge of api.getEdges()) {
             api.deleteEdge(edge.id)
@@ -211,7 +221,8 @@ export function connectionPlugin(
           if (!engine.hasNode(from) || !engine.hasNode(to)) {
             continue
           }
-          const metadata = document['x-nuxt-board']?.edges?.[edge.id]
+          const metadata = (document['x-vue-board'] ?? document['x-nuxt-board'])
+            ?.edges?.[edge.id]
           const id =
             mode === 'merge' && api.getEdge(edge.id)
               ? asEdgeId(crypto.randomUUID())
@@ -240,7 +251,7 @@ export function connectionPlugin(
     },
     install(engine) {
       const getState = (): ConnectionsState =>
-        engine.getPluginState<ConnectionsState>()
+        engine.getFeatureState<ConnectionsState>()
 
       function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
         const edge = getState().edges.get(id)
@@ -257,40 +268,45 @@ export function connectionPlugin(
             zIndex?: number
           },
         ) {
-          return engine.runCommand('edge:create', [input], () => {
-            if (!engine.hasNode(input.from)) {
-              throw new Error(
-                `Cannot create edge: source node "${input.from}" does not exist.`,
-              )
-            }
-            if (!engine.hasNode(input.to)) {
-              throw new Error(
-                `Cannot create edge: target node "${input.to}" does not exist.`,
-              )
-            }
+          return engine.runCommand(
+            'edge:create',
+            [input],
+            () => {
+              if (!engine.hasNode(input.from)) {
+                throw new Error(
+                  `Cannot create edge: source node "${input.from}" does not exist.`,
+                )
+              }
+              if (!engine.hasNode(input.to)) {
+                throw new Error(
+                  `Cannot create edge: target node "${input.to}" does not exist.`,
+                )
+              }
 
-            const state = getState()
-            const edge: BoardEdge<T> = {
-              id: input.id ?? asEdgeId(crypto.randomUUID()),
-              from: input.from,
-              to: input.to,
-              fromAnchor: input.fromAnchor,
-              toAnchor: input.toAnchor,
-              fromEnd: input.fromEnd ?? defaults.fromEnd,
-              toEnd: input.toEnd ?? defaults.toEnd,
-              label: input.label,
-              color: input.color,
-              data: structuredClone(input.data ?? ({} as T)),
-              zIndex: input.zIndex ?? state.nextZIndex,
-            }
+              const state = getState()
+              const edge: BoardEdge<T> = {
+                id: input.id ?? asEdgeId(crypto.randomUUID()),
+                from: input.from,
+                to: input.to,
+                fromAnchor: input.fromAnchor,
+                toAnchor: input.toAnchor,
+                fromEnd: input.fromEnd ?? defaults.fromEnd,
+                toEnd: input.toEnd ?? defaults.toEnd,
+                label: input.label,
+                color: input.color,
+                data: structuredClone(input.data ?? ({} as T)),
+                zIndex: input.zIndex ?? state.nextZIndex,
+              }
 
-            engine.dispatch({
-              type: 'PLUGIN',
-              plugin: CONNECTIONS_FEATURE_NAME,
-              action: { type: 'EDGE_CREATED', edge: edge as BoardEdge },
-            })
-            return cloneEdge(edge)
-          }) as BoardEdge<T>
+              engine.dispatch({
+                type: 'FEATURE_ACTION',
+                feature: CONNECTIONS_FEATURE_NAME,
+                action: { type: 'EDGE_CREATED', edge: edge as BoardEdge },
+              })
+              return cloneEdge(edge)
+            },
+            { history: 'record' },
+          ) as BoardEdge<T>
         },
         updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(
           id: EdgeId,
@@ -298,60 +314,71 @@ export function connectionPlugin(
         ) {
           const current = getEdgeOrThrow(id, 'update') as BoardEdge<T>
 
-          return engine.runCommand('edge:update', [id, patch], () => {
-            const nextFrom = 'from' in patch ? patch.from : current.from
-            const nextTo = 'to' in patch ? patch.to : current.to
-            if (!nextFrom || !engine.hasNode(nextFrom)) {
-              throw new Error(
-                `Cannot update edge: source node "${nextFrom}" does not exist.`,
-              )
-            }
-            if (!nextTo || !engine.hasNode(nextTo)) {
-              throw new Error(
-                `Cannot update edge: target node "${nextTo}" does not exist.`,
-              )
-            }
+          return engine.runCommand(
+            'edge:update',
+            [id, patch],
+            () => {
+              const nextFrom = 'from' in patch ? patch.from : current.from
+              const nextTo = 'to' in patch ? patch.to : current.to
+              if (!nextFrom || !engine.hasNode(nextFrom)) {
+                throw new Error(
+                  `Cannot update edge: source node "${nextFrom}" does not exist.`,
+                )
+              }
+              if (!nextTo || !engine.hasNode(nextTo)) {
+                throw new Error(
+                  `Cannot update edge: target node "${nextTo}" does not exist.`,
+                )
+              }
 
-            const next: BoardEdge<T> = {
-              ...current,
-              from: nextFrom,
-              to: nextTo,
-              fromAnchor:
-                'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
-              toAnchor: 'toAnchor' in patch ? patch.toAnchor : current.toAnchor,
-              fromEnd: 'fromEnd' in patch ? patch.fromEnd : current.fromEnd,
-              toEnd: 'toEnd' in patch ? patch.toEnd : current.toEnd,
-              label: 'label' in patch ? patch.label : current.label,
-              color: 'color' in patch ? patch.color : current.color,
-              data:
-                'data' in patch
-                  ? structuredClone((patch.data ?? {}) as T)
-                  : structuredClone(current.data),
-            }
+              const next: BoardEdge<T> = {
+                ...current,
+                from: nextFrom,
+                to: nextTo,
+                fromAnchor:
+                  'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
+                toAnchor:
+                  'toAnchor' in patch ? patch.toAnchor : current.toAnchor,
+                fromEnd: 'fromEnd' in patch ? patch.fromEnd : current.fromEnd,
+                toEnd: 'toEnd' in patch ? patch.toEnd : current.toEnd,
+                label: 'label' in patch ? patch.label : current.label,
+                color: 'color' in patch ? patch.color : current.color,
+                data:
+                  'data' in patch
+                    ? structuredClone((patch.data ?? {}) as T)
+                    : structuredClone(current.data),
+              }
 
-            engine.dispatch({
-              type: 'PLUGIN',
-              plugin: CONNECTIONS_FEATURE_NAME,
-              action: {
-                type: 'EDGE_UPDATED',
-                id,
-                before: current as BoardEdge,
-                after: next as BoardEdge,
-              },
-            })
-            return cloneEdge(next)
-          }) as BoardEdge<T>
+              engine.dispatch({
+                type: 'FEATURE_ACTION',
+                feature: CONNECTIONS_FEATURE_NAME,
+                action: {
+                  type: 'EDGE_UPDATED',
+                  id,
+                  before: current as BoardEdge,
+                  after: next as BoardEdge,
+                },
+              })
+              return cloneEdge(next)
+            },
+            { history: 'record' },
+          ) as BoardEdge<T>
         },
         deleteEdge(id) {
           const current = getState().edges.get(id)
           if (!current) return
-          engine.runCommand('edge:delete', [id], () => {
-            engine.dispatch({
-              type: 'PLUGIN',
-              plugin: CONNECTIONS_FEATURE_NAME,
-              action: { type: 'EDGE_DELETED', id, edge: current },
-            })
-          })
+          engine.runCommand(
+            'edge:delete',
+            [id],
+            () => {
+              engine.dispatch({
+                type: 'FEATURE_ACTION',
+                feature: CONNECTIONS_FEATURE_NAME,
+                action: { type: 'EDGE_DELETED', id, edge: current },
+              })
+            },
+            { history: 'record' },
+          )
         },
         getEdge(id) {
           const edge = getState().edges.get(id)
@@ -378,7 +405,12 @@ export function connectionPlugin(
         },
       }
 
-      engine.extend('connections', api)
+      ;(
+        engine.extend as (
+          key: 'connections',
+          value: BoardFeatureExtensions['connections'],
+        ) => void
+      )('connections', api)
 
       const cascadeUnsubscribe = engine.onAction((action) => {
         if (action.type !== 'NODE_DELETED') return
@@ -387,8 +419,8 @@ export function connectionPlugin(
         for (const [id, edge] of edges) {
           if (edge.from === nodeId || edge.to === nodeId) {
             engine.dispatch({
-              type: 'PLUGIN',
-              plugin: CONNECTIONS_FEATURE_NAME,
+              type: 'FEATURE_ACTION',
+              feature: CONNECTIONS_FEATURE_NAME,
               action: { type: 'EDGE_DELETED', id, edge },
             })
           }
@@ -402,14 +434,29 @@ export function connectionPlugin(
         for (const [id, edge] of next) {
           const before = prevEdges.get(id)
           if (!before) {
-            engine.emit('edge:created', cloneEdge(edge))
+            ;(
+              engine.emit as <K extends keyof BoardEventMap>(
+                event: K,
+                ...args: Parameters<BoardEventMap[K]>
+              ) => void
+            )('edge:created', cloneEdge(edge))
           } else if (before !== edge) {
-            engine.emit('edge:updated', cloneEdge(edge), cloneEdge(before))
+            ;(
+              engine.emit as <K extends keyof BoardEventMap>(
+                event: K,
+                ...args: Parameters<BoardEventMap[K]>
+              ) => void
+            )('edge:updated', cloneEdge(edge), cloneEdge(before))
           }
         }
         for (const [id] of prevEdges) {
           if (!next.has(id)) {
-            engine.emit('edge:deleted', id)
+            ;(
+              engine.emit as <K extends keyof BoardEventMap>(
+                event: K,
+                ...args: Parameters<BoardEventMap[K]>
+              ) => void
+            )('edge:deleted', id)
           }
         }
         prevEdges = next
@@ -421,4 +468,6 @@ export function connectionPlugin(
       }
     },
   }
+
+  return feature
 }

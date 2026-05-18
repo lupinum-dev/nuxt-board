@@ -63,11 +63,13 @@ import {
   getSelectionNodes as getSelectionNodesPure,
 } from './helpers/selection-helpers'
 import { createEventBus } from './engine/events'
-import { createCommandGuardRegistry } from './engine/command-guards'
-import { createBatchCommandController } from './engine/batch'
-import { createValidator } from './engine/validation'
+import {
+  createBatchCommandController,
+  createCommandGuardRegistry,
+  createDispatcher,
+  createValidator,
+} from './engine/command-runtime'
 import { createReactiveLayer } from './engine/subscribables'
-import { createDispatcher } from './engine/dispatcher'
 import { invertAction } from './engine/invert'
 import {
   documentToSnapshot,
@@ -88,9 +90,10 @@ import type {
   BoardEngineOptions,
   BoardNode,
   GridSettings,
-  FirstPartyBoardFeature,
-  FirstPartyBoardFeatureContext,
+  InternalBoardFeature,
+  InternalFeatureContext,
   BoardFeatureExtensions,
+  CommandMetadata,
   InteractionState,
   ValidationMode,
   JsonCanvasDocument,
@@ -116,9 +119,15 @@ export class CommandBlockedError extends Error {
 }
 
 const CONNECTIONS_FEATURE_NAME = 'connections'
+const RECORD_COMMAND: CommandMetadata = { history: 'record' }
+const IGNORE_COMMAND: CommandMetadata = { history: 'ignore' }
+const IGNORE_UNVALIDATED_COMMAND: CommandMetadata = {
+  history: 'ignore',
+  validate: false,
+}
 
 /**
- * Create a headless board engine with commands, reactive state, and first-party feature hooks.
+ * Create a headless board engine with commands, reactive state, and internal feature hooks.
  *
  * @example
  * const engine = createBoardEngine({
@@ -163,8 +172,8 @@ export function createBoardEngine(
   const featurePersistence = new Map<
     string,
     {
-      context: FirstPartyBoardFeatureContext
-      hooks: NonNullable<FirstPartyBoardFeature['persistence']>
+      context: InternalFeatureContext
+      hooks: NonNullable<InternalBoardFeature['persistence']>
     }
   >()
   dispatcher.onAction((action) => {
@@ -238,9 +247,10 @@ export function createBoardEngine(
 
   const batches = createBatchCommandController({
     batchCtrl,
-    emitCommandBefore: (name, args) => emit('command:before', name, args),
-    emitCommandAfter: (name, args, duration) =>
-      emit('command:after', name, args, duration),
+    emitCommandBefore: (name, args, metadata) =>
+      emit('command:before', name, args, metadata),
+    emitCommandAfter: (name, args, duration, metadata) =>
+      emit('command:after', name, args, duration, metadata),
     validate: (ctx) => validate(ctx),
   })
 
@@ -345,23 +355,24 @@ export function createBoardEngine(
     name: string,
     args: unknown[],
     fn: () => T,
-    skipValidation = false,
+    metadata: CommandMetadata = RECORD_COMMAND,
   ): T {
+    const validateCommand = metadata.validate !== false
     // Command guards run before any events are emitted.
     // If the chain doesn't call next(), the command is cancelled.
     if (!commandGuards.run(name, args)) {
-      emit('command:blocked', name, args)
+      emit('command:blocked', name, args, metadata)
       throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
     const inBatch = batches.isBatching()
     if (!inBatch) {
-      emit('command:before', name, args)
+      emit('command:before', name, args, metadata)
     }
-    const restorePoint = skipValidation ? null : createRestorePoint()
+    const restorePoint = validateCommand ? createRestorePoint() : null
     try {
       const result = fn()
-      if (!skipValidation) {
+      if (validateCommand) {
         if (inBatch) {
           batches.markValidationPending()
         } else {
@@ -369,7 +380,7 @@ export function createBoardEngine(
         }
       }
       if (!inBatch) {
-        emit('command:after', name, args, performance.now() - started)
+        emit('command:after', name, args, performance.now() - started, metadata)
       }
       return result
     } catch (error) {
@@ -384,21 +395,22 @@ export function createBoardEngine(
     name: string,
     args: unknown[],
     fn: () => Promise<T>,
-    skipValidation = false,
+    metadata: CommandMetadata = RECORD_COMMAND,
   ): Promise<T> {
+    const validateCommand = metadata.validate !== false
     if (!commandGuards.run(name, args)) {
-      emit('command:blocked', name, args)
+      emit('command:blocked', name, args, metadata)
       throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
-    emit('command:before', name, args)
-    const restorePoint = skipValidation ? null : createRestorePoint()
+    emit('command:before', name, args, metadata)
+    const restorePoint = validateCommand ? createRestorePoint() : null
     try {
       const result = await fn()
-      if (!skipValidation) {
+      if (validateCommand) {
         validate(name)
       }
-      emit('command:after', name, args, performance.now() - started)
+      emit('command:after', name, args, performance.now() - started, metadata)
       return result
     } catch (error) {
       if (error instanceof AnimationCancelled) {
@@ -969,7 +981,7 @@ export function createBoardEngine(
         for (const inner of action.actions) applyRecordedAction(inner)
         return
       }
-      case 'PLUGIN':
+      case 'FEATURE_ACTION':
         // Plugin slice updates and any side-effect listeners run via dispatcher.dispatch below.
         break
     }
@@ -985,7 +997,47 @@ export function createBoardEngine(
     )
   }
 
-  const engine: FirstPartyBoardFeatureContext = {
+  function installFeature(feature: InternalBoardFeature): void {
+    if (featureCleanups.has(feature.name)) {
+      return
+    }
+    if (feature.slice) {
+      featureStates.set(feature.name, {
+        reducer: feature.slice.reducer as (
+          state: unknown,
+          action: import('./state/actions').Action,
+        ) => unknown,
+        invert: feature.slice.invert as
+          | ((innerAction: unknown) => unknown)
+          | undefined,
+        state: feature.slice.initial,
+      })
+    }
+    const featureCtx: InternalFeatureContext = Object.assign(
+      Object.create(engine) as InternalFeatureContext,
+      {
+        getFeatureState: <S>(): S => {
+          const entry = featureStates.get(feature.name)
+          if (!entry) {
+            throw new Error(
+              `Feature "${feature.name}" did not register a slice; getFeatureState is unavailable.`,
+            )
+          }
+          return entry.state as S
+        },
+      },
+    )
+    const cleanup = feature.install(featureCtx)
+    if (feature.persistence) {
+      featurePersistence.set(feature.name, {
+        context: featureCtx,
+        hooks: feature.persistence,
+      })
+    }
+    featureCleanups.set(feature.name, cleanup ?? (() => undefined))
+  }
+
+  const engine: InternalFeatureContext = {
     ext,
     $camera,
     $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
@@ -1068,56 +1120,22 @@ export function createBoardEngine(
     once,
     off,
     exportTrace: eventBus.exportTrace,
-    use(feature: FirstPartyBoardFeature) {
-      if (featureCleanups.has(feature.name)) {
-        return
-      }
-      if (feature.slice) {
-        featureStates.set(feature.name, {
-          reducer: feature.slice.reducer as (
-            state: unknown,
-            action: import('./state/actions').Action,
-          ) => unknown,
-          invert: feature.slice.invert as
-            | ((innerAction: unknown) => unknown)
-            | undefined,
-          state: feature.slice.initial,
-        })
-      }
-      const featureCtx: FirstPartyBoardFeatureContext = Object.assign(
-        Object.create(engine) as FirstPartyBoardFeatureContext,
-        {
-          getPluginState: <S>(): S => {
-            const entry = featureStates.get(feature.name)
-            if (!entry) {
-              throw new Error(
-                `Feature "${feature.name}" did not register a slice; getPluginState is unavailable.`,
-              )
-            }
-            return entry.state as S
-          },
-        },
-      )
-      const cleanup = feature.install(featureCtx)
-      if (feature.persistence) {
-        featurePersistence.set(feature.name, {
-          context: featureCtx,
-          hooks: feature.persistence,
-        })
-      }
-      featureCleanups.set(feature.name, cleanup ?? (() => undefined))
-    },
     addCommandGuard: commandGuards.add,
-    runCommand<T>(name: string, args: unknown[], fn: () => T): T {
-      return runCommand(name, args, fn)
+    runCommand<T>(
+      name: string,
+      args: unknown[],
+      fn: () => T,
+      metadata: CommandMetadata,
+    ): T {
+      return runCommand(name, args, fn, metadata)
     },
     dispatch: dispatcher.dispatch,
     onAction: dispatcher.onAction,
     applyRecordedAction,
     invertAction: invertActionImpl,
-    getPluginState<S>(): S {
+    getFeatureState<S>(): S {
       throw new Error(
-        'getPluginState is only available inside a first-party feature install() context.',
+        'getFeatureState is only available inside a internal feature install() context.',
       )
     },
     screenToWorld(point) {
@@ -1172,7 +1190,7 @@ export function createBoardEngine(
             z: state.camera.z,
           })
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     panTo(worldPoint, animated = false) {
@@ -1187,7 +1205,7 @@ export function createBoardEngine(
             setCamera(target)
           }
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     zoomAt(screenPoint, delta) {
@@ -1205,7 +1223,7 @@ export function createBoardEngine(
             ),
           )
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     zoomTo(level, animated = false) {
@@ -1227,7 +1245,7 @@ export function createBoardEngine(
             setCamera(target)
           }
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     zoomToFit(padding = 40, animated = false) {
@@ -1245,7 +1263,7 @@ export function createBoardEngine(
             setCamera(target)
           }
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     zoomToNodes(ids, padding = 40, animated = false) {
@@ -1263,7 +1281,7 @@ export function createBoardEngine(
             setCamera(target)
           }
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     createNode(input: NodeInput) {
@@ -1524,40 +1542,55 @@ export function createBoardEngine(
       })
     },
     select(ids, mode = 'replace') {
-      runCommand('select', [ids, mode], () => {
-        const resolved = Array.isArray(ids) ? ids : [ids]
-        if (mode === 'replace') {
-          setSelection(resolved)
-          return
-        }
-        const next = new Set(state.selection)
-        for (const id of resolved) {
-          if (mode === 'toggle') {
-            if (next.has(id)) {
-              next.delete(id)
+      runCommand(
+        'select',
+        [ids, mode],
+        () => {
+          const resolved = Array.isArray(ids) ? ids : [ids]
+          if (mode === 'replace') {
+            setSelection(resolved)
+            return
+          }
+          const next = new Set(state.selection)
+          for (const id of resolved) {
+            if (mode === 'toggle') {
+              if (next.has(id)) {
+                next.delete(id)
+              } else {
+                next.add(id)
+              }
             } else {
               next.add(id)
             }
-          } else {
-            next.add(id)
           }
-        }
-        setSelection(next)
-      })
+          setSelection(next)
+        },
+        IGNORE_COMMAND,
+      )
     },
     selectAll() {
-      runCommand('selectAll', [], () => {
-        setSelection(
-          Array.from(state.nodes.values())
-            .filter((node) => node.visible)
-            .map((node) => node.id),
-        )
-      })
+      runCommand(
+        'selectAll',
+        [],
+        () => {
+          setSelection(
+            Array.from(state.nodes.values())
+              .filter((node) => node.visible)
+              .map((node) => node.id),
+          )
+        },
+        IGNORE_COMMAND,
+      )
     },
     clearSelection() {
-      runCommand('clearSelection', [], () => {
-        setSelection([])
-      })
+      runCommand(
+        'clearSelection',
+        [],
+        () => {
+          setSelection([])
+        },
+        IGNORE_COMMAND,
+      )
     },
     deleteSelected() {
       runCommand('deleteSelected', [], () => {
@@ -1596,7 +1629,7 @@ export function createBoardEngine(
             lastScreenPoint: { ...screenPoint },
           })
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     beginNodeDrag(id, pointerId, screenPoint) {
@@ -1635,7 +1668,7 @@ export function createBoardEngine(
           })
           bumpNodeToFront(id)
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     beginResize(id, handle, pointerId, screenPoint) {
@@ -1664,7 +1697,7 @@ export function createBoardEngine(
           })
           bumpNodeToFront(id)
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     beginBoxSelect(pointerId, screenPoint) {
@@ -1684,7 +1717,7 @@ export function createBoardEngine(
             currentWorldPoint: worldPoint,
           })
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     beginTextEdit(id) {
@@ -1696,7 +1729,7 @@ export function createBoardEngine(
           setSelection([id])
           setInteraction({ mode: 'editing-text', nodeId: id })
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     commitTextEdit(id, text) {
@@ -1738,7 +1771,7 @@ export function createBoardEngine(
               lastScreenPoint: { ...screenPoint },
             })
           },
-          true,
+          IGNORE_UNVALIDATED_COMMAND,
         )
         return
       }
@@ -1849,7 +1882,7 @@ export function createBoardEngine(
               dispatcher.dispatch({ type: 'NODES_MOVED', deltas: moveDeltas })
             }
           },
-          true,
+          RECORD_COMMAND,
         )
         return
       }
@@ -1942,7 +1975,7 @@ export function createBoardEngine(
               }
             }
           },
-          true,
+          RECORD_COMMAND,
         )
         return
       }
@@ -1976,7 +2009,7 @@ export function createBoardEngine(
             currentWorldPoint,
           })
         },
-        true,
+        IGNORE_UNVALIDATED_COMMAND,
       )
     },
     endInteraction(pointerId) {
@@ -1991,18 +2024,23 @@ export function createBoardEngine(
       ) {
         return
       }
-      runCommand('endInteraction', [pointerId], () => {
-        const previous = state.interaction
-        setSnapGuides([])
-        if (previous.mode === 'dragging-nodes') {
-          reparentAfterDrag(previous.nodeIds)
-          reparentNodesCapturedByMovedGroups(previous.nodeIds)
-        }
-        if (previous.mode === 'resizing-node') {
-          reparentNodesCapturedByGroups([previous.nodeId], [previous.nodeId])
-        }
-        setInteraction({ mode: 'idle' })
-      })
+      runCommand(
+        'endInteraction',
+        [pointerId],
+        () => {
+          const previous = state.interaction
+          setSnapGuides([])
+          if (previous.mode === 'dragging-nodes') {
+            reparentAfterDrag(previous.nodeIds)
+            reparentNodesCapturedByMovedGroups(previous.nodeIds)
+          }
+          if (previous.mode === 'resizing-node') {
+            reparentNodesCapturedByGroups([previous.nodeId], [previous.nodeId])
+          }
+          setInteraction({ mode: 'idle' })
+        },
+        IGNORE_COMMAND,
+      )
     },
     getUniformTranslationTargets(seedIds) {
       return collectUniformTranslationTargets(
@@ -2026,20 +2064,25 @@ export function createBoardEngine(
       )
     },
     importJSON(json, mode = 'replace') {
-      runCommand('importJSON', [mode], () => {
-        const document = normalizeDocumentForImport(JSON.parse(json))
-        assertCanRestoreDocument(document)
-        const snapshot = documentToSnapshot(document)
-        const idMap = restoreSnapshot(snapshot, mode)
-        restorePluginDocuments(document, mode, idMap)
-      })
+      runCommand(
+        'importJSON',
+        [mode],
+        () => {
+          const document = normalizeDocumentForImport(JSON.parse(json))
+          assertCanRestoreDocument(document)
+          const snapshot = documentToSnapshot(document)
+          const idMap = restoreSnapshot(snapshot, mode)
+          restorePluginDocuments(document, mode, idMap)
+        },
+        IGNORE_COMMAND,
+      )
     },
   }
 
   notifyNodesChanged()
 
   for (const feature of options.extensions ?? []) {
-    engine.use(feature)
+    installFeature(feature as InternalBoardFeature)
   }
 
   if (initialDocument) {

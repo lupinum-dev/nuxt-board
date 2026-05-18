@@ -911,7 +911,7 @@ describe('BoardConnectionLayer', () => {
     wrapper.unmount()
   })
 
-  it('creates a new text node when a create drag is dropped on empty space', async () => {
+  it('does not create a node when a create drag is dropped on empty space by default', async () => {
     const engine = createBoardEngine({
       extensions: [connectionPlugin()],
     })
@@ -966,13 +966,95 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
+    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.getSnapshot().interaction).toMatchObject({
+      mode: 'idle',
+    })
+    wrapper.unmount()
+  })
+
+  it('uses the opt-in empty-drop callback to create and connect a node', async () => {
+    const engine = createBoardEngine({
+      extensions: [connectionPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 120,
+      height: 80,
+      text: 'Node',
+    })
+    const createNodeForConnection = vi.fn((context) =>
+      engine.createNode({
+        type: 'text',
+        x: context.pointerWorld.x,
+        y: context.pointerWorld.y,
+        width: 120,
+        height: 80,
+        text: 'Created',
+      }),
+    )
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        viewport: () =>
+          h(BoardConnectionLayer, {
+            createNodeForConnection,
+          }),
+      },
+      attachTo: document.body,
+    })
+
+    await nextTick()
+    const root = query('.board-root')
+    dispatchPointerEvent(root, 'pointermove', {
+      pointerId: 10,
+      clientX: 160,
+      clientY: 80,
+    })
+    await nextTick()
+
+    const createHandle = query(
+      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
+    )
+    dispatchPointerEvent(createHandle, 'pointerdown', {
+      pointerId: 10,
+      button: 0,
+      clientX: 160,
+      clientY: 80,
+    })
+    await nextTick()
+    dispatchPointerEvent(window, 'pointermove', {
+      pointerId: 10,
+      clientX: 520,
+      clientY: 220,
+    })
+    await nextTick()
+    await nextTick()
+    dispatchPointerEvent(window, 'pointerup', {
+      pointerId: 10,
+      clientX: 520,
+      clientY: 220,
+    })
+    await nextTick()
+    await nextTick()
+
+    expect(createNodeForConnection).toHaveBeenCalledWith({
+      sourceNodeId: source.id,
+      sourceSide: 'right',
+      pointerWorld: { x: 520, y: 220 },
+      candidateAnchor: null,
+    })
     expect(engine.getSnapshot().nodes).toHaveLength(2)
     expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+      from: source.id,
+    })
     expect(engine.ext.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
     expect(engine.ext.connections.getEdges()[0]?.toAnchor).toBeUndefined()
-    expect(engine.getSnapshot().interaction).toMatchObject({
-      mode: 'editing-text',
-    })
     wrapper.unmount()
   })
 })

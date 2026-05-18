@@ -70,7 +70,7 @@ function seed() {
           text: '2\nPublic API\nKeep it boring',
         },
       ],
-      'x-nuxt-board': {
+      'x-vue-board': {
         camera: { x: -60, y: -40, z: 1 },
         grid: engine.getGridSettings(),
         selection: [],

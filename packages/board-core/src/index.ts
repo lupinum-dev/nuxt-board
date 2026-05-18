@@ -1,4 +1,4 @@
-/** Create a headless board engine with commands, events, and first-party feature hooks. */
+/** Create a headless board engine with commands and events. */
 export { CommandBlockedError, createBoardEngine } from './engine'
 /** Identifier branding helpers for nodes and edges. */
 export { asEdgeId, asNodeId } from './types'
@@ -9,12 +9,6 @@ export {
   isBoardColorPreset,
   type BoardColorOption,
 } from './colors'
-/** @internal First-party feature action stream. Not a public plugin API. */
-export type {
-  Action as FirstPartyBoardAction,
-  NodeMoveDelta as FirstPartyNodeMoveDelta,
-} from './state/actions'
-
 /** Selection helpers that operate on the public board engine state. */
 export { getSelectionBounds, getSelectionNodes, toggleIds } from './selection'
 
@@ -40,6 +34,7 @@ export type {
   BoardEngine,
   BoardEngineOptions,
   BoardEventMap,
+  BoardExtension,
   BoardNode,
   EdgeId,
   GridPattern,
@@ -48,9 +43,6 @@ export type {
   InteractionState,
   ValidationFailure,
   ValidationMode,
-  FirstPartyBoardFeature,
-  FirstPartyBoardFeatureContext,
-  FirstPartyBoardFeaturePersistence,
   BoardFeatureExtensions,
   JsonCanvasBackgroundStyle,
   JsonCanvasDocument,
@@ -67,8 +59,6 @@ export type {
   NodeId,
   NodeInput,
   NuxtBoardDocumentMetadata,
-  NuxtBoardEdgeMetadata,
-  NuxtBoardNodeMetadata,
   NodePatch,
   Point,
   ResizeHandle,
@@ -78,5 +68,8 @@ export type {
   Subscribable,
   TraceEntry,
   Unsubscribe,
+  VueBoardDocumentMetadata,
+  VueBoardEdgeMetadata,
+  VueBoardNodeMetadata,
   ZoomSettings,
 } from './types'

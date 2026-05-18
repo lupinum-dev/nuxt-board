@@ -128,7 +128,7 @@ Start from a runnable board, then pull in the pattern you actually need.
 
 :::tabs-item{label="Workflow" icon="i-lucide-workflow"}
 
-::::workflow-builder-demo
+::::workflow-renderer-demo
 ::::
 
 [Open the workflow builder](/examples/workflow-builder)

@@ -3,9 +3,19 @@ import { expect, test, type Page } from '@playwright/test'
 test.describe.configure({ mode: 'serial', timeout: 120_000 })
 
 async function openDocs(page: Page, path = '/') {
+  const consoleErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text())
+    }
+  })
+  page.on('pageerror', (error) => {
+    consoleErrors.push(error.message)
+  })
   await page.goto('http://127.0.0.1:4174/', { waitUntil: 'commit' })
   await page.goto(`http://127.0.0.1:4174${path}`, { waitUntil: 'commit' })
   await expect(page.locator('body')).toBeVisible()
+  return consoleErrors
 }
 
 test('renders the docs landing page and embedded board demo', async ({
@@ -23,10 +33,15 @@ test('renders the docs landing page and embedded board demo', async ({
 })
 
 test('navigates to examples and api reference pages', async ({ page }) => {
-  await openDocs(page, '/examples/basic-board')
+  const consoleErrors = await openDocs(page, '/examples/basic-board')
 
   await expect(page.getByRole('heading', { name: 'Basic Board' })).toBeVisible()
   await expect(page.locator('.board-root').first()).toBeVisible()
+  const demo = page.getByTestId('basic-board-demo')
+  await expect(demo).toHaveAttribute('data-node-count', '4')
+  await page.getByRole('button', { name: 'Add note' }).click()
+  await expect(demo).toHaveAttribute('data-node-count', '5')
+  expect(consoleErrors).toEqual([])
 
   await openDocs(page, '/api/board-core')
 

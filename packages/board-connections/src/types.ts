@@ -63,6 +63,14 @@ export interface ConnectionPluginOptions {
   defaultArrow?: 'none' | 'start' | 'end' | 'both'
 }
 
+/** Context passed when a host opts into creating a node from an empty connection drop. */
+export interface CreateNodeForConnectionContext {
+  sourceNodeId: NodeId
+  sourceSide: AnchorSide
+  pointerWorld: Point
+  candidateAnchor: AnchorPosition | null
+}
+
 /** Resolved connection defaults installed with the engine extension. */
 export interface ConnectionConfig {
   routing: ConnectionRouting

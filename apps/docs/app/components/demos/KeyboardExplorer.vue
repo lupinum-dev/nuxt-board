@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'cross' },
@@ -55,40 +56,40 @@ function recordShortcut(event: KeyboardEvent) {
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      camera: { x: -20, y: -10, z: 1 },
-      grid: engine.getGridSettings(),
-      nodes: [
-        {
-          id: 'kbd-1',
-          type: 'text',
-          x: 80,
-          y: 80,
-          width: 220,
-          height: 100,
-          text: 'Node',
-          zIndex: 1,
-          locked: false,
-          visible: true,
-        },
-        {
-          id: 'kbd-2',
-          type: 'text',
-          x: 380,
-          y: 170,
-          width: 220,
-          height: 100,
-          text: 'Node',
-          zIndex: 2,
-          locked: false,
-          visible: true,
-        },
-      ],
-      selection: [],
-      interaction: { mode: 'idle' },
-      snapGuides: [],
-      nextZIndex: 3,
-    }),
+    JSON.stringify(
+      createDemoDocument({
+        camera: { x: -20, y: -10, z: 1 },
+        grid: engine.getGridSettings(),
+        nodes: [
+          {
+            id: 'kbd-1',
+            type: 'text',
+            x: 80,
+            y: 80,
+            width: 220,
+            height: 100,
+            text: 'Node',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'kbd-2',
+            type: 'text',
+            x: 380,
+            y: 170,
+            width: 220,
+            height: 100,
+            text: 'Node',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+        ],
+        selection: [],
+        nextZIndex: 3,
+      }),
+    ),
     'replace',
   )
 }

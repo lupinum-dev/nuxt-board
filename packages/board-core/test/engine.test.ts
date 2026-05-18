@@ -1,23 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  asNodeId,
-  CommandBlockedError,
-  createBoardEngine,
-  type FirstPartyBoardFeature,
-} from '../src'
+import { asNodeId, CommandBlockedError, createBoardEngine } from '../src'
+import type { InternalBoardFeature } from '../src/internal'
 
 describe('board engine', () => {
   it('runs plugin cleanups once when destroyed', () => {
     const cleanup = vi.fn()
+    const feature: InternalBoardFeature = {
+      name: 'cleanup-test',
+      install() {
+        return cleanup
+      },
+    }
     const engine = createBoardEngine({
-      extensions: [
-        {
-          name: 'cleanup-test',
-          install() {
-            return cleanup
-          },
-        },
-      ],
+      extensions: [feature],
     })
 
     engine.destroy()
@@ -39,7 +34,7 @@ describe('board engine', () => {
   it('rolls back strict validation failures after node updates', () => {
     let readPluginState!: () => { updates: number }
     const actions: string[] = []
-    const plugin: FirstPartyBoardFeature = {
+    const feature: InternalBoardFeature = {
       name: 'rollback-probe',
       slice: {
         initial: { updates: 0 },
@@ -50,13 +45,13 @@ describe('board engine', () => {
         },
       },
       install(engine) {
-        readPluginState = () => engine.getPluginState()
+        readPluginState = () => engine.getFeatureState()
         return engine.onAction((action) => actions.push(action.type))
       },
     }
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [plugin],
+      extensions: [feature],
     })
     const node = engine.createNode({
       type: 'text',
@@ -84,7 +79,7 @@ describe('board engine', () => {
 
   it('rolls back invalid node creation and import payloads', () => {
     const actions: string[] = []
-    const actionProbe: FirstPartyBoardFeature = {
+    const actionProbe: InternalBoardFeature = {
       name: 'action-probe',
       install(engine) {
         return engine.onAction((action) => actions.push(action.type))
@@ -445,7 +440,7 @@ describe('board engine', () => {
   it('fires command hooks and installs plugins only once per name', () => {
     const events: string[] = []
     let installs = 0
-    const plugin: FirstPartyBoardFeature = {
+    const feature: InternalBoardFeature = {
       name: 'audit',
       install(engine) {
         installs += 1
@@ -462,8 +457,7 @@ describe('board engine', () => {
       },
     }
 
-    const engine = createBoardEngine({ extensions: [plugin] })
-    engine.use(plugin)
+    const engine = createBoardEngine({ extensions: [feature, feature] })
     engine.createNode({ type: 'text', x: 0, y: 0, text: 'Hello' })
 
     expect(installs).toBe(1)
@@ -588,7 +582,7 @@ describe('board engine', () => {
           text: 'imported',
         },
       ],
-      'x-nuxt-board': {
+      'x-vue-board': {
         camera: { x: 0, y: 0, z: 1 },
         grid: { size: 10, majorEvery: 5, snap: true, pattern: 'line' },
       },
@@ -745,7 +739,7 @@ describe('board engine', () => {
               text: 'Child',
             },
           ],
-          'x-nuxt-board': {
+          'x-vue-board': {
             nodes: {
               group: { zIndex: 10, visible: true },
               child: { zIndex: 4, visible: true, parentId: 'group' },

@@ -54,7 +54,7 @@ export default defineAppConfig({
     title: 'Table of Contents',
     bottom: {
       title: 'Project',
-      edit: 'https://github.com/lupinum/nuxt-board/edit/main/packages/docs/content',
+      edit: 'https://github.com/lupinum/nuxt-board/edit/main/apps/docs/content',
       links: [
         {
           icon: 'i-tabler-star',

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { asNodeId, createBoardEngine } from '../src'
 import type { BoardNode, JsonCanvasDocument } from '../src'
+import type { InternalBoardFeature } from '../src/internal'
 
 describe('board-core public document API', () => {
-  it('exports persisted state as JSON Canvas with board metadata under x-nuxt-board', () => {
+  it('exports persisted state as JSON Canvas with board metadata under x-vue-board', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({
       id: asNodeId('note-1'),
@@ -31,7 +32,7 @@ describe('board-core public document API', () => {
     ])
     expect(document).not.toHaveProperty('camera')
     expect(document).not.toHaveProperty('grid')
-    expect(document['x-nuxt-board']).toMatchObject({
+    expect(document['x-vue-board']).toMatchObject({
       camera: { x: 0, y: 0, z: 1 },
       selection: [node.id],
       nodes: {
@@ -53,7 +54,7 @@ describe('board-core public document API', () => {
           text: 'hello',
         },
       ],
-      'x-nuxt-board': {
+      'x-vue-board': {
         nextZIndex: 7,
         nodes: {
           'node-a': { zIndex: 6, locked: true, visible: true },
@@ -74,6 +75,46 @@ describe('board-core public document API', () => {
       visible: true,
     })
     expect(engine.getSnapshot().nextZIndex).toBe(7)
+  })
+
+  it('imports legacy x-nuxt-board metadata but exports only x-vue-board', () => {
+    const engine = createBoardEngine({
+      initialDocument: {
+        nodes: [
+          {
+            id: asNodeId('legacy-node'),
+            type: 'text',
+            x: 10,
+            y: 20,
+            width: 120,
+            height: 80,
+            text: 'legacy',
+          },
+        ],
+        'x-nuxt-board': {
+          camera: { x: 4, y: 8, z: 1.5 },
+          selection: [asNodeId('legacy-node')],
+          nodes: {
+            'legacy-node': { zIndex: 9, locked: true, visible: true },
+          },
+        },
+      },
+    })
+
+    expect(engine.getSnapshot()).toMatchObject({
+      camera: { x: 4, y: 8, z: 1.5 },
+      selection: [asNodeId('legacy-node')],
+    })
+    expect(engine.getNode(asNodeId('legacy-node'))).toMatchObject({
+      zIndex: 9,
+      locked: true,
+    })
+
+    const exported = JSON.parse(engine.exportJSON()) as JsonCanvasDocument
+    expect(exported['x-vue-board']).toMatchObject({
+      camera: { x: 4, y: 8, z: 1.5 },
+    })
+    expect(exported).not.toHaveProperty('x-nuxt-board')
   })
 
   it('does not accept runtime snapshots as persisted documents', () => {
@@ -192,11 +233,83 @@ describe('board-core public document API', () => {
       'malformed metadata',
       {
         nodes: [],
-        'x-nuxt-board': {
+        'x-vue-board': {
           grid: { pattern: 'checkerboard' },
         },
       },
       /grid\.pattern/,
+    ],
+    [
+      'invalid node metadata parent id',
+      {
+        nodes: [
+          {
+            id: 'a',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'A',
+          },
+        ],
+        'x-vue-board': {
+          nodes: {
+            a: { parentId: 42 },
+          },
+        },
+      },
+      /invalid parentId/,
+    ],
+    [
+      'invalid edge metadata data',
+      {
+        nodes: [
+          {
+            id: 'a',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'A',
+          },
+          {
+            id: 'b',
+            type: 'text',
+            x: 160,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'B',
+          },
+        ],
+        edges: [{ id: 'edge', fromNode: 'a', toNode: 'b' }],
+        'x-vue-board': {
+          edges: {
+            edge: { data: ['not', 'an', 'object'] },
+          },
+        },
+      },
+      /invalid data/,
+    ],
+    [
+      'invalid node color',
+      {
+        nodes: [
+          {
+            id: 'a',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            color: 'tomato',
+            text: 'A',
+          },
+        ],
+      },
+      /invalid color/,
     ],
   ])('rejects invalid persisted documents: %s', (_label, document, error) => {
     const engine = createBoardEngine()
@@ -275,34 +388,33 @@ describe('board-core public document API', () => {
 
   it('rolls back core and extension state when an extension import hook fails', () => {
     let extensionState!: () => { imports: number }
-    const engine = createBoardEngine({
-      extensions: [
-        {
-          name: 'failing-import',
-          slice: {
-            initial: { imports: 0 },
-            reducer(state: { imports: number }, action) {
-              return action.type === 'PLUGIN' &&
-                action.plugin === 'failing-import'
-                ? { imports: state.imports + 1 }
-                : state
-            },
-          },
-          persistence: {
-            importDocument(extensionEngine) {
-              extensionEngine.dispatch({
-                type: 'PLUGIN',
-                plugin: 'failing-import',
-                action: { type: 'IMPORT_STARTED' },
-              })
-              throw new Error('extension import failed')
-            },
-          },
-          install(extensionEngine) {
-            extensionState = () => extensionEngine.getPluginState()
-          },
+    const failingFeature: InternalBoardFeature = {
+      name: 'failing-import',
+      slice: {
+        initial: { imports: 0 },
+        reducer(state: { imports: number }, action) {
+          return action.type === 'FEATURE_ACTION' &&
+            action.feature === 'failing-import'
+            ? { imports: state.imports + 1 }
+            : state
         },
-      ],
+      },
+      persistence: {
+        importDocument(extensionEngine) {
+          extensionEngine.dispatch({
+            type: 'FEATURE_ACTION',
+            feature: 'failing-import',
+            action: { type: 'IMPORT_STARTED' },
+          })
+          throw new Error('extension import failed')
+        },
+      },
+      install(extensionEngine) {
+        extensionState = () => extensionEngine.getFeatureState()
+      },
+    }
+    const engine = createBoardEngine({
+      extensions: [failingFeature],
     })
     const existing = engine.createNode({
       id: asNodeId('keep'),
@@ -327,7 +439,7 @@ describe('board-core public document API', () => {
               text: 'replacement',
             },
           ],
-          'x-nuxt-board': {
+          'x-vue-board': {
             selection: ['replacement'],
             nextZIndex: 10,
           },

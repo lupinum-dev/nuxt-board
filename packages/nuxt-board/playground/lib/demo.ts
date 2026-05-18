@@ -206,7 +206,7 @@ function demoSceneToDocument(scene: DemoScene): JsonCanvasDocument {
       }
     }),
     edges: scene.edges,
-    'x-nuxt-board': {
+    'x-vue-board': {
       camera: scene.snapshot.camera,
       grid: scene.snapshot.grid,
       selection: [],

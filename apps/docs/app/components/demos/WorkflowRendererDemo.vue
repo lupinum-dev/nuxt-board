@@ -54,7 +54,7 @@ function seed() {
           text: 'pending\nHandoff\nCreate the downstream record and alert the owner.',
         },
       ],
-      'x-nuxt-board': {
+      'x-vue-board': {
         camera: { x: -40, y: -30, z: 1 },
         grid: engine.getGridSettings(),
         selection: [],

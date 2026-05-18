@@ -1,6 +1,6 @@
 # nuxt-board
 
-Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that auto-imports board components and composables with SSR-safe defaults.
+Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that wires board component/composable auto-imports, helper imports, styles, and package transpilation.
 
 ## What It Does
 
@@ -9,7 +9,7 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that aut
 - Auto-imports `createBoardEngine`
 - Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
 - Transpiles `@lupinum/vue-board` and `@lupinum/board-core` for Nuxt so workspace and linked installs behave consistently
-- Supports real Nuxt SSR instead of wrapping the board in client-only stubs
+- Lets deterministic board shells render in Nuxt SSR without client-only stubs
 
 ## Install
 
@@ -58,7 +58,7 @@ const engine = createBoardEngine({
 
 ## SSR Notes
 
-`nuxt-board` server-renders the board shell and any deterministic initial nodes. If you seed the engine during SSR, use stable IDs for initial content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
+With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for initial content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
 
 ## Module Options
 

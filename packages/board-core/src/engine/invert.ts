@@ -53,16 +53,16 @@ export function invertAction(
           .reverse()
           .map((inner) => invertAction(inner, lookup)),
       }
-    case 'PLUGIN': {
-      const invert = lookup(action.plugin)
+    case 'FEATURE_ACTION': {
+      const invert = lookup(action.feature)
       if (!invert) {
         throw new Error(
-          `Cannot invert PLUGIN action: plugin "${action.plugin}" did not register an inverter.`,
+          `Cannot invert FEATURE_ACTION action: plugin "${action.feature}" did not register an inverter.`,
         )
       }
       return {
-        type: 'PLUGIN',
-        plugin: action.plugin,
+        type: 'FEATURE_ACTION',
+        feature: action.feature,
         action: invert(action.action),
       }
     }

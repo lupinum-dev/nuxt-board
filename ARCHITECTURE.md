@@ -1,20 +1,20 @@
 # Architecture
 
 `nuxt-board` is a board library with a headless core, Vue rendering, a Nuxt
-auto-import module, and a few first-party features. The important boundary is
+auto-import module, and a few internal features. The important boundary is
 where behavior actually lives, not how many layers the repository can name.
 
 ## Where behavior lives
 
-| Area                         | Owns                                                                                                                                               |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@lupinum/board-core`        | Board state, commands, camera, selection, grouping, snapping, node persistence, validation, recorded action replay, and first-party feature hooks. |
-| `@lupinum/vue-board`         | Vue components and composables that render a `BoardEngine` and translate DOM input into engine commands.                                           |
-| `@lupinum/board-connections` | First-party edge state, JSON Canvas edge persistence, connection geometry, and Vue connection rendering.                                           |
-| `@lupinum/board-history`     | Undo/redo for engine actions captured around command events.                                                                                       |
-| `@lupinum/board-minimap`     | Derived minimap projection and renderer.                                                                                                           |
-| `nuxt-board`                 | Nuxt registration for core helpers and Vue components/composables. It does not own board behavior.                                                 |
-| `packages/docs`              | Hand-maintained docs and examples. API pages are content files, not a complete generated source of truth.                                          |
+| Area                         | Owns                                                                                                                                            |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@lupinum/board-core`        | Board state, commands, camera, selection, grouping, snapping, node persistence, validation, recorded action replay, and internal feature hooks. |
+| `@lupinum/vue-board`         | Vue components and composables that render a `BoardEngine` and translate DOM input into engine commands.                                        |
+| `@lupinum/board-connections` | First-party edge state, JSON Canvas edge persistence, connection geometry, and Vue connection rendering.                                        |
+| `@lupinum/board-history`     | Undo/redo for engine actions captured around command events.                                                                                    |
+| `@lupinum/board-minimap`     | Derived minimap projection and renderer.                                                                                                        |
+| `nuxt-board`                 | Nuxt registration for core helpers and Vue components/composables. It does not own board behavior.                                              |
+| `apps/docs`                  | Hand-maintained docs and examples. API pages are content files, not a complete generated source of truth.                                       |
 
 ## Core state model
 
@@ -22,9 +22,9 @@ The engine keeps one mutable internal board state and exposes immutable public
 views through `getState()`, `getSnapshot()`, and subscribables.
 
 - Persistent state: nodes, selection, grid settings, `nextZIndex`, and
-  first-party feature state.
+  internal feature state.
 - Runtime state: camera, viewport size, interaction mode, and snap guides.
-- Persisted document format: JSON Canvas node fields plus `x-nuxt-board`
+- Persisted document format: JSON Canvas node fields plus `x-vue-board`
   metadata for engine state that JSON Canvas does not define. Edges are owned
   by `@lupinum/board-connections`; core rejects edge documents when that
   feature is not installed.
@@ -33,19 +33,19 @@ Commands mutate internal state directly, dispatch actions for observers/history,
 emit events, and then run validation checks. Failed validation rolls the engine
 back to a restore point. This is mutable command-based code, not a pure reducer
 or transactional architecture. Action replay exists to support history and
-first-party feature reactions.
+internal feature reactions.
 
-## First-party feature contract
+## Internal feature contract
 
-Connections and history use the current first-party feature hooks:
+Connections and history use the current internal feature hooks:
 
-- `engine.extend()` exposes a first-party API under `engine.ext`.
+- `engine.extend()` exposes a internal API under `engine.ext`.
 - Optional slices let a feature reduce dispatched actions into its own state.
 - Optional persistence hooks let a feature contribute to import/export.
 - `engine.onAction()` lets a feature react to core actions, such as deleting
   edges when a node is deleted.
 
-This contract is intentionally treated as first-party infrastructure, not a
+This contract is intentionally treated as internal infrastructure, not a
 general third-party plugin surface.
 
 ## Trace: a node drag

@@ -1,4 +1,5 @@
 import { validateState } from '../invariants'
+import { isBoardColorPreset } from '../colors'
 import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types'
 import { normalizeExistingNode } from '../state/initial'
 import type {
@@ -14,7 +15,7 @@ import type {
   JsonCanvasNodeType,
   JsonCanvasSide,
   NodeId,
-  NuxtBoardDocumentMetadata,
+  VueBoardDocumentMetadata,
 } from '../types'
 
 const JSON_CANVAS_NODE_TYPES = new Set<JsonCanvasNodeType>([
@@ -98,6 +99,15 @@ export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
 }
 
 function validateJsonCanvasNodeFields(node: JsonCanvasNode): void {
+  if (
+    node.color !== undefined &&
+    !isBoardColorPreset(node.color) &&
+    !/^#[0-9a-fA-F]{6}$/.test(node.color)
+  ) {
+    throw new Error(
+      `Invalid board document: node "${node.id}" has invalid color.`,
+    )
+  }
   if (node.type === 'text' && typeof node.text !== 'string') {
     throw new Error(
       `Invalid board document: text node "${node.id}" is missing required text.`,
@@ -183,9 +193,9 @@ function boardNodeToJsonNode(node: BoardNode): JsonCanvasNode {
 }
 
 function mergeMetadata(
-  base: NuxtBoardDocumentMetadata,
-  patch: NuxtBoardDocumentMetadata | undefined,
-): NuxtBoardDocumentMetadata {
+  base: VueBoardDocumentMetadata,
+  patch: VueBoardDocumentMetadata | undefined,
+): VueBoardDocumentMetadata {
   if (!patch) return base
   return {
     ...base,
@@ -201,11 +211,17 @@ function mergeMetadata(
   }
 }
 
+function getDocumentMetadata(
+  document: Partial<JsonCanvasDocument>,
+): VueBoardDocumentMetadata | undefined {
+  return document['x-vue-board'] ?? document['x-nuxt-board']
+}
+
 export function toPersistedDocument(
   snapshot: BoardSnapshot,
   pluginDocuments: Partial<JsonCanvasDocument>[],
 ): JsonCanvasDocument {
-  let metadata: NuxtBoardDocumentMetadata = {
+  let metadata: VueBoardDocumentMetadata = {
     camera: snapshot.camera,
     grid: snapshot.grid,
     selection: snapshot.selection,
@@ -228,13 +244,13 @@ export function toPersistedDocument(
     if (pluginDocument.edges !== undefined) {
       edges = pluginDocument.edges
     }
-    metadata = mergeMetadata(metadata, pluginDocument['x-nuxt-board'])
+    metadata = mergeMetadata(metadata, getDocumentMetadata(pluginDocument))
   }
 
   return {
     nodes: snapshot.nodes.map((node) => boardNodeToJsonNode(node)),
     ...(edges !== undefined ? { edges } : {}),
-    'x-nuxt-board': metadata,
+    'x-vue-board': metadata,
   }
 }
 
@@ -274,18 +290,18 @@ function validateDocumentMetadata(metadata: unknown): void {
   if (metadata === undefined) return
   const meta = assertRecord(
     metadata,
-    'Invalid board document: x-nuxt-board metadata must be an object.',
+    'Invalid board document: board metadata must be an object.',
   )
 
   if (meta.camera !== undefined) {
     const camera = assertRecord(
       meta.camera,
-      'Invalid board document: x-nuxt-board.camera must be an object.',
+      'Invalid board document: board metadata camera must be an object.',
     )
     for (const key of ['x', 'y', 'z'] as const) {
       assertOptionalFiniteNumber(
         camera[key],
-        `Invalid board document: x-nuxt-board.camera.${key} must be finite.`,
+        `Invalid board document: board metadata camera.${key} must be finite.`,
       )
     }
   }
@@ -293,21 +309,21 @@ function validateDocumentMetadata(metadata: unknown): void {
   if (meta.grid !== undefined) {
     const grid = assertRecord(
       meta.grid,
-      'Invalid board document: x-nuxt-board.grid must be an object.',
+      'Invalid board document: board metadata grid must be an object.',
     )
     for (const key of ['size', 'majorEvery', 'edgeSnapThreshold'] as const) {
       assertOptionalFiniteNumber(
         grid[key],
-        `Invalid board document: x-nuxt-board.grid.${key} must be finite.`,
+        `Invalid board document: board metadata grid.${key} must be finite.`,
       )
     }
     assertOptionalBoolean(
       grid.snap,
-      'Invalid board document: x-nuxt-board.grid.snap must be boolean.',
+      'Invalid board document: board metadata grid.snap must be boolean.',
     )
     assertOptionalBoolean(
       grid.edgeSnap,
-      'Invalid board document: x-nuxt-board.grid.edgeSnap must be boolean.',
+      'Invalid board document: board metadata grid.edgeSnap must be boolean.',
     )
     if (
       grid.pattern !== undefined &&
@@ -317,25 +333,25 @@ function validateDocumentMetadata(metadata: unknown): void {
       grid.pattern !== 'none'
     ) {
       throw new Error(
-        `Invalid board document: x-nuxt-board.grid.pattern "${String(grid.pattern)}" is unsupported.`,
+        `Invalid board document: board metadata grid.pattern "${String(grid.pattern)}" is unsupported.`,
       )
     }
   }
 
   if (meta.selection !== undefined && !Array.isArray(meta.selection)) {
     throw new Error(
-      'Invalid board document: x-nuxt-board.selection must be an array.',
+      'Invalid board document: board metadata selection must be an array.',
     )
   }
   assertOptionalFiniteNumber(
     meta.nextZIndex,
-    'Invalid board document: x-nuxt-board.nextZIndex must be finite.',
+    'Invalid board document: board metadata nextZIndex must be finite.',
   )
 
   if (meta.nodes !== undefined) {
     const nodes = assertRecord(
       meta.nodes,
-      'Invalid board document: x-nuxt-board.nodes must be an object.',
+      'Invalid board document: board metadata nodes must be an object.',
     )
     for (const [id, nodeMeta] of Object.entries(nodes)) {
       const node = assertRecord(
@@ -365,7 +381,7 @@ function validateDocumentMetadata(metadata: unknown): void {
   if (meta.edges !== undefined) {
     const edges = assertRecord(
       meta.edges,
-      'Invalid board document: x-nuxt-board.edges must be an object.',
+      'Invalid board document: board metadata edges must be an object.',
     )
     for (const [id, edgeMeta] of Object.entries(edges)) {
       const edge = assertRecord(
@@ -403,11 +419,11 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   ] as const) {
     if (key in parsed) {
       throw new Error(
-        `Invalid board document: runtime field "${key}" belongs under x-nuxt-board.`,
+        `Invalid board document: runtime field "${key}" belongs under x-vue-board.`,
       )
     }
   }
-  validateDocumentMetadata(parsed['x-nuxt-board'])
+  validateDocumentMetadata(getDocumentMetadata(parsed))
 
   const seenNodes = new Set<NodeId>()
   const nodes = parsed.nodes.map((node) => {
@@ -531,8 +547,8 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   return {
     nodes,
     ...(edges !== undefined ? { edges } : {}),
-    ...(parsed['x-nuxt-board'] !== undefined
-      ? { 'x-nuxt-board': parsed['x-nuxt-board'] }
+    ...(getDocumentMetadata(parsed) !== undefined
+      ? { 'x-vue-board': getDocumentMetadata(parsed) }
       : {}),
   }
 }
@@ -544,7 +560,7 @@ export function materializeSnapshotNodes(snapshot: BoardSnapshot): BoardNode[] {
 export function documentToSnapshot(
   document: JsonCanvasDocument,
 ): BoardSnapshot {
-  const metadata = document['x-nuxt-board']
+  const metadata = getDocumentMetadata(document)
   const nodes = document.nodes.map((node, index) =>
     normalizeExistingNode(
       jsonNodeToBoardNode(node, metadata?.nodes?.[node.id], index),

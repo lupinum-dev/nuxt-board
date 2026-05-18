@@ -8,9 +8,9 @@ export type NodeId = Brand<string, 'NodeId'>
 /** Unique identifier for a connection edge. */
 export type EdgeId = Brand<string, 'EdgeId'>
 
-/** Cast a string into a branded node id. Prefer this in tests and fixtures. */
+/** Compile-time-only cast into a branded node id. This does not validate runtime input. */
 export const asNodeId = (value: string): NodeId => value as NodeId
-/** Cast a string into a branded edge id. Prefer this in tests and fixtures. */
+/** Compile-time-only cast into a branded edge id. This does not validate runtime input. */
 export const asEdgeId = (value: string): EdgeId => value as EdgeId
 
 /** Axis used by snapping guides and edge-alignment calculations. */
@@ -138,32 +138,36 @@ export interface JsonCanvasEdge {
   readonly label?: string
 }
 
-export interface NuxtBoardNodeMetadata {
+export interface VueBoardNodeMetadata {
   readonly zIndex?: number
   readonly locked?: boolean
   readonly visible?: boolean
   readonly parentId?: NodeId
 }
 
-export interface NuxtBoardEdgeMetadata {
+export interface VueBoardEdgeMetadata {
   readonly zIndex?: number
   readonly data?: Record<string, unknown>
 }
 
-/** nuxt-board metadata for engine state that JSON Canvas 1.0 does not define. */
-export interface NuxtBoardDocumentMetadata {
+/** Vue Board metadata for engine state that JSON Canvas 1.0 does not define. */
+export interface VueBoardDocumentMetadata {
   readonly camera?: Camera
   readonly grid?: GridSettings
   readonly selection?: readonly NodeId[]
   readonly nextZIndex?: number
-  readonly nodes?: Readonly<Record<string, NuxtBoardNodeMetadata>>
-  readonly edges?: Readonly<Record<string, NuxtBoardEdgeMetadata>>
+  readonly nodes?: Readonly<Record<string, VueBoardNodeMetadata>>
+  readonly edges?: Readonly<Record<string, VueBoardEdgeMetadata>>
 }
+
+/** Legacy persisted metadata namespace accepted on import only. */
+export type NuxtBoardDocumentMetadata = VueBoardDocumentMetadata
 
 /** Canonical persisted board document. */
 export interface JsonCanvasDocument {
   readonly nodes: readonly JsonCanvasNode[]
   readonly edges?: readonly JsonCanvasEdge[]
+  readonly 'x-vue-board'?: VueBoardDocumentMetadata
   readonly 'x-nuxt-board'?: NuxtBoardDocumentMetadata
 }
 
@@ -328,14 +332,19 @@ export type ValidationMode = 'strict' | 'warn' | 'off'
 
 export interface BoardFeatureExtensions {}
 
-/** Engine factory options shared by commands, first-party features, and renderers. */
+/** Opaque install token produced by internal extension packages. */
+export interface BoardExtension {
+  readonly name: string
+}
+
+/** Engine factory options shared by commands, internal features, and renderers. */
 export interface BoardEngineOptions {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  extensions?: FirstPartyBoardFeature[]
+  extensions?: BoardExtension[]
   diagnostics?: boolean | { traceLimit?: number }
   validation?: ValidationMode
   initialNodes?: ReadonlyArray<BoardNode>
@@ -357,7 +366,16 @@ export interface TraceEntry {
   args: unknown[]
 }
 
-/** Event contract emitted by the board engine. First-party features extend this interface via module augmentation. */
+/** History capture policy attached to command lifecycle events. */
+export type CommandHistoryPolicy = 'record' | 'ignore'
+
+/** Explicit command lifecycle metadata consumed by internal features. */
+export interface CommandMetadata {
+  history: CommandHistoryPolicy
+  validate?: boolean
+}
+
+/** Event contract emitted by the board engine. Internal features extend this interface via module augmentation. */
 export interface BoardEventMap {
   ready: () => void
   destroy: () => void
@@ -375,9 +393,22 @@ export interface BoardEventMap {
   'interaction:start': (state: InteractionState) => void
   'interaction:update': (state: InteractionState) => void
   'interaction:end': (state: InteractionState) => void
-  'command:before': (name: string, args: unknown[]) => void
-  'command:after': (name: string, args: unknown[], duration: number) => void
-  'command:blocked': (name: string, args: unknown[]) => void
+  'command:before': (
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ) => void
+  'command:after': (
+    name: string,
+    args: unknown[],
+    duration: number,
+    metadata: CommandMetadata,
+  ) => void
+  'command:blocked': (
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ) => void
   'validation:failed': (failure: ValidationFailure) => void
 }
 
@@ -432,7 +463,6 @@ export interface BoardEngine {
   ): Unsubscribe
   off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
-  use(feature: FirstPartyBoardFeature): void
   /**
    * Register a synchronous command gate. Intended for concrete host policy such
    * as read-only mode, not broad application orchestration. Returns an
@@ -504,10 +534,10 @@ export interface BoardEngine {
 }
 
 /**
- * First-party feature surface used by workspace packages such as history and
+ * Internal feature surface used by workspace packages such as history and
  * connections. This is internal infrastructure, not a general plugin surface.
  */
-export interface FirstPartyBoardFeatureContext extends BoardEngine {
+export interface InternalFeatureContext extends BoardEngine {
   emit<K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
@@ -519,10 +549,15 @@ export interface FirstPartyBoardFeatureContext extends BoardEngine {
   /**
    * Execute a named mutation through guarded command handling:
    * command guards → command:before → fn() → validation → command:after.
-   * Use this in first-party features so edge/connection operations appear in traces,
+   * Use this in internal features so edge/connection operations appear in traces,
    * are interceptable by command guards, and are captured by the history feature.
    */
-  runCommand<T>(name: string, args: unknown[], fn: () => T): T
+  runCommand<T>(
+    name: string,
+    args: unknown[],
+    fn: () => T,
+    metadata: CommandMetadata,
+  ): T
   /**
    * Dispatch an action. Called by command implementations to record state mutations
    * and notify subscribers (history, feature reducers).
@@ -531,10 +566,10 @@ export interface FirstPartyBoardFeatureContext extends BoardEngine {
   /**
    * Read the current slice state for this feature, as last produced by its reducer.
    */
-  getPluginState<S>(): S
+  getFeatureState<S>(): S
   /**
    * Subscribe to actions dispatched by commands.
-   * Used by first-party features to react to state mutations without polling individual events.
+   * Used by internal features to react to state mutations without polling individual events.
    */
   onAction(
     listener: (action: import('./state/actions').Action) => void,
@@ -555,38 +590,38 @@ export interface FirstPartyBoardFeatureContext extends BoardEngine {
   ): import('./state/actions').Action
 }
 
-/** Reducer-backed persistent state owned by a first-party feature. */
-interface FirstPartyBoardFeatureSlice {
+/** Reducer-backed persistent state owned by a internal feature. */
+interface InternalFeatureSlice {
   initial: unknown
   reducer: (state: never, action: import('./state/actions').Action) => unknown
   /**
    * Optionally invert a feature-tunneled action so that history can replay its inverse.
-   * Receives the inner action body (i.e. `(action as { type: 'PLUGIN' }).action`).
-   * Must return an inner action shape suitable for re-dispatching as a PLUGIN action.
+   * Receives the inner action body (i.e. `(action as { type: 'FEATURE_ACTION' }).action`).
+   * Must return an inner action shape suitable for re-dispatching as a FEATURE_ACTION action.
    */
   invert?: (innerAction: never) => unknown
 }
 
-/** Optional first-party hook for persisted JSON Canvas document data. */
-export interface FirstPartyBoardFeaturePersistence {
+/** Optional internal hook for persisted JSON Canvas document data. */
+export interface InternalFeaturePersistence {
   exportDocument?(
-    engine: FirstPartyBoardFeatureContext,
+    engine: InternalFeatureContext,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: FirstPartyBoardFeatureContext,
+    engine: InternalFeatureContext,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
   ): void
 }
 
-/** First-party feature contract for state, commands, and side effects. */
-export interface FirstPartyBoardFeature {
+/** Internal feature contract for state, commands, and side effects. */
+export interface InternalBoardFeature extends BoardExtension {
   name: string
-  slice?: FirstPartyBoardFeatureSlice
-  persistence?: FirstPartyBoardFeaturePersistence
+  slice?: InternalFeatureSlice
+  persistence?: InternalFeaturePersistence
   install(
-    engine: FirstPartyBoardFeatureContext,
+    engine: InternalFeatureContext,
     options?: Record<string, unknown>,
   ): void | PluginCleanup
 }
