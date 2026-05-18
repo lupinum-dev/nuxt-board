@@ -6,7 +6,14 @@ async function openDocs(page: Page, path = '/') {
   const consoleErrors: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') {
-      consoleErrors.push(message.text())
+      const text = message.text()
+      if (
+        text.includes('wasm streaming compile failed') ||
+        text.includes('falling back to ArrayBuffer instantiation')
+      ) {
+        return
+      }
+      consoleErrors.push(text)
     }
   })
   page.on('pageerror', (error) => {
@@ -16,6 +23,21 @@ async function openDocs(page: Page, path = '/') {
   await page.goto(`http://127.0.0.1:4174${path}`, { waitUntil: 'commit' })
   await expect(page.locator('body')).toBeVisible()
   return consoleErrors
+}
+
+async function exerciseExample(
+  page: Page,
+  path: string,
+  heading: string,
+  control: string | RegExp,
+) {
+  const consoleErrors = await openDocs(page, path)
+
+  await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+  await expect(page.locator('.board-root').first()).toBeVisible()
+  await page.getByRole('button', { name: control }).first().click()
+  await expect(page.locator('.board-root').first()).toBeVisible()
+  expect(consoleErrors).toEqual([])
 }
 
 test('renders the docs landing page and embedded board demo', async ({
@@ -53,6 +75,48 @@ test('navigates to examples and api reference pages', async ({ page }) => {
       name: 'createBoardEngine',
     }),
   ).toBeVisible()
+})
+
+test('exercises every examples demo without console errors', async ({
+  page,
+}) => {
+  await exerciseExample(
+    page,
+    '/examples/basic-board',
+    'Basic Board',
+    'Add note',
+  )
+  await exerciseExample(
+    page,
+    '/examples/connections-and-minimap',
+    'Connections and Minimap',
+    'Shuffle',
+  )
+  await exerciseExample(
+    page,
+    '/examples/custom-renderers',
+    'Custom Renderers',
+    'Add insight',
+  )
+  await exerciseExample(
+    page,
+    '/examples/workflow-builder',
+    'Workflow Renderer Demo',
+    'Cycle selected step',
+  )
+  await exerciseExample(page, '/examples/mind-map', 'Mind Map', 'Add branch')
+  await exerciseExample(
+    page,
+    '/examples/read-only-viewer',
+    'Read-only Viewer',
+    'Switch to edit mode',
+  )
+  await exerciseExample(
+    page,
+    '/examples/nuxt-auto-imports',
+    'Nuxt Auto-imports',
+    'Add node',
+  )
 })
 
 test('links the docs introduction to the examples section', async ({

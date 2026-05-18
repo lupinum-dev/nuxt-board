@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { createBoardEngine } from '@lupinum/board-core'
+import { asNodeId, createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 import {
   connectionPlugin,
   BoardConnectionLayer,
@@ -13,6 +14,8 @@ const engine = createBoardEngine({
 
 const payload = ref('')
 const formatMode = ref<'pretty' | 'compact'>('pretty')
+const SOURCE_ID = asNodeId('source')
+const TARGET_ID = asNodeId('target')
 
 function exportDocument() {
   const raw = engine.exportJSON()
@@ -24,45 +27,48 @@ function exportDocument() {
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      nodes: [
-        {
-          id: 'source',
-          type: 'text',
-          x: 80,
-          y: 110,
-          width: 220,
-          height: 100,
-          text: 'Export me\nto JSON Canvas',
-        },
-        {
-          id: 'target',
-          type: 'text',
-          x: 420,
-          y: 110,
-          width: 220,
-          height: 100,
-          text: 'Edit the JSON\nthen import back',
-        },
-      ],
-      'x-vue-board': {
+    JSON.stringify(
+      createDemoDocument({
         camera: { x: 0, y: 0, z: 1 },
         grid: engine.getGridSettings(),
+        selection: [],
         nextZIndex: 3,
-        nodes: {
-          source: { zIndex: 1, locked: false, visible: true },
-          target: { zIndex: 2, locked: false, visible: true },
-        },
-      },
-    }),
+        nodes: [
+          {
+            id: SOURCE_ID,
+            type: 'text',
+            x: 80,
+            y: 110,
+            width: 220,
+            height: 100,
+            text: 'Export me\nto JSON Canvas',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: TARGET_ID,
+            type: 'text',
+            x: 420,
+            y: 110,
+            width: 220,
+            height: 100,
+            text: 'Edit the JSON\nthen import back',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+        ],
+      }),
+    ),
     'replace',
   )
   for (const edge of engine.ext.connections.getEdges()) {
     engine.ext.connections.deleteEdge(edge.id)
   }
   engine.ext.connections.createEdge({
-    from: 'source' as never,
-    to: 'target' as never,
+    from: SOURCE_ID,
+    to: TARGET_ID,
     label: 'json-canvas',
     data: {},
   })

@@ -335,6 +335,7 @@ export interface BoardFeatureExtensions {}
 /** Opaque install token produced by internal extension packages. */
 export interface BoardExtension {
   readonly name: string
+  readonly __boardExtensionBrand: never
 }
 
 /** Engine factory options shared by commands, internal features, and renderers. */
@@ -412,7 +413,7 @@ export interface BoardEventMap {
   'validation:failed': (failure: ValidationFailure) => void
 }
 
-export type PluginCleanup = () => void
+export type FeatureCleanup = () => void
 export type Unsubscribe = () => void
 
 /**
@@ -537,14 +538,17 @@ export interface BoardEngine {
  * Internal feature surface used by workspace packages such as history and
  * connections. This is internal infrastructure, not a general plugin surface.
  */
-export interface InternalFeatureContext extends BoardEngine {
-  emit<K extends keyof BoardEventMap>(
-    event: K,
-    ...args: Parameters<BoardEventMap[K]>
-  ): void
-  extend<K extends keyof BoardFeatureExtensions & string>(
+export interface InternalFeatureContext<
+  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+  TEvents extends {
+    [K in keyof TEvents]: (...args: never[]) => unknown
+  } = BoardEventMap,
+> extends Omit<BoardEngine, 'ext'> {
+  readonly ext: TExtensions
+  emit<K extends keyof TEvents>(event: K, ...args: Parameters<TEvents[K]>): void
+  extend<K extends keyof TExtensions & string>(
     key: K,
-    value: BoardFeatureExtensions[K],
+    value: TExtensions[K],
   ): void
   /**
    * Execute a named mutation through guarded command handling:
@@ -603,12 +607,17 @@ interface InternalFeatureSlice {
 }
 
 /** Optional internal hook for persisted JSON Canvas document data. */
-export interface InternalFeaturePersistence {
+export interface InternalFeaturePersistence<
+  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+  TEvents extends {
+    [K in keyof TEvents]: (...args: never[]) => unknown
+  } = BoardEventMap,
+> {
   exportDocument?(
-    engine: InternalFeatureContext,
+    engine: InternalFeatureContext<TExtensions, TEvents>,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: InternalFeatureContext,
+    engine: InternalFeatureContext<TExtensions, TEvents>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
@@ -616,12 +625,26 @@ export interface InternalFeaturePersistence {
 }
 
 /** Internal feature contract for state, commands, and side effects. */
-export interface InternalBoardFeature extends BoardExtension {
+export interface InternalBoardFeature<
+  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+  TEvents extends {
+    [K in keyof TEvents]: (...args: never[]) => unknown
+  } = BoardEventMap,
+> extends BoardExtension {
   name: string
   slice?: InternalFeatureSlice
-  persistence?: InternalFeaturePersistence
+  persistence?: InternalFeaturePersistence<TExtensions, TEvents>
   install(
-    engine: InternalFeatureContext,
+    engine: InternalFeatureContext<TExtensions, TEvents>,
     options?: Record<string, unknown>,
-  ): void | PluginCleanup
+  ): void | FeatureCleanup
+}
+
+export type InternalBoardFeatureDefinition<
+  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+  TEvents extends {
+    [K in keyof TEvents]: (...args: never[]) => unknown
+  } = BoardEventMap,
+> = Omit<InternalBoardFeature<TExtensions, TEvents>, keyof BoardExtension> & {
+  readonly name: string
 }

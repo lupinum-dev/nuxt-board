@@ -6,11 +6,11 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      '@lupinum/board-core': fileURLToPath(
-        new URL('./packages/board-core/src/index.ts', import.meta.url),
-      ),
       '@lupinum/board-core/internal': fileURLToPath(
         new URL('./packages/board-core/src/internal.ts', import.meta.url),
+      ),
+      '@lupinum/board-core': fileURLToPath(
+        new URL('./packages/board-core/src/index.ts', import.meta.url),
       ),
       '@lupinum/vue-board': fileURLToPath(
         new URL('./packages/vue-board/src/index.ts', import.meta.url),

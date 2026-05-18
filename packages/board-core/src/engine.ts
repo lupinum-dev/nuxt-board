@@ -79,6 +79,7 @@ import {
   toPersistedDocument,
   withNodeFields,
 } from './engine/persistence'
+import { assertInternalBoardFeature } from './internal'
 import type {
   BoxSelectBehavior,
   BoxSelectMode,
@@ -176,11 +177,16 @@ export function createBoardEngine(
       hooks: NonNullable<InternalBoardFeature['persistence']>
     }
   >()
-  dispatcher.onAction((action) => {
+  function reduceFeatureStates(action: import('./state/actions').Action): void {
     for (const featureState of featureStates.values()) {
       featureState.state = featureState.reducer(featureState.state, action)
     }
-  })
+  }
+
+  function dispatchAction(action: import('./state/actions').Action): void {
+    reduceFeatureStates(action)
+    dispatcher.dispatch(action)
+  }
   const clipboard: StoredNode[] = []
   const ext = {} as BoardFeatureExtensions
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
@@ -224,7 +230,7 @@ export function createBoardEngine(
   const reactive = createReactiveLayer({
     state,
     emit,
-    dispatch: dispatcher.dispatch,
+    dispatch: dispatchAction,
   })
   const {
     batchCtrl,
@@ -279,7 +285,7 @@ export function createBoardEngine(
     if (before === state.nextZIndex) {
       return
     }
-    dispatcher.dispatch({
+    dispatchAction({
       type: 'NEXT_Z_INDEX_BUMPED',
       before,
       after: state.nextZIndex,
@@ -370,6 +376,7 @@ export function createBoardEngine(
       emit('command:before', name, args, metadata)
     }
     const restorePoint = validateCommand ? createRestorePoint() : null
+    dispatcher.beginActionTransaction()
     try {
       const result = fn()
       if (validateCommand) {
@@ -379,6 +386,7 @@ export function createBoardEngine(
           validate(name)
         }
       }
+      dispatcher.commitActionTransaction()
       if (!inBatch) {
         emit('command:after', name, args, performance.now() - started, metadata)
       }
@@ -387,6 +395,7 @@ export function createBoardEngine(
       if (restorePoint) {
         restoreEngineState(restorePoint)
       }
+      dispatcher.rollbackActionTransaction()
       throw error
     }
   }
@@ -405,20 +414,24 @@ export function createBoardEngine(
     const started = performance.now()
     emit('command:before', name, args, metadata)
     const restorePoint = validateCommand ? createRestorePoint() : null
+    dispatcher.beginActionTransaction()
     try {
       const result = await fn()
       if (validateCommand) {
         validate(name)
       }
+      dispatcher.commitActionTransaction()
       emit('command:after', name, args, performance.now() - started, metadata)
       return result
     } catch (error) {
       if (error instanceof AnimationCancelled) {
+        dispatcher.rollbackActionTransaction()
         return undefined as T
       }
       if (restorePoint) {
         restoreEngineState(restorePoint)
       }
+      dispatcher.rollbackActionTransaction()
       throw error
     }
   }
@@ -574,7 +587,7 @@ export function createBoardEngine(
     next: StoredNode,
   ): StoredNode {
     const stored = replaceStoredNode(node, next)
-    dispatcher.dispatch({
+    dispatchAction({
       type: 'NODE_UPDATED',
       id: node.id,
       before: node,
@@ -850,7 +863,7 @@ export function createBoardEngine(
           continue
         }
         state.nodes.delete(id)
-        dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
+        dispatchAction({ type: 'NODE_DELETED', node: prevNode })
         emit('node:deleted', id, materializeNode(prevNode))
       }
 
@@ -861,7 +874,7 @@ export function createBoardEngine(
         const node = normalizeExistingNode(rawNode)
         state.nodes.set(node.id, node)
         idMap.set(rawNode.id, node.id)
-        dispatcher.dispatch({ type: 'NODE_CREATED', node })
+        dispatchAction({ type: 'NODE_CREATED', node })
         emit('node:created', materializeNode(node))
       }
 
@@ -890,7 +903,7 @@ export function createBoardEngine(
     return idMap
   }
 
-  function restorePluginDocuments(
+  function restoreFeatureDocuments(
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId> = new Map(),
@@ -982,10 +995,10 @@ export function createBoardEngine(
         return
       }
       case 'FEATURE_ACTION':
-        // Plugin slice updates and any side-effect listeners run via dispatcher.dispatch below.
+        // Feature slice updates and side-effect listeners run via dispatchAction below.
         break
     }
-    dispatcher.dispatch(action)
+    dispatchAction(action)
   }
 
   function invertActionImpl(
@@ -1095,7 +1108,7 @@ export function createBoardEngine(
         if (patch.pattern !== undefined) {
           grid.pattern = patch.pattern
         }
-        dispatcher.dispatch({
+        dispatchAction({
           type: 'GRID_UPDATED',
           before,
           after: { ...grid },
@@ -1129,7 +1142,7 @@ export function createBoardEngine(
     ): T {
       return runCommand(name, args, fn, metadata)
     },
-    dispatch: dispatcher.dispatch,
+    dispatch: dispatchAction,
     onAction: dispatcher.onAction,
     applyRecordedAction,
     invertAction: invertActionImpl,
@@ -1290,7 +1303,7 @@ export function createBoardEngine(
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
         notifyNodesChanged()
-        dispatcher.dispatch({ type: 'NODE_CREATED', node })
+        dispatchAction({ type: 'NODE_CREATED', node })
         dispatchNextZIndexChange(nextZIndexBefore)
         if (input.select !== false) {
           setSelection([node.id])
@@ -1321,7 +1334,7 @@ export function createBoardEngine(
             continue
           }
           state.nodes.delete(deleteId)
-          dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
+          dispatchAction({ type: 'NODE_DELETED', node: prevNode })
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         notifyNodesChanged()
@@ -1367,7 +1380,7 @@ export function createBoardEngine(
           emit('node:updated', publicNode, materializeNode(current))
         }
         if (deltas.length > 0) {
-          dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
+          dispatchAction({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
         reparentNodesCapturedByMovedGroups(targets)
@@ -1413,7 +1426,7 @@ export function createBoardEngine(
           emit('node:updated', publicNode, materializeNode(current))
         }
         if (deltas.length > 0) {
-          dispatcher.dispatch({ type: 'NODES_MOVED', deltas })
+          dispatchAction({ type: 'NODES_MOVED', deltas })
         }
         reparentAfterDrag(targets)
         reparentNodesCapturedByMovedGroups(targets)
@@ -1508,7 +1521,7 @@ export function createBoardEngine(
         const created = duplicateForest(source, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
-          dispatcher.dispatch({ type: 'NODE_CREATED', node })
+          dispatchAction({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
         dispatchNextZIndexChange(nextZIndexBefore)
@@ -1532,7 +1545,7 @@ export function createBoardEngine(
         const created = duplicateForest(clipboard, offset)
         for (const node of created) {
           state.nodes.set(node.id, node)
-          dispatcher.dispatch({ type: 'NODE_CREATED', node })
+          dispatchAction({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
         dispatchNextZIndexChange(nextZIndexBefore)
@@ -1605,7 +1618,7 @@ export function createBoardEngine(
             continue
           }
           state.nodes.delete(deleteId)
-          dispatcher.dispatch({ type: 'NODE_DELETED', node: prevNode })
+          dispatchAction({ type: 'NODE_DELETED', node: prevNode })
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         if (toDelete.size > 0) {
@@ -1879,7 +1892,7 @@ export function createBoardEngine(
               })
             }
             if (moveDeltas.length > 0) {
-              dispatcher.dispatch({ type: 'NODES_MOVED', deltas: moveDeltas })
+              dispatchAction({ type: 'NODES_MOVED', deltas: moveDeltas })
             }
           },
           RECORD_COMMAND,
@@ -2072,7 +2085,7 @@ export function createBoardEngine(
           assertCanRestoreDocument(document)
           const snapshot = documentToSnapshot(document)
           const idMap = restoreSnapshot(snapshot, mode)
-          restorePluginDocuments(document, mode, idMap)
+          restoreFeatureDocuments(document, mode, idMap)
         },
         IGNORE_COMMAND,
       )
@@ -2082,12 +2095,13 @@ export function createBoardEngine(
   notifyNodesChanged()
 
   for (const feature of options.extensions ?? []) {
-    installFeature(feature as InternalBoardFeature)
+    assertInternalBoardFeature(feature)
+    installFeature(feature)
   }
 
   if (initialDocument) {
     assertCanRestoreDocument(initialDocument)
-    restorePluginDocuments(initialDocument, 'replace')
+    restoreFeatureDocuments(initialDocument, 'replace')
   }
 
   validate('createBoardEngine')

@@ -1,11 +1,13 @@
 import type { Action } from '../state/actions'
 
-type PluginInverter = (innerAction: unknown) => unknown
-type PluginInverterLookup = (pluginName: string) => PluginInverter | undefined
+type FeatureInverter = (innerAction: unknown) => unknown
+type FeatureInverterLookup = (
+  featureName: string,
+) => FeatureInverter | undefined
 
 export function invertAction(
   action: Action,
-  lookup: PluginInverterLookup,
+  lookup: FeatureInverterLookup,
 ): Action {
   switch (action.type) {
     case 'NODE_CREATED':
@@ -57,7 +59,7 @@ export function invertAction(
       const invert = lookup(action.feature)
       if (!invert) {
         throw new Error(
-          `Cannot invert FEATURE_ACTION action: plugin "${action.feature}" did not register an inverter.`,
+          `Cannot invert FEATURE_ACTION action: feature "${action.feature}" did not register an inverter.`,
         )
       }
       return {

@@ -62,11 +62,11 @@ export default defineNuxtConfig({
     '@lupinum/vue-board/style.css': fileURLToPath(
       new URL('../../packages/vue-board/dist/index.css', import.meta.url),
     ),
-    '@lupinum/board-core': fileURLToPath(
-      new URL('../../packages/board-core/src/index.ts', import.meta.url),
-    ),
     '@lupinum/board-core/internal': fileURLToPath(
       new URL('../../packages/board-core/src/internal.ts', import.meta.url),
+    ),
+    '@lupinum/board-core': fileURLToPath(
+      new URL('../../packages/board-core/src/index.ts', import.meta.url),
     ),
     '@lupinum/vue-board': fileURLToPath(
       new URL('../../packages/vue-board/src/index.ts', import.meta.url),
@@ -94,6 +94,28 @@ export default defineNuxtConfig({
       ignore: [/^\/_og\//],
       crawlLinks: true,
       autoSubfolderIndex: false,
+    },
+  },
+
+  vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^@lupinum\/board-core\/internal$/,
+          replacement: fileURLToPath(
+            new URL(
+              '../../packages/board-core/src/internal.ts',
+              import.meta.url,
+            ),
+          ),
+        },
+        {
+          find: /^@lupinum\/board-core$/,
+          replacement: fileURLToPath(
+            new URL('../../packages/board-core/src/index.ts', import.meta.url),
+          ),
+        },
+      ],
     },
   },
 

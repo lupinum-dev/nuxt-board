@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { createBoardEngine, type NodeId } from '@lupinum/board-core'
+import { asNodeId, createBoardEngine, type NodeId } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 import {
   connectionPlugin,
   BoardConnectionLayer,
@@ -19,107 +20,104 @@ const renderers: BoardRendererRegistry = {
 }
 
 const selection = ref<NodeId[]>([])
+const ROOT_ID = asNodeId('root')
+const ENG_ID = asNodeId('eng')
+const DESIGN_ID = asNodeId('design')
+const GROWTH_ID = asNodeId('growth')
+const API_ID = asNodeId('api')
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      nodes: [
-        {
-          id: 'root',
-          type: 'text',
-          x: 300,
-          y: 160,
-          width: 220,
-          height: 110,
-          text: '0\nProduct roadmap\nQ3 priorities',
-        },
-        {
-          id: 'eng',
-          type: 'text',
-          x: 40,
-          y: 40,
-          width: 200,
-          height: 100,
-          text: '1\nEngineering\nAPI, canvas, exports',
-        },
-        {
-          id: 'design',
-          type: 'text',
-          x: 40,
-          y: 290,
-          width: 200,
-          height: 100,
-          text: '1\nDesign\nInteraction polish',
-        },
-        {
-          id: 'growth',
-          type: 'text',
-          x: 610,
-          y: 40,
-          width: 200,
-          height: 100,
-          text: '1\nGrowth\nActivation paths',
-        },
-        {
-          id: 'api',
-          type: 'text',
-          x: 610,
-          y: 290,
-          width: 200,
-          height: 90,
-          text: '2\nPublic API\nKeep it boring',
-        },
-      ],
-      'x-vue-board': {
+    JSON.stringify(
+      createDemoDocument({
         camera: { x: -60, y: -40, z: 1 },
         grid: engine.getGridSettings(),
         selection: [],
         nextZIndex: 6,
-        nodes: {
-          root: { zIndex: 1, locked: false, visible: true },
-          eng: {
-            parentId: 'root' as NodeId,
+        nodes: [
+          {
+            id: ROOT_ID,
+            type: 'text',
+            x: 300,
+            y: 160,
+            width: 220,
+            height: 110,
+            text: '0\nProduct roadmap\nQ3 priorities',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: ENG_ID,
+            type: 'text',
+            x: 40,
+            y: 40,
+            width: 200,
+            height: 100,
+            text: '1\nEngineering\nAPI, canvas, exports',
+            parentId: ROOT_ID,
             zIndex: 2,
             locked: false,
             visible: true,
           },
-          design: {
-            parentId: 'root' as NodeId,
+          {
+            id: DESIGN_ID,
+            type: 'text',
+            x: 40,
+            y: 290,
+            width: 200,
+            height: 100,
+            text: '1\nDesign\nInteraction polish',
+            parentId: ROOT_ID,
             zIndex: 3,
             locked: false,
             visible: true,
           },
-          growth: {
-            parentId: 'root' as NodeId,
+          {
+            id: GROWTH_ID,
+            type: 'text',
+            x: 610,
+            y: 40,
+            width: 200,
+            height: 100,
+            text: '1\nGrowth\nActivation paths',
+            parentId: ROOT_ID,
             zIndex: 4,
             locked: false,
             visible: true,
           },
-          api: {
-            parentId: 'eng' as NodeId,
+          {
+            id: API_ID,
+            type: 'text',
+            x: 610,
+            y: 290,
+            width: 200,
+            height: 90,
+            text: '2\nPublic API\nKeep it boring',
+            parentId: ENG_ID,
             zIndex: 5,
             locked: false,
             visible: true,
           },
-        },
-      },
-    }),
+        ],
+      }),
+    ),
     'replace',
   )
 
   const conn = engine.ext.connections
   for (const edge of conn.getEdges()) conn.deleteEdge(edge.id)
-  conn.createEdge({ from: 'root' as NodeId, to: 'eng' as NodeId, data: {} })
-  conn.createEdge({ from: 'root' as NodeId, to: 'design' as NodeId, data: {} })
-  conn.createEdge({ from: 'root' as NodeId, to: 'growth' as NodeId, data: {} })
-  conn.createEdge({ from: 'eng' as NodeId, to: 'api' as NodeId, data: {} })
+  conn.createEdge({ from: ROOT_ID, to: ENG_ID, data: {} })
+  conn.createEdge({ from: ROOT_ID, to: DESIGN_ID, data: {} })
+  conn.createEdge({ from: ROOT_ID, to: GROWTH_ID, data: {} })
+  conn.createEdge({ from: ENG_ID, to: API_ID, data: {} })
 }
 
 let branchCount = 0
 function addBranch() {
   branchCount++
   const selected = selection.value[0]
-  const parent = selected ?? ('root' as NodeId)
+  const parent = selected ?? ROOT_ID
   const parentNode = engine.getNode(parent)
   if (!parentNode) return
 

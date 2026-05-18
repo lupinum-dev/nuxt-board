@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { createBoardEngine } from '@lupinum/board-core'
+import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
   connectionPlugin,
@@ -17,6 +17,10 @@ const engine = createBoardEngine({
 
 const historyState = computed(() => engine.ext.history.getState())
 const routing = ref<ConnectionRouting>('bezier')
+const INPUT_ID = asNodeId('input')
+const PARSE_ID = asNodeId('parse')
+const SCORE_ID = asNodeId('score')
+const OUTPUT_ID = asNodeId('output')
 
 function seed() {
   engine.importJSON(
@@ -85,41 +89,41 @@ function seed() {
     connections.deleteEdge(edge.id)
   }
   connections.createEdge({
-    from: 'input' as never,
-    to: 'parse' as never,
+    from: INPUT_ID,
+    to: PARSE_ID,
     label: 'clean',
     data: {},
   })
   connections.createEdge({
-    from: 'input' as never,
-    to: 'score' as never,
+    from: INPUT_ID,
+    to: SCORE_ID,
     label: 'rank',
     data: {},
   })
   connections.createEdge({
-    from: 'parse' as never,
-    to: 'output' as never,
+    from: PARSE_ID,
+    to: OUTPUT_ID,
     label: 'emit',
     data: {},
   })
   connections.createEdge({
-    from: 'score' as never,
-    to: 'output' as never,
+    from: SCORE_ID,
+    to: OUTPUT_ID,
     label: 'merge',
     data: {},
   })
 }
 
 function shuffle() {
-  engine.updateNode('parse' as never, {
+  engine.updateNode(PARSE_ID, {
     x: 320 + Math.round(Math.random() * 70),
     y: 60 + Math.round(Math.random() * 60),
   })
-  engine.updateNode('score' as never, {
+  engine.updateNode(SCORE_ID, {
     x: 320 + Math.round(Math.random() * 70),
     y: 220 + Math.round(Math.random() * 60),
   })
-  engine.updateNode('output' as never, {
+  engine.updateNode(OUTPUT_ID, {
     x: 620 + Math.round(Math.random() * 80),
     y: 120 + Math.round(Math.random() * 80),
   })

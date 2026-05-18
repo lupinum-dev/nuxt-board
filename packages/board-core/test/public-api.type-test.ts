@@ -1,7 +1,12 @@
-import { createBoardEngine, type BoardEngine } from '../src'
-import type {
-  InternalBoardFeature,
-  InternalFeatureContext,
+import {
+  createBoardEngine,
+  type BoardEngine,
+  type BoardExtension,
+} from '../src'
+import {
+  defineInternalBoardFeature,
+  type InternalBoardFeature,
+  type InternalFeatureContext,
 } from '../src/internal'
 
 declare const engine: BoardEngine
@@ -15,7 +20,10 @@ engine.applyRecordedAction({ type: 'BATCH', actions: [] })
 // @ts-expect-error Command wrapper is available only to internal features.
 engine.runCommand('probe', [], () => undefined)
 
-const feature: InternalBoardFeature = {
+// @ts-expect-error BoardExtension is an opaque token, not a structural name bag.
+const fakeExtension: BoardExtension = { name: 'fake' }
+
+const feature: InternalBoardFeature = defineInternalBoardFeature({
   name: 'type-probe',
   install(featureEngine: InternalFeatureContext) {
     const stop = featureEngine.onAction(() => undefined)
@@ -25,7 +33,7 @@ const feature: InternalBoardFeature = {
     featureEngine.applyRecordedAction({ type: 'BATCH', actions: [] })
     stop()
   },
-}
+})
 
 createBoardEngine({ extensions: [feature] })
 // @ts-expect-error Runtime extension installation is intentionally not public.

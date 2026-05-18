@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { createBoardEngine } from '@lupinum/board-core'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
+import { createDemoDocument } from '../../utils/demoDocument'
 import DocsInsightNode from './DocsInsightNode.vue'
 import DocsMetricNode from './DocsMetricNode.vue'
 
@@ -16,49 +17,53 @@ const renderers: BoardRendererRegistry = {
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      nodes: [
-        {
-          id: 'why',
-          type: 'text',
-          x: 80,
-          y: 80,
-          width: 250,
-          height: 160,
-          text: 'Why custom renderers\nSwap the default card view for a Vue component while keeping JSON Canvas node data explicit.',
-        },
-        {
-          id: 'metric',
-          type: 'group',
-          x: 390,
-          y: 90,
-          width: 230,
-          height: 160,
-          label:
-            'Adoption\n83%\n+12%\nThe renderer can look nothing like the default text card.',
-        },
-        {
-          id: 'flow',
-          type: 'text',
-          x: 660,
-          y: 130,
-          width: 230,
-          height: 100,
-          text: 'Default JSON Canvas\nRenderers are keyed by real node type.',
-        },
-      ],
-      'x-vue-board': {
+    JSON.stringify(
+      createDemoDocument({
         camera: { x: 0, y: 0, z: 1 },
         grid: engine.getGridSettings(),
         selection: [],
         nextZIndex: 4,
-        nodes: {
-          why: { zIndex: 1, locked: false, visible: true },
-          metric: { zIndex: 2, locked: false, visible: true },
-          flow: { zIndex: 3, locked: false, visible: true },
-        },
-      },
-    }),
+        nodes: [
+          {
+            id: 'why',
+            type: 'text',
+            x: 80,
+            y: 80,
+            width: 250,
+            height: 160,
+            text: 'Why custom renderers\nSwap the default card view for a Vue component while keeping JSON Canvas node data explicit.',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'metric',
+            type: 'group',
+            x: 390,
+            y: 90,
+            width: 230,
+            height: 160,
+            label:
+              'Adoption\n83%\n+12%\nThe renderer can look nothing like the default text card.',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: 'flow',
+            type: 'text',
+            x: 660,
+            y: 130,
+            width: 230,
+            height: 100,
+            text: 'Default JSON Canvas\nRenderers are keyed by real node type.',
+            zIndex: 3,
+            locked: false,
+            visible: true,
+          },
+        ],
+      }),
+    ),
     'replace',
   )
 }

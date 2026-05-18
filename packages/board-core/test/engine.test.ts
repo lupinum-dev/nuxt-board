@@ -1,16 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
 import { asNodeId, CommandBlockedError, createBoardEngine } from '../src'
-import type { InternalBoardFeature } from '../src/internal'
+import {
+  defineInternalBoardFeature,
+  type InternalBoardFeature,
+} from '../src/internal'
 
 describe('board engine', () => {
-  it('runs plugin cleanups once when destroyed', () => {
+  it('runs feature cleanups once when destroyed', () => {
     const cleanup = vi.fn()
-    const feature: InternalBoardFeature = {
+    const feature: InternalBoardFeature = defineInternalBoardFeature({
       name: 'cleanup-test',
       install() {
         return cleanup
       },
-    }
+    })
     const engine = createBoardEngine({
       extensions: [feature],
     })
@@ -19,6 +22,16 @@ describe('board engine', () => {
     engine.destroy()
 
     expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects malformed extension objects before install', () => {
+    expect(() =>
+      createBoardEngine({
+        extensions: [{ name: 'fake' } as never],
+      }),
+    ).toThrow(
+      /Invalid board extension "fake": expected an internal feature token/,
+    )
   })
 
   it('keeps zoom anchored to the cursor', () => {
@@ -32,9 +45,9 @@ describe('board engine', () => {
   })
 
   it('rolls back strict validation failures after node updates', () => {
-    let readPluginState!: () => { updates: number }
+    let readFeatureState!: () => { updates: number }
     const actions: string[] = []
-    const feature: InternalBoardFeature = {
+    const feature: InternalBoardFeature = defineInternalBoardFeature({
       name: 'rollback-probe',
       slice: {
         initial: { updates: 0 },
@@ -45,10 +58,10 @@ describe('board engine', () => {
         },
       },
       install(engine) {
-        readPluginState = () => engine.getFeatureState()
+        readFeatureState = () => engine.getFeatureState()
         return engine.onAction((action) => actions.push(action.type))
       },
-    }
+    })
     const engine = createBoardEngine({
       grid: { snap: false },
       extensions: [feature],
@@ -72,19 +85,19 @@ describe('board engine', () => {
     )
 
     expect(engine.getSnapshot()).toEqual(before)
-    expect(readPluginState()).toEqual({ updates: 0 })
+    expect(readFeatureState()).toEqual({ updates: 0 })
     expect(actions).toEqual([])
     expect(events).toEqual([])
   })
 
   it('rolls back invalid node creation and import payloads', () => {
     const actions: string[] = []
-    const actionProbe: InternalBoardFeature = {
+    const actionProbe: InternalBoardFeature = defineInternalBoardFeature({
       name: 'action-probe',
       install(engine) {
         return engine.onAction((action) => actions.push(action.type))
       },
-    }
+    })
     const engine = createBoardEngine({
       grid: { snap: false },
       extensions: [actionProbe],
@@ -437,10 +450,10 @@ describe('board engine', () => {
     expect(engine.getSnapshot().nodes).toHaveLength(1)
   })
 
-  it('fires command hooks and installs plugins only once per name', () => {
+  it('fires command hooks and installs features only once per name', () => {
     const events: string[] = []
     let installs = 0
-    const feature: InternalBoardFeature = {
+    const feature: InternalBoardFeature = defineInternalBoardFeature({
       name: 'audit',
       install(engine) {
         installs += 1
@@ -455,7 +468,7 @@ describe('board engine', () => {
           after()
         }
       },
-    }
+    })
 
     const engine = createBoardEngine({ extensions: [feature, feature] })
     engine.createNode({ type: 'text', x: 0, y: 0, text: 'Hello' })

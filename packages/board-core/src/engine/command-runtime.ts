@@ -19,6 +19,9 @@ type ActionListener = (action: Action) => void
 interface Dispatcher {
   dispatch(action: Action): void
   onAction(listener: ActionListener): () => void
+  beginActionTransaction(): void
+  commitActionTransaction(): void
+  rollbackActionTransaction(): void
 }
 
 interface CommandGuardRegistry {
@@ -90,8 +93,18 @@ export function createCommandGuardRegistry(): CommandGuardRegistry {
 
 export function createDispatcher(): Dispatcher {
   const listeners = new Set<ActionListener>()
+  let transactionDepth = 0
+  const queuedActions: Action[] = []
 
   function dispatch(action: Action): void {
+    if (transactionDepth > 0) {
+      queuedActions.push(action)
+      return
+    }
+    notify(action)
+  }
+
+  function notify(action: Action): void {
     for (const listener of listeners) {
       try {
         listener(action)
@@ -106,9 +119,29 @@ export function createDispatcher(): Dispatcher {
     return () => listeners.delete(listener)
   }
 
+  function beginActionTransaction(): void {
+    transactionDepth += 1
+  }
+
+  function commitActionTransaction(): void {
+    transactionDepth -= 1
+    if (transactionDepth !== 0) return
+    const actions = queuedActions.splice(0)
+    for (const action of actions) notify(action)
+  }
+
+  function rollbackActionTransaction(): void {
+    transactionDepth -= 1
+    if (transactionDepth !== 0) return
+    queuedActions.length = 0
+  }
+
   return {
     dispatch,
     onAction,
+    beginActionTransaction,
+    commitActionTransaction,
+    rollbackActionTransaction,
   }
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { createBoardEngine, type NodeId } from '@lupinum/board-core'
+import { asNodeId, createBoardEngine } from '@lupinum/board-core'
+import { createDemoDocument } from '../../utils/demoDocument'
 import {
   connectionPlugin,
   BoardConnectionLayer,
@@ -21,51 +22,58 @@ const renderers: BoardRendererRegistry = {
 }
 
 const historyState = computed(() => engine.ext.history.getState())
+const CAPTURE_ID = asNodeId('capture')
+const QUALIFY_ID = asNodeId('qualify')
+const HANDOFF_ID = asNodeId('handoff')
 
 function seed() {
   engine.importJSON(
-    JSON.stringify({
-      nodes: [
-        {
-          id: 'capture',
-          type: 'text',
-          x: 40,
-          y: 110,
-          width: 220,
-          height: 130,
-          text: 'done\nCapture lead\nCollect the request and normalize inputs.',
-        },
-        {
-          id: 'qualify',
-          type: 'text',
-          x: 340,
-          y: 110,
-          width: 220,
-          height: 130,
-          text: 'active\nQualify\nScore, tag, and route the lead.',
-        },
-        {
-          id: 'handoff',
-          type: 'text',
-          x: 640,
-          y: 110,
-          width: 220,
-          height: 130,
-          text: 'pending\nHandoff\nCreate the downstream record and alert the owner.',
-        },
-      ],
-      'x-vue-board': {
+    JSON.stringify(
+      createDemoDocument({
         camera: { x: -40, y: -30, z: 1 },
         grid: engine.getGridSettings(),
         selection: [],
         nextZIndex: 4,
-        nodes: {
-          capture: { zIndex: 1, locked: false, visible: true },
-          qualify: { zIndex: 2, locked: false, visible: true },
-          handoff: { zIndex: 3, locked: false, visible: true },
-        },
-      },
-    }),
+        nodes: [
+          {
+            id: CAPTURE_ID,
+            type: 'text',
+            x: 40,
+            y: 110,
+            width: 220,
+            height: 130,
+            text: 'done\nCapture lead\nCollect the request and normalize inputs.',
+            zIndex: 1,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: QUALIFY_ID,
+            type: 'text',
+            x: 340,
+            y: 110,
+            width: 220,
+            height: 130,
+            text: 'active\nQualify\nScore, tag, and route the lead.',
+            zIndex: 2,
+            locked: false,
+            visible: true,
+          },
+          {
+            id: HANDOFF_ID,
+            type: 'text',
+            x: 640,
+            y: 110,
+            width: 220,
+            height: 130,
+            text: 'pending\nHandoff\nCreate the downstream record and alert the owner.',
+            zIndex: 3,
+            locked: false,
+            visible: true,
+          },
+        ],
+      }),
+    ),
     'replace',
   )
 
@@ -74,14 +82,14 @@ function seed() {
   }
 
   engine.ext.connections.createEdge({
-    from: 'capture' as NodeId,
-    to: 'qualify' as NodeId,
+    from: CAPTURE_ID,
+    to: QUALIFY_ID,
     label: 'validated',
     data: {},
   })
   engine.ext.connections.createEdge({
-    from: 'qualify' as NodeId,
-    to: 'handoff' as NodeId,
+    from: QUALIFY_ID,
+    to: HANDOFF_ID,
     label: 'approved',
     data: {},
   })
@@ -95,7 +103,7 @@ function nextStatus(current: StepStatus): StepStatus {
 
 function advanceSelected() {
   const selected = engine.getSelection()[0]
-  const target = selected ?? ('qualify' as NodeId)
+  const target = selected ?? QUALIFY_ID
   const node = engine.getNode(target)
   if (!node || node.type !== 'text') {
     return

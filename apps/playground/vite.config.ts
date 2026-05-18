@@ -15,25 +15,46 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      '@lupinum/board-core': fileURLToPath(
-        new URL('../../packages/board-core/src/index.ts', import.meta.url),
-      ),
-      '@lupinum/vue-board': fileURLToPath(
-        new URL('../../packages/vue-board/src/index.ts', import.meta.url),
-      ),
-      '@lupinum/board-history': fileURLToPath(
-        new URL('../../packages/board-history/src/index.ts', import.meta.url),
-      ),
-      '@lupinum/board-connections': fileURLToPath(
-        new URL(
-          '../../packages/board-connections/src/index.ts',
-          import.meta.url,
+    alias: [
+      {
+        find: /^@lupinum\/board-core\/internal$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/board-core/src/internal.ts', import.meta.url),
         ),
-      ),
-      '@lupinum/board-minimap': fileURLToPath(
-        new URL('../../packages/board-minimap/src/index.ts', import.meta.url),
-      ),
-    },
+      },
+      {
+        find: /^@lupinum\/board-core$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/board-core/src/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: /^@lupinum\/vue-board$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/vue-board/src/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: /^@lupinum\/board-history$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/board-history/src/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: /^@lupinum\/board-connections$/,
+        replacement: fileURLToPath(
+          new URL(
+            '../../packages/board-connections/src/index.ts',
+            import.meta.url,
+          ),
+        ),
+      },
+      {
+        find: /^@lupinum\/board-minimap$/,
+        replacement: fileURLToPath(
+          new URL('../../packages/board-minimap/src/index.ts', import.meta.url),
+        ),
+      },
+    ],
   },
 })

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { asNodeId, createBoardEngine } from '../src'
 import type { BoardNode, JsonCanvasDocument } from '../src'
-import type { InternalBoardFeature } from '../src/internal'
+import {
+  defineInternalBoardFeature,
+  type InternalBoardFeature,
+} from '../src/internal'
 
 describe('board-core public document API', () => {
   it('exports persisted state as JSON Canvas with board metadata under x-vue-board', () => {
@@ -388,7 +391,7 @@ describe('board-core public document API', () => {
 
   it('rolls back core and extension state when an extension import hook fails', () => {
     let extensionState!: () => { imports: number }
-    const failingFeature: InternalBoardFeature = {
+    const failingFeature: InternalBoardFeature = defineInternalBoardFeature({
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
@@ -412,7 +415,7 @@ describe('board-core public document API', () => {
       install(extensionEngine) {
         extensionState = () => extensionEngine.getFeatureState()
       },
-    }
+    })
     const engine = createBoardEngine({
       extensions: [failingFeature],
     })

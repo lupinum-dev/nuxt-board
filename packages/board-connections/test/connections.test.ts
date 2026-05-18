@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
-import type { InternalBoardFeature } from '@lupinum/board-core/internal'
+import {
+  defineInternalBoardFeature,
+  type InternalBoardFeature,
+} from '@lupinum/board-core/internal'
 import {
   buildConnectionRoute,
   connectionPlugin,
@@ -482,7 +485,7 @@ describe('connections plugin', () => {
   })
 
   it('rolls back imported connection state when a later feature import fails', () => {
-    const failingFeature: InternalBoardFeature = {
+    const failingFeature: InternalBoardFeature = defineInternalBoardFeature({
       name: 'failing-import',
       persistence: {
         importDocument() {
@@ -490,7 +493,7 @@ describe('connections plugin', () => {
         },
       },
       install() {},
-    }
+    })
     const engine = createBoardEngine({
       extensions: [connectionPlugin(), failingFeature],
     })

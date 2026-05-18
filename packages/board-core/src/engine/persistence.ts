@@ -219,7 +219,7 @@ function getDocumentMetadata(
 
 export function toPersistedDocument(
   snapshot: BoardSnapshot,
-  pluginDocuments: Partial<JsonCanvasDocument>[],
+  featureDocuments: Partial<JsonCanvasDocument>[],
 ): JsonCanvasDocument {
   let metadata: VueBoardDocumentMetadata = {
     camera: snapshot.camera,
@@ -240,11 +240,11 @@ export function toPersistedDocument(
   }
   let edges: readonly JsonCanvasEdge[] | undefined
 
-  for (const pluginDocument of pluginDocuments) {
-    if (pluginDocument.edges !== undefined) {
-      edges = pluginDocument.edges
+  for (const featureDocument of featureDocuments) {
+    if (featureDocument.edges !== undefined) {
+      edges = featureDocument.edges
     }
-    metadata = mergeMetadata(metadata, getDocumentMetadata(pluginDocument))
+    metadata = mergeMetadata(metadata, getDocumentMetadata(featureDocument))
   }
 
   return {

@@ -1,12 +1,12 @@
 import type {
-  BoardExtension,
   BoardEventMap,
+  BoardExtension,
   BoardFeatureExtensions,
 } from '@lupinum/board-core'
-import type {
-  InternalBoardAction,
-  InternalBoardFeature,
-  InternalFeatureContext,
+import {
+  defineInternalBoardFeature,
+  type InternalBoardAction,
+  type InternalFeatureContext,
 } from '@lupinum/board-core/internal'
 
 /** Public history state exposed by the history plugin extension. */
@@ -29,6 +29,27 @@ export interface HistoryPluginOptions {
   debounceMs?: number
 }
 
+export interface HistoryExtension {
+  undo: () => void
+  redo: () => void
+  canUndo: () => boolean
+  canRedo: () => boolean
+  flushPending: () => void
+  clear: () => void
+  getState: () => HistoryState
+}
+
+interface HistoryEventMap extends BoardEventMap {
+  'history:push': (entry: HistoryEntry) => void
+  'history:undo': (entry: HistoryEntry | null) => void
+  'history:redo': (entry: HistoryEntry | null) => void
+  'history:clear': () => void
+}
+
+interface HistoryFeatureExtensions extends BoardFeatureExtensions {
+  history: HistoryExtension
+}
+
 declare module '@lupinum/board-core' {
   interface BoardEventMap {
     'history:push': (entry: HistoryEntry) => void
@@ -38,15 +59,7 @@ declare module '@lupinum/board-core' {
   }
 
   interface BoardFeatureExtensions {
-    history: {
-      undo: () => void
-      redo: () => void
-      canUndo: () => boolean
-      canRedo: () => boolean
-      flushPending: () => void
-      clear: () => void
-      getState: () => HistoryState
-    }
+    history: HistoryExtension
   }
 }
 
@@ -165,17 +178,12 @@ export function historyPlugin(
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
   const debounceMs = Math.max(0, options.debounceMs ?? 300)
 
-  const feature: InternalBoardFeature = {
+  const feature = defineInternalBoardFeature<
+    HistoryFeatureExtensions,
+    HistoryEventMap
+  >({
     name: 'history',
     install(engine) {
-      const emit = engine.emit as <K extends keyof BoardEventMap>(
-        event: K,
-        ...args: Parameters<BoardEventMap[K]>
-      ) => void
-      const extend = engine.extend as (
-        key: 'history',
-        value: BoardFeatureExtensions['history'],
-      ) => void
       const undoStack: HistoryEntry[] = []
       const redoStack: HistoryEntry[] = []
 
@@ -208,7 +216,7 @@ export function historyPlugin(
         }
         redoStack.length = 0
         const final = undoStack[undoStack.length - 1]!
-        emit('history:push', final)
+        engine.emit('history:push', final)
       }
 
       function schedulePending(entry: HistoryEntry): void {
@@ -294,24 +302,24 @@ export function historyPlugin(
           commitPending()
           const entry = undoStack.pop() ?? null
           if (!entry) {
-            emit('history:undo', null)
+            engine.emit('history:undo', null)
             return
           }
           applyEntry(entry, 'undo')
           redoStack.push(entry)
-          emit('history:undo', entry)
+          engine.emit('history:undo', entry)
         },
 
         redo: () => {
           commitPending()
           const entry = redoStack.pop() ?? null
           if (!entry) {
-            emit('history:redo', null)
+            engine.emit('history:redo', null)
             return
           }
           applyEntry(entry, 'redo')
           undoStack.push(entry)
-          emit('history:redo', entry)
+          engine.emit('history:redo', entry)
         },
 
         canUndo: () => {
@@ -333,7 +341,7 @@ export function historyPlugin(
           clearPendingTimer()
           activeCommand = null
           activeActions = []
-          emit('history:clear')
+          engine.emit('history:clear')
         },
 
         getState: (): HistoryState => ({
@@ -344,7 +352,7 @@ export function historyPlugin(
         }),
       }
 
-      extend('history', api)
+      engine.extend('history', api)
 
       return () => {
         offAction()
@@ -353,7 +361,7 @@ export function historyPlugin(
         clearPendingTimer()
       }
     },
-  }
+  })
 
   return feature
 }

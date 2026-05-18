@@ -8,6 +8,9 @@ export default defineNuxtConfig({
     '@lupinum/vue-board/style.css': fileURLToPath(
       new URL('../../vue-board/dist/index.css', import.meta.url),
     ),
+    '@lupinum/board-core/internal': fileURLToPath(
+      new URL('../../board-core/src/internal.ts', import.meta.url),
+    ),
     '@lupinum/board-core': fileURLToPath(
       new URL('../../board-core/src/index.ts', import.meta.url),
     ),
@@ -27,6 +30,7 @@ export default defineNuxtConfig({
   build: {
     transpile: [
       '@lupinum/board-core',
+      '@lupinum/board-core/internal',
       '@lupinum/vue-board',
       '@lupinum/board-connections',
       '@lupinum/board-history',
@@ -35,5 +39,23 @@ export default defineNuxtConfig({
     ],
   },
   compatibilityDate: '2026-04-13',
+  vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^@lupinum\/board-core\/internal$/,
+          replacement: fileURLToPath(
+            new URL('../../board-core/src/internal.ts', import.meta.url),
+          ),
+        },
+        {
+          find: /^@lupinum\/board-core$/,
+          replacement: fileURLToPath(
+            new URL('../../board-core/src/index.ts', import.meta.url),
+          ),
+        },
+      ],
+    },
+  },
   board: {},
 })

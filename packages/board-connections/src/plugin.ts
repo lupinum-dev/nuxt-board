@@ -9,9 +9,9 @@ import {
   type JsonCanvasSide,
   type NodeId,
 } from '@lupinum/board-core'
-import type {
-  InternalBoardAction,
-  InternalBoardFeature,
+import {
+  defineInternalBoardFeature,
+  type InternalBoardAction,
 } from '@lupinum/board-core/internal'
 import type {
   BoardEdge,
@@ -39,6 +39,16 @@ type ConnectionsAction =
 const initialConnectionsState: ConnectionsState = {
   edges: new Map(),
   nextZIndex: 1,
+}
+
+interface ConnectionsEventMap extends BoardEventMap {
+  'edge:created': (edge: BoardEdge) => void
+  'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
+  'edge:deleted': (edgeId: EdgeId) => void
+}
+
+interface ConnectionsFeatureExtensions extends BoardFeatureExtensions {
+  connections: ConnectionsExtension
 }
 
 function isConnectionsAction(
@@ -175,7 +185,10 @@ export function connectionPlugin(
   }
   const defaults = defaultEnds(defaultArrow)
 
-  const feature: InternalBoardFeature = {
+  const feature = defineInternalBoardFeature<
+    ConnectionsFeatureExtensions,
+    ConnectionsEventMap
+  >({
     name: CONNECTIONS_FEATURE_NAME,
     slice: {
       initial: initialConnectionsState,
@@ -184,9 +197,7 @@ export function connectionPlugin(
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
-        const edges = (
-          engine.ext as BoardFeatureExtensions
-        ).connections.getEdges()
+        const edges = engine.ext.connections.getEdges()
         if (edges.length === 0) {
           return {}
         }
@@ -208,7 +219,7 @@ export function connectionPlugin(
         }
       },
       importDocument(engine, document, mode, idMap): void {
-        const api = (engine.ext as BoardFeatureExtensions).connections
+        const api = engine.ext.connections
         if (mode === 'replace') {
           for (const edge of api.getEdges()) {
             api.deleteEdge(edge.id)
@@ -405,12 +416,7 @@ export function connectionPlugin(
         },
       }
 
-      ;(
-        engine.extend as (
-          key: 'connections',
-          value: BoardFeatureExtensions['connections'],
-        ) => void
-      )('connections', api)
+      engine.extend('connections', api)
 
       const cascadeUnsubscribe = engine.onAction((action) => {
         if (action.type !== 'NODE_DELETED') return
@@ -434,29 +440,14 @@ export function connectionPlugin(
         for (const [id, edge] of next) {
           const before = prevEdges.get(id)
           if (!before) {
-            ;(
-              engine.emit as <K extends keyof BoardEventMap>(
-                event: K,
-                ...args: Parameters<BoardEventMap[K]>
-              ) => void
-            )('edge:created', cloneEdge(edge))
+            engine.emit('edge:created', cloneEdge(edge))
           } else if (before !== edge) {
-            ;(
-              engine.emit as <K extends keyof BoardEventMap>(
-                event: K,
-                ...args: Parameters<BoardEventMap[K]>
-              ) => void
-            )('edge:updated', cloneEdge(edge), cloneEdge(before))
+            engine.emit('edge:updated', cloneEdge(edge), cloneEdge(before))
           }
         }
         for (const [id] of prevEdges) {
           if (!next.has(id)) {
-            ;(
-              engine.emit as <K extends keyof BoardEventMap>(
-                event: K,
-                ...args: Parameters<BoardEventMap[K]>
-              ) => void
-            )('edge:deleted', id)
+            engine.emit('edge:deleted', id)
           }
         }
         prevEdges = next
@@ -467,7 +458,7 @@ export function connectionPlugin(
         unsubscribe()
       }
     },
-  }
+  })
 
   return feature
 }
