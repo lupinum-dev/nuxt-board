@@ -2,25 +2,42 @@ import { expect, test, type Page } from '@playwright/test'
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 })
 
-async function openDocs(page: Page, path = '/') {
+const pageConsoleErrors = new WeakMap<Page, string[]>()
+
+function collectConsoleErrors(page: Page): string[] {
+  const existing = pageConsoleErrors.get(page)
+  if (existing) {
+    return existing
+  }
+
   const consoleErrors: string[] = []
+  pageConsoleErrors.set(page, consoleErrors)
   page.on('console', (message) => {
-    if (message.type() === 'error') {
-      const text = message.text()
-      if (
-        text.includes('wasm streaming compile failed') ||
-        text.includes('falling back to ArrayBuffer instantiation')
-      ) {
-        return
-      }
+    const text = message.text()
+    if (
+      text.includes('wasm streaming compile failed') ||
+      text.includes('falling back to ArrayBuffer instantiation')
+    ) {
+      return
+    }
+    if (
+      message.type() === 'error' ||
+      text.includes('[Icon] failed to load icon')
+    ) {
       consoleErrors.push(text)
     }
   })
   page.on('pageerror', (error) => {
     consoleErrors.push(error.message)
   })
-  await page.goto('http://127.0.0.1:4174/', { waitUntil: 'commit' })
+
+  return consoleErrors
+}
+
+async function openDocs(page: Page, path = '/') {
+  const consoleErrors = collectConsoleErrors(page)
   await page.goto(`http://127.0.0.1:4174${path}`, { waitUntil: 'commit' })
+  await page.waitForLoadState('networkidle')
   await expect(page.locator('body')).toBeVisible()
   return consoleErrors
 }
@@ -43,7 +60,7 @@ async function exerciseExample(
 test('renders the docs landing page and embedded board demo', async ({
   page,
 }) => {
-  await openDocs(page)
+  const consoleErrors = await openDocs(page)
 
   await expect(
     page.getByRole('heading', { name: /build spatial tools with vue board/i }),
@@ -52,6 +69,7 @@ test('renders the docs landing page and embedded board demo', async ({
     page.getByText(/the docs use the real workspace packages/i),
   ).toBeVisible()
   await expect(page.locator('.board-root').first()).toBeVisible()
+  expect(consoleErrors).toEqual([])
 })
 
 test('navigates to examples and api reference pages', async ({ page }) => {
@@ -63,7 +81,6 @@ test('navigates to examples and api reference pages', async ({ page }) => {
   await expect(demo).toHaveAttribute('data-node-count', '4')
   await page.getByRole('button', { name: 'Add note' }).click()
   await expect(demo).toHaveAttribute('data-node-count', '5')
-  expect(consoleErrors).toEqual([])
 
   await openDocs(page, '/api/board-core')
 
@@ -75,6 +92,7 @@ test('navigates to examples and api reference pages', async ({ page }) => {
       name: 'createBoardEngine',
     }),
   ).toBeVisible()
+  expect(consoleErrors).toEqual([])
 })
 
 test('exercises every examples demo without console errors', async ({
@@ -122,11 +140,52 @@ test('exercises every examples demo without console errors', async ({
 test('links the docs introduction to the examples section', async ({
   page,
 }) => {
-  await openDocs(page, '/getting-started/introduction')
+  const consoleErrors = await openDocs(page, '/getting-started/introduction')
 
   const examplesLink = page
     .getByRole('main')
     .getByRole('link', { name: 'Examples', exact: true })
   await expect(examplesLink).toBeVisible()
   await expect(examplesLink).toHaveAttribute('href', '/examples/basic-board')
+  expect(consoleErrors).toEqual([])
+})
+
+test('keeps markdown action links aligned after client navigation', async ({
+  page,
+}) => {
+  const consoleErrors = await openDocs(page, '/getting-started/introduction')
+  await page
+    .getByRole('main')
+    .getByRole('link', { name: 'Examples', exact: true })
+    .click()
+  await expect(page).toHaveURL(/\/examples\/basic-board$/)
+  await expect(page.getByRole('heading', { name: 'Basic Board' })).toBeVisible({
+    timeout: 15_000,
+  })
+
+  const menuButton = page.getByTestId('page-actions-menu')
+  await expect(async () => {
+    await menuButton.click()
+    await expect(
+      page.getByRole('menu', { name: 'Open copy actions menu' }),
+    ).toBeVisible({
+      timeout: 500,
+    })
+  }).toPass({ timeout: 10_000 })
+  const chatGptHref = await page
+    .getByRole('menuitem', { name: 'Open in ChatGPT' })
+    .getAttribute('href')
+  const claudeHref = await page
+    .getByRole('menuitem', { name: 'Open in Claude' })
+    .getAttribute('href')
+  const markdownHref = await page
+    .getByRole('menuitem', { name: 'View as Markdown' })
+    .getAttribute('href')
+  const expectedMarkdownUrl =
+    'http://127.0.0.1:4174/raw/examples/basic-board.md'
+
+  expect(markdownHref).toBe('/raw/examples/basic-board.md')
+  expect(decodeURIComponent(chatGptHref ?? '')).toContain(expectedMarkdownUrl)
+  expect(decodeURIComponent(claudeHref ?? '')).toContain(expectedMarkdownUrl)
+  expect(consoleErrors).toEqual([])
 })

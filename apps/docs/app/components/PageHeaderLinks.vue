@@ -6,22 +6,35 @@ const toast = useToast()
 const { copy, copied } = useClipboard()
 const { public: publicConfig } = useRuntimeConfig()
 
-const rawPath = computed(() =>
-  route.path === '/' ? '/raw/index.md' : `/raw${route.path}.md`,
+const contentPath = computed(() =>
+  route.path === '/' ? '/' : route.path.replace(/\/$/, ''),
 )
-const mdPath = computed(() => `${publicConfig.siteUrl}${rawPath.value}`)
+const rawPath = computed(() =>
+  contentPath.value === '/' ? '/raw/index.md' : `/raw${contentPath.value}.md`,
+)
+const mdPath = computed(() => new URL(rawPath.value, publicConfig.siteUrl).href)
+const chatGptHref = computed(
+  () =>
+    `https://chatgpt.com/?hints=search&q=${encodeURIComponent(`Read ${mdPath.value} so I can ask questions about it.`)}`,
+)
+const claudeHref = computed(
+  () =>
+    `https://claude.ai/new?q=${encodeURIComponent(`Read ${mdPath.value} so I can ask questions about it.`)}`,
+)
 
-const items = [
+function copyMarkdownLink() {
+  copy(mdPath.value)
+  toast.add({
+    title: 'Copied to clipboard',
+    icon: 'i-lucide-check-circle',
+  })
+}
+
+const actionItems = computed(() => [
   {
     label: 'Copy Markdown link',
     icon: 'i-lucide-link',
-    onSelect() {
-      copy(mdPath.value)
-      toast.add({
-        title: 'Copied to clipboard',
-        icon: 'i-lucide-check-circle',
-      })
-    },
+    onSelect: copyMarkdownLink,
   },
   {
     label: 'View as Markdown',
@@ -33,15 +46,17 @@ const items = [
     label: 'Open in ChatGPT',
     icon: 'i-simple-icons:openai',
     target: '_blank',
-    to: `https://chatgpt.com/?hints=search&q=${encodeURIComponent(`Read ${mdPath.value} so I can ask questions about it.`)}`,
+    rel: 'noopener noreferrer',
+    to: chatGptHref.value,
   },
   {
     label: 'Open in Claude',
     icon: 'i-simple-icons:anthropic',
     target: '_blank',
-    to: `https://claude.ai/new?q=${encodeURIComponent(`Read ${mdPath.value} so I can ask questions about it.`)}`,
+    rel: 'noopener noreferrer',
+    to: claudeHref.value,
   },
-]
+])
 
 async function copyPage() {
   copy(await $fetch<string>(rawPath.value))
@@ -61,7 +76,7 @@ async function copyPage() {
       @click="copyPage"
     />
     <UDropdownMenu
-      :items="items"
+      :items="actionItems"
       :content="{
         align: 'end',
         side: 'bottom',
@@ -76,6 +91,7 @@ async function copyPage() {
         size="sm"
         color="neutral"
         variant="outline"
+        data-testid="page-actions-menu"
         aria-label="Open copy actions menu"
       />
     </UDropdownMenu>
