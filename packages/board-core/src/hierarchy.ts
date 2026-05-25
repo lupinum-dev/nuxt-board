@@ -1,5 +1,5 @@
-import { boundsContain } from './math'
-import type { Bounds, BoardNode, NodeId } from './types'
+import { boundsContain } from './math.js'
+import type { Bounds, BoardNode, NodeId } from './types.js'
 
 export function getBoundsFromNode(
   node: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,

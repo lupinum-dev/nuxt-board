@@ -12,7 +12,7 @@ import {
   snapValue,
   worldToScreen,
   zoomCameraAtScreenPoint,
-} from './math'
+} from './math.js'
 import {
   collectSubtreeIds,
   collectUniformTranslationTargets,
@@ -20,57 +20,57 @@ import {
   findContainingGroup,
   getBoundsFromNode,
   sortIdsByZIndex,
-} from './hierarchy'
-import { cloneInteraction } from './invariants'
+} from './hierarchy.js'
+import { cloneInteraction } from './invariants.js'
 import {
   applyResizeDelta,
   applyResizeDeltaLocked,
   snapResizedBounds,
   snapResizedBoundsLocked,
-} from './resize'
+} from './resize.js'
 import {
   collectOtherNodeEdges,
   collectOtherNodeEdgesExcluding,
   snapBoundsToEdges,
   snapPositionToEdges,
-} from './snap'
-import { freezeClone } from './helpers/clone'
-import { createNodeId } from './helpers/ids'
+} from './snap.js'
+import { freezeClone } from './helpers/clone.js'
+import { createNodeId } from './helpers/ids.js'
 import {
   AnimationCancelled,
   getAnimationFrameDriver,
-} from './helpers/animation'
-import type { StoredNode } from './state/versioning'
-import { ZERO_VERSIONS, bumpVersions } from './state/versioning'
-import type { MutableBoardState } from './state/types'
+} from './helpers/animation.js'
+import type { StoredNode } from './state/versioning.js'
+import { ZERO_VERSIONS, bumpVersions } from './state/versioning.js'
+import type { MutableBoardState } from './state/types.js'
 import {
   DEFAULT_CAMERA,
   DEFAULT_GRID,
   DEFAULT_NODE_CONSTRAINTS,
   DEFAULT_VIEWPORT_SIZE,
   DEFAULT_ZOOM,
-} from './state/types'
-import { normalizeExistingNode } from './state/initial'
-import { materializeNode as materializeNodePure } from './helpers/node-shape'
+} from './state/types.js'
+import { normalizeExistingNode } from './state/initial.js'
+import { materializeNode as materializeNodePure } from './helpers/node-shape.js'
 import {
   buildPublicNodeMap,
   buildPublicState,
   buildSnapshot,
-} from './state/selectors'
+} from './state/selectors.js'
 import {
   duplicateForest as duplicateForestPure,
   getCopyClosureNodes as getCopyClosureNodesPure,
   getSelectionNodes as getSelectionNodesPure,
-} from './helpers/selection-helpers'
-import { createEventBus } from './engine/events'
+} from './helpers/selection-helpers.js'
+import { createEventBus } from './engine/events.js'
 import {
   createBatchCommandController,
   createCommandGuardRegistry,
   createDispatcher,
   createValidator,
-} from './engine/command-runtime'
-import { createReactiveLayer } from './engine/subscribables'
-import { invertAction } from './engine/invert'
+} from './engine/command-runtime.js'
+import { createReactiveLayer } from './engine/subscribables.js'
+import { invertAction } from './engine/invert.js'
 import {
   documentToSnapshot,
   materializeSnapshotNodes,
@@ -78,8 +78,8 @@ import {
   normalizeNodeType,
   toPersistedDocument,
   withNodeFields,
-} from './engine/persistence'
-import { assertInternalBoardFeature } from './internal'
+} from './engine/persistence.js'
+import { assertInternalBoardFeature } from './internal.js'
 import type {
   BoxSelectBehavior,
   BoxSelectMode,
@@ -107,7 +107,7 @@ import type {
   SnapGuide,
   Subscribable,
   ZoomSettings,
-} from './types'
+} from './types.js'
 
 export class CommandBlockedError extends Error {
   constructor(
@@ -164,7 +164,7 @@ export function createBoardEngine(
     {
       reducer: (
         state: unknown,
-        action: import('./state/actions').Action,
+        action: import('./state/actions.js').Action,
       ) => unknown
       invert?: (innerAction: unknown) => unknown
       state: unknown
@@ -177,13 +177,15 @@ export function createBoardEngine(
       hooks: NonNullable<InternalBoardFeature['persistence']>
     }
   >()
-  function reduceFeatureStates(action: import('./state/actions').Action): void {
+  function reduceFeatureStates(
+    action: import('./state/actions.js').Action,
+  ): void {
     for (const featureState of featureStates.values()) {
       featureState.state = featureState.reducer(featureState.state, action)
     }
   }
 
-  function dispatchAction(action: import('./state/actions').Action): void {
+  function dispatchAction(action: import('./state/actions.js').Action): void {
     reduceFeatureStates(action)
     dispatcher.dispatch(action)
   }
@@ -240,6 +242,7 @@ export function createBoardEngine(
     $interaction,
     $snapGuides,
     getPublicNodeMap,
+    invalidateNodeCache,
     notifyNodesChanged,
     notifyCameraChanged,
     notifySelectionChanged,
@@ -575,9 +578,18 @@ export function createBoardEngine(
     }
   }
 
-  function replaceStoredNode(node: StoredNode, next: StoredNode): StoredNode {
+  function replaceStoredNodeWithoutNotify(
+    node: StoredNode,
+    next: StoredNode,
+  ): StoredNode {
     const stored = bumpVersions(node, next)
     state.nodes.set(node.id, stored)
+    invalidateNodeCache()
+    return stored
+  }
+
+  function replaceStoredNode(node: StoredNode, next: StoredNode): StoredNode {
+    const stored = replaceStoredNodeWithoutNotify(node, next)
     notifyNodesChanged()
     return stored
   }
@@ -924,7 +936,9 @@ export function createBoardEngine(
     }
   }
 
-  function applyRecordedAction(action: import('./state/actions').Action): void {
+  function applyRecordedAction(
+    action: import('./state/actions.js').Action,
+  ): void {
     switch (action.type) {
       case 'NODE_CREATED': {
         state.nodes.set(action.node.id, action.node)
@@ -1002,8 +1016,8 @@ export function createBoardEngine(
   }
 
   function invertActionImpl(
-    action: import('./state/actions').Action,
-  ): import('./state/actions').Action {
+    action: import('./state/actions.js').Action,
+  ): import('./state/actions.js').Action {
     return invertAction(
       action,
       (featureName) => featureStates.get(featureName)?.invert,
@@ -1018,7 +1032,7 @@ export function createBoardEngine(
       featureStates.set(feature.name, {
         reducer: feature.slice.reducer as (
           state: unknown,
-          action: import('./state/actions').Action,
+          action: import('./state/actions.js').Action,
         ) => unknown,
         invert: feature.slice.invert as
           | ((innerAction: unknown) => unknown)
@@ -1366,7 +1380,7 @@ export function createBoardEngine(
               ? snapValue(current.y + dy, grid.size)
               : current.y + dy,
           }
-          const stored = replaceStoredNode(current, next)
+          const stored = replaceStoredNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
           deltas.push({
             id: targetId,
@@ -1381,6 +1395,7 @@ export function createBoardEngine(
         }
         if (deltas.length > 0) {
           dispatchAction({ type: 'NODES_MOVED', deltas })
+          notifyNodesChanged()
         }
         reparentAfterDrag(targets)
         reparentNodesCapturedByMovedGroups(targets)
@@ -1412,7 +1427,7 @@ export function createBoardEngine(
               ? snapValue(current.y + dy, grid.size)
               : current.y + dy,
           }
-          const stored = replaceStoredNode(current, next)
+          const stored = replaceStoredNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
           deltas.push({
             id: targetId,
@@ -1427,6 +1442,7 @@ export function createBoardEngine(
         }
         if (deltas.length > 0) {
           dispatchAction({ type: 'NODES_MOVED', deltas })
+          notifyNodesChanged()
         }
         reparentAfterDrag(targets)
         reparentNodesCapturedByMovedGroups(targets)
@@ -1866,6 +1882,7 @@ export function createBoardEngine(
             setSnapGuides(snapResult.guides)
 
             const moveDeltas: { id: NodeId; before: Point; after: Point }[] = []
+            let movedNodeCount = 0
             for (const nodeId of interaction.nodeIds) {
               const current = assertStoredNode(nodeId)
               const preliminary = prelimBounds[nodeId]
@@ -1874,11 +1891,12 @@ export function createBoardEngine(
                 continue
               }
               const before = { x: current.x, y: current.y }
-              const stored = replaceStoredNode(current, {
+              const stored = replaceStoredNodeWithoutNotify(current, {
                 ...current,
                 x: preliminary.x + snapResult.dx,
                 y: preliminary.y + snapResult.dy,
               })
+              movedNodeCount += 1
               if (stored.x !== before.x || stored.y !== before.y) {
                 moveDeltas.push({
                   id: nodeId,
@@ -1893,6 +1911,9 @@ export function createBoardEngine(
             }
             if (moveDeltas.length > 0) {
               dispatchAction({ type: 'NODES_MOVED', deltas: moveDeltas })
+            }
+            if (movedNodeCount > 0) {
+              notifyNodesChanged()
             }
           },
           RECORD_COMMAND,

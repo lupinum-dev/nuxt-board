@@ -1,7 +1,7 @@
-import { validateState } from '../invariants'
-import { isBoardColorPreset } from '../colors'
-import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types'
-import { normalizeExistingNode } from '../state/initial'
+import { validateState } from '../invariants.js'
+import { isBoardColorPreset } from '../colors.js'
+import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types.js'
+import { normalizeExistingNode } from '../state/initial.js'
 import type {
   BoardNode,
   BoardSnapshot,
@@ -16,7 +16,7 @@ import type {
   JsonCanvasSide,
   NodeId,
   VueBoardDocumentMetadata,
-} from '../types'
+} from '../types.js'
 
 const JSON_CANVAS_NODE_TYPES = new Set<JsonCanvasNodeType>([
   'text',
@@ -214,7 +214,7 @@ function mergeMetadata(
 function getDocumentMetadata(
   document: Partial<JsonCanvasDocument>,
 ): VueBoardDocumentMetadata | undefined {
-  return document['x-vue-board'] ?? document['x-nuxt-board']
+  return document['x-vue-board']
 }
 
 export function toPersistedDocument(

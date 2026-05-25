@@ -23,7 +23,7 @@
  * ResolvedConnectionEndpoint contract.
  */
 import type { Bounds, Point } from '@lupinum/board-core'
-import type { ConnectionRoute, ResolvedConnectionEndpoint } from '../types'
+import type { ConnectionRoute, ResolvedConnectionEndpoint } from '../types.js'
 
 type Box = { x: number; y: number; w: number; h: number }
 

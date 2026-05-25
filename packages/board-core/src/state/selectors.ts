@@ -1,6 +1,6 @@
-import { cloneInteraction } from '../invariants'
-import { freezeClone } from '../helpers/clone'
-import { materializeNode } from '../helpers/node-shape'
+import { cloneInteraction } from '../invariants.js'
+import { freezeClone } from '../helpers/clone.js'
+import { materializeNode } from '../helpers/node-shape.js'
 import type {
   BoardSnapshot,
   BoardState,
@@ -8,8 +8,8 @@ import type {
   JsonCanvasNode,
   GridSettings,
   NodeId,
-} from '../types'
-import type { MutableBoardState } from './types'
+} from '../types.js'
+import type { MutableBoardState } from './types.js'
 
 export function buildPublicNodeMap(
   state: MutableBoardState,

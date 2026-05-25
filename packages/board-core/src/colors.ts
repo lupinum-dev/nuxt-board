@@ -1,4 +1,4 @@
-import type { BoardColorPreset } from './types'
+import type { BoardColorPreset } from './types.js'
 
 export interface BoardColorOption {
   preset: BoardColorPreset

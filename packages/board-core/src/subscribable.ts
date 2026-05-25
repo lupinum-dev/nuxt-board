@@ -1,4 +1,4 @@
-import type { Subscribable, Unsubscribe } from './types'
+import type { Subscribable, Unsubscribe } from './types.js'
 
 /** Batch coordination shared across the subscribables owned by one engine instance. */
 export interface BatchController {

@@ -5,7 +5,7 @@ import {
   type NodeId,
   type ResizeHandle,
 } from '@lupinum/board-core'
-import { boardEngineKey } from './context'
+import { boardEngineKey } from './context.js'
 
 /** Access the board context provided by `BoardRoot`. */
 export function useBoardEngine() {

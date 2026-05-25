@@ -1,6 +1,6 @@
-import { validateState } from '../invariants'
-import type { BatchController } from '../subscribable'
-import type { Action } from '../state/actions'
+import { validateState } from '../invariants.js'
+import type { BatchController } from '../subscribable.js'
+import type { Action } from '../state/actions.js'
 import type {
   BoardState,
   CommandGuard,
@@ -8,7 +8,7 @@ import type {
   GridSettings,
   ValidationFailure,
   ValidationMode,
-} from '../types'
+} from '../types.js'
 
 const BATCH_COMMAND_METADATA: CommandMetadata = {
   history: 'record',

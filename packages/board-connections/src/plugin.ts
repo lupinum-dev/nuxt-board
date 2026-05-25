@@ -22,7 +22,7 @@ import type {
   ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
-} from './types'
+} from './types.js'
 
 const CONNECTIONS_FEATURE_NAME = 'connections'
 
@@ -232,8 +232,7 @@ export function connectionPlugin(
           if (!engine.hasNode(from) || !engine.hasNode(to)) {
             continue
           }
-          const metadata = (document['x-vue-board'] ?? document['x-nuxt-board'])
-            ?.edges?.[edge.id]
+          const metadata = document['x-vue-board']?.edges?.[edge.id]
           const id =
             mode === 'merge' && api.getEdge(edge.id)
               ? asEdgeId(crypto.randomUUID())

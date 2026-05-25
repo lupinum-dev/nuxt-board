@@ -80,46 +80,6 @@ describe('board-core public document API', () => {
     expect(engine.getSnapshot().nextZIndex).toBe(7)
   })
 
-  it('imports legacy x-nuxt-board metadata but exports only x-vue-board', () => {
-    const engine = createBoardEngine({
-      initialDocument: {
-        nodes: [
-          {
-            id: asNodeId('legacy-node'),
-            type: 'text',
-            x: 10,
-            y: 20,
-            width: 120,
-            height: 80,
-            text: 'legacy',
-          },
-        ],
-        'x-nuxt-board': {
-          camera: { x: 4, y: 8, z: 1.5 },
-          selection: [asNodeId('legacy-node')],
-          nodes: {
-            'legacy-node': { zIndex: 9, locked: true, visible: true },
-          },
-        },
-      },
-    })
-
-    expect(engine.getSnapshot()).toMatchObject({
-      camera: { x: 4, y: 8, z: 1.5 },
-      selection: [asNodeId('legacy-node')],
-    })
-    expect(engine.getNode(asNodeId('legacy-node'))).toMatchObject({
-      zIndex: 9,
-      locked: true,
-    })
-
-    const exported = JSON.parse(engine.exportJSON()) as JsonCanvasDocument
-    expect(exported['x-vue-board']).toMatchObject({
-      camera: { x: 4, y: 8, z: 1.5 },
-    })
-    expect(exported).not.toHaveProperty('x-nuxt-board')
-  })
-
   it('does not accept runtime snapshots as persisted documents', () => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'text', text: 'runtime' })

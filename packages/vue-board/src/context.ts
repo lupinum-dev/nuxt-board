@@ -9,7 +9,7 @@ import type {
   SnapGuide,
 } from '@lupinum/board-core'
 import type { ComputedRef, InjectionKey, Ref, ShallowRef } from 'vue'
-import type { BoardRendererRegistry, ResolvedBoardGridOptions } from './grid'
+import type { BoardRendererRegistry, ResolvedBoardGridOptions } from './grid.js'
 
 export interface BoardEngineContext {
   engine: BoardEngine

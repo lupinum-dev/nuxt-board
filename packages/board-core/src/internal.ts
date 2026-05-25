@@ -1,14 +1,14 @@
 export type {
   Action as InternalBoardAction,
   NodeMoveDelta as InternalNodeMoveDelta,
-} from './state/actions'
+} from './state/actions.js'
 
 export type {
   InternalBoardFeature,
   InternalBoardFeatureDefinition,
   InternalFeatureContext,
   InternalFeaturePersistence,
-} from './types'
+} from './types.js'
 
 import type {
   BoardEventMap,
@@ -16,7 +16,7 @@ import type {
   BoardFeatureExtensions,
   InternalBoardFeature,
   InternalBoardFeatureDefinition,
-} from './types'
+} from './types.js'
 
 export function defineInternalBoardFeature<
   TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,

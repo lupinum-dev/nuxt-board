@@ -6,7 +6,7 @@ import type {
   ValidationFailure,
   InteractionState,
   NodeId,
-} from './types'
+} from './types.js'
 
 export function cloneInteraction(
   interaction: InteractionState,

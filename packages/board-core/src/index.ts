@@ -1,16 +1,20 @@
 /** Create a headless board engine with commands and events. */
-export { CommandBlockedError, createBoardEngine } from './engine'
+export { CommandBlockedError, createBoardEngine } from './engine.js'
 /** Identifier branding helpers for nodes and edges. */
-export { asEdgeId, asNodeId } from './types'
+export { asEdgeId, asNodeId } from './types.js'
 /** Shared Obsidian-compatible node color presets. */
 export {
   BOARD_COLOR_PRESETS,
   colorForPreset,
   isBoardColorPreset,
   type BoardColorOption,
-} from './colors'
+} from './colors.js'
 /** Selection helpers that operate on the public board engine state. */
-export { getSelectionBounds, getSelectionNodes, toggleIds } from './selection'
+export {
+  getSelectionBounds,
+  getSelectionNodes,
+  toggleIds,
+} from './selection.js'
 
 /** Geometry helpers used by renderers and framework adapters. */
 export {
@@ -18,7 +22,7 @@ export {
   clamp,
   getBoundsFromPoints,
   getVisibleBounds,
-} from './math'
+} from './math.js'
 
 /** Core engine, document, geometry, and node model types. */
 export type {
@@ -58,7 +62,6 @@ export type {
   NodeConstraints,
   NodeId,
   NodeInput,
-  NuxtBoardDocumentMetadata,
   NodePatch,
   Point,
   ResizeHandle,
@@ -72,4 +75,4 @@ export type {
   VueBoardEdgeMetadata,
   VueBoardNodeMetadata,
   ZoomSettings,
-} from './types'
+} from './types.js'

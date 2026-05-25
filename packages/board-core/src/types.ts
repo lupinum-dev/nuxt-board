@@ -160,15 +160,11 @@ export interface VueBoardDocumentMetadata {
   readonly edges?: Readonly<Record<string, VueBoardEdgeMetadata>>
 }
 
-/** Legacy persisted metadata namespace accepted on import only. */
-export type NuxtBoardDocumentMetadata = VueBoardDocumentMetadata
-
 /** Canonical persisted board document. */
 export interface JsonCanvasDocument {
   readonly nodes: readonly JsonCanvasNode[]
   readonly edges?: readonly JsonCanvasEdge[]
   readonly 'x-vue-board'?: VueBoardDocumentMetadata
-  readonly 'x-nuxt-board'?: NuxtBoardDocumentMetadata
 }
 
 /** Public immutable node shape returned by snapshots, selectors, and commands. */
@@ -196,7 +192,7 @@ export interface BoardNode {
 /** Input accepted by `createNode`, with sensible defaults for omitted fields. */
 export interface NodeInput {
   id?: NodeId
-  type?: JsonCanvasNodeType | string
+  type?: JsonCanvasNodeType
   x?: number
   y?: number
   width?: number
@@ -566,7 +562,7 @@ export interface InternalFeatureContext<
    * Dispatch an action. Called by command implementations to record state mutations
    * and notify subscribers (history, feature reducers).
    */
-  dispatch(action: import('./state/actions').Action): void
+  dispatch(action: import('./state/actions.js').Action): void
   /**
    * Read the current slice state for this feature, as last produced by its reducer.
    */
@@ -576,28 +572,31 @@ export interface InternalFeatureContext<
    * Used by internal features to react to state mutations without polling individual events.
    */
   onAction(
-    listener: (action: import('./state/actions').Action) => void,
+    listener: (action: import('./state/actions.js').Action) => void,
   ): Unsubscribe
   /**
    * Apply an action directly to engine state without running command guards or
    * command lifecycle events. Used by the history feature to replay inverse
    * actions during undo/redo.
    */
-  applyRecordedAction(action: import('./state/actions').Action): void
+  applyRecordedAction(action: import('./state/actions.js').Action): void
   /**
    * Compute the inverse of an action. Used by the history feature.
    * Feature-tunneled actions are inverted via the registering feature's
    * `slice.invert` if present; otherwise an error is thrown.
    */
   invertAction(
-    action: import('./state/actions').Action,
-  ): import('./state/actions').Action
+    action: import('./state/actions.js').Action,
+  ): import('./state/actions.js').Action
 }
 
 /** Reducer-backed persistent state owned by a internal feature. */
 interface InternalFeatureSlice {
   initial: unknown
-  reducer: (state: never, action: import('./state/actions').Action) => unknown
+  reducer: (
+    state: never,
+    action: import('./state/actions.js').Action,
+  ) => unknown
   /**
    * Optionally invert a feature-tunneled action so that history can replay its inverse.
    * Receives the inner action body (i.e. `(action as { type: 'FEATURE_ACTION' }).action`).

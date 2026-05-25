@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useCamera } from '../useBoardEngine'
+import { useCamera } from '../useBoardEngine.js'
 
 const camera = useCamera()
 

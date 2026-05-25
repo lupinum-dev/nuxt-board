@@ -1,5 +1,5 @@
-import type { BoardEventMap, TraceEntry } from '../types'
-import type { ListenerMap } from '../state/types'
+import type { BoardEventMap, TraceEntry } from '../types.js'
+import type { ListenerMap } from '../state/types.js'
 
 interface EventBusOptions {
   diagnosticsEnabled: boolean

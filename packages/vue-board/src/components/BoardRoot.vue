@@ -24,20 +24,20 @@ import {
   type SnapGuide,
 } from '@lupinum/board-core'
 import { createBoardEngine } from '@lupinum/board-core'
-import { boardEngineKey } from '../context'
-import { type BoardGridOptions, type BoardRendererRegistry } from '../grid'
-import { useViewportSize } from '../composables/useViewportSize'
-import { useResolvedGrid } from '../composables/useResolvedGrid'
-import { useLodCulling } from '../composables/useLodCulling'
-import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts'
-import { usePointerInteraction } from '../composables/usePointerInteraction'
+import { boardEngineKey } from '../context.js'
+import { type BoardGridOptions, type BoardRendererRegistry } from '../grid.js'
+import { useViewportSize } from '../composables/useViewportSize.js'
+import { useResolvedGrid } from '../composables/useResolvedGrid.js'
+import { useLodCulling } from '../composables/useLodCulling.js'
+import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js'
+import { usePointerInteraction } from '../composables/usePointerInteraction.js'
 import BoardBoxSelect from './BoardBoxSelect.vue'
 import BoardGrid from './BoardGrid.vue'
 import BoardNode from './BoardNode.vue'
 import BoardSnapGuides from './BoardSnapGuides.vue'
 import BoardViewport from './BoardViewport.vue'
 import BoardSelectionToolbar from './BoardSelectionToolbar.vue'
-import { resolveNodeColorStyle } from '../nodeColors'
+import { resolveNodeColorStyle } from '../nodeColors.js'
 
 const props = defineProps({
   engine: {
@@ -158,23 +158,23 @@ const unsubscribes = [
   engine.on('command:after', scheduleSnapshotRefresh),
   engine.$camera.subscribe((v) => {
     $camera.value = v
-    refreshSnapshot()
+    scheduleSnapshotRefresh()
   }),
   engine.$nodes.subscribe((v) => {
     $nodes.value = v
-    refreshSnapshot()
+    scheduleSnapshotRefresh()
   }),
   engine.$selection.subscribe((v) => {
     $selection.value = v
-    refreshSnapshot()
+    scheduleSnapshotRefresh()
   }),
   engine.$interaction.subscribe((v) => {
     $interaction.value = v
-    refreshSnapshot()
+    scheduleSnapshotRefresh()
   }),
   engine.$snapGuides.subscribe((v) => {
     $snapGuides.value = v
-    refreshSnapshot()
+    scheduleSnapshotRefresh()
   }),
 ]
 

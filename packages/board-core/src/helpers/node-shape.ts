@@ -1,6 +1,6 @@
-import type { BoardNode } from '../types'
-import { freezeClone } from './clone'
-import type { StoredNode } from '../state/versioning'
+import type { BoardNode } from '../types.js'
+import { freezeClone } from './clone.js'
+import type { StoredNode } from '../state/versioning.js'
 
 export function materializeNode(node: StoredNode): BoardNode {
   return freezeClone({

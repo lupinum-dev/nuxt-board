@@ -203,6 +203,42 @@ describe('board engine', () => {
     })
   })
 
+  it('notifies node subscribers once for a multi-node drag update', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'First',
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 100,
+      y: 50,
+      text: 'Second',
+    })
+    const third = engine.createNode({
+      type: 'text',
+      x: 200,
+      y: 100,
+      text: 'Third',
+    })
+    engine.select([first.id, second.id, third.id])
+    engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
+
+    let notifications = 0
+    const unsubscribe = engine.$nodes.subscribe(() => {
+      notifications += 1
+    })
+    engine.updatePointer(1, { x: 50, y: 20 })
+    unsubscribe()
+
+    expect(notifications).toBe(1)
+    expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
+    expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })
+    expect(engine.findNode(third.id)).toMatchObject({ x: 250, y: 120 })
+  })
+
   it('creates, updates, copies, and pastes node colors', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({

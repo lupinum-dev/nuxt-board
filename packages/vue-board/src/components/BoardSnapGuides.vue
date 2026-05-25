@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoardEngine } from '../useBoardEngine'
+import { useBoardEngine } from '../useBoardEngine.js'
 
 const { $camera, $snapGuides } = useBoardEngine()
 

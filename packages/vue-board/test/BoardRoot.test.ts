@@ -29,6 +29,11 @@ function dispatchPointerEvent(
   element.dispatchEvent(event)
 }
 
+async function flushBoardRootSnapshot(): Promise<void> {
+  await Promise.resolve()
+  await nextTick()
+}
+
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
     configurable: true,
@@ -63,6 +68,27 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
+  it('coalesces full snapshot refreshes after command notifications', async () => {
+    const engine = createBoardEngine()
+    const getSnapshot = vi.spyOn(engine, 'getSnapshot')
+    mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+
+    expect(getSnapshot).toHaveBeenCalledTimes(1)
+
+    engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Node',
+    })
+    await flushBoardRootSnapshot()
+
+    expect(getSnapshot).toHaveBeenCalledTimes(2)
+  })
+
   it('starts drag and resize only after the pointer clears the movement threshold', async () => {
     const engine = createBoardEngine()
     const node = engine.createNode({
@@ -492,15 +518,15 @@ describe('BoardRoot', () => {
     expect(wrapper.find('.snapshot-count').text()).toBe('1')
 
     engine.deleteNode(node.id)
-    await nextTick()
+    await flushBoardRootSnapshot()
     expect(wrapper.find('.snapshot-count').text()).toBe('0')
 
     engine.ext.history.undo()
-    await nextTick()
+    await flushBoardRootSnapshot()
     expect(wrapper.find('.snapshot-count').text()).toBe('1')
 
     engine.ext.history.redo()
-    await nextTick()
+    await flushBoardRootSnapshot()
     expect(wrapper.find('.snapshot-count').text()).toBe('0')
   })
 

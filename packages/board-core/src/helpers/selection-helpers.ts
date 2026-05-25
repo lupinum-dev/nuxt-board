@@ -1,10 +1,10 @@
-import { expandGroupDragSeeds } from '../hierarchy'
-import { snapValue } from '../math'
-import type { BoardNode, GridSettings, NodeId, Point } from '../types'
-import type { StoredNode } from '../state/versioning'
-import { ZERO_VERSIONS } from '../state/versioning'
-import type { MutableBoardState } from '../state/types'
-import { createNodeId } from './ids'
+import { expandGroupDragSeeds } from '../hierarchy.js'
+import { snapValue } from '../math.js'
+import type { BoardNode, GridSettings, NodeId, Point } from '../types.js'
+import type { StoredNode } from '../state/versioning.js'
+import { ZERO_VERSIONS } from '../state/versioning.js'
+import type { MutableBoardState } from '../state/types.js'
+import { createNodeId } from './ids.js'
 
 export function getSelectionNodes(state: MutableBoardState): StoredNode[] {
   return Array.from(state.selection.values())

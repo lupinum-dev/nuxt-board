@@ -4,7 +4,7 @@ import type {
   ResizeHandle,
   SnapAxis,
   SnapGuide,
-} from './types'
+} from './types.js'
 
 interface EdgeCandidate {
   axis: SnapAxis

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { BoardColorPreset, BoardNode, NodeId } from '@lupinum/board-core'
-import { BOARD_COLOR_PRESETS } from '../nodeColors'
-import { useBoardEngine } from '../useBoardEngine'
+import { BOARD_COLOR_PRESETS } from '../nodeColors.js'
+import { useBoardEngine } from '../useBoardEngine.js'
 
 const { engine, $camera, $nodes, $selection, $interaction } = useBoardEngine()
 const paletteOpen = ref(false)

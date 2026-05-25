@@ -1,5 +1,5 @@
-import { snapSize, snapValue } from './math'
-import type { BoardNode, ResizeHandle } from './types'
+import { snapSize, snapValue } from './math.js'
+import type { BoardNode, ResizeHandle } from './types.js'
 
 interface ResizeConstraints {
   minWidth: number

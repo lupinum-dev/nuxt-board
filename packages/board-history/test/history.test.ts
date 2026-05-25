@@ -51,6 +51,33 @@ describe('history plugin', () => {
     expect(engine.getSnapshot().nodes).toHaveLength(0)
   })
 
+  it('emits public event payloads without replay actions', () => {
+    const engine = createBoardEngine({
+      extensions: [historyPlugin({ debounceMs: 0 })],
+    })
+    const payloads: unknown[] = []
+
+    engine.on('history:push', (entry) => payloads.push(entry))
+    engine.on('history:undo', (entry) => payloads.push(entry))
+    engine.on('history:redo', (entry) => payloads.push(entry))
+
+    engine.createNode({
+      type: 'text',
+      text: 'Event payload',
+    })
+    engine.ext.history.undo()
+    engine.ext.history.redo()
+
+    expect(payloads).toHaveLength(3)
+    for (const payload of payloads) {
+      expect(payload).toMatchObject({
+        label: expect.any(String),
+        timestamp: expect.any(Number),
+      })
+      expect(Object.hasOwn(payload as object, 'actions')).toBe(false)
+    }
+  })
+
   it('excludes camera commands and groups pointer updates', () => {
     vi.useFakeTimers()
     const engine = createBoardEngine({
@@ -170,6 +197,43 @@ describe('history plugin', () => {
 
     engine.ext.history.redo()
     expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
+  })
+
+  it('undoes and redoes multi-node drag updates', () => {
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      extensions: [historyPlugin({ debounceMs: 0 })],
+    })
+    const first = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'First',
+    })
+    const second = engine.createNode({
+      type: 'text',
+      x: 100,
+      y: 50,
+      text: 'Second',
+    })
+    engine.ext.history.clear()
+
+    engine.select([first.id, second.id])
+    engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 50, y: 20 })
+    engine.endInteraction(1)
+
+    expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
+    expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })
+    expect(engine.ext.history.getState().undoDepth).toBe(1)
+
+    engine.ext.history.undo()
+    expect(engine.findNode(first.id)).toMatchObject({ x: 0, y: 0 })
+    expect(engine.findNode(second.id)).toMatchObject({ x: 100, y: 50 })
+
+    engine.ext.history.redo()
+    expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
+    expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })
   })
 
   it('restores connection plugin state during undo and redo', () => {

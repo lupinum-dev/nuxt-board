@@ -1,5 +1,5 @@
-import type { GridSettings, NodeId, Point } from '../types'
-import type { StoredNode } from './versioning'
+import type { GridSettings, NodeId, Point } from '../types.js'
+import type { StoredNode } from './versioning.js'
 
 export interface NodeMoveDelta {
   id: NodeId

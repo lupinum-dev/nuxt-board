@@ -1,4 +1,4 @@
-import type { BoardNode } from '../types'
+import type { BoardNode } from '../types.js'
 
 export interface StoredNode extends BoardNode {
   readonly version: number

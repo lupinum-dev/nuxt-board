@@ -13,8 +13,8 @@ import type {
   ConnectionRouteSegment,
   ConnectionRouting,
   ResolvedConnectionEndpoint,
-} from './types'
-import { buildArcRoute } from './routing/arc'
+} from './types.js'
+import { buildArcRoute } from './routing/arc.js'
 
 const AUTO_SIDE_DEADBAND = 24
 const AUTO_ANCHOR_OFFSET = 0.5

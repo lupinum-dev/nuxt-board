@@ -1,7 +1,7 @@
-import { cloneInteraction } from '../invariants'
-import { sameArray, freezeClone } from '../helpers/clone'
-import { createBatchController, createSubscribable } from '../subscribable'
-import type { BatchController } from '../subscribable'
+import { cloneInteraction } from '../invariants.js'
+import { sameArray, freezeClone } from '../helpers/clone.js'
+import { createBatchController, createSubscribable } from '../subscribable.js'
+import type { BatchController } from '../subscribable.js'
 import type {
   BoardEventMap,
   BoardNode,
@@ -10,10 +10,10 @@ import type {
   NodeId,
   SnapGuide,
   Subscribable,
-} from '../types'
-import type { MutableBoardState } from '../state/types'
-import { buildPublicNodeMap } from '../state/selectors'
-import type { Action } from '../state/actions'
+} from '../types.js'
+import type { MutableBoardState } from '../state/types.js'
+import { buildPublicNodeMap } from '../state/selectors.js'
+import type { Action } from '../state/actions.js'
 
 interface ReactiveLayer {
   batchCtrl: BatchController

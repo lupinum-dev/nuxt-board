@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import type { GridPattern } from '@lupinum/board-core'
+import type { GridPattern, JsonCanvasNodeType } from '@lupinum/board-core'
 
 export interface BoardGridOptions {
   visible?: boolean
@@ -27,7 +27,9 @@ export interface ResolvedBoardGridOptions {
   fadeEdges: boolean
 }
 
-export type BoardRendererRegistry = Record<string, Component>
+export type BoardRendererRegistry = Partial<
+  Record<JsonCanvasNodeType, Component>
+>
 
 export const DEFAULT_BOARD_GRID_OPTIONS: Pick<
   ResolvedBoardGridOptions,

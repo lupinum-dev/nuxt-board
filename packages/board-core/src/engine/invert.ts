@@ -1,4 +1,4 @@
-import type { Action } from '../state/actions'
+import type { Action } from '../state/actions.js'
 
 type FeatureInverter = (innerAction: unknown) => unknown
 type FeatureInverterLookup = (

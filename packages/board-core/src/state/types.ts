@@ -8,8 +8,8 @@ import type {
   Point,
   SnapGuide,
   ZoomSettings,
-} from '../types'
-import type { StoredNode } from './versioning'
+} from '../types.js'
+import type { StoredNode } from './versioning.js'
 
 export const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 }
 export const DEFAULT_ZOOM: ZoomSettings = { min: 0.1, max: 8 }

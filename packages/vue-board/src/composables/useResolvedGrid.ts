@@ -8,7 +8,7 @@ import {
   DEFAULT_BOARD_GRID_OPTIONS,
   type BoardGridOptions,
   type ResolvedBoardGridOptions,
-} from '../grid'
+} from '../grid.js'
 
 /** Inputs used to merge the `BoardRoot` grid prop with engine grid state. */
 interface UseResolvedGridOptions {

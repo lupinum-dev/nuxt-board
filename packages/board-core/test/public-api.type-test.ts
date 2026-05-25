@@ -38,3 +38,6 @@ const feature: InternalBoardFeature = defineInternalBoardFeature({
 createBoardEngine({ extensions: [feature] })
 // @ts-expect-error Runtime extension installation is intentionally not public.
 engine.use(feature)
+
+// @ts-expect-error Public nodes are JSON Canvas node types for the first release.
+createBoardEngine().createNode({ type: 'custom-card' })

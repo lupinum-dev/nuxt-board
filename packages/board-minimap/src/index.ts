@@ -76,15 +76,29 @@ export function useMinimap(
   const padding = options.padding ?? 24
 
   const bounds = computed(() => {
-    const entries = Array.from(nodes.value.values())
-    if (entries.length === 0) {
+    let hasNodes = false
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    for (const node of nodes.value.values()) {
+      hasNodes = true
+      minX = Math.min(minX, node.x)
+      minY = Math.min(minY, node.y)
+      maxX = Math.max(maxX, node.x + node.width)
+      maxY = Math.max(maxY, node.y + node.height)
+    }
+
+    if (!hasNodes) {
       return { minX: -500, minY: -500, maxX: 500, maxY: 500 }
     }
+
     return {
-      minX: Math.min(...entries.map((node) => node.x)) - padding,
-      minY: Math.min(...entries.map((node) => node.y)) - padding,
-      maxX: Math.max(...entries.map((node) => node.x + node.width)) + padding,
-      maxY: Math.max(...entries.map((node) => node.y + node.height)) + padding,
+      minX: minX - padding,
+      minY: minY - padding,
+      maxX: maxX + padding,
+      maxY: maxY + padding,
     }
   })
 

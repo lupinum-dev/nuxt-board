@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import type { BoardNode, ResizeHandle } from '@lupinum/board-core'
-import { useBoardEngine } from '../useBoardEngine'
-import { resolveNodeColorStyle } from '../nodeColors'
+import { useBoardEngine } from '../useBoardEngine.js'
+import { resolveNodeColorStyle } from '../nodeColors.js'
 import BoardNodeHandle from './BoardNodeHandle.vue'
 
 const props = defineProps<{

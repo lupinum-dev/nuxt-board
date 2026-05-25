@@ -1,5 +1,5 @@
 import type { BoardEngine, BoardNode, NodeId, Point } from '@lupinum/board-core'
-import type { AnchorPosition, AnchorSide } from './types'
+import type { AnchorPosition, AnchorSide } from './types.js'
 
 export interface EdgeRenderLayerContext {
   toLocalPoint(clientX: number, clientY: number): Point

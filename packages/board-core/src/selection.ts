@@ -1,4 +1,4 @@
-import type { Bounds, BoardEngine, BoardNode, NodeId } from './types'
+import type { Bounds, BoardEngine, BoardNode, NodeId } from './types.js'
 
 /** Return the currently selected nodes in snapshot order. */
 export function getSelectionNodes(engine: BoardEngine): BoardNode[] {

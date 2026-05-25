@@ -1,39 +1,49 @@
+import type { Component } from 'vue'
 import './styles/theme.css'
 import './styles/motion.css'
 
+import BoardBoxSelectComponent from './components/BoardBoxSelect.vue'
+import BoardGridComponent from './components/BoardGrid.vue'
+import BoardNodeComponent from './components/BoardNode.vue'
+import BoardNodeHandleComponent from './components/BoardNodeHandle.vue'
+import BoardRootComponent from './components/BoardRoot.vue'
+import BoardSelectionToolbarComponent from './components/BoardSelectionToolbar.vue'
+import BoardSnapGuidesComponent from './components/BoardSnapGuides.vue'
+import BoardViewportComponent from './components/BoardViewport.vue'
+
 /** Main board root component that wires a board engine to the DOM scene graph. */
-export { default as BoardRoot } from './components/BoardRoot.vue'
+export const BoardRoot: Component = BoardRootComponent
 /** Camera transform layer used inside `BoardRoot` render trees. */
-export { default as BoardViewport } from './components/BoardViewport.vue'
+export const BoardViewport: Component = BoardViewportComponent
 /** Default node wrapper component used to position node renderers. */
-export { default as BoardNode } from './components/BoardNode.vue'
+export const BoardNode: Component = BoardNodeComponent
 /** Resize handle component for interactive node resizing. */
-export { default as BoardNodeHandle } from './components/BoardNodeHandle.vue'
+export const BoardNodeHandle: Component = BoardNodeHandleComponent
 /** Floating toolbar for selected nodes with remove, color, zoom, and edit actions. */
-export { default as BoardSelectionToolbar } from './components/BoardSelectionToolbar.vue'
+export const BoardSelectionToolbar: Component = BoardSelectionToolbarComponent
 /** Node color presets and CSS variable resolver used by default and custom renderers. */
 export {
   BOARD_COLOR_PRESETS,
   colorForPreset,
   resolveNodeColorStyle,
   type BoardColorPreset,
-} from './nodeColors'
+} from './nodeColors.js'
 /** Decorative grid overlay component. */
-export { default as BoardGrid } from './components/BoardGrid.vue'
+export const BoardGrid: Component = BoardGridComponent
 /** Screen-space box selection overlay. */
-export { default as BoardBoxSelect } from './components/BoardBoxSelect.vue'
+export const BoardBoxSelect: Component = BoardBoxSelectComponent
 /** Snap guide overlay rendered during drag and resize interactions. */
-export { default as BoardSnapGuides } from './components/BoardSnapGuides.vue'
+export const BoardSnapGuides: Component = BoardSnapGuidesComponent
 
 /** Types for configuring the board grid renderer. */
 export type {
   BoardGridOptions,
   BoardRendererRegistry,
   ResolvedBoardGridOptions,
-} from './grid'
+} from './grid.js'
 
 /** Injection context returned by `useBoardEngine`. */
-export type { BoardEngineContext } from './context'
+export type { BoardEngineContext } from './context.js'
 
 /** Core board context composables for camera, nodes, selection, and node actions. */
 export {
@@ -47,21 +57,4 @@ export {
   useGridStyle,
   useNode,
   useBoxSelectBounds,
-} from './useBoardEngine'
-
-/** Observe the rendered board viewport size and sync it into the engine. */
-export { useViewportSize } from './composables/useViewportSize'
-/** Merge grid props with persistent engine grid settings. */
-export { useResolvedGrid } from './composables/useResolvedGrid'
-
-/** Viewport culling and level-of-detail helpers for large boards. */
-export {
-  useLodCulling,
-  type LodNode,
-  type NodeLod,
-} from './composables/useLodCulling'
-
-/** Keyboard shortcut handlers used by `BoardRoot` or custom root components. */
-export { useKeyboardShortcuts } from './composables/useKeyboardShortcuts'
-/** Pointer gesture translation used by `BoardRoot` or custom root components. */
-export { usePointerInteraction } from './composables/usePointerInteraction'
+} from './useBoardEngine.js'

@@ -1,7 +1,7 @@
 /** Install the connections plugin and its `engine.ext.connections` extension. */
-export { connectionPlugin } from './plugin'
+export { connectionPlugin } from './plugin.js'
 /** SVG layer that renders edges, labels, handles, and connection previews. */
-export { BoardConnectionLayer } from './layer'
+export { BoardConnectionLayer } from './layer.js'
 
 /** Geometry helpers for resolving anchors, routes, and render state. */
 export {
@@ -12,12 +12,12 @@ export {
   resolveConnectionEndpoint,
   resolveFloatingEndpoint,
   resolveEdgeRenderState,
-} from './geometry'
+} from './geometry.js'
 
 /** Arc routing helper inspired by hand-drawn arrow curves. */
-export { buildArcRoute } from './routing/arc'
+export { buildArcRoute } from './routing/arc.js'
 /** Options for tuning arc routing curvature. */
-export type { ArcOptions } from './routing/arc'
+export type { ArcOptions } from './routing/arc.js'
 
 /** Color helpers and presets used by edge rendering and toolbars. */
 export {
@@ -25,9 +25,9 @@ export {
   colorForPreset,
   presetForColor,
   resolvePresetColor,
-} from './colors'
+} from './colors.js'
 /** Types for custom edge colors and preset names. */
-export type { EdgeColorOption, EdgeColorPreset } from './colors'
+export type { EdgeColorOption, EdgeColorPreset } from './colors.js'
 
 /** Core edge model types and the connections engine extension contract. */
 export type {
@@ -45,4 +45,4 @@ export type {
   CreateNodeForConnectionContext,
   EdgeEnd,
   ResolvedConnectionEndpoint,
-} from './types'
+} from './types.js'

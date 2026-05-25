@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoxSelectBounds, useInteraction } from '../useBoardEngine'
+import { useBoxSelectBounds, useInteraction } from '../useBoardEngine.js'
 
 const bounds = useBoxSelectBounds()
 const interaction = useInteraction()

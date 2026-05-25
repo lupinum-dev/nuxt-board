@@ -16,11 +16,14 @@ export interface HistoryState {
   current: string | null
 }
 
-/** A single undoable history frame captured from dispatched actions. */
+/** Public metadata for a single undoable history frame. */
 export interface HistoryEntry {
   label: string
-  actions: InternalBoardAction[]
   timestamp: number
+}
+
+interface HistoryFrame extends HistoryEntry {
+  actions: InternalBoardAction[]
 }
 
 /** Options for configuring stack depth and move coalescing. */
@@ -63,7 +66,7 @@ declare module '@lupinum/board-core' {
   }
 }
 
-function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
+function isCoalescableMoves(prev: HistoryFrame, next: HistoryFrame): boolean {
   if (prev.label !== next.label) return false
   if (prev.actions.length !== 1 || next.actions.length !== 1) return false
   const a = prev.actions[0]
@@ -78,8 +81,8 @@ function isCoalescableMoves(prev: HistoryEntry, next: HistoryEntry): boolean {
 }
 
 function isCoalescableNodeUpdate(
-  prev: HistoryEntry,
-  next: HistoryEntry,
+  prev: HistoryFrame,
+  next: HistoryFrame,
 ): boolean {
   if (prev.label !== next.label) return false
   if (prev.actions.length !== 1 || next.actions.length !== 1) return false
@@ -94,7 +97,7 @@ function isCoalescableNodeUpdate(
   )
 }
 
-function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+function mergeMoves(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
   const a = prev.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
   const b = next.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
   const merged = a.deltas.map((delta, i) => ({
@@ -109,7 +112,7 @@ function mergeMoves(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
   }
 }
 
-function mergeNodeUpdate(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+function mergeNodeUpdate(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
   const a = prev.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
   const b = next.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
   return {
@@ -126,11 +129,11 @@ function mergeNodeUpdate(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
   }
 }
 
-function canCoalesce(prev: HistoryEntry, next: HistoryEntry): boolean {
+function canCoalesce(prev: HistoryFrame, next: HistoryFrame): boolean {
   return isCoalescableMoves(prev, next) || isCoalescableNodeUpdate(prev, next)
 }
 
-function mergeCoalesced(prev: HistoryEntry, next: HistoryEntry): HistoryEntry {
+function mergeCoalesced(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
   return isCoalescableMoves(prev, next)
     ? mergeMoves(prev, next)
     : mergeNodeUpdate(prev, next)
@@ -158,12 +161,19 @@ function undoReplayPriority(action: InternalBoardAction): number {
 
 function getUndoReplayActions(
   engine: InternalFeatureContext,
-  entry: HistoryEntry,
+  entry: HistoryFrame,
 ): InternalBoardAction[] {
   return [...entry.actions]
     .reverse()
     .map((action) => engine.invertAction(action))
     .sort((left, right) => undoReplayPriority(left) - undoReplayPriority(right))
+}
+
+function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
+  return {
+    label: frame.label,
+    timestamp: frame.timestamp,
+  }
 }
 
 /**
@@ -184,12 +194,12 @@ export function historyPlugin(
   >({
     name: 'history',
     install(engine) {
-      const undoStack: HistoryEntry[] = []
-      const redoStack: HistoryEntry[] = []
+      const undoStack: HistoryFrame[] = []
+      const redoStack: HistoryFrame[] = []
 
       let activeCommand: string | null = null
       let activeActions: InternalBoardAction[] = []
-      let pending: HistoryEntry | null = null
+      let pending: HistoryFrame | null = null
       let pendingTimer: ReturnType<typeof setTimeout> | null = null
       let replaying = false
 
@@ -216,10 +226,10 @@ export function historyPlugin(
         }
         redoStack.length = 0
         const final = undoStack[undoStack.length - 1]!
-        engine.emit('history:push', final)
+        engine.emit('history:push', toHistoryEntry(final))
       }
 
-      function schedulePending(entry: HistoryEntry): void {
+      function schedulePending(entry: HistoryFrame): void {
         if (pending) {
           if (canCoalesce(pending, entry)) {
             pending = mergeCoalesced(pending, entry)
@@ -278,7 +288,7 @@ export function historyPlugin(
       )
 
       function applyEntry(
-        entry: HistoryEntry,
+        entry: HistoryFrame,
         direction: 'undo' | 'redo',
       ): void {
         replaying = true
@@ -307,7 +317,7 @@ export function historyPlugin(
           }
           applyEntry(entry, 'undo')
           redoStack.push(entry)
-          engine.emit('history:undo', entry)
+          engine.emit('history:undo', toHistoryEntry(entry))
         },
 
         redo: () => {
@@ -319,7 +329,7 @@ export function historyPlugin(
           }
           applyEntry(entry, 'redo')
           undoStack.push(entry)
-          engine.emit('history:redo', entry)
+          engine.emit('history:redo', toHistoryEntry(entry))
         },
 
         canUndo: () => {

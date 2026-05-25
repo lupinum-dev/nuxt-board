@@ -23,8 +23,8 @@ import {
   resolveConnectionEndpoint,
   resolveEdgeRenderState,
   resolveFloatingEndpoint,
-} from './geometry'
-import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors'
+} from './geometry.js'
+import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors.js'
 import type {
   AnchorPosition,
   AnchorSide,
@@ -34,7 +34,7 @@ import type {
   ConnectionRouting,
   EdgeEnd,
   ResolvedConnectionEndpoint,
-} from './types'
+} from './types.js'
 import {
   CONNECTION_DRAG_THRESHOLD,
   EDGE_ARROW_MARKER_SIZE,
@@ -58,7 +58,7 @@ import {
   sameEdgeTarget,
   worldPointFromClient,
   type HoveredNodeHandle,
-} from './layer-helpers'
+} from './layer-helpers.js'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
@@ -488,11 +488,14 @@ export const BoardConnectionLayer = defineComponent({
       point: Point,
     ): HoveredNodeHandle | null {
       const threshold = hotspotThickness.value
-      const candidates = Array.from(injected.$nodes.value.values())
-        .filter((node) => node.visible)
-        .sort((left, right) => right.zIndex - left.zIndex)
+      let best: HoveredNodeHandle | null = null
+      let bestZIndex = -Infinity
 
-      for (const node of candidates) {
+      for (const node of injected.$nodes.value.values()) {
+        if (!node.visible || node.zIndex <= bestZIndex) {
+          continue
+        }
+
         const left = node.x
         const right = node.x + node.width
         const top = node.y
@@ -510,33 +513,34 @@ export const BoardConnectionLayer = defineComponent({
           hotspotCornerClearance.value,
           Math.min(node.width, node.height) / 3,
         )
-        const distances: Array<{ side: AnchorSide; distance: number }> = []
-        if (point.x >= left + clearance && point.x <= right - clearance) {
-          distances.push(
-            { side: 'top', distance: Math.abs(point.y - top) },
-            { side: 'bottom', distance: Math.abs(point.y - bottom) },
-          )
-        }
-        if (point.y >= top + clearance && point.y <= bottom - clearance) {
-          distances.push(
-            { side: 'left', distance: Math.abs(point.x - left) },
-            { side: 'right', distance: Math.abs(point.x - right) },
-          )
+        let closestSide: AnchorSide | null = null
+        let closestDistance = Infinity
+        const considerSide = (side: AnchorSide, distance: number): void => {
+          if (distance < closestDistance) {
+            closestSide = side
+            closestDistance = distance
+          }
         }
 
-        const closest = distances.sort(
-          (leftDistance, rightDistance) =>
-            leftDistance.distance - rightDistance.distance,
-        )[0]
-        if (closest && closest.distance <= threshold) {
-          return {
+        if (point.x >= left + clearance && point.x <= right - clearance) {
+          considerSide('top', Math.abs(point.y - top))
+          considerSide('bottom', Math.abs(point.y - bottom))
+        }
+        if (point.y >= top + clearance && point.y <= bottom - clearance) {
+          considerSide('left', Math.abs(point.x - left))
+          considerSide('right', Math.abs(point.x - right))
+        }
+
+        if (closestSide && closestDistance <= threshold) {
+          best = {
             nodeId: node.id,
-            ...anchorForPointOnNode(node, closest.side, point),
+            ...anchorForPointOnNode(node, closestSide, point),
           }
+          bestZIndex = node.zIndex
         }
       }
 
-      return null
+      return best
     }
 
     function onEdgePointerDown(edgeId: string, event: PointerEvent): void {

@@ -1,6 +1,6 @@
-import type { BoardNode } from '../types'
-import type { StoredNode } from './versioning'
-import { ZERO_VERSIONS } from './versioning'
+import type { BoardNode } from '../types.js'
+import type { StoredNode } from './versioning.js'
+import { ZERO_VERSIONS } from './versioning.js'
 
 export function normalizeExistingNode(node: BoardNode): StoredNode {
   const parentId =
