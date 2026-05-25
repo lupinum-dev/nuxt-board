@@ -4,9 +4,12 @@ import { useClipboard } from '@vueuse/core'
 const route = useRoute()
 const toast = useToast()
 const { copy, copied } = useClipboard()
-const site = useSiteConfig()
+const { public: publicConfig } = useRuntimeConfig()
 
-const mdPath = computed(() => `${site.url}/raw${route.path}.md`)
+const rawPath = computed(() =>
+  route.path === '/' ? '/raw/index.md' : `/raw${route.path}.md`,
+)
+const mdPath = computed(() => `${publicConfig.siteUrl}${rawPath.value}`)
 
 const items = [
   {
@@ -24,7 +27,7 @@ const items = [
     label: 'View as Markdown',
     icon: 'i-simple-icons:markdown',
     target: '_blank',
-    to: `/raw${route.path}.md`,
+    to: rawPath.value,
   },
   {
     label: 'Open in ChatGPT',
@@ -41,7 +44,7 @@ const items = [
 ]
 
 async function copyPage() {
-  copy(await $fetch<string>(`/raw${route.path}.md`))
+  copy(await $fetch<string>(rawPath.value))
 }
 </script>
 

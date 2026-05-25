@@ -15,7 +15,7 @@ class: "min-h-[70vh]"
 Build spatial tools with [Vue Board]{.text-primary}.
 
 #description
-Vue Board gives you a headless board engine, Vue primitives, Nuxt auto-imports, and focused plugins for history, connections, minimaps, and JSON Canvas workflows.
+Vue Board gives you a headless board engine, Vue primitives, Nuxt auto-imports, JSON Canvas import/export, and focused plugins for history, connections, and minimaps.
 
 #links
 :::u-button
@@ -113,7 +113,7 @@ icon: i-lucide-undo-2
 Focused plugins
 
 #description
-Add history, minimaps, connections, and JSON import/export workflows only when the product needs them.
+Add history, minimaps, and connections only when the product needs them; JSON Canvas import/export is built into the core engine.
 :::
 ::
 

@@ -21,9 +21,9 @@ where behavior actually lives, not how many layers the repository can name.
 The engine keeps one mutable internal board state and exposes immutable public
 views through `getState()`, `getSnapshot()`, and subscribables.
 
-- Persistent state: nodes, selection, grid settings, `nextZIndex`, and
-  internal feature state.
-- Runtime state: camera, viewport size, interaction mode, and snap guides.
+- Persisted document state: nodes, camera, selection, grid settings,
+  `nextZIndex`, and internal feature persistence.
+- Runtime-only state: viewport size, interaction mode, and snap guides.
 - Persisted document format: JSON Canvas node fields plus `x-vue-board`
   metadata for engine state that JSON Canvas does not define. Edges are owned
   by `@lupinum/board-connections`; core rejects edge documents when that
@@ -46,7 +46,9 @@ Connections and history use the current internal feature hooks:
   edges when a node is deleted.
 
 This contract is intentionally treated as internal infrastructure, not a
-general third-party plugin surface.
+general third-party plugin surface. The `@lupinum/board-core/internal` subpath
+exists so published first-party packages can share that ABI with the core
+package; application code should stay on the top-level package APIs.
 
 ## Trace: a node drag
 

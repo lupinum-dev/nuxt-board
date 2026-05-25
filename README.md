@@ -1,8 +1,27 @@
 # Vue Board
 
-Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors, canvas tools, workflow builders, and spatial planning surfaces.
+Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors: workflow builders, visual planning tools, graph-like canvases, whiteboard surfaces, and JSON Canvas-style document views.
 
-The engine is headless. It owns board state, commands, selection, grouping, camera state, command guards, and events. Vue renders that state through components and composables. Optional packages add history, connections, minimaps, and JSON Canvas import/export when your product needs them.
+It gives you a headless board engine plus Vue rendering. The engine owns the model and commands; Vue renders that model and translates DOM input into board actions. Optional packages add history, connections, minimaps, and Nuxt auto-imports.
+
+## Is This For You?
+
+Use Vue Board when you need:
+
+- draggable, resizable, selectable nodes on a pan/zoom canvas
+- a real board model outside the component tree
+- command-based mutation with guards, events, validation, and undo/redo support
+- custom Vue renderers for your domain-specific node content
+- JSON Canvas import/export, with optional edges, labels, anchors, routing, and minimaps
+- Nuxt integration without making Nuxt own the board behavior
+
+This is probably not the right starting point if you only need a static diagram renderer, a general-purpose drawing app, or a complete low-code workflow product with backend execution semantics. Vue Board is the canvas/model layer, not your product domain.
+
+## Quick Start
+
+```bash
+pnpm add @lupinum/board-core @lupinum/vue-board
+```
 
 ```vue
 <script setup lang="ts">
@@ -21,32 +40,13 @@ engine.createNode({
   width: 260,
   height: 140,
   color: '5',
-  text: 'Node',
+  text: 'Drag, resize, select, and edit me.',
 })
 </script>
 
 <template>
-  <BoardRoot :engine="engine" class="h-screen" />
+  <BoardRoot :engine="engine" style="height: 100vh" />
 </template>
-```
-
-## Packages
-
-| Package                      | Use it for                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| `@lupinum/board-core`        | Headless board engine, types, math helpers, commands, events, and hierarchy. |
-| `@lupinum/vue-board`         | Vue components, selection toolbar, default rendering, and composables.       |
-| `nuxt-board`                 | Nuxt module with board component and composable auto-imports.                |
-| `@lupinum/board-connections` | Edges, anchors, labels, routing, and connection rendering.                   |
-| `@lupinum/board-history`     | Undo and redo integration for engine commands.                               |
-| `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
-
-## Install
-
-For Vue:
-
-```bash
-pnpm add @lupinum/board-core @lupinum/vue-board
 ```
 
 For Nuxt:
@@ -60,6 +60,47 @@ export default defineNuxtConfig({
   modules: ['nuxt-board'],
 })
 ```
+
+## How It Works
+
+`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `importJSON`.
+
+`BoardRoot` subscribes to the engine and renders the viewport, grid, nodes, resize handles, selection toolbar, snap guides, and pointer interaction. Custom renderers replace node content; they do not replace the interaction model.
+
+```vue
+<template>
+  <BoardRoot :engine="engine">
+    <template #node:text="{ node, selected, beginEdit }">
+      <TaskCard :node="node" :selected="selected" @rename="beginEdit" />
+    </template>
+  </BoardRoot>
+</template>
+```
+
+Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`.
+
+## Packages
+
+Install only the pieces you need.
+
+| Package                      | Use it for                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------- |
+| `@lupinum/board-core`        | Headless board state, commands, types, math helpers, hierarchy, and events.  |
+| `@lupinum/vue-board`         | Vue board shell, pointer interaction, default UI, styles, and composables.   |
+| `nuxt-board`                 | Nuxt module with board component/composable auto-imports.                    |
+| `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
+| `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
+| `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
+
+## What You Get
+
+- Nodes: JSON Canvas node types (`text`, `file`, `link`, `group`) with geometry, hierarchy, colors, locking, visibility, and custom renderers.
+- Interaction: drag, resize, select, box-select, keyboard shortcuts, pan, zoom, snap-to-grid, and edge snapping.
+- State model: immutable public snapshots/subscribables backed by a mutable command engine.
+- Extensibility: first-party history, connections, and minimap packages without a required all-in-one bundle.
+- Performance basics: viewport culling, level of detail rendering, requestAnimationFrame pointer updates, and batched command notifications.
+- Persistence: JSON Canvas import/export in core, with connection metadata handled by the connections package when installed.
+- SSR/Nuxt: deterministic initial state support and Nuxt auto-imports through `nuxt-board`.
 
 ## Development
 
@@ -81,9 +122,10 @@ pnpm test:e2e
 
 ## Docs
 
+- [Introduction](apps/docs/content/1.getting-started/1.introduction.md)
 - [Quick Start](apps/docs/content/1.getting-started/3.quick-start.md)
 - [Core Concepts](apps/docs/content/2.essentials/1.core-concepts.md)
-- [Guides](apps/docs/content/3.guides)
+- [Performance](apps/docs/content/3.guides/9.performance.md)
 - [API Reference](apps/docs/content/6.api)
 - [Contributing](apps/docs/content/8.oss/1.contributing.md)
 

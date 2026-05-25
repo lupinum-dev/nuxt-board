@@ -2,7 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
+import * as boardConnections from '@lupinum/board-connections'
 import { createDemoDocument } from '../apps/docs/app/utils/demoDocument'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -11,10 +13,121 @@ function read(path: string): string {
   return readFileSync(resolve(root, path), 'utf8')
 }
 
+function filesIn(path: string): string[] {
+  return readdirSync(resolve(root, path), { withFileTypes: true }).flatMap(
+    (entry) => {
+      const child = `${path}/${entry.name}`
+      return entry.isDirectory() ? filesIn(child) : [child]
+    },
+  )
+}
+
 describe('docs demo contracts', () => {
   it('keeps docs as an app, not a publishable package', () => {
     expect(() => read('apps/docs/package.json')).not.toThrow()
     expect(() => read('packages/docs/package.json')).toThrow()
+  })
+
+  it('keeps workflows pointed at existing release gates', () => {
+    for (const file of [
+      '.github/workflows/ci.yml',
+      '.github/workflows/docs.yml',
+      '.github/workflows/release.yml',
+    ]) {
+      expect(read(file), file).not.toContain('pnpm docs:api')
+    }
+
+    expect(read('.github/workflows/docs.yml')).not.toContain('packages/docs')
+    expect(read('.github/workflows/ci.yml')).toContain('pnpm audit --prod')
+    expect(read('.github/workflows/release.yml')).toContain('pnpm audit --prod')
+  })
+
+  it('documents only public board-core utility exports', () => {
+    const source = read('apps/docs/content/6.api/3.board-core-math.md')
+    const documentedHelpers = Array.from(
+      source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
+      (match) => match[1]!,
+    )
+
+    expect(documentedHelpers).not.toEqual([])
+    for (const helper of documentedHelpers) {
+      expect(boardCore, helper).toHaveProperty(helper)
+    }
+  })
+
+  it('documents the board-core internal subpath as first-party ABI only', () => {
+    for (const file of [
+      'apps/docs/content/6.api/1.board-core.md',
+      'ARCHITECTURE.md',
+      'packages/board-core/README.md',
+    ]) {
+      const source = read(file)
+
+      expect(source, file).toContain('@lupinum/board-core/internal')
+      expect(source, file).toContain('first-party')
+    }
+  })
+
+  it('documents public board-connections utility exports', () => {
+    const source = read('apps/docs/content/6.api/7.board-connections.md')
+
+    for (const helper of [
+      'resolveAnchorPoint',
+      'resolveAutoAnchorSide',
+      'resolveConnectionEndpoint',
+      'buildConnectionRoute',
+      'buildArcRoute',
+      'resolveFloatingEndpoint',
+      'resolveEdgeRenderState',
+      'getVisibleEdges',
+    ]) {
+      expect(boardConnections, helper).toHaveProperty(helper)
+      expect(source).toContain(`### ${helper}`)
+    }
+  })
+
+  it('keeps markdown examples copy-pasteable for known drift cases', () => {
+    const files = filesIn('apps/docs/content').filter((file) =>
+      file.endsWith('.md'),
+    )
+
+    for (const file of files) {
+      const source = read(file)
+
+      expect(source, file).not.toMatch(/\btext:\s*[,}]/)
+      expect(source, file).not.toMatch(/split\('\n'\)/)
+      expect(source, file).not.toContain('data.content')
+      expect(source, file).not.toContain('x-nuxt-board')
+      expect(source, file).not.toContain('class="h-screen"')
+    }
+  })
+
+  it('serves raw docs from source markdown', () => {
+    const source = read('apps/docs/server/routes/raw/[...slug].md.get.ts')
+
+    expect(source).toContain("readFile(file, 'utf8')")
+    expect(source).not.toContain('minimark')
+    expect(source).not.toContain('queryCollection')
+  })
+
+  it('does not initialize client-side content search on page load', () => {
+    for (const file of [
+      'apps/docs/app/app.vue',
+      'apps/docs/app/error.vue',
+      'apps/docs/app/components/AppHeader.vue',
+    ]) {
+      const source = read(file)
+
+      expect(source, file).not.toContain('queryCollectionSearchSections')
+      expect(source, file).not.toContain('UContentSearch')
+    }
+  })
+
+  it('keeps security reporting contact consistent', () => {
+    expect(read('SECURITY.md')).toContain('security@lupinum.dev')
+    expect(read('apps/docs/content/8.oss/3.support-and-security.md')).toContain(
+      'security@lupinum.dev',
+    )
   })
 
   it('does not pass runtime snapshots directly to importJSON in demos', () => {

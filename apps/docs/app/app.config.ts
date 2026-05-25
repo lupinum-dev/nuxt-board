@@ -22,7 +22,6 @@ export default defineAppConfig({
       light: '',
       dark: '',
     },
-    search: true,
     colorMode: true,
     links: [
       {

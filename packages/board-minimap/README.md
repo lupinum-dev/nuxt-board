@@ -8,11 +8,15 @@ pnpm add @lupinum/board-minimap @lupinum/board-core @lupinum/vue-board
 
 ```vue
 <script setup lang="ts">
+import { createBoardEngine } from '@lupinum/board-core'
 import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardRoot } from '@lupinum/vue-board'
+
+const engine = createBoardEngine()
 </script>
 
 <template>
-  <BoardRoot :engine="engine">
+  <BoardRoot :engine="engine" style="height: 100vh">
     <template #default>
       <BoardMinimap :engine="engine" />
     </template>

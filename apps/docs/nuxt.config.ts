@@ -9,12 +9,9 @@ export default defineNuxtConfig({
       new URL('../../packages/nuxt-board/src/module.ts', import.meta.url),
     ),
     '@nuxt/eslint',
-    '@nuxt/image',
     '@nuxt/ui',
     '@nuxt/content',
-    'nuxt-og-image',
     'nuxt-llms',
-    '@nuxtjs/mcp-toolkit',
   ],
 
   components: [
@@ -30,11 +27,6 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-
-  site: {
-    url: siteUrl,
-    name: 'Vue Board',
-  },
 
   colorMode: {
     classSuffix: '',
@@ -91,7 +83,6 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       routes: ['/', '/getting-started/introduction', '/examples/basic-board'],
-      ignore: [/^\/_og\//],
       crawlLinks: true,
       autoSubfolderIndex: false,
     },
@@ -134,7 +125,21 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    fetchTimeout: 10000,
+    clientBundle: {
+      icons: [
+        'lucide:arrow-left',
+        'lucide:lightbulb',
+        'lucide:triangle-alert',
+        'vscode-icons:file-type-nuxt',
+        'vscode-icons:file-type-npm',
+        'vscode-icons:file-type-pnpm',
+        'vscode-icons:file-type-yarn',
+      ],
+      scan: true,
+    },
+    collections: ['lucide', 'simple-icons', 'tabler', 'vscode-icons'],
+    fallbackToApi: false,
+    fetchTimeout: 1000,
     provider: 'server',
     serverBundle: 'local',
   },
@@ -196,10 +201,11 @@ export default defineNuxtConfig({
           { field: 'path', operator: 'LIKE', value: '/events%' },
         ],
       },
+      {
+        title: 'OSS',
+        contentCollection: 'docs',
+        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/oss%' }],
+      },
     ],
-  },
-
-  mcp: {
-    name: 'Vue Board Docs',
   },
 })

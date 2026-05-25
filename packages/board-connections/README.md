@@ -25,7 +25,7 @@ engine.ext.connections.createEdge({
 })
 ```
 
-Render edges with `BoardConnectionLayer` inside `BoardRoot`'s viewport slot.
+Render `BoardConnectionLayer` anywhere under `BoardRoot`; it uses the board context and positions its SVG layer against the board root.
 
 - Docs: https://vue-board.vercel.app/api/board-connections
 - Issues: https://github.com/lupinum/nuxt-board/issues

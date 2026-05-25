@@ -52,10 +52,6 @@ const headline = computed(() =>
   findPageHeadline(navigation?.value, page.value?.path),
 )
 
-defineOgImageComponent('DocsSatori', {
-  headline: headline.value,
-})
-
 const links = computed(() => {
   const links = []
   if (toc?.bottom?.edit) {
