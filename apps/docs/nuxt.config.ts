@@ -3,11 +3,22 @@ import { fileURLToPath } from 'node:url'
 const siteUrl =
   process.env.NUXT_PUBLIC_SITE_URL || 'https://vue-board.vercel.app'
 
+function workspacePackage(path: string): string {
+  return fileURLToPath(new URL(`../../packages/${path}`, import.meta.url))
+}
+
+const nuxtBoardModule = workspacePackage('nuxt-board/src/module.ts')
+const vueBoardStyle = workspacePackage('vue-board/dist/index.css')
+const boardCoreInternal = workspacePackage('board-core/src/internal.ts')
+const boardCore = workspacePackage('board-core/src/index.ts')
+const vueBoard = workspacePackage('vue-board/src/index.ts')
+const boardHistory = workspacePackage('board-history/src/index.ts')
+const boardConnections = workspacePackage('board-connections/src/index.ts')
+const boardMinimap = workspacePackage('board-minimap/src/index.ts')
+
 export default defineNuxtConfig({
   modules: [
-    fileURLToPath(
-      new URL('../../packages/nuxt-board/src/module.ts', import.meta.url),
-    ),
+    nuxtBoardModule,
     '@nuxt/eslint',
     '@nuxt/ui',
     '@nuxt/content',
@@ -51,27 +62,13 @@ export default defineNuxtConfig({
   },
 
   alias: {
-    '@lupinum/vue-board/style.css': fileURLToPath(
-      new URL('../../packages/vue-board/dist/index.css', import.meta.url),
-    ),
-    '@lupinum/board-core/internal': fileURLToPath(
-      new URL('../../packages/board-core/src/internal.ts', import.meta.url),
-    ),
-    '@lupinum/board-core': fileURLToPath(
-      new URL('../../packages/board-core/src/index.ts', import.meta.url),
-    ),
-    '@lupinum/vue-board': fileURLToPath(
-      new URL('../../packages/vue-board/src/index.ts', import.meta.url),
-    ),
-    '@lupinum/board-history': fileURLToPath(
-      new URL('../../packages/board-history/src/index.ts', import.meta.url),
-    ),
-    '@lupinum/board-connections': fileURLToPath(
-      new URL('../../packages/board-connections/src/index.ts', import.meta.url),
-    ),
-    '@lupinum/board-minimap': fileURLToPath(
-      new URL('../../packages/board-minimap/src/index.ts', import.meta.url),
-    ),
+    '@lupinum/vue-board/style.css': vueBoardStyle,
+    '@lupinum/board-core/internal': boardCoreInternal,
+    '@lupinum/board-core': boardCore,
+    '@lupinum/vue-board': vueBoard,
+    '@lupinum/board-history': boardHistory,
+    '@lupinum/board-connections': boardConnections,
+    '@lupinum/board-minimap': boardMinimap,
   },
 
   experimental: {
@@ -80,31 +77,19 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2024-07-11',
 
-  nitro: {
-    prerender: {
-      routes: ['/', '/getting-started/introduction', '/examples/basic-board'],
-      crawlLinks: true,
-      autoSubfolderIndex: false,
-    },
-  },
-
   vite: {
+    optimizeDeps: {
+      include: [],
+    },
     resolve: {
       alias: [
         {
           find: /^@lupinum\/board-core\/internal$/,
-          replacement: fileURLToPath(
-            new URL(
-              '../../packages/board-core/src/internal.ts',
-              import.meta.url,
-            ),
-          ),
+          replacement: boardCoreInternal,
         },
         {
           find: /^@lupinum\/board-core$/,
-          replacement: fileURLToPath(
-            new URL('../../packages/board-core/src/index.ts', import.meta.url),
-          ),
+          replacement: boardCore,
         },
       ],
     },
@@ -128,20 +113,30 @@ export default defineNuxtConfig({
     clientBundle: {
       icons: [
         'lucide:arrow-left',
+        'lucide:arrow-up-right',
+        'lucide:book-open',
+        'lucide:chef-hat',
+        'lucide:code-xml',
+        'lucide:hash',
+        'lucide:heart-handshake',
+        'lucide:info',
         'lucide:lightbulb',
+        'lucide:menu',
+        'lucide:radio',
         'lucide:triangle-alert',
+        'tabler:brand-github',
+        'tabler:player-play',
+        'tabler:star',
         'vscode-icons:file-type-nuxt',
         'vscode-icons:file-type-npm',
         'vscode-icons:file-type-pnpm',
+        'vscode-icons:file-type-typescript',
+        'vscode-icons:file-type-vue',
         'vscode-icons:file-type-yarn',
       ],
       scan: true,
     },
-    collections: ['lucide', 'simple-icons', 'tabler', 'vscode-icons'],
-    fallbackToApi: false,
-    fetchTimeout: 1000,
-    provider: 'server',
-    serverBundle: 'local',
+    provider: 'none',
   },
 
   llms: {
