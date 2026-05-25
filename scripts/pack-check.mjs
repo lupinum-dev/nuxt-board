@@ -163,6 +163,10 @@ for (const tarball of tarballs) {
       )
     }
   }
+  assertFile(
+    join(packageRoot, 'LICENSE'),
+    `${manifest.name} package is missing LICENSE.`,
+  )
   assertNoLocalPaths(packageRoot)
 }
 
@@ -184,14 +188,13 @@ writeFileSync(join(consumerDir, 'import-smoke.mjs'), `${importLines}\n`)
 run('node', ['import-smoke.mjs'], { cwd: consumerDir })
 
 writeFileSync(
-  join(consumerDir, 'consumer.ts'),
+  join(consumerDir, 'consumer-board.ts'),
   `import { createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
 import { historyPlugin } from '@lupinum/board-history'
 import { getSelectionBounds } from '@lupinum/board-core'
 import { connectionPlugin } from '@lupinum/board-connections'
 import { BoardMinimap } from '@lupinum/board-minimap'
-import nuxtBoard from 'nuxt-board'
 
 const engine = createBoardEngine({ extensions: [historyPlugin(), connectionPlugin()] })
 const node = engine.createNode({ type: 'text', text: 'packed' })
@@ -200,11 +203,36 @@ getSelectionBounds(engine)
 engine.exportJSON()
 void BoardRoot
 void BoardMinimap
+`,
+)
+writeFileSync(
+  join(consumerDir, 'tsconfig-board.json'),
+  JSON.stringify(
+    {
+      compilerOptions: {
+        target: 'ES2022',
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        strict: true,
+        skipLibCheck: false,
+      },
+      include: ['consumer-board.ts'],
+    },
+    null,
+    2,
+  ),
+)
+run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-board.json')])
+
+writeFileSync(
+  join(consumerDir, 'consumer-nuxt.ts'),
+  `import nuxtBoard from 'nuxt-board'
+
 void nuxtBoard
 `,
 )
 writeFileSync(
-  join(consumerDir, 'tsconfig.json'),
+  join(consumerDir, 'tsconfig-nuxt.json'),
   JSON.stringify(
     {
       compilerOptions: {
@@ -214,12 +242,12 @@ writeFileSync(
         strict: true,
         skipLibCheck: true,
       },
-      include: ['consumer.ts'],
+      include: ['consumer-nuxt.ts'],
     },
     null,
     2,
   ),
 )
-run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig.json')])
+run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-nuxt.json')])
 
 rmSync(outputDir, { recursive: true, force: true })

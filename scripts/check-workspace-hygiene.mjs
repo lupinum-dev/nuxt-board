@@ -7,6 +7,7 @@ const forbiddenPaths = [
   'packages/board-selection',
   'packages/nuxt-board/packages',
   'packages/nuxt-board/playground/--host',
+  'apps/docs/server/mcp',
 ]
 
 const found = forbiddenPaths.filter((path) =>
