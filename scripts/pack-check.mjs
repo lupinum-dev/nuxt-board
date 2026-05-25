@@ -10,8 +10,9 @@ import {
 } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const rootDir = resolve(new URL('..', import.meta.url).pathname)
+const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputDir = join(rootDir, '.pack-check')
 const tarballDir = join(outputDir, 'tarballs')
 const unpackDir = join(outputDir, 'unpacked')
@@ -83,6 +84,24 @@ function assertNoLocalPaths(packageRoot) {
   }
 }
 
+function assertNoWorkspaceProtocols(manifest) {
+  for (const field of [
+    'dependencies',
+    'devDependencies',
+    'peerDependencies',
+    'optionalDependencies',
+  ]) {
+    const dependencies = manifest[field] ?? {}
+    for (const [name, version] of Object.entries(dependencies)) {
+      if (typeof version === 'string' && version.startsWith('workspace:')) {
+        throw new Error(
+          `${manifest.name} packed package.json contains a workspace: dependency: ${field}.${name}`,
+        )
+      }
+    }
+  }
+}
+
 function unpackTarball(tarball) {
   const targetDir = join(unpackDir, tarball.replace(/\.tgz$/, ''))
   mkdirSync(targetDir, { recursive: true })
@@ -141,6 +160,7 @@ const packedPackages = new Map()
 for (const tarball of tarballs) {
   const packageRoot = unpackTarball(tarball)
   const manifest = readJson(join(packageRoot, 'package.json'))
+  assertNoWorkspaceProtocols(manifest)
   packedPackages.set(manifest.name, {
     manifest,
     packageRoot,
