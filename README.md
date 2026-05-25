@@ -77,7 +77,7 @@ export default defineNuxtConfig({
 </template>
 ```
 
-Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`.
+Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `importJSON`.
 
 ## Packages
 
@@ -113,11 +113,14 @@ pnpm dev:docs
 Run the checks before handing off a change:
 
 ```bash
-pnpm test:unit
-pnpm typecheck
-pnpm lint
 pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test:unit
+pnpm test:docs
+pnpm pack:check
 pnpm test:e2e
+pnpm audit --prod --audit-level high
 ```
 
 ## Docs
