@@ -1,10 +1,14 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const rootDir = resolve(new URL('..', import.meta.url).pathname)
+const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
 
 const forbiddenPaths = [
+  '.fallow',
+  '.fallowrc.json',
   'packages/board-selection',
+  'packages/docs',
   'packages/nuxt-board/packages',
   'packages/nuxt-board/playground/--host',
   'apps/docs/server/mcp',

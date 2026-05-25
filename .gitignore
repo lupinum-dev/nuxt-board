@@ -2,7 +2,6 @@ node_modules
 .pnpm-store
 .turbo
 .cache
-.fallow
 .DS_Store
 
 dist
@@ -21,6 +20,3 @@ playwright-report
 .env
 .env.*
 !.env.example
-
-packages/docs/pnpm-lock.yaml
-packages/docs/pnpm-workspace.yaml
