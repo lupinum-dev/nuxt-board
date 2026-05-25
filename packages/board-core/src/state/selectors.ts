@@ -5,7 +5,6 @@ import type {
   BoardSnapshot,
   BoardState,
   BoardNode,
-  JsonCanvasNode,
   GridSettings,
   NodeId,
 } from '../types.js'
@@ -39,44 +38,6 @@ export function buildSnapshot(
     snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
     nextZIndex: state.nextZIndex,
   })
-}
-
-function toJsonCanvasNode(node: BoardNode): JsonCanvasNode {
-  const base = {
-    id: node.id,
-    type: node.type,
-    x: node.x,
-    y: node.y,
-    width: node.width,
-    height: node.height,
-    ...(node.color !== undefined ? { color: node.color } : {}),
-  }
-  switch (node.type) {
-    case 'file':
-      return {
-        ...base,
-        type: 'file',
-        file: node.file ?? '',
-        ...(node.subpath !== undefined ? { subpath: node.subpath } : {}),
-      }
-    case 'link':
-      return { ...base, type: 'link', url: node.url ?? '' }
-    case 'group':
-      return {
-        ...base,
-        type: 'group',
-        ...(node.label !== undefined ? { label: node.label } : {}),
-        ...(node.background !== undefined
-          ? { background: node.background }
-          : {}),
-        ...(node.backgroundStyle !== undefined
-          ? { backgroundStyle: node.backgroundStyle }
-          : {}),
-      }
-    case 'text':
-    default:
-      return { ...base, type: 'text', text: node.text ?? '' }
-  }
 }
 
 export function buildPublicState(

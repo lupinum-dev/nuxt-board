@@ -48,7 +48,6 @@ import {
   EDGE_STROKE_LOD_FADE_START,
   EDGE_STROKE_LOD_SOFTEN_AT,
   anchorForPointOnNode,
-  clamp01,
   edgeIdFromTarget,
   floatingNodeAt,
   nodeHandleFromTarget,

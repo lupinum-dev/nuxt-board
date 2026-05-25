@@ -7,7 +7,6 @@ import {
   type JsonCanvasDocument,
   type JsonCanvasEdge,
   type JsonCanvasSide,
-  type NodeId,
 } from '@lupinum/board-core'
 import {
   defineInternalBoardFeature,
@@ -18,8 +17,6 @@ import type {
   BoardEdgePatch,
   ConnectionConfig,
   ConnectionPluginOptions,
-  ConnectionEndpointMode,
-  ConnectionRouting,
   ConnectionsExtension,
   EdgeEnd,
 } from './types.js'

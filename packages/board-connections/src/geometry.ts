@@ -10,7 +10,6 @@ import type {
   AnchorSide,
   BoardEdge,
   ConnectionRoute,
-  ConnectionRouteSegment,
   ConnectionRouting,
   ResolvedConnectionEndpoint,
 } from './types.js'

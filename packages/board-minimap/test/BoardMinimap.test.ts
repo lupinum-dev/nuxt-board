@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
 import { BoardMinimap } from '../src'
 

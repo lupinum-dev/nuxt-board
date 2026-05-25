@@ -16,7 +16,6 @@ import {
 import {
   collectSubtreeIds,
   collectUniformTranslationTargets,
-  expandGroupDragSeeds,
   findContainingGroup,
   getBoundsFromNode,
   sortIdsByZIndex,
@@ -52,11 +51,7 @@ import {
 } from './state/types.js'
 import { normalizeExistingNode } from './state/initial.js'
 import { materializeNode as materializeNodePure } from './helpers/node-shape.js'
-import {
-  buildPublicNodeMap,
-  buildPublicState,
-  buildSnapshot,
-} from './state/selectors.js'
+import { buildPublicState, buildSnapshot } from './state/selectors.js'
 import {
   duplicateForest as duplicateForestPure,
   getCopyClosureNodes as getCopyClosureNodesPure,
@@ -103,7 +98,6 @@ import type {
   NodeInput,
   NodePatch,
   Point,
-  ResizeHandle,
   SnapGuide,
   Subscribable,
   ZoomSettings,

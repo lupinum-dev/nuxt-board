@@ -59,16 +59,6 @@ function getIntermediate(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
-function getPointBetween(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number,
-  t: number,
-): [number, number] {
-  return [getIntermediate(x0, x1, t), getIntermediate(y0, y1, t)]
-}
-
 function doBoxesCollide(a: Box, b: Box): boolean {
   return !(
     a.x > b.x + b.w ||
@@ -127,14 +117,12 @@ function getBoxToBoxArrow(
   const cy1 = y1 + h1 / 2
 
   const angle = getAngle(cx0, cy0, cx1, cy1)
-  const distance = getDistance(cx0, cy0, cx1, cy1)
 
   let [sx, sy] = [cx0, cy0]
   let [ex, ey] = [cx1, cy1]
 
   const overlap = doBoxesCollide(paddedStart, paddedEnd)
   if (overlap) {
-    const [mx, my] = getPointBetween(cx0, cy0, cx1, cy1, 0.5)
     const boxAngle = getAngle(cx0, cy0, cx1, cy1)
     sx = cx0 + Math.cos(boxAngle) * (w0 / 2 + padStart)
     sy = cy0 + Math.sin(boxAngle) * (h0 / 2 + padStart)
