@@ -5,12 +5,23 @@ import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import * as boardConnections from '@lupinum/board-connections'
+import playwrightConfig from '../playwright.config'
 import { createDemoDocument } from '../apps/docs/app/utils/demoDocument'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+type PackageManifest = {
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  scripts?: Record<string, string>
+}
+
 function read(path: string): string {
   return readFileSync(resolve(root, path), 'utf8')
+}
+
+function readManifest(path: string): PackageManifest {
+  return JSON.parse(read(path)) as PackageManifest
 }
 
 function filesIn(path: string): string[] {
@@ -28,6 +39,47 @@ describe('docs demo contracts', () => {
     expect(() => read('packages/docs/package.json')).toThrow()
   })
 
+  it('keeps docs builds aligned with the Vercel deployment target', () => {
+    const manifest = readManifest('apps/docs/package.json')
+    const directDependencies = {
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+    }
+
+    expect(manifest.scripts?.build).toContain('--preset vercel')
+    expect(directDependencies).not.toHaveProperty('@nuxtjs/mdc')
+    expect(directDependencies).not.toHaveProperty('unist-util-visit')
+  })
+
+  it('keeps default e2e runs deterministic', () => {
+    const webServers = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer
+      : [playwrightConfig.webServer]
+
+    expect(playwrightConfig.workers).toBe(1)
+    expect(playwrightConfig.fullyParallel).not.toBe(true)
+    expect(webServers).toHaveLength(2)
+    expect(
+      webServers.every((server) => server?.reuseExistingServer === false),
+    ).toBe(true)
+    expect(webServers[1]?.env).toMatchObject({
+      FORCE_COLOR: '0',
+      NUXT_PUBLIC_SITE_URL: 'http://127.0.0.1:4174/',
+    })
+  })
+
+  it('keeps TypeScript responsible for unused workspace code', () => {
+    const config = JSON.parse(read('tsconfig.json')) as {
+      compilerOptions?: {
+        noUnusedLocals?: boolean
+        noUnusedParameters?: boolean
+      }
+    }
+
+    expect(config.compilerOptions?.noUnusedLocals).toBe(true)
+    expect(config.compilerOptions?.noUnusedParameters).toBe(true)
+  })
+
   it('keeps workflows pointed at existing release gates', () => {
     for (const file of [
       '.github/workflows/ci.yml',
@@ -40,6 +92,30 @@ describe('docs demo contracts', () => {
     expect(read('.github/workflows/docs.yml')).not.toContain('packages/docs')
     expect(read('.github/workflows/ci.yml')).toContain('pnpm audit --prod')
     expect(read('.github/workflows/release.yml')).toContain('pnpm audit --prod')
+  })
+
+  it('keeps handoff docs aligned with the release-facing checks', () => {
+    const checks = [
+      'pnpm format:check',
+      'pnpm lint',
+      'pnpm typecheck',
+      'pnpm test:unit',
+      'pnpm test:docs',
+      'pnpm pack:check',
+      'pnpm test:e2e',
+      'pnpm audit --prod --audit-level high',
+    ]
+
+    for (const file of [
+      'README.md',
+      'apps/docs/content/8.oss/1.contributing.md',
+      'apps/docs/content/8.oss/2.release-workflow.md',
+    ]) {
+      const source = read(file)
+      for (const check of checks) {
+        expect(source, `${file} should mention ${check}`).toContain(check)
+      }
+    }
   })
 
   it('documents only public board-core utility exports', () => {
