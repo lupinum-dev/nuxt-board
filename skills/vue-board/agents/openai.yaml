@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Vue Board'
+  short_description: 'Build Vue Board and Nuxt Board apps correctly'
+  default_prompt: 'Use $vue-board to build or modify a Vue Board or Nuxt Board integration.'
