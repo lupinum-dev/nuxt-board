@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { BoardNode } from '@lupinum/board-core'
+
+interface WorkflowStep {
+  status: 'pending' | 'active' | 'done'
+  label: string
+  summary: string
+}
 
 const props = defineProps<{
-  node: BoardNode
+  step?: WorkflowStep
   selected: boolean
 }>()
 
 const data = computed(() => {
-  const [status = 'pending', label = 'Step', summary = ''] =
-    props.node.text?.split('\n') ?? []
-  return { status, label, summary }
+  return (
+    props.step ?? {
+      status: 'pending',
+      label: 'Missing step',
+      summary: 'No workflow record matches this board node.',
+    }
+  )
 })
 const tone = computed(() => {
-  const status = String(data.value.status ?? 'pending')
+  const status = data.value.status
   if (status === 'done') {
     return {
       badge: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300/60',

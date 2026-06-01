@@ -34,20 +34,16 @@ import { asNodeId } from '@lupinum/board-core'
 
 const engine = createBoardEngine({
   grid: { size: 24, snap: true },
-  initialNodes: [
-    {
-      id: asNodeId('nuxt-ssr-board'),
-      type: 'text',
-      x: 64,
-      y: 64,
-      width: 220,
-      height: 96,
-      text: 'Node',
-      zIndex: 1,
-      locked: false,
-      visible: true,
-    },
-  ],
+})
+
+engine.createNode({
+  id: asNodeId('nuxt-ssr-board'),
+  type: 'text',
+  x: 64,
+  y: 64,
+  width: 220,
+  height: 96,
+  text: 'Node',
 })
 </script>
 
@@ -58,7 +54,7 @@ const engine = createBoardEngine({
 
 ## SSR Notes
 
-With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for initial content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
+With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
 
 ## Module Options
 

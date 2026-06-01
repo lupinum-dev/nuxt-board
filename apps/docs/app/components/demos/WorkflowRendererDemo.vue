@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
@@ -7,26 +7,68 @@ import {
   BoardConnectionLayer,
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
-import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import WorkflowStepNode from './WorkflowStepNode.vue'
 
 type StepStatus = 'pending' | 'active' | 'done'
+interface WorkflowStep {
+  id: ReturnType<typeof asNodeId>
+  status: StepStatus
+  label: string
+  summary: string
+}
 
 const engine = createBoardEngine({
   grid: { size: 24, majorEvery: 4, snap: true, pattern: 'line' },
   extensions: [historyPlugin(), connectionPlugin({ routing: 'step' })],
 })
 
-const renderers: BoardRendererRegistry = {
-  text: WorkflowStepNode,
-}
-
-const historyState = computed(() => engine.ext.history.getState())
 const CAPTURE_ID = asNodeId('capture')
 const QUALIFY_ID = asNodeId('qualify')
 const HANDOFF_ID = asNodeId('handoff')
 
+function createWorkflowSteps(): WorkflowStep[] {
+  return [
+    {
+      id: CAPTURE_ID,
+      status: 'done',
+      label: 'Capture lead',
+      summary: 'Collect the request and normalize inputs.',
+    },
+    {
+      id: QUALIFY_ID,
+      status: 'active',
+      label: 'Qualify',
+      summary: 'Score, tag, and route the lead.',
+    },
+    {
+      id: HANDOFF_ID,
+      status: 'pending',
+      label: 'Handoff',
+      summary: 'Create the downstream record and alert the owner.',
+    },
+  ]
+}
+
+const workflowSteps = ref<WorkflowStep[]>(createWorkflowSteps())
+const stepsByNodeId = computed(
+  () => new Map(workflowSteps.value.map((step) => [step.id, step])),
+)
+const historyState = ref(engine.ext.history.getState())
+
+function syncHistoryState() {
+  historyState.value = engine.ext.history.getState()
+}
+
+const unsubscribeHistory = [
+  engine.on('history:push', syncHistoryState),
+  engine.on('history:undo', syncHistoryState),
+  engine.on('history:redo', syncHistoryState),
+  engine.on('history:clear', syncHistoryState),
+]
+
 function seed() {
+  workflowSteps.value = createWorkflowSteps()
+
   engine.importJSON(
     JSON.stringify(
       createDemoDocument({
@@ -42,7 +84,7 @@ function seed() {
             y: 110,
             width: 220,
             height: 130,
-            text: 'done\nCapture lead\nCollect the request and normalize inputs.',
+            text: '',
             zIndex: 1,
             locked: false,
             visible: true,
@@ -54,7 +96,7 @@ function seed() {
             y: 110,
             width: 220,
             height: 130,
-            text: 'active\nQualify\nScore, tag, and route the lead.',
+            text: '',
             zIndex: 2,
             locked: false,
             visible: true,
@@ -66,7 +108,7 @@ function seed() {
             y: 110,
             width: 220,
             height: 130,
-            text: 'pending\nHandoff\nCreate the downstream record and alert the owner.',
+            text: '',
             zIndex: 3,
             locked: false,
             visible: true,
@@ -93,6 +135,8 @@ function seed() {
     label: 'approved',
     data: {},
   })
+  engine.ext.history.clear()
+  syncHistoryState()
 }
 
 function nextStatus(current: StepStatus): StepStatus {
@@ -102,26 +146,21 @@ function nextStatus(current: StepStatus): StepStatus {
 }
 
 function advanceSelected() {
-  const selected = engine.getSelection()[0]
-  const target = selected ?? QUALIFY_ID
-  const node = engine.getNode(target)
-  if (!node || node.type !== 'text') {
-    return
-  }
-  const [, label = '', summary = ''] = (node.text ?? '').split('\n')
-  engine.updateNode(node.id, {
-    text: `${nextStatus(parseStepStatus(node.text))}\n${label}\n${summary}`,
-  })
-}
-
-function parseStepStatus(text: string | undefined): StepStatus {
-  const status = text?.split('\n')[0]
-  return status === 'active' || status === 'done' ? status : 'pending'
+  const target = engine.getSelection()[0] ?? QUALIFY_ID
+  workflowSteps.value = workflowSteps.value.map((step) =>
+    step.id === target ? { ...step, status: nextStatus(step.status) } : step,
+  )
 }
 
 onMounted(async () => {
   seed()
   await engine.zoomToFit(80, false)
+})
+
+onBeforeUnmount(() => {
+  for (const unsubscribe of unsubscribeHistory) {
+    unsubscribe()
+  }
 })
 </script>
 
@@ -133,13 +172,13 @@ onMounted(async () => {
         Cycle selected step
       </button>
       <button
-        :disabled="!engine.ext.history.canUndo()"
+        :disabled="historyState.undoDepth === 0"
         @click="engine.ext.history.undo()"
       >
         Undo
       </button>
       <button
-        :disabled="!engine.ext.history.canRedo()"
+        :disabled="historyState.redoDepth === 0"
         @click="engine.ext.history.redo()"
       >
         Redo
@@ -150,7 +189,13 @@ onMounted(async () => {
       >
     </div>
 
-    <BoardRoot :engine="engine" :renderers="renderers" style="height: 400px">
+    <BoardRoot :engine="engine" style="height: 400px">
+      <template #node:text="{ node, selected }">
+        <WorkflowStepNode
+          :step="stepsByNodeId.get(node.id)"
+          :selected="selected"
+        />
+      </template>
       <BoardConnectionLayer routing="step" />
     </BoardRoot>
   </div>

@@ -5,14 +5,14 @@ import type { BoardNode } from '@lupinum/board-core'
 const props = defineProps<{
   node: BoardNode
   selected: boolean
+  depth: number
 }>()
 
 const data = computed(() => {
-  const [depth = '0', title = 'Topic', detail = ''] =
-    props.node.text?.split('\n') ?? []
-  return { depth: Number(depth), title, detail }
+  const [title = 'Topic', detail = ''] = props.node.text?.split('\n') ?? []
+  return { title, detail }
 })
-const depth = computed(() => data.value.depth)
+const depth = computed(() => props.depth)
 
 const style = computed(() => {
   if (depth.value === 0) {
