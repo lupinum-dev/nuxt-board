@@ -66,11 +66,11 @@ export default defineNuxtConfig({
     '@lupinum/vue-board/style.css': vueBoardStyle,
     '@lupinum/board-core/internal': boardCoreInternal,
     '@lupinum/board-core': boardCore,
+    '@lupinum/vue-board/minimap': boardMinimap,
     '@lupinum/vue-board': vueBoard,
     '@lupinum/board-history': boardHistory,
-    '@lupinum/board-connections': boardConnections,
     '@lupinum/board-connections/vue': boardConnectionsVue,
-    '@lupinum/vue-board/minimap': boardMinimap,
+    '@lupinum/board-connections': boardConnections,
   },
 
   experimental: {

@@ -13,10 +13,12 @@ import {
 import {
   connectionsPlugin,
   type ConnectionsApi,
+  type ConnectionsEventMap,
 } from '../../../board-connections/src/index'
 import {
   historyPlugin,
   type HistoryApi,
+  type HistoryEventMap,
 } from '../../../board-history/src/index'
 
 export type DemoSceneId = 'workflow' | 'systems' | 'dense' | 'polish'
@@ -42,10 +44,13 @@ interface DemoSceneState {
   nextZIndex: number
 }
 
-export type DemoEngine = BoardEngine<{
-  history: HistoryApi
-  connections: ConnectionsApi
-}>
+export type DemoEngine = BoardEngine<
+  {
+    history: HistoryApi
+    connections: ConnectionsApi
+  },
+  ConnectionsEventMap & HistoryEventMap
+>
 
 type DemoNode = BoardNode
 

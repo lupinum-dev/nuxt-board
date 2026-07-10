@@ -14,20 +14,20 @@ export default defineNuxtConfig({
     '@lupinum/board-core': fileURLToPath(
       new URL('../../board-core/src/index.ts', import.meta.url),
     ),
+    '@lupinum/vue-board/minimap': fileURLToPath(
+      new URL('../../vue-board/src/minimap.ts', import.meta.url),
+    ),
     '@lupinum/vue-board': fileURLToPath(
       new URL('../../vue-board/src/index.ts', import.meta.url),
     ),
     '@lupinum/board-history': fileURLToPath(
       new URL('../../board-history/src/index.ts', import.meta.url),
     ),
-    '@lupinum/board-connections': fileURLToPath(
-      new URL('../../board-connections/src/index.ts', import.meta.url),
-    ),
     '@lupinum/board-connections/vue': fileURLToPath(
       new URL('../../board-connections/src/vue.ts', import.meta.url),
     ),
-    '@lupinum/vue-board/minimap': fileURLToPath(
-      new URL('../../vue-board/src/minimap.ts', import.meta.url),
+    '@lupinum/board-connections': fileURLToPath(
+      new URL('../../board-connections/src/index.ts', import.meta.url),
     ),
   },
   build: {
