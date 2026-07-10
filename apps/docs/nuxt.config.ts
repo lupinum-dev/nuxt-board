@@ -80,9 +80,6 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-07-11',
 
   vite: {
-    optimizeDeps: {
-      include: [],
-    },
     resolve: {
       alias: [
         {
@@ -94,6 +91,15 @@ export default defineNuxtConfig({
           replacement: boardCore,
         },
       ],
+    },
+  },
+
+  hooks: {
+    'vite:extend'({ config }) {
+      // Content adds deep dependency selectors after user config is merged.
+      // They are optional hints and become stale across package releases.
+      config.optimizeDeps ??= {}
+      config.optimizeDeps.include = []
     },
   },
 
