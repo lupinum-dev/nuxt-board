@@ -14,7 +14,6 @@ import {
   type BoardNode,
   type EdgeId,
   type NodeId,
-  type Point,
 } from '@lupinum/board-core'
 import { useBoardEngine } from '@lupinum/vue-board'
 import {
@@ -60,46 +59,19 @@ import {
   sameEdgeTarget,
   type ConnectionNodeHandle,
 } from './hit-testing.js'
+import {
+  advanceConnectionDrag,
+  type ConnectionDragState,
+  type CreateDragState,
+  type DragEnd,
+  type PendingConnectionDrag,
+  type ReconnectDragState,
+} from './controller.js'
+import { renderConnectionPreview, renderDefaultEdgePath } from './renderer.js'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
 }
-type DragEnd = 'from' | 'to'
-type ReconnectDragState = {
-  mode: 'reconnect'
-  edgeId: string
-  end: DragEnd
-  pointerId: number
-  pointerWorld: Point
-  candidateNodeId: NodeId | null
-  candidateAnchor: AnchorPosition | null
-}
-type CreateDragState = {
-  mode: 'create'
-  sourceNodeId: NodeId
-  sourceSide: AnchorSide
-  pointerId: number
-  pointerWorld: Point
-  candidateNodeId: NodeId | null
-  candidateAnchor: AnchorPosition | null
-}
-type DragState = ReconnectDragState | CreateDragState
-type PendingReconnectDrag = {
-  mode: 'reconnect'
-  edgeId: string
-  end: DragEnd
-  pointerId: number
-  startWorld: Point
-}
-type PendingCreateDrag = {
-  mode: 'create'
-  sourceNodeId: NodeId
-  sourceSide: AnchorSide
-  pointerId: number
-  startWorld: Point
-}
-type PendingDragState = PendingReconnectDrag | PendingCreateDrag
-
 const TOOLBAR_ICON_SIZE = 24
 
 export const BoardConnectionLayer = defineComponent({
@@ -137,8 +109,8 @@ export const BoardConnectionLayer = defineComponent({
     const hoveredNodeId = shallowRef<NodeId | null>(null)
     const hoveredNodeHandle = shallowRef<ConnectionNodeHandle | null>(null)
     const selectedEdgeId = shallowRef<string | null>(null)
-    const pendingDrag = shallowRef<PendingDragState | null>(null)
-    const dragState = shallowRef<DragState | null>(null)
+    const pendingDrag = shallowRef<PendingConnectionDrag | null>(null)
+    const dragState = shallowRef<ConnectionDragState | null>(null)
     const editingEdgeId = shallowRef<string | null>(null)
     const labelDraft = shallowRef<string>('')
     const colorMenuEdgeId = shallowRef<string | null>(null)
@@ -700,7 +672,7 @@ export const BoardConnectionLayer = defineComponent({
       hoveredEdgeId.value = String(createdEdge.id)
     }
 
-    function commitDrag(active: DragState): void {
+    function commitDrag(active: ConnectionDragState): void {
       if (active.mode === 'reconnect') {
         commitReconnect(active)
       } else {
@@ -833,61 +805,20 @@ export const BoardConnectionLayer = defineComponent({
         const candidateNode = candidateHandle
           ? currentEngine.findNode(candidateHandle.nodeId)
           : currentEngine.getNodeAt(nextWorld)
-        if (currentPending) {
-          const screenDistance =
-            Math.hypot(
-              nextWorld.x - currentPending.startWorld.x,
-              nextWorld.y - currentPending.startWorld.y,
-            ) * injected.$camera.value.z
-          if (screenDistance < CONNECTION_DRAG_THRESHOLD) {
-            return
-          }
-          dragState.value =
-            currentPending.mode === 'reconnect'
-              ? {
-                  mode: 'reconnect',
-                  edgeId: currentPending.edgeId,
-                  end: currentPending.end,
-                  pointerId: currentPending.pointerId,
-                  pointerWorld: nextWorld,
-                  candidateNodeId: candidateNode?.id ?? null,
-                  candidateAnchor: candidateHandle
-                    ? {
-                        side: candidateHandle.side,
-                        offset: candidateHandle.offset,
-                      }
-                    : null,
-                }
-              : {
-                  mode: 'create',
-                  sourceNodeId: currentPending.sourceNodeId,
-                  sourceSide: currentPending.sourceSide,
-                  pointerId: currentPending.pointerId,
-                  pointerWorld: nextWorld,
-                  candidateNodeId: candidateNode?.id ?? null,
-                  candidateAnchor: candidateHandle
-                    ? {
-                        side: candidateHandle.side,
-                        offset: candidateHandle.offset,
-                      }
-                    : null,
-                }
-          pendingDrag.value = null
-          return
-        }
-
-        if (!currentActive) {
-          return
-        }
-
-        dragState.value = {
-          ...currentActive,
+        const next = advanceConnectionDrag({
+          pending: currentPending,
+          active: currentActive,
+          pointerId: event.pointerId,
           pointerWorld: nextWorld,
           candidateNodeId: candidateNode?.id ?? null,
           candidateAnchor: candidateHandle
             ? { side: candidateHandle.side, offset: candidateHandle.offset }
             : null,
-        }
+          zoom: injected.$camera.value.z,
+          threshold: CONNECTION_DRAG_THRESHOLD,
+        })
+        pendingDrag.value = next.pending
+        dragState.value = next.active
       }
 
       const handleUp = (event: PointerEvent) => {
@@ -1333,23 +1264,12 @@ export const BoardConnectionLayer = defineComponent({
 
       const visibleContent = slots.edge
         ? slots.edge(entry)
-        : h('path', {
-            d: entry.route.path,
+        : renderDefaultEdgePath({
+            entry,
+            markerId,
             stroke,
-            color: entry.edge.color ?? 'var(--board-edge-color)',
-            fill: 'none',
             opacity: strokeOpacity,
-            'stroke-width': strokeWidth,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-            'vector-effect': 'non-scaling-stroke',
-            'marker-start':
-              entry.edge.fromEnd === 'arrow' ? `url(#${markerId})` : undefined,
-            'marker-end':
-              entry.edge.toEnd === 'arrow' ? `url(#${markerId})` : undefined,
-            style: {
-              pointerEvents: 'none',
-            },
+            strokeWidth,
           })
 
       const label = renderEdgeLabel(entry, { isSelected, isHovered })
@@ -1409,81 +1329,15 @@ export const BoardConnectionLayer = defineComponent({
     }
 
     function renderPreview() {
-      if (!preview.value) {
-        return []
-      }
-
-      const previewStroke =
-        preview.value.edge?.color ?? 'var(--board-edge-active-color)'
-      const candidateNode = preview.value.candidateNode
-      const fixedEnd =
-        dragState.value?.mode === 'reconnect' && dragState.value.end === 'from'
-          ? preview.value.target
-          : preview.value.source
-      const dynamicEnd =
-        dragState.value?.mode === 'reconnect' && dragState.value.end === 'from'
-          ? preview.value.source
-          : preview.value.target
-
-      return [
-        candidateNode
-          ? h('rect', {
-              x: candidateNode.x,
-              y: candidateNode.y,
-              width: candidateNode.width,
-              height: candidateNode.height,
-              rx: 10,
-              ry: 10,
-              fill: 'none',
-              stroke: 'var(--board-edge-active-color)',
-              'stroke-width': 2 / Math.max(injected.$camera.value.z, 0.25),
-              'vector-effect': 'non-scaling-stroke',
-              opacity: 0.9,
-              style: {
-                pointerEvents: 'none',
-              },
-            })
-          : null,
-        h('path', {
-          d: preview.value.route.path,
-          stroke: previewStroke,
-          fill: 'none',
-          opacity: 0.55,
-          'stroke-width': previewStrokeWidth.value,
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          'vector-effect': 'non-scaling-stroke',
-          'marker-end': `url(#${markerId})`,
-          color: previewStroke,
-          style: {
-            pointerEvents: 'none',
-          },
-        }),
-        h('circle', {
-          cx: fixedEnd.point.x,
-          cy: fixedEnd.point.y,
-          r: handleRadius.value,
-          fill: '#ffffff',
-          stroke: previewStroke,
-          'stroke-width': 1.5 / Math.max(injected.$camera.value.z, 0.25),
-          'vector-effect': 'non-scaling-stroke',
-          style: {
-            pointerEvents: 'none',
-          },
-        }),
-        h('circle', {
-          cx: dynamicEnd.point.x,
-          cy: dynamicEnd.point.y,
-          r: handleRadius.value,
-          fill: '#ffffff',
-          stroke: 'var(--board-edge-active-color)',
-          'stroke-width': 1.5 / Math.max(injected.$camera.value.z, 0.25),
-          'vector-effect': 'non-scaling-stroke',
-          style: {
-            pointerEvents: 'none',
-          },
-        }),
-      ]
+      if (!preview.value || !dragState.value) return []
+      return renderConnectionPreview({
+        preview: preview.value,
+        drag: dragState.value,
+        markerId,
+        zoom: Math.max(injected.$camera.value.z, 0.25),
+        handleRadius: handleRadius.value,
+        strokeWidth: previewStrokeWidth.value,
+      })
     }
 
     function renderToolbar() {
