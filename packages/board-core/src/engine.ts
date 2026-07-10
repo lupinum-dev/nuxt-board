@@ -64,11 +64,9 @@ import { createEventBus } from './engine/events.js'
 import {
   createBatchCommandController,
   createCommandGuardRegistry,
-  createDispatcher,
   createValidator,
 } from './engine/command-runtime.js'
 import { createReactiveLayer } from './engine/subscribables.js'
-import { invertAction } from './engine/invert.js'
 import {
   documentToSnapshot,
   materializeSnapshotNodes,
@@ -175,17 +173,12 @@ export function createBoardEngine(
   const eventBus = createEventBus({ diagnosticsEnabled, traceLimit })
   const { emit, emitImmediate, on, once, off } = eventBus
   const commandGuards = createCommandGuardRegistry()
-  const dispatcher = createDispatcher()
   const commitListeners = new Set<(commit: InternalBoardCommit) => void>()
+  const nodeDeletedHooks = new Set<(nodeId: NodeId) => void>()
   const featureCleanups = new Map<string, () => void>()
   const featureStates = new Map<
     string,
     {
-      reducer: (
-        state: unknown,
-        action: import('./state/actions.js').Action,
-      ) => unknown
-      invert?: (innerAction: unknown) => unknown
       state: unknown
     }
   >()
@@ -196,17 +189,8 @@ export function createBoardEngine(
       hooks: NonNullable<InternalBoardPlugin['persistence']>
     }
   >()
-  function reduceFeatureStates(
-    action: import('./state/actions.js').Action,
-  ): void {
-    for (const featureState of featureStates.values()) {
-      featureState.state = featureState.reducer(featureState.state, action)
-    }
-  }
-
-  function dispatchAction(action: import('./state/actions.js').Action): void {
-    reduceFeatureStates(action)
-    dispatcher.dispatch(action)
+  function notifyNodeDeletedPlugins(nodeId: NodeId): void {
+    for (const hook of nodeDeletedHooks) hook(nodeId)
   }
   const clipboard: StoredNode[] = []
   const plugins = {} as BoardPluginApis
@@ -264,7 +248,6 @@ export function createBoardEngine(
     state,
     grid,
     emit,
-    dispatch: dispatchAction,
   })
   const {
     batchCtrl,
@@ -319,17 +302,6 @@ export function createBoardEngine(
   function getViewportSize(): Point {
     assertAlive()
     return freezeClone({ ...viewportSize })
-  }
-
-  function dispatchNextZIndexChange(before: number): void {
-    if (before === state.nextZIndex) {
-      return
-    }
-    dispatchAction({
-      type: 'NEXT_Z_INDEX_BUMPED',
-      before,
-      after: state.nextZIndex,
-    })
   }
 
   function materializeNode(node: StoredNode): BoardNode {
@@ -496,7 +468,6 @@ export function createBoardEngine(
     }
     const restorePoint = validateCommand ? createRestorePoint() : null
     const historyBefore = ownsEffects ? captureHistoryRoot() : null
-    dispatcher.beginActionTransaction()
     try {
       const result = fn()
       if (validateCommand) {
@@ -506,7 +477,6 @@ export function createBoardEngine(
           validate(name)
         }
       }
-      dispatcher.commitActionTransaction()
       if (ownsEffects) {
         batchCtrl.depth -= 1
         batches.flushBatchNotifications()
@@ -529,7 +499,6 @@ export function createBoardEngine(
       if (restorePoint) {
         restoreEngineState(restorePoint, false)
       }
-      dispatcher.rollbackActionTransaction()
       if (ownsEffects) {
         batchCtrl.depth -= 1
         batches.rollbackBatchNotifications()
@@ -560,13 +529,11 @@ export function createBoardEngine(
     }
     const restorePoint = validateCommand ? createRestorePoint() : null
     const historyBefore = ownsEffects ? captureHistoryRoot() : null
-    dispatcher.beginActionTransaction()
     try {
       const result = await fn()
       if (validateCommand) {
         validate(name)
       }
-      dispatcher.commitActionTransaction()
       if (ownsEffects) {
         batchCtrl.depth -= 1
         batches.flushBatchNotifications()
@@ -585,7 +552,6 @@ export function createBoardEngine(
       return result
     } catch (error) {
       if (error instanceof AnimationCancelled) {
-        dispatcher.rollbackActionTransaction()
         if (ownsEffects) {
           batchCtrl.depth -= 1
           batches.rollbackBatchNotifications()
@@ -596,7 +562,6 @@ export function createBoardEngine(
       if (restorePoint) {
         restoreEngineState(restorePoint, false)
       }
-      dispatcher.rollbackActionTransaction()
       if (ownsEffects) {
         batchCtrl.depth -= 1
         batches.rollbackBatchNotifications()
@@ -767,12 +732,6 @@ export function createBoardEngine(
     next: StoredNode,
   ): StoredNode {
     const stored = replaceStoredNode(node, next)
-    dispatchAction({
-      type: 'NODE_UPDATED',
-      id: node.id,
-      before: node,
-      after: stored,
-    })
     return stored
   }
 
@@ -796,12 +755,10 @@ export function createBoardEngine(
     if (!node) {
       return
     }
-    const nextZIndexBefore = state.nextZIndex
     const next = replaceStoredNodeAndDispatch(node, {
       ...node,
       zIndex: state.nextZIndex++,
     })
-    dispatchNextZIndexChange(nextZIndexBefore)
     emit('node:updated', materializeNode(next), materializeNode(node))
     restackGroupDescendantsAbove(id)
   }
@@ -855,12 +812,10 @@ export function createBoardEngine(
     }
     let current = node
     if (parent && current.zIndex <= parent.zIndex) {
-      const nextZIndexBefore = state.nextZIndex
       current = replaceStoredNodeAndDispatch(node, {
         ...node,
         zIndex: state.nextZIndex++,
       })
-      dispatchNextZIndexChange(nextZIndexBefore)
     }
     for (const child of getDirectChildren(nodeId)) {
       fixSubtreeZOrderAfter(current, child.id)
@@ -1046,7 +1001,7 @@ export function createBoardEngine(
           continue
         }
         state.nodes.delete(id)
-        dispatchAction({ type: 'NODE_DELETED', node: prevNode })
+        notifyNodeDeletedPlugins(prevNode.id)
         emit('node:deleted', id, materializeNode(prevNode))
       }
 
@@ -1057,7 +1012,6 @@ export function createBoardEngine(
         const node = normalizeExistingNode(rawNode)
         state.nodes.set(node.id, node)
         idMap.set(rawNode.id, node.id)
-        dispatchAction({ type: 'NODE_CREATED', node })
         emit('node:created', materializeNode(node))
       }
 
@@ -1107,107 +1061,12 @@ export function createBoardEngine(
     }
   }
 
-  function applyRecordedAction(
-    action: import('./state/actions.js').Action,
-  ): void {
-    switch (action.type) {
-      case 'NODE_CREATED': {
-        state.nodes.set(action.node.id, action.node)
-        notifyNodesChanged()
-        emit('node:created', materializeNode(action.node))
-        break
-      }
-      case 'NODE_DELETED': {
-        const prev = state.nodes.get(action.node.id)
-        if (!prev) return
-        state.nodes.delete(action.node.id)
-        if (state.selection.has(action.node.id)) {
-          const nextSelection = new Set(state.selection)
-          nextSelection.delete(action.node.id)
-          state.selection = nextSelection
-          reactive.notifySelectionChanged()
-        }
-        notifyNodesChanged()
-        emit('node:deleted', action.node.id, materializeNode(prev))
-        break
-      }
-      case 'NODE_UPDATED': {
-        state.nodes.set(action.id, action.after)
-        notifyNodesChanged()
-        emit(
-          'node:updated',
-          materializeNode(action.after),
-          materializeNode(action.before),
-        )
-        break
-      }
-      case 'NODES_MOVED': {
-        for (const delta of action.deltas) {
-          const current = state.nodes.get(delta.id)
-          if (!current) continue
-          const next = {
-            ...current,
-            x: delta.after.x,
-            y: delta.after.y,
-          }
-          state.nodes.set(delta.id, next)
-          emit('node:moved', materializeNode(next), {
-            x: delta.after.x - delta.before.x,
-            y: delta.after.y - delta.before.y,
-          })
-          emit('node:updated', materializeNode(next), materializeNode(current))
-        }
-        if (action.deltas.length > 0) notifyNodesChanged()
-        break
-      }
-      case 'SELECTION_SET': {
-        const prev = Array.from(state.selection.values())
-        state.selection = new Set(action.after)
-        reactive.notifySelectionChanged()
-        emit('selection:change', [...action.after], prev)
-        break
-      }
-      case 'GRID_UPDATED': {
-        Object.assign(grid, action.after)
-        break
-      }
-      case 'NEXT_Z_INDEX_BUMPED': {
-        state.nextZIndex = action.after
-        break
-      }
-      case 'BATCH': {
-        for (const inner of action.actions) applyRecordedAction(inner)
-        return
-      }
-      case 'FEATURE_ACTION':
-        // Feature slice updates and side-effect listeners run via dispatchAction below.
-        break
-    }
-    dispatchAction(action)
-  }
-
-  function invertActionImpl(
-    action: import('./state/actions.js').Action,
-  ): import('./state/actions.js').Action {
-    return invertAction(
-      action,
-      (featureName) => featureStates.get(featureName)?.invert,
-    )
-  }
-
   function installFeature(feature: InternalBoardPlugin): void {
     if (featureCleanups.has(feature.name)) {
       return
     }
     if (feature.slice) {
       featureStates.set(feature.name, {
-        reducer: feature.slice.reducer as (
-          state: unknown,
-          action: import('./state/actions.js').Action,
-        ) => unknown,
-        invert: feature.slice.invert as
-          | ((innerAction: unknown) => unknown)
-          | undefined,
         state: feature.slice.initial,
       })
     }
@@ -1223,9 +1082,23 @@ export function createBoardEngine(
           }
           return entry.state as S
         },
+        updateFeatureState: <S>(update: (current: S) => S): S => {
+          const entry = featureStates.get(feature.name)
+          if (!entry) {
+            throw new Error(
+              `Plugin "${feature.name}" did not register a persistent slice.`,
+            )
+          }
+          const next = update(entry.state as S)
+          entry.state = next
+          return next
+        },
       },
     )
     const cleanup = feature.install(featureCtx)
+    if (feature.nodeDeleted) {
+      nodeDeletedHooks.add((nodeId) => feature.nodeDeleted!(featureCtx, nodeId))
+    }
     if (feature.persistence) {
       featurePersistence.set(feature.name, {
         context: featureCtx,
@@ -1256,8 +1129,8 @@ export function createBoardEngine(
       featureCleanups.clear()
       featureStates.clear()
       featurePersistence.clear()
-      dispatcher.clear()
       commitListeners.clear()
+      nodeDeletedHooks.clear()
       commandGuards.clear()
       eventBus.clear()
       destroyReactiveLayer()
@@ -1270,15 +1143,12 @@ export function createBoardEngine(
       const restorePoint = createRestorePoint()
       const historyBefore = captureHistoryRoot()
       eventBus.beginTransaction()
-      dispatcher.beginActionTransaction()
       try {
         batches.batch(fn)
-        dispatcher.commitActionTransaction()
         eventBus.commitTransaction()
         publishCommit('batch', RECORD_COMMAND, historyBefore)
       } catch (error) {
         restoreEngineState(restorePoint, false)
-        dispatcher.rollbackActionTransaction()
         eventBus.rollbackTransaction()
         throw error
       }
@@ -1289,15 +1159,9 @@ export function createBoardEngine(
     getViewportSize,
     updateGridSettings(patch) {
       return runCommand('updateGridSettings', [patch], () => {
-        const before = { ...grid }
         const next = { ...grid, ...patch }
         validateGridSettings(next)
         Object.assign(grid, next)
-        dispatchAction({
-          type: 'GRID_UPDATED',
-          before,
-          after: { ...grid },
-        })
         notifyGridChanged()
         return getGridSettings()
       })
@@ -1344,14 +1208,6 @@ export function createBoardEngine(
     ): T {
       return runCommand(name, args, fn, metadata)
     },
-    dispatch(action) {
-      assertAlive()
-      dispatchAction(action)
-    },
-    onAction(listener) {
-      assertAlive()
-      return dispatcher.onAction(listener)
-    },
     onCommit(listener) {
       assertAlive()
       commitListeners.add(listener)
@@ -1382,11 +1238,14 @@ export function createBoardEngine(
         IGNORE_COMMAND,
       )
     },
-    applyRecordedAction,
-    invertAction: invertActionImpl,
     getFeatureState<S>(): S {
       throw new Error(
         'getFeatureState is only available inside a internal feature install() context.',
+      )
+    },
+    updateFeatureState<S>(_update: (current: S) => S): S {
+      throw new Error(
+        'updateFeatureState is only available inside an internal plugin install() context.',
       )
     },
     screenToWorld(point) {
@@ -1545,12 +1404,9 @@ export function createBoardEngine(
     },
     createNode(input: NodeInput) {
       return runCommand('createNode', [input], () => {
-        const nextZIndexBefore = state.nextZIndex
         const node = normalizeNode(input)
         state.nodes.set(node.id, node)
         notifyNodesChanged()
-        dispatchAction({ type: 'NODE_CREATED', node })
-        dispatchNextZIndexChange(nextZIndexBefore)
         if (input.select !== false) {
           setSelection([node.id])
         }
@@ -1580,7 +1436,7 @@ export function createBoardEngine(
             continue
           }
           state.nodes.delete(deleteId)
-          dispatchAction({ type: 'NODE_DELETED', node: prevNode })
+          notifyNodeDeletedPlugins(prevNode.id)
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         notifyNodesChanged()
@@ -1626,7 +1482,6 @@ export function createBoardEngine(
           emit('node:updated', publicNode, materializeNode(current))
         }
         if (deltas.length > 0) {
-          dispatchAction({ type: 'NODES_MOVED', deltas })
           notifyNodesChanged()
         }
         reparentAfterDrag(targets)
@@ -1673,7 +1528,6 @@ export function createBoardEngine(
           emit('node:updated', publicNode, materializeNode(current))
         }
         if (deltas.length > 0) {
-          dispatchAction({ type: 'NODES_MOVED', deltas })
           notifyNodesChanged()
         }
         reparentAfterDrag(targets)
@@ -1714,12 +1568,10 @@ export function createBoardEngine(
     bringToFront(id) {
       runCommand('bringToFront', [id], () => {
         const node = assertStoredNode(id)
-        const nextZIndexBefore = state.nextZIndex
         const stored = replaceStoredNodeAndDispatch(node, {
           ...node,
           zIndex: state.nextZIndex++,
         })
-        dispatchNextZIndexChange(nextZIndexBefore)
         emit('node:updated', materializeNode(stored), materializeNode(node))
         restackGroupDescendantsAbove(id)
       })
@@ -1765,15 +1617,12 @@ export function createBoardEngine(
           .map((id) => state.nodes.get(id))
           .filter((node): node is StoredNode => Boolean(node))
           .sort((a, b) => a.zIndex - b.zIndex)
-        const nextZIndexBefore = state.nextZIndex
         const duplicated = duplicateForest(source, offset)
         const created = duplicated.nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
-          dispatchAction({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
-        dispatchNextZIndexChange(nextZIndexBefore)
         notifyNodesChanged()
         setSelection(created.map((node) => node.id))
         return {
@@ -1793,14 +1642,11 @@ export function createBoardEngine(
     },
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
       return runCommand('pasteClipboard', [offset], () => {
-        const nextZIndexBefore = state.nextZIndex
         const created = duplicateForest(clipboard, offset).nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
-          dispatchAction({ type: 'NODE_CREATED', node })
           emit('node:created', materializeNode(node))
         }
-        dispatchNextZIndexChange(nextZIndexBefore)
         notifyNodesChanged()
         setSelection(created.map((node) => node.id))
         return created.map((node) => materializeNode(node))
@@ -1870,7 +1716,7 @@ export function createBoardEngine(
             continue
           }
           state.nodes.delete(deleteId)
-          dispatchAction({ type: 'NODE_DELETED', node: prevNode })
+          notifyNodeDeletedPlugins(prevNode.id)
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
         if (toDelete.size > 0) {
@@ -2148,7 +1994,6 @@ export function createBoardEngine(
               })
             }
             if (moveDeltas.length > 0) {
-              dispatchAction({ type: 'NODES_MOVED', deltas: moveDeltas })
             }
             if (movedNodeCount > 0) {
               notifyNodesChanged()

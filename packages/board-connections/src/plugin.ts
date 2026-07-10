@@ -10,10 +10,7 @@ import {
   type JsonCanvasEdge,
   type JsonCanvasSide,
 } from '@lupinum/board-core'
-import {
-  defineInternalBoardPlugin,
-  type InternalBoardAction,
-} from '@lupinum/board-core/internal'
+import { defineInternalBoardPlugin } from '@lupinum/board-core/internal'
 import type {
   BoardEdge,
   BoardEdgePatch,
@@ -85,69 +82,31 @@ interface ConnectionsFeatureExtensions extends BoardPluginApis {
   connections: ConnectionsExtension
 }
 
-function isConnectionsAction(
-  action: InternalBoardAction,
-): action is InternalBoardAction & {
-  type: 'FEATURE_ACTION'
-  feature: typeof CONNECTIONS_FEATURE_NAME
-  action: ConnectionsAction
-} {
-  return (
-    action.type === 'FEATURE_ACTION' &&
-    action.feature === CONNECTIONS_FEATURE_NAME
-  )
-}
-
-function invertConnectionAction(action: ConnectionsAction): ConnectionsAction {
-  switch (action.type) {
-    case 'EDGE_CREATED':
-      return { type: 'EDGE_DELETED', id: action.edge.id, edge: action.edge }
-    case 'EDGE_DELETED':
-      return { type: 'EDGE_CREATED', edge: action.edge }
-    case 'EDGE_UPDATED':
-      return {
-        type: 'EDGE_UPDATED',
-        id: action.id,
-        before: action.after,
-        after: action.before,
-      }
-  }
-}
-
 function reduceConnectionsState(
   state: ConnectionsState,
-  action: InternalBoardAction,
+  action: ConnectionsAction,
 ): ConnectionsState {
-  if (isConnectionsAction(action)) {
-    const inner = action.action
-    switch (inner.type) {
-      case 'EDGE_CREATED': {
-        const edges = new Map(state.edges)
-        edges.set(inner.edge.id, inner.edge)
-        return {
-          edges,
-          nextZIndex: Math.max(state.nextZIndex, inner.edge.zIndex + 1),
-        }
-      }
-      case 'EDGE_UPDATED': {
-        const edges = new Map(state.edges)
-        edges.set(inner.id, inner.after)
-        return { ...state, edges }
-      }
-      case 'EDGE_DELETED': {
-        if (!state.edges.has(inner.id)) return state
-        const edges = new Map(state.edges)
-        edges.delete(inner.id)
-        return { ...state, edges }
+  switch (action.type) {
+    case 'EDGE_CREATED': {
+      const edges = new Map(state.edges)
+      edges.set(action.edge.id, action.edge)
+      return {
+        edges,
+        nextZIndex: Math.max(state.nextZIndex, action.edge.zIndex + 1),
       }
     }
+    case 'EDGE_UPDATED': {
+      const edges = new Map(state.edges)
+      edges.set(action.id, action.after)
+      return { ...state, edges }
+    }
+    case 'EDGE_DELETED': {
+      if (!state.edges.has(action.id)) return state
+      const edges = new Map(state.edges)
+      edges.delete(action.id)
+      return { ...state, edges }
+    }
   }
-
-  if (action.type === 'BATCH') {
-    return action.actions.reduce(reduceConnectionsState, state)
-  }
-
-  return state
 }
 
 declare module '@lupinum/board-core' {
@@ -226,8 +185,15 @@ export function connectionsPlugin(
     name: CONNECTIONS_FEATURE_NAME,
     slice: {
       initial: initialConnectionsState,
-      reducer: reduceConnectionsState,
-      invert: invertConnectionAction as (innerAction: never) => unknown,
+    },
+    nodeDeleted(engine, nodeId) {
+      engine.updateFeatureState<ConnectionsState>((state) => {
+        const edges = new Map(state.edges)
+        for (const [id, edge] of edges) {
+          if (edge.from === nodeId || edge.to === nodeId) edges.delete(id)
+        }
+        return edges.size === state.edges.size ? state : { ...state, edges }
+      })
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
@@ -296,6 +262,10 @@ export function connectionsPlugin(
     install(engine) {
       const getState = (): ConnectionsState =>
         engine.getFeatureState<ConnectionsState>()
+      const applyAction = (action: ConnectionsAction): ConnectionsState =>
+        engine.updateFeatureState((state: ConnectionsState) =>
+          reduceConnectionsState(state, action),
+        )
 
       function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
         const edge = getState().edges.get(id)
@@ -359,11 +329,7 @@ export function connectionsPlugin(
                 zIndex: input.zIndex ?? state.nextZIndex,
               }
 
-              engine.dispatch({
-                type: 'FEATURE_ACTION',
-                feature: CONNECTIONS_FEATURE_NAME,
-                action: { type: 'EDGE_CREATED', edge: edge as BoardEdge },
-              })
+              applyAction({ type: 'EDGE_CREATED', edge: edge as BoardEdge })
               return cloneEdge(edge)
             },
             { history: 'record' },
@@ -419,15 +385,11 @@ export function connectionsPlugin(
                     : structuredClone(current.data),
               }
 
-              engine.dispatch({
-                type: 'FEATURE_ACTION',
-                feature: CONNECTIONS_FEATURE_NAME,
-                action: {
-                  type: 'EDGE_UPDATED',
-                  id,
-                  before: current as BoardEdge,
-                  after: next as BoardEdge,
-                },
+              applyAction({
+                type: 'EDGE_UPDATED',
+                id,
+                before: current as BoardEdge,
+                after: next as BoardEdge,
               })
               return cloneEdge(next)
             },
@@ -441,11 +403,7 @@ export function connectionsPlugin(
             'edge:delete',
             [id],
             () => {
-              engine.dispatch({
-                type: 'FEATURE_ACTION',
-                feature: CONNECTIONS_FEATURE_NAME,
-                action: { type: 'EDGE_DELETED', id, edge: current },
-              })
+              applyAction({ type: 'EDGE_DELETED', id, edge: current })
             },
             { history: 'record' },
           )
@@ -477,21 +435,6 @@ export function connectionsPlugin(
 
       engine.extend('connections', api)
 
-      const cascadeUnsubscribe = engine.onAction((action) => {
-        if (action.type !== 'NODE_DELETED') return
-        const nodeId = action.node.id
-        const edges = getState().edges
-        for (const [id, edge] of edges) {
-          if (edge.from === nodeId || edge.to === nodeId) {
-            engine.dispatch({
-              type: 'FEATURE_ACTION',
-              feature: CONNECTIONS_FEATURE_NAME,
-              action: { type: 'EDGE_DELETED', id, edge },
-            })
-          }
-        }
-      })
-
       let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getState().edges
       const unsubscribe = engine.onCommit(() => {
         const next = getState().edges
@@ -513,7 +456,6 @@ export function connectionsPlugin(
       })
 
       return () => {
-        cascadeUnsubscribe()
         unsubscribe()
       }
     },

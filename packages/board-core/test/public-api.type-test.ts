@@ -22,11 +22,10 @@ const fakeExtension: BoardPlugin = { name: 'fake' }
 const feature: InternalBoardPlugin = defineInternalBoardPlugin({
   name: 'type-probe',
   install(featureEngine: InternalPluginContext) {
-    const stop = featureEngine.onAction(() => undefined)
+    const stop = featureEngine.onCommit(() => undefined)
     featureEngine.runCommand('probe', [], () => undefined, {
       history: 'record',
     })
-    featureEngine.applyRecordedAction({ type: 'BATCH', actions: [] })
     stop()
   },
 })

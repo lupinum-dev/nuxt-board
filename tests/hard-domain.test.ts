@@ -111,20 +111,12 @@ describe('hard board domain regressions', () => {
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
-        reducer(state: { imports: number }, action) {
-          return action.type === 'FEATURE_ACTION' &&
-            action.feature === 'failing-import'
-            ? { imports: state.imports + 1 }
-            : state
-        },
       },
       persistence: {
         importDocument(engine) {
-          engine.dispatch({
-            type: 'FEATURE_ACTION',
-            feature: 'failing-import',
-            action: { type: 'IMPORT_STARTED' },
-          })
+          engine.updateFeatureState<{ imports: number }>((state) => ({
+            imports: state.imports + 1,
+          }))
           throw new Error('feature import failed')
         },
       },

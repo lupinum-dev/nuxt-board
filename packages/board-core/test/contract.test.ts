@@ -355,20 +355,12 @@ describe('board-core public document API', () => {
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
-        reducer(state: { imports: number }, action) {
-          return action.type === 'FEATURE_ACTION' &&
-            action.feature === 'failing-import'
-            ? { imports: state.imports + 1 }
-            : state
-        },
       },
       persistence: {
         importDocument(extensionEngine) {
-          extensionEngine.dispatch({
-            type: 'FEATURE_ACTION',
-            feature: 'failing-import',
-            action: { type: 'IMPORT_STARTED' },
-          })
+          extensionEngine.updateFeatureState<{ imports: number }>((state) => ({
+            imports: state.imports + 1,
+          }))
           throw new Error('extension import failed')
         },
       },

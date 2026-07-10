@@ -1,8 +1,3 @@
-export type {
-  Action as InternalBoardAction,
-  NodeMoveDelta as InternalNodeMoveDelta,
-} from './state/actions.js'
-
 export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
 
 export type {

@@ -123,21 +123,11 @@ describe('board engine', () => {
   })
 
   it('rolls back strict validation failures after node updates', () => {
-    let readFeatureState!: () => { updates: number }
-    const actions: string[] = []
+    const commits: string[] = []
     const feature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'rollback-probe',
-      slice: {
-        initial: { updates: 0 },
-        reducer(state: { updates: number }, action) {
-          return action.type === 'NODE_UPDATED'
-            ? { updates: state.updates + 1 }
-            : state
-        },
-      },
       install(engine) {
-        readFeatureState = () => engine.getFeatureState()
-        return engine.onAction((action) => actions.push(action.type))
+        return engine.onCommit((commit) => commits.push(commit.label))
       },
     })
     const engine = createBoardEngine({
@@ -153,7 +143,7 @@ describe('board engine', () => {
       text: 'original',
     })
     const before = engine.getSnapshot()
-    actions.length = 0
+    commits.length = 0
 
     const events: string[] = []
     engine.on('node:updated', () => events.push('node:updated'))
@@ -163,17 +153,16 @@ describe('board engine', () => {
     )
 
     expect(engine.getSnapshot()).toEqual(before)
-    expect(readFeatureState()).toEqual({ updates: 0 })
-    expect(actions).toEqual([])
+    expect(commits).toEqual([])
     expect(events).toEqual([])
   })
 
   it('rolls back invalid node creation and import payloads', () => {
-    const actions: string[] = []
+    const commits: string[] = []
     const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'action-probe',
       install(engine) {
-        return engine.onAction((action) => actions.push(action.type))
+        return engine.onCommit((commit) => commits.push(commit.label))
       },
     })
     const engine = createBoardEngine({
@@ -193,7 +182,7 @@ describe('board engine', () => {
       }),
     ).toThrow(/Invalid node geometry/)
     expect(engine.getSnapshot()).toEqual(beforeCreate)
-    expect(actions).toEqual([])
+    expect(commits).toEqual([])
     expect(events).toEqual([])
 
     const existing = engine.createNode({
@@ -223,11 +212,7 @@ describe('board engine', () => {
       ),
     ).toThrow(/Invalid board document/)
     expect(engine.getSnapshot()).toEqual(beforeImport)
-    expect(actions).toEqual([
-      'NODE_CREATED',
-      'NEXT_Z_INDEX_BUMPED',
-      'SELECTION_SET',
-    ])
+    expect(commits).toEqual(['createNode'])
     expect(events).toEqual(['node:created'])
   })
 
@@ -708,11 +693,11 @@ describe('board engine', () => {
   })
 
   it('rolls back a failed batch without publishing partial effects', () => {
-    const actions: string[] = []
+    const commits: string[] = []
     const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failed-batch-action-probe',
       install(featureEngine) {
-        return featureEngine.onAction((action) => actions.push(action.type))
+        return featureEngine.onCommit((commit) => commits.push(commit.label))
       },
     })
     const engine = createBoardEngine({ plugins: [actionProbe] })
@@ -732,7 +717,7 @@ describe('board engine', () => {
     ).toThrow(BoardConflictError)
 
     expect(engine.getSnapshot()).toEqual(before)
-    expect(actions).toEqual([])
+    expect(commits).toEqual([])
     expect(events).toEqual([])
     expect(notifications).toEqual([])
   })

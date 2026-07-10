@@ -565,57 +565,21 @@ export interface InternalPluginContext<
     fn: () => T,
     metadata: CommandMetadata,
   ): T
-  /**
-   * Dispatch an action. Called by command implementations to record state mutations
-   * and notify subscribers (history, feature reducers).
-   */
-  dispatch(action: import('./state/actions.js').Action): void
-  /**
-   * Read the current slice state for this feature, as last produced by its reducer.
-   */
+  /** Read the immutable persistent slice owned by the current plugin. */
   getFeatureState<S>(): S
-  /**
-   * Subscribe to actions dispatched by commands.
-   * Used by internal features to react to state mutations without polling individual events.
-   */
-  onAction(
-    listener: (action: import('./state/actions.js').Action) => void,
-  ): Unsubscribe
+  /** Replace the current plugin's persistent slice inside the active command. */
+  updateFeatureState<S>(update: (current: S) => S): S
   /** Observe successful outer commits after state and public effects publish. */
   onCommit(
     listener: (commit: import('./state/types.js').InternalBoardCommit) => void,
   ): Unsubscribe
   /** Atomically restore a persistent root without recording another history frame. */
   restoreHistoryRoot(root: import('./state/types.js').InternalHistoryRoot): void
-  /**
-   * Apply an action directly to engine state without running command guards or
-   * command lifecycle events. Used by the history feature to replay inverse
-   * actions during undo/redo.
-   */
-  applyRecordedAction(action: import('./state/actions.js').Action): void
-  /**
-   * Compute the inverse of an action. Used by the history feature.
-   * Feature-tunneled actions are inverted via the registering feature's
-   * `slice.invert` if present; otherwise an error is thrown.
-   */
-  invertAction(
-    action: import('./state/actions.js').Action,
-  ): import('./state/actions.js').Action
 }
 
-/** Reducer-backed persistent state owned by a internal feature. */
+/** Persistent state owned by an internal plugin. */
 interface InternalFeatureSlice {
   initial: unknown
-  reducer: (
-    state: never,
-    action: import('./state/actions.js').Action,
-  ) => unknown
-  /**
-   * Optionally invert a feature-tunneled action so that history can replay its inverse.
-   * Receives the inner action body (i.e. `(action as { type: 'FEATURE_ACTION' }).action`).
-   * Must return an inner action shape suitable for re-dispatching as a FEATURE_ACTION action.
-   */
-  invert?: (innerAction: never) => unknown
 }
 
 /** Optional internal hook for persisted JSON Canvas document data. */
@@ -646,6 +610,10 @@ export interface InternalBoardPlugin<
   name: string
   slice?: InternalFeatureSlice
   persistence?: InternalFeaturePersistence<TExtensions, TEvents>
+  nodeDeleted?(
+    engine: InternalPluginContext<TExtensions, TEvents>,
+    nodeId: NodeId,
+  ): void
   install(
     engine: InternalPluginContext<TExtensions, TEvents>,
     options?: Record<string, unknown>,

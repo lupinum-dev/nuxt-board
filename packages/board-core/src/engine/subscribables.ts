@@ -14,7 +14,6 @@ import type {
 } from '../types.js'
 import type { MutableBoardState } from '../state/types.js'
 import { buildPublicNodeMap } from '../state/selectors.js'
-import type { Action } from '../state/actions.js'
 
 interface ReactiveLayer {
   batchCtrl: BatchController
@@ -46,11 +45,10 @@ interface ReactiveLayerDeps {
     event: K,
     ...args: Parameters<BoardEventMap[K]>
   ) => void
-  dispatch: (action: Action) => void
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { state, grid, emit, dispatch } = deps
+  const { state, grid, emit } = deps
 
   const batchCtrl = createBatchController()
   const $camera = createSubscribable<Camera>(
@@ -130,7 +128,6 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     if (sameArray(prev, next)) return
     state.selection = new Set(next)
     notifySelectionChanged()
-    dispatch({ type: 'SELECTION_SET', before: prev, after: next })
     emit('selection:change', next, prev)
   }
 
