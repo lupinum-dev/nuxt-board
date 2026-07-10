@@ -89,6 +89,7 @@ import {
   BoardConflictError,
   BoardDestroyedError,
   BoardError,
+  BoardInputError,
   BoardNotFoundError,
 } from './errors.js'
 import {
@@ -504,7 +505,7 @@ export function createBoardEngine<
       geometry.width <= 0 ||
       geometry.height <= 0
     ) {
-      throw new Error(`Invalid node geometry for "${id}".`)
+      throw new BoardInputError(`Invalid node geometry for "${id}".`)
     }
   }
 
@@ -516,20 +517,24 @@ export function createBoardEngine<
       return
     }
     if (parentId === id) {
-      throw new Error(`Node "${id}" cannot be its own parent.`)
+      throw new BoardInputError(`Node "${id}" cannot be its own parent.`)
     }
     const parent = state.nodes.get(parentId)
     if (!parent) {
-      throw new Error(`Node "${id}" references missing parent "${parentId}".`)
+      throw new BoardInputError(
+        `Node "${id}" references missing parent "${parentId}".`,
+      )
     }
     if (parent.type !== 'group') {
-      throw new Error(`Node "${id}" parent "${parentId}" must be a group.`)
+      throw new BoardInputError(
+        `Node "${id}" parent "${parentId}" must be a group.`,
+      )
     }
     let walk: BoardNode | undefined = parent
     const seen = new Set<NodeId>()
     while (walk) {
       if (walk.id === id || seen.has(walk.id)) {
-        throw new Error(`Node "${id}" cannot create a parent cycle.`)
+        throw new BoardInputError(`Node "${id}" cannot create a parent cycle.`)
       }
       seen.add(walk.id)
       walk = walk.parentId ? state.nodes.get(walk.parentId) : undefined
@@ -945,7 +950,7 @@ export function createBoardEngine<
       document.edges?.length &&
       !pluginPersistence.has(CONNECTIONS_FEATURE_NAME)
     ) {
-      throw new Error(
+      throw new BoardInputError(
         'Invalid board document: edges require the connections plugin.',
       )
     }

@@ -1,4 +1,5 @@
 import { validateState } from '../invariants.js'
+import { BoardInputError } from '../errors.js'
 import type { BatchController } from '../subscribable.js'
 import type {
   BoardState,
@@ -96,7 +97,7 @@ export function createValidator(deps: ValidationDeps) {
       deps.emitFailure(failure)
     }
     if (failures.length > 0) {
-      throw new Error(
+      throw new BoardInputError(
         `Board validation failed in ${context}: ${failures[0]?.message}`,
       )
     }
