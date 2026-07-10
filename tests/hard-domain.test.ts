@@ -11,7 +11,7 @@ describe('hard board domain regressions', () => {
   it('preserves grouped edges through delete, undo, redo, export, and import', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [historyPlugin({ debounceMs: 0 }), connectionPlugin()],
+      extensions: [historyPlugin(), connectionPlugin()],
       initialDocument: {
         nodes: [
           {
@@ -135,7 +135,7 @@ describe('hard board domain regressions', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
       extensions: [
-        historyPlugin({ debounceMs: 0 }),
+        historyPlugin(),
         connectionPlugin(),
         failingFeature,
       ],

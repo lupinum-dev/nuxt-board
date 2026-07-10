@@ -54,6 +54,7 @@ interface BatchCommandController {
   end(): void
   batch(fn: () => void): void
   flushBatchNotifications(): void
+  rollbackBatchNotifications(): void
 }
 
 interface ValidationDeps {
@@ -185,7 +186,15 @@ export function createBatchCommandController(
   function flushBatchNotifications(): void {
     const pending = [...deps.batchCtrl.pending]
     deps.batchCtrl.pending.clear()
+    deps.batchCtrl.rollbacks.clear()
     for (const flush of pending) flush()
+  }
+
+  function rollbackBatchNotifications(): void {
+    const rollbacks = [...deps.batchCtrl.rollbacks]
+    deps.batchCtrl.pending.clear()
+    deps.batchCtrl.rollbacks.clear()
+    for (const rollback of rollbacks) rollback()
   }
 
   function begin(): void {
@@ -204,10 +213,14 @@ export function createBatchCommandController(
       if (validationPending) {
         deps.validate('batch')
       }
-    } finally {
-      validationPending = false
       deps.batchCtrl.depth -= 1
       flushBatchNotifications()
+    } catch (error) {
+      deps.batchCtrl.depth -= 1
+      rollbackBatchNotifications()
+      throw error
+    } finally {
+      validationPending = false
     }
     deps.emitCommandAfter(
       'batch',
@@ -221,9 +234,16 @@ export function createBatchCommandController(
     begin()
     try {
       fn()
-    } finally {
-      end()
+    } catch (error) {
+      depth -= 1
+      if (depth === 0) {
+        validationPending = false
+        deps.batchCtrl.depth -= 1
+        rollbackBatchNotifications()
+      }
+      throw error
     }
+    end()
   }
 
   return {
@@ -235,5 +255,6 @@ export function createBatchCommandController(
     end,
     batch,
     flushBatchNotifications,
+    rollbackBatchNotifications,
   }
 }

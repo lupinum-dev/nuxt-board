@@ -164,6 +164,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     $interaction.destroy()
     $snapGuides.destroy()
     batchCtrl.pending.clear()
+    batchCtrl.rollbacks.clear()
   }
 
   return {

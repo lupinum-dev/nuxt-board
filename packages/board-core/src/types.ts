@@ -581,6 +581,12 @@ export interface InternalFeatureContext<
   onAction(
     listener: (action: import('./state/actions.js').Action) => void,
   ): Unsubscribe
+  /** Observe successful outer commits after state and public effects publish. */
+  onCommit(
+    listener: (commit: import('./state/types.js').InternalBoardCommit) => void,
+  ): Unsubscribe
+  /** Atomically restore a persistent root without recording another history frame. */
+  restoreHistoryRoot(root: import('./state/types.js').InternalHistoryRoot): void
   /**
    * Apply an action directly to engine state without running command guards or
    * command lifecycle events. Used by the history feature to replay inverse

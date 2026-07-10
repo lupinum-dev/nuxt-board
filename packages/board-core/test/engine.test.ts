@@ -692,6 +692,51 @@ describe('board engine', () => {
     expect(events).toEqual(['before:batch', 'after:batch'])
   })
 
+  it('publishes a successful batch once with the pre-batch value', () => {
+    const engine = createBoardEngine()
+    const notifications: Array<[number, number]> = []
+    engine.$nodes.subscribe((nodes, previousNodes) => {
+      notifications.push([nodes.size, previousNodes.size])
+    })
+
+    engine.batch(() => {
+      engine.createNode({ type: 'text', text: 'A' })
+      engine.createNode({ type: 'text', text: 'B' })
+    })
+
+    expect(notifications).toEqual([[2, 0]])
+  })
+
+  it('rolls back a failed batch without publishing partial effects', () => {
+    const actions: string[] = []
+    const actionProbe: InternalBoardFeature = defineInternalBoardFeature({
+      name: 'failed-batch-action-probe',
+      install(featureEngine) {
+        return featureEngine.onAction((action) => actions.push(action.type))
+      },
+    })
+    const engine = createBoardEngine({ extensions: [actionProbe] })
+    const before = engine.getSnapshot()
+    const events: string[] = []
+    const notifications: Array<[number, number]> = []
+    engine.on('node:created', () => events.push('node:created'))
+    engine.$nodes.subscribe((nodes, previousNodes) => {
+      notifications.push([nodes.size, previousNodes.size])
+    })
+
+    expect(() =>
+      engine.batch(() => {
+        engine.createNode({ id: asNodeId('duplicate'), type: 'text' })
+        engine.createNode({ id: asNodeId('duplicate'), type: 'text' })
+      }),
+    ).toThrow(BoardConflictError)
+
+    expect(engine.getSnapshot()).toEqual(before)
+    expect(actions).toEqual([])
+    expect(events).toEqual([])
+    expect(notifications).toEqual([])
+  })
+
   it('merges imported nodes without overwriting existing ones', () => {
     const engine = createBoardEngine()
     const existing = engine.createNode({

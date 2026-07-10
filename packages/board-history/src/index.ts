@@ -5,8 +5,7 @@ import type {
 } from '@lupinum/board-core'
 import {
   defineInternalBoardFeature,
-  type InternalBoardAction,
-  type InternalFeatureContext,
+  type InternalHistoryRoot,
 } from '@lupinum/board-core/internal'
 
 /** Public history state exposed by the history plugin extension. */
@@ -23,13 +22,13 @@ export interface HistoryEntry {
 }
 
 interface HistoryFrame extends HistoryEntry {
-  actions: InternalBoardAction[]
+  before: InternalHistoryRoot
+  after: InternalHistoryRoot
 }
 
-/** Options for configuring stack depth and move coalescing. */
+/** Options for bounding retained structural history roots. */
 export interface HistoryPluginOptions {
   maxSteps?: number
-  debounceMs?: number
 }
 
 export interface HistoryExtension {
@@ -37,7 +36,6 @@ export interface HistoryExtension {
   redo: () => void
   canUndo: () => boolean
   canRedo: () => boolean
-  flushPending: () => void
   clear: () => void
   getState: () => HistoryState
 }
@@ -66,312 +64,73 @@ declare module '@lupinum/board-core' {
   }
 }
 
-function isCoalescableMoves(prev: HistoryFrame, next: HistoryFrame): boolean {
-  if (prev.label !== next.label) return false
-  if (prev.actions.length !== 1 || next.actions.length !== 1) return false
-  const a = prev.actions[0]
-  const b = next.actions[0]
-  if (!a || !b) return false
-  if (a.type !== 'NODES_MOVED' || b.type !== 'NODES_MOVED') return false
-  if (a.deltas.length !== b.deltas.length) return false
-  for (let i = 0; i < a.deltas.length; i++) {
-    if (a.deltas[i]!.id !== b.deltas[i]!.id) return false
-  }
-  return true
-}
-
-function isCoalescableNodeUpdate(
-  prev: HistoryFrame,
-  next: HistoryFrame,
-): boolean {
-  if (prev.label !== next.label) return false
-  if (prev.actions.length !== 1 || next.actions.length !== 1) return false
-  const a = prev.actions[0]
-  const b = next.actions[0]
-  return Boolean(
-    a &&
-    b &&
-    a.type === 'NODE_UPDATED' &&
-    b.type === 'NODE_UPDATED' &&
-    a.id === b.id,
-  )
-}
-
-function mergeMoves(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
-  const a = prev.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
-  const b = next.actions[0] as InternalBoardAction & { type: 'NODES_MOVED' }
-  const merged = a.deltas.map((delta, i) => ({
-    id: delta.id,
-    before: delta.before,
-    after: b.deltas[i]!.after,
-  }))
-  return {
-    label: prev.label,
-    actions: [{ type: 'NODES_MOVED', deltas: merged }],
-    timestamp: next.timestamp,
-  }
-}
-
-function mergeNodeUpdate(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
-  const a = prev.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
-  const b = next.actions[0] as InternalBoardAction & { type: 'NODE_UPDATED' }
-  return {
-    label: prev.label,
-    actions: [
-      {
-        type: 'NODE_UPDATED',
-        id: a.id,
-        before: a.before,
-        after: b.after,
-      },
-    ],
-    timestamp: next.timestamp,
-  }
-}
-
-function canCoalesce(prev: HistoryFrame, next: HistoryFrame): boolean {
-  return isCoalescableMoves(prev, next) || isCoalescableNodeUpdate(prev, next)
-}
-
-function mergeCoalesced(prev: HistoryFrame, next: HistoryFrame): HistoryFrame {
-  return isCoalescableMoves(prev, next)
-    ? mergeMoves(prev, next)
-    : mergeNodeUpdate(prev, next)
-}
-
-function undoReplayPriority(action: InternalBoardAction): number {
-  switch (action.type) {
-    case 'NODE_CREATED':
-      return 0
-    case 'NODE_UPDATED':
-    case 'NODES_MOVED':
-    case 'GRID_UPDATED':
-    case 'NEXT_Z_INDEX_BUMPED':
-      return 1
-    case 'FEATURE_ACTION':
-      return 2
-    case 'SELECTION_SET':
-      return 3
-    case 'NODE_DELETED':
-      return 4
-    case 'BATCH':
-      return 5
-  }
-}
-
-function getUndoReplayActions(
-  engine: InternalFeatureContext,
-  entry: HistoryFrame,
-): InternalBoardAction[] {
-  return [...entry.actions]
-    .reverse()
-    .map((action) => engine.invertAction(action))
-    .sort((left, right) => undoReplayPriority(left) - undoReplayPriority(right))
-}
-
 function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
-  return {
-    label: frame.label,
-    timestamp: frame.timestamp,
-  }
+  return { label: frame.label, timestamp: frame.timestamp }
 }
 
-/**
- * Install undo/redo support backed by inverse action replay.
- *
- * The plugin listens to engine actions, groups them per command, coalesces drag
- * moves, and exposes a `history` extension on the engine.
- */
+/** Install deterministic undo/redo backed by committed structural roots. */
 export function historyPlugin(
   options: HistoryPluginOptions = {},
 ): BoardExtension {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
-  const debounceMs = Math.max(0, options.debounceMs ?? 300)
 
-  const feature = defineInternalBoardFeature<
-    HistoryFeatureExtensions,
-    HistoryEventMap
-  >({
+  return defineInternalBoardFeature<HistoryFeatureExtensions, HistoryEventMap>({
     name: 'history',
     install(engine) {
       const undoStack: HistoryFrame[] = []
       const redoStack: HistoryFrame[] = []
 
-      let activeCommand: string | null = null
-      let activeActions: InternalBoardAction[] = []
-      let pending: HistoryFrame | null = null
-      let pendingTimer: ReturnType<typeof setTimeout> | null = null
-      let replaying = false
-
-      function clearPendingTimer(): void {
-        if (pendingTimer !== null) {
-          clearTimeout(pendingTimer)
-          pendingTimer = null
+      const offCommit = engine.onCommit((commit) => {
+        if (commit.metadata.history === 'ignore') return
+        const frame: HistoryFrame = {
+          label: commit.label,
+          timestamp: commit.timestamp,
+          before: commit.before,
+          after: commit.after,
         }
-      }
-
-      function commitPending(): void {
-        clearPendingTimer()
-        if (!pending) return
-        const entry = pending
-        pending = null
-        const last = undoStack[undoStack.length - 1]
-        if (last && canCoalesce(last, entry)) {
-          undoStack[undoStack.length - 1] = mergeCoalesced(last, entry)
-        } else {
-          undoStack.push(entry)
-          if (undoStack.length > maxSteps) {
-            undoStack.shift()
-          }
-        }
+        undoStack.push(frame)
+        if (undoStack.length > maxSteps) undoStack.shift()
         redoStack.length = 0
-        const final = undoStack[undoStack.length - 1]!
-        engine.emit('history:push', toHistoryEntry(final))
-      }
-
-      function schedulePending(entry: HistoryFrame): void {
-        if (pending) {
-          if (canCoalesce(pending, entry)) {
-            pending = mergeCoalesced(pending, entry)
-          } else {
-            commitPending()
-            pending = entry
-          }
-        } else {
-          pending = entry
-        }
-        clearPendingTimer()
-        if (debounceMs > 0) {
-          pendingTimer = setTimeout(commitPending, debounceMs)
-        } else {
-          commitPending()
-        }
-      }
-
-      const offAction = engine.onAction((action) => {
-        if (replaying) return
-        if (activeCommand === null) return
-        activeActions.push(action)
+        engine.emit('history:push', toHistoryEntry(frame))
       })
 
-      const offBefore = engine.on('command:before', (name, _args, metadata) => {
-        if (replaying) return
-        if (metadata.history === 'ignore') {
-          activeCommand = null
-          activeActions = []
-          return
-        }
-        activeCommand = name
-        activeActions = []
-      })
-
-      const offAfter = engine.on(
-        'command:after',
-        (name, _args, _duration, metadata) => {
-          if (replaying) return
-          if (metadata.history === 'ignore') return
-          if (activeCommand !== name) {
-            activeCommand = null
-            activeActions = []
-            return
-          }
-          const captured = activeActions
-          activeCommand = null
-          activeActions = []
-          if (captured.length === 0) return
-          schedulePending({
-            label: name,
-            actions: captured,
-            timestamp: Date.now(),
-          })
-        },
-      )
-
-      function applyEntry(
-        entry: HistoryFrame,
-        direction: 'undo' | 'redo',
-      ): void {
-        replaying = true
-        try {
-          const actions =
-            direction === 'undo'
-              ? getUndoReplayActions(engine, entry)
-              : entry.actions
-          engine.batch(() => {
-            for (const action of actions) {
-              engine.applyRecordedAction(action)
-            }
-          })
-        } finally {
-          replaying = false
-        }
-      }
-
-      const api = {
-        undo: () => {
-          commitPending()
-          const entry = undoStack.pop() ?? null
-          if (!entry) {
+      const api: HistoryExtension = {
+        undo() {
+          const frame = undoStack.pop() ?? null
+          if (!frame) {
             engine.emit('history:undo', null)
             return
           }
-          applyEntry(entry, 'undo')
-          redoStack.push(entry)
-          engine.emit('history:undo', toHistoryEntry(entry))
+          engine.restoreHistoryRoot(frame.before)
+          redoStack.push(frame)
+          engine.emit('history:undo', toHistoryEntry(frame))
         },
-
-        redo: () => {
-          commitPending()
-          const entry = redoStack.pop() ?? null
-          if (!entry) {
+        redo() {
+          const frame = redoStack.pop() ?? null
+          if (!frame) {
             engine.emit('history:redo', null)
             return
           }
-          applyEntry(entry, 'redo')
-          undoStack.push(entry)
-          engine.emit('history:redo', toHistoryEntry(entry))
+          engine.restoreHistoryRoot(frame.after)
+          undoStack.push(frame)
+          engine.emit('history:redo', toHistoryEntry(frame))
         },
-
-        canUndo: () => {
-          return undoStack.length > 0
-        },
-
-        canRedo: () => {
-          return redoStack.length > 0
-        },
-
-        flushPending: () => {
-          commitPending()
-        },
-
-        clear: () => {
+        canUndo: () => undoStack.length > 0,
+        canRedo: () => redoStack.length > 0,
+        clear() {
           undoStack.length = 0
           redoStack.length = 0
-          pending = null
-          clearPendingTimer()
-          activeCommand = null
-          activeActions = []
           engine.emit('history:clear')
         },
-
-        getState: (): HistoryState => ({
+        getState: () => ({
           undoDepth: undoStack.length,
           redoDepth: redoStack.length,
-          current:
-            pending?.label ?? undoStack[undoStack.length - 1]?.label ?? null,
+          current: undoStack[undoStack.length - 1]?.label ?? null,
         }),
       }
 
       engine.extend('history', api)
-
-      return () => {
-        offAction()
-        offBefore()
-        offAfter()
-        clearPendingTimer()
-      }
+      return offCommit
     },
   })
-
-  return feature
 }

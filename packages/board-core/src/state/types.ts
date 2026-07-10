@@ -1,6 +1,8 @@
 import type {
   BoardEventMap,
+  BoardNode,
   Camera,
+  CommandMetadata,
   GridSettings,
   InteractionState,
   NodeConstraints,
@@ -42,3 +44,21 @@ export type ListenerMap = Map<
   keyof BoardEventMap,
   Set<(...args: unknown[]) => void>
 >
+
+/** Structurally shared persistent state captured by first-party history. */
+export interface InternalHistoryRoot {
+  readonly nodes: ReadonlyMap<NodeId, BoardNode>
+  readonly grid: GridSettings
+  readonly selection: ReadonlySet<NodeId>
+  readonly nextZIndex: number
+  readonly pluginSlices: ReadonlyMap<string, unknown>
+}
+
+/** A successfully published outer command. */
+export interface InternalBoardCommit {
+  readonly label: string
+  readonly timestamp: number
+  readonly metadata: CommandMetadata
+  readonly before: InternalHistoryRoot
+  readonly after: InternalHistoryRoot
+}

@@ -493,7 +493,7 @@ export function connectionPlugin(
       })
 
       let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getState().edges
-      const unsubscribe = engine.onAction(() => {
+      const unsubscribe = engine.onCommit(() => {
         const next = getState().edges
         if (next === prevEdges) return
         for (const [id, edge] of next) {

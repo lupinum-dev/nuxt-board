@@ -11,6 +11,10 @@ interface EventBus {
     event: K,
     ...args: Parameters<BoardEventMap[K]>
   ): void
+  emitImmediate<K extends keyof BoardEventMap>(
+    event: K,
+    ...args: Parameters<BoardEventMap[K]>
+  ): void
   on<K extends keyof BoardEventMap>(
     event: K,
     handler: BoardEventMap[K],
@@ -21,16 +25,35 @@ interface EventBus {
   ): () => void
   off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
+  beginTransaction(): void
+  commitTransaction(): void
+  rollbackTransaction(): void
   clear(): void
 }
 
 export function createEventBus(opts: EventBusOptions): EventBus {
   const listeners: ListenerMap = new Map()
   const trace: TraceEntry[] = []
+  const queuedEvents: Array<{
+    event: keyof BoardEventMap
+    args: unknown[]
+  }> = []
+  let transactionDepth = 0
 
   function emit<K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
+  ): void {
+    if (transactionDepth > 0) {
+      queuedEvents.push({ event, args })
+      return
+    }
+    publish(event, args)
+  }
+
+  function publish<K extends keyof BoardEventMap>(
+    event: K,
+    args: Parameters<BoardEventMap[K]>,
   ): void {
     if (opts.diagnosticsEnabled) {
       trace.push({ event: String(event), timestamp: Date.now(), args })
@@ -47,6 +70,13 @@ export function createEventBus(opts: EventBusOptions): EventBus {
         console.error(`[board] handler for "${String(event)}" threw:`, error)
       }
     }
+  }
+
+  function emitImmediate<K extends keyof BoardEventMap>(
+    event: K,
+    ...args: Parameters<BoardEventMap[K]>
+  ): void {
+    publish(event, args)
   }
 
   function on<K extends keyof BoardEventMap>(
@@ -84,7 +114,52 @@ export function createEventBus(opts: EventBusOptions): EventBus {
   function clear(): void {
     listeners.clear()
     trace.length = 0
+    queuedEvents.length = 0
+    transactionDepth = 0
   }
 
-  return { emit, on, once, off, exportTrace, clear }
+  function beginTransaction(): void {
+    transactionDepth += 1
+  }
+
+  function commitTransaction(): void {
+    if (transactionDepth === 0) return
+    transactionDepth -= 1
+    if (transactionDepth !== 0) return
+    const events = queuedEvents.splice(0)
+    for (const entry of events) {
+      publishQueued(entry)
+    }
+  }
+
+  function publishQueued(entry: {
+    event: keyof BoardEventMap
+    args: unknown[]
+  }): void {
+    publish(
+      entry.event,
+      entry.args as Parameters<BoardEventMap[typeof entry.event]>,
+    )
+  }
+
+  function rollbackTransaction(): void {
+    if (transactionDepth === 0) return
+    transactionDepth -= 1
+    if (transactionDepth === 0) {
+      queuedEvents.length = 0
+    }
+  }
+
+  return {
+    emit,
+    emitImmediate,
+    on,
+    once,
+    off,
+    exportTrace,
+    beginTransaction,
+    commitTransaction,
+    rollbackTransaction,
+    clear,
+  }
 }

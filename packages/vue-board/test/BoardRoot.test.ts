@@ -495,7 +495,7 @@ describe('BoardRoot', () => {
 
   it('keeps slot state in sync with undo and redo replays', async () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin({ debounceMs: 0 })],
+      extensions: [historyPlugin()],
     })
     const node = engine.createNode({
       type: 'text',

@@ -40,7 +40,11 @@ import {
   getAnimationFrameDriver,
 } from './helpers/animation.js'
 import type { StoredNode } from './state/versioning.js'
-import type { MutableBoardState } from './state/types.js'
+import type {
+  InternalBoardCommit,
+  InternalHistoryRoot,
+  MutableBoardState,
+} from './state/types.js'
 import {
   DEFAULT_CAMERA,
   DEFAULT_GRID,
@@ -169,9 +173,10 @@ export function createBoardEngine(
   })
 
   const eventBus = createEventBus({ diagnosticsEnabled, traceLimit })
-  const { emit, on, once, off } = eventBus
+  const { emit, emitImmediate, on, once, off } = eventBus
   const commandGuards = createCommandGuardRegistry()
   const dispatcher = createDispatcher()
+  const commitListeners = new Set<(commit: InternalBoardCommit) => void>()
   const featureCleanups = new Map<string, () => void>()
   const featureStates = new Map<
     string,
@@ -208,6 +213,7 @@ export function createBoardEngine(
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
   let destroyed = false
+  let activeGestureHistoryRoot: InternalHistoryRoot | null = null
 
   function assertAlive(): void {
     if (destroyed) {
@@ -286,9 +292,9 @@ export function createBoardEngine(
   const batches = createBatchCommandController({
     batchCtrl,
     emitCommandBefore: (name, args, metadata) =>
-      emit('command:before', name, args, metadata),
+      emitImmediate('command:before', name, args, metadata),
     emitCommandAfter: (name, args, duration, metadata) =>
-      emit('command:after', name, args, duration, metadata),
+      emitImmediate('command:after', name, args, duration, metadata),
     validate: (ctx) => validate(ctx),
   })
 
@@ -369,7 +375,74 @@ export function createBoardEngine(
     }
   }
 
-  function restoreEngineState(restorePoint: EngineRestorePoint): void {
+  function captureHistoryRoot(): InternalHistoryRoot {
+    return {
+      nodes: new Map(state.nodes),
+      grid: freezeClone({ ...grid }),
+      selection: new Set(state.selection),
+      nextZIndex: state.nextZIndex,
+      pluginSlices: new Map(
+        Array.from(featureStates, ([name, featureState]) => [
+          name,
+          featureState.state,
+        ]),
+      ),
+    }
+  }
+
+  function sameHistoryRoot(
+    left: InternalHistoryRoot,
+    right: InternalHistoryRoot,
+  ): boolean {
+    if (left.nextZIndex !== right.nextZIndex) return false
+    if (
+      left.grid.size !== right.grid.size ||
+      left.grid.majorEvery !== right.grid.majorEvery ||
+      left.grid.snap !== right.grid.snap ||
+      left.grid.edgeSnap !== right.grid.edgeSnap ||
+      left.grid.edgeSnapThreshold !== right.grid.edgeSnapThreshold ||
+      left.grid.pattern !== right.grid.pattern
+    ) {
+      return false
+    }
+    if (left.nodes.size !== right.nodes.size) return false
+    for (const [id, node] of left.nodes) {
+      if (right.nodes.get(id) !== node) return false
+    }
+    if (left.selection.size !== right.selection.size) return false
+    for (const id of left.selection) {
+      if (!right.selection.has(id)) return false
+    }
+    if (left.pluginSlices.size !== right.pluginSlices.size) return false
+    for (const [name, slice] of left.pluginSlices) {
+      if (right.pluginSlices.get(name) !== slice) return false
+    }
+    return true
+  }
+
+  function publishCommit(
+    label: string,
+    metadata: CommandMetadata,
+    before: InternalHistoryRoot,
+  ): void {
+    const after = captureHistoryRoot()
+    if (sameHistoryRoot(before, after)) return
+    const commit: InternalBoardCommit = Object.freeze({
+      label,
+      timestamp: Date.now(),
+      metadata,
+      before,
+      after,
+    })
+    for (const listener of commitListeners) {
+      listener(commit)
+    }
+  }
+
+  function restoreEngineState(
+    restorePoint: EngineRestorePoint,
+    notify = true,
+  ): void {
     state.camera = { ...restorePoint.camera }
     state.nodes = new Map(restorePoint.nodes)
     state.selection = new Set(restorePoint.selection)
@@ -377,6 +450,7 @@ export function createBoardEngine(
     state.snapGuides = restorePoint.snapGuides.map((guide) => ({ ...guide }))
     state.nextZIndex = restorePoint.nextZIndex
     Object.assign(grid, restorePoint.grid)
+    invalidateNodeCache()
     for (const [
       name,
       featureStateSnapshot,
@@ -386,12 +460,14 @@ export function createBoardEngine(
         featureState.state = structuredClone(featureStateSnapshot)
       }
     }
-    notifyCameraChanged()
-    notifyGridChanged()
-    notifyNodesChanged()
-    notifySelectionChanged()
-    notifyInteractionChanged()
-    notifySnapGuidesChanged()
+    if (notify) {
+      notifyCameraChanged()
+      notifyGridChanged()
+      notifyNodesChanged()
+      notifySelectionChanged()
+      notifyInteractionChanged()
+      notifySnapGuidesChanged()
+    }
   }
 
   function runCommand<T>(
@@ -405,15 +481,21 @@ export function createBoardEngine(
     // Command guards run before any events are emitted.
     // If the chain doesn't call next(), the command is cancelled.
     if (!commandGuards.run(name, args)) {
-      emit('command:blocked', name, args, metadata)
+      emitImmediate('command:blocked', name, args, metadata)
       throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
     const inBatch = batches.isBatching()
     if (!inBatch) {
-      emit('command:before', name, args, metadata)
+      emitImmediate('command:before', name, args, metadata)
+    }
+    const ownsEffects = batchCtrl.depth === 0
+    if (ownsEffects) {
+      batchCtrl.depth += 1
+      eventBus.beginTransaction()
     }
     const restorePoint = validateCommand ? createRestorePoint() : null
+    const historyBefore = ownsEffects ? captureHistoryRoot() : null
     dispatcher.beginActionTransaction()
     try {
       const result = fn()
@@ -425,15 +507,34 @@ export function createBoardEngine(
         }
       }
       dispatcher.commitActionTransaction()
+      if (ownsEffects) {
+        batchCtrl.depth -= 1
+        batches.flushBatchNotifications()
+        eventBus.commitTransaction()
+      }
       if (!inBatch) {
-        emit('command:after', name, args, performance.now() - started, metadata)
+        emitImmediate(
+          'command:after',
+          name,
+          args,
+          performance.now() - started,
+          metadata,
+        )
+      }
+      if (historyBefore) {
+        publishCommit(name, metadata, historyBefore)
       }
       return result
     } catch (error) {
       if (restorePoint) {
-        restoreEngineState(restorePoint)
+        restoreEngineState(restorePoint, false)
       }
       dispatcher.rollbackActionTransaction()
+      if (ownsEffects) {
+        batchCtrl.depth -= 1
+        batches.rollbackBatchNotifications()
+        eventBus.rollbackTransaction()
+      }
       throw error
     }
   }
@@ -447,12 +548,18 @@ export function createBoardEngine(
     assertAlive()
     const validateCommand = metadata.validate !== false
     if (!commandGuards.run(name, args)) {
-      emit('command:blocked', name, args, metadata)
+      emitImmediate('command:blocked', name, args, metadata)
       throw new CommandBlockedError(name, args)
     }
     const started = performance.now()
-    emit('command:before', name, args, metadata)
+    emitImmediate('command:before', name, args, metadata)
+    const ownsEffects = batchCtrl.depth === 0
+    if (ownsEffects) {
+      batchCtrl.depth += 1
+      eventBus.beginTransaction()
+    }
     const restorePoint = validateCommand ? createRestorePoint() : null
+    const historyBefore = ownsEffects ? captureHistoryRoot() : null
     dispatcher.beginActionTransaction()
     try {
       const result = await fn()
@@ -460,17 +567,41 @@ export function createBoardEngine(
         validate(name)
       }
       dispatcher.commitActionTransaction()
-      emit('command:after', name, args, performance.now() - started, metadata)
+      if (ownsEffects) {
+        batchCtrl.depth -= 1
+        batches.flushBatchNotifications()
+        eventBus.commitTransaction()
+      }
+      emitImmediate(
+        'command:after',
+        name,
+        args,
+        performance.now() - started,
+        metadata,
+      )
+      if (historyBefore) {
+        publishCommit(name, metadata, historyBefore)
+      }
       return result
     } catch (error) {
       if (error instanceof AnimationCancelled) {
         dispatcher.rollbackActionTransaction()
+        if (ownsEffects) {
+          batchCtrl.depth -= 1
+          batches.rollbackBatchNotifications()
+          eventBus.rollbackTransaction()
+        }
         return undefined as T
       }
       if (restorePoint) {
-        restoreEngineState(restorePoint)
+        restoreEngineState(restorePoint, false)
       }
       dispatcher.rollbackActionTransaction()
+      if (ownsEffects) {
+        batchCtrl.depth -= 1
+        batches.rollbackBatchNotifications()
+        eventBus.rollbackTransaction()
+      }
       throw error
     }
   }
@@ -479,7 +610,7 @@ export function createBoardEngine(
     validationMode,
     getState: () => getState(),
     getGrid: () => grid,
-    emitFailure: (failure) => emit('validation:failed', failure),
+    emitFailure: (failure) => emitImmediate('validation:failed', failure),
   })
 
   function assertStoredNode(id: NodeId): StoredNode {
@@ -1126,6 +1257,7 @@ export function createBoardEngine(
       featureStates.clear()
       featurePersistence.clear()
       dispatcher.clear()
+      commitListeners.clear()
       commandGuards.clear()
       eventBus.clear()
       destroyReactiveLayer()
@@ -1136,10 +1268,18 @@ export function createBoardEngine(
     batch(fn) {
       assertAlive()
       const restorePoint = createRestorePoint()
+      const historyBefore = captureHistoryRoot()
+      eventBus.beginTransaction()
+      dispatcher.beginActionTransaction()
       try {
         batches.batch(fn)
+        dispatcher.commitActionTransaction()
+        eventBus.commitTransaction()
+        publishCommit('batch', RECORD_COMMAND, historyBefore)
       } catch (error) {
-        restoreEngineState(restorePoint)
+        restoreEngineState(restorePoint, false)
+        dispatcher.rollbackActionTransaction()
+        eventBus.rollbackTransaction()
         throw error
       }
     },
@@ -1211,6 +1351,36 @@ export function createBoardEngine(
     onAction(listener) {
       assertAlive()
       return dispatcher.onAction(listener)
+    },
+    onCommit(listener) {
+      assertAlive()
+      commitListeners.add(listener)
+      return () => commitListeners.delete(listener)
+    },
+    restoreHistoryRoot(root) {
+      runCommand(
+        'history:restore',
+        [],
+        () => {
+          state.nodes = new Map(root.nodes)
+          state.selection = new Set(
+            Array.from(root.selection).filter((id) => state.nodes.has(id)),
+          )
+          state.nextZIndex = root.nextZIndex
+          Object.assign(grid, root.grid)
+          for (const [name, featureState] of featureStates) {
+            if (root.pluginSlices.has(name)) {
+              featureState.state = root.pluginSlices.get(name)
+            }
+          }
+          setInteraction({ mode: 'idle' })
+          setSnapGuides([])
+          notifyGridChanged()
+          notifyNodesChanged()
+          notifySelectionChanged()
+        },
+        IGNORE_COMMAND,
+      )
     },
     applyRecordedAction,
     invertAction: invertActionImpl,
@@ -1736,6 +1906,7 @@ export function createBoardEngine(
           if (node.locked) {
             return
           }
+          activeGestureHistoryRoot = captureHistoryRoot()
           const initialSelection = state.selection.has(id)
             ? getSelectionNodes()
                 .filter((entry) => !entry.locked)
@@ -1775,6 +1946,7 @@ export function createBoardEngine(
           if (node.locked) {
             return
           }
+          activeGestureHistoryRoot = captureHistoryRoot()
           setSelection([id])
           setInteraction({
             mode: 'resizing-node',
@@ -1982,7 +2154,7 @@ export function createBoardEngine(
               notifyNodesChanged()
             }
           },
-          RECORD_COMMAND,
+          IGNORE_COMMAND,
         )
         return
       }
@@ -2075,7 +2247,7 @@ export function createBoardEngine(
               }
             }
           },
-          RECORD_COMMAND,
+          IGNORE_COMMAND,
         )
         return
       }
@@ -2141,6 +2313,18 @@ export function createBoardEngine(
         },
         IGNORE_COMMAND,
       )
+      if (
+        activeGestureHistoryRoot &&
+        (interaction.mode === 'dragging-nodes' ||
+          interaction.mode === 'resizing-node')
+      ) {
+        publishCommit(
+          interaction.mode === 'dragging-nodes' ? 'moveNodes' : 'resizeNode',
+          RECORD_COMMAND,
+          activeGestureHistoryRoot,
+        )
+      }
+      activeGestureHistoryRoot = null
     },
     getUniformTranslationTargets(seedIds) {
       assertAlive()

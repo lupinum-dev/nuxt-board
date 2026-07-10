@@ -5,11 +5,12 @@ import { BoardDestroyedError } from './errors.js'
 export interface BatchController {
   depth: number
   pending: Set<() => void>
+  rollbacks: Set<() => void>
 }
 
 /** Create a batch controller that defers subscriber notifications until the batch completes. */
 export function createBatchController(): BatchController {
-  return { depth: 0, pending: new Set() }
+  return { depth: 0, pending: new Set(), rollbacks: new Set() }
 }
 
 /**
@@ -28,6 +29,8 @@ export function createSubscribable<T>(
 } {
   let current = initial
   let prev = initial
+  let transactionPrev: T | undefined
+  let hasTransactionPrev = false
   let destroyed = false
   const listeners = new Set<(value: T, prev: T) => void>()
 
@@ -49,8 +52,10 @@ export function createSubscribable<T>(
   function flush(): void {
     assertActive()
     const snapshot = current
-    const prevSnapshot = prev
+    const prevSnapshot = hasTransactionPrev ? transactionPrev! : prev
     prev = current
+    transactionPrev = undefined
+    hasTransactionPrev = false
     for (const fn of listeners) {
       fn(snapshot, prevSnapshot)
     }
@@ -64,6 +69,11 @@ export function createSubscribable<T>(
 
     set(value: T): void {
       assertActive()
+      if (batch.depth > 0 && !hasTransactionPrev) {
+        transactionPrev = current
+        hasTransactionPrev = true
+        batch.rollbacks.add(rollback)
+      }
       prev = current
       current = value
       notify()
@@ -82,6 +92,15 @@ export function createSubscribable<T>(
       destroyed = true
       listeners.clear()
       batch.pending.delete(flush)
+      batch.rollbacks.delete(rollback)
     },
+  }
+
+  function rollback(): void {
+    if (!hasTransactionPrev) return
+    current = transactionPrev!
+    prev = transactionPrev!
+    transactionPrev = undefined
+    hasTransactionPrev = false
   }
 }
