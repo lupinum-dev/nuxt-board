@@ -70,9 +70,11 @@ import {
 } from './engine/command-runtime.js'
 import { createReactiveLayer } from './engine/subscribables.js'
 import {
+  createTransactionExecutor,
   stagePersistentRoots,
   type MutablePluginStates,
   type PersistentRoots,
+  type RuntimeCommandMetadata,
 } from './engine/transaction.js'
 import {
   documentToSnapshot,
@@ -138,7 +140,6 @@ export class CommandBlockedError extends BoardError {
 const CONNECTIONS_FEATURE_NAME = 'connections'
 const RECORD_COMMAND: CommandMetadata = { history: 'record' }
 const IGNORE_COMMAND: CommandMetadata = { history: 'ignore' }
-type RuntimeCommandMetadata = CommandMetadata & { validate?: false }
 const IGNORE_UNVALIDATED_COMMAND: RuntimeCommandMetadata = {
   history: 'ignore',
   validate: false,
@@ -408,145 +409,46 @@ export function createBoardEngine<
     }
   }
 
-  function runCommand<T>(
-    name: string,
-    args: unknown[],
-    fn: () => T,
-    metadata: RuntimeCommandMetadata = RECORD_COMMAND,
-  ): T {
-    assertAlive()
-    const validateCommand = metadata.validate !== false
-    // Guards run before state is staged or lifecycle events are emitted.
-    const blockedReason = commandGuards.run(name, args, metadata)
-    if (blockedReason) {
-      emitImmediate('command:blocked', name, args, metadata)
-      throw new CommandBlockedError(name, args, blockedReason)
-    }
-    const started = performance.now()
-    const inBatch = batches.isBatching()
-    if (!inBatch) {
-      emitImmediate('command:before', name, args, metadata)
-    }
-    const ownsEffects = batchCtrl.depth === 0
-    if (ownsEffects) {
-      batchCtrl.depth += 1
-      eventBus.beginTransaction()
-    }
-    const historyBefore = ownsEffects ? captureHistoryRoot() : null
-    const checkpoint =
-      ownsEffects && validateCommand ? beginPersistentTransaction() : null
-    try {
-      const result = fn()
-      if (validateCommand) {
-        if (inBatch) {
-          batches.markValidationPending()
-        } else {
-          validate(name)
-        }
-      }
-      if (ownsEffects) {
-        batchCtrl.depth -= 1
-        batches.flushBatchNotifications()
-        eventBus.commitTransaction()
-      }
-      if (!inBatch) {
-        emitImmediate(
-          'command:after',
-          name,
-          args,
-          performance.now() - started,
-          metadata,
-        )
-      }
-      if (historyBefore) {
-        publishCommit(name, metadata, historyBefore)
-      }
-      return result
-    } catch (error) {
-      if (checkpoint) {
-        rollbackPersistentTransaction(checkpoint)
-      }
-      if (ownsEffects) {
-        batchCtrl.depth -= 1
-        batches.rollbackBatchNotifications()
-        eventBus.rollbackTransaction()
-      }
-      throw error
-    }
-  }
-
-  async function runAsyncCommand<T>(
-    name: string,
-    args: unknown[],
-    fn: () => Promise<T>,
-    metadata: RuntimeCommandMetadata = RECORD_COMMAND,
-  ): Promise<T> {
-    assertAlive()
-    const validateCommand = metadata.validate !== false
-    const blockedReason = commandGuards.run(name, args, metadata)
-    if (blockedReason) {
-      emitImmediate('command:blocked', name, args, metadata)
-      throw new CommandBlockedError(name, args, blockedReason)
-    }
-    const started = performance.now()
-    emitImmediate('command:before', name, args, metadata)
-    const ownsEffects = batchCtrl.depth === 0
-    if (ownsEffects) {
-      batchCtrl.depth += 1
-      eventBus.beginTransaction()
-    }
-    const historyBefore = ownsEffects ? captureHistoryRoot() : null
-    const checkpoint =
-      ownsEffects && validateCommand ? beginPersistentTransaction() : null
-    try {
-      const result = await fn()
-      if (validateCommand) {
-        validate(name)
-      }
-      if (ownsEffects) {
-        batchCtrl.depth -= 1
-        batches.flushBatchNotifications()
-        eventBus.commitTransaction()
-      }
-      emitImmediate(
-        'command:after',
-        name,
-        args,
-        performance.now() - started,
-        metadata,
-      )
-      if (historyBefore) {
-        publishCommit(name, metadata, historyBefore)
-      }
-      return result
-    } catch (error) {
-      if (error instanceof AnimationCancelled) {
-        if (checkpoint) {
-          rollbackPersistentTransaction(checkpoint)
-        }
-        if (ownsEffects) {
-          batchCtrl.depth -= 1
-          batches.rollbackBatchNotifications()
-          eventBus.rollbackTransaction()
-        }
-        return undefined as T
-      }
-      if (checkpoint) {
-        rollbackPersistentTransaction(checkpoint)
-      }
-      if (ownsEffects) {
-        batchCtrl.depth -= 1
-        batches.rollbackBatchNotifications()
-        eventBus.rollbackTransaction()
-      }
-      throw error
-    }
-  }
-
   const validate = createValidator({
     getState: () => getState(),
     getGrid: () => grid,
     emitFailure: (failure) => emitImmediate('validation:failed', failure),
+  })
+
+  const { runCommand, runAsyncCommand } = createTransactionExecutor({
+    assertAlive,
+    runGuard: (name, args, metadata) => commandGuards.run(name, args, metadata),
+    emitBlocked: (name, args, metadata) =>
+      emitImmediate('command:blocked', name, args, metadata),
+    emitBefore: (name, args, metadata) =>
+      emitImmediate('command:before', name, args, metadata),
+    emitAfter: (name, args, duration, metadata) =>
+      emitImmediate('command:after', name, args, duration, metadata),
+    createBlockedError: (name, args, reason) =>
+      new CommandBlockedError(name, args, reason),
+    isBatching: () => batches.isBatching(),
+    canOwnEffects: () => batchCtrl.depth === 0,
+    beginEffects: () => {
+      batchCtrl.depth += 1
+      eventBus.beginTransaction()
+    },
+    commitEffects: () => {
+      batchCtrl.depth -= 1
+      batches.flushBatchNotifications()
+      eventBus.commitTransaction()
+    },
+    rollbackEffects: () => {
+      batchCtrl.depth -= 1
+      batches.rollbackBatchNotifications()
+      eventBus.rollbackTransaction()
+    },
+    markValidationPending: () => batches.markValidationPending(),
+    captureHistoryRoot,
+    beginPersistentTransaction,
+    rollbackPersistentTransaction,
+    publishCommit,
+    validate,
+    isCancellation: (error) => error instanceof AnimationCancelled,
   })
 
   function assertBoardNode(id: NodeId): BoardNode {

@@ -1,6 +1,7 @@
 import { cloneInteraction } from '../invariants.js'
 import type { MutableBoardState } from '../state/types.js'
-import type { GridSettings } from '../types.js'
+import type { InternalHistoryRoot } from '../state/types.js'
+import type { CommandMetadata, GridSettings } from '../types.js'
 
 export type MutablePluginStates = Map<string, { state: unknown }>
 
@@ -8,6 +9,150 @@ export interface PersistentRoots {
   state: MutableBoardState
   grid: GridSettings
   pluginStates: MutablePluginStates
+}
+
+export type RuntimeCommandMetadata = CommandMetadata & { validate?: false }
+
+interface TransactionExecutorDeps<TRoot> {
+  assertAlive: () => void
+  runGuard: (
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ) => string | null
+  emitBlocked: (
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ) => void
+  emitBefore: (name: string, args: unknown[], metadata: CommandMetadata) => void
+  emitAfter: (
+    name: string,
+    args: unknown[],
+    duration: number,
+    metadata: CommandMetadata,
+  ) => void
+  createBlockedError: (name: string, args: unknown[], reason: string) => Error
+  isBatching: () => boolean
+  canOwnEffects: () => boolean
+  beginEffects: () => void
+  commitEffects: () => void
+  rollbackEffects: () => void
+  markValidationPending: () => void
+  captureHistoryRoot: () => InternalHistoryRoot
+  beginPersistentTransaction: () => TRoot
+  rollbackPersistentTransaction: (checkpoint: TRoot) => void
+  publishCommit: (
+    label: string,
+    metadata: CommandMetadata,
+    before: InternalHistoryRoot,
+  ) => void
+  validate: (context: string) => void
+  isCancellation: (error: unknown) => boolean
+}
+
+/** Own guarded command staging, validation, publication, and rollback order. */
+export function createTransactionExecutor<TRoot>(
+  deps: TransactionExecutorDeps<TRoot>,
+): {
+  runCommand: <T>(
+    name: string,
+    args: unknown[],
+    fn: () => T,
+    metadata?: RuntimeCommandMetadata,
+  ) => T
+  runAsyncCommand: <T>(
+    name: string,
+    args: unknown[],
+    fn: () => Promise<T>,
+    metadata?: RuntimeCommandMetadata,
+  ) => Promise<T>
+} {
+  const defaultMetadata: CommandMetadata = { history: 'record' }
+
+  function prepare(
+    name: string,
+    args: unknown[],
+    metadata: RuntimeCommandMetadata,
+    emitBefore: boolean,
+  ): void {
+    deps.assertAlive()
+    const blockedReason = deps.runGuard(name, args, metadata)
+    if (blockedReason) {
+      deps.emitBlocked(name, args, metadata)
+      throw deps.createBlockedError(name, args, blockedReason)
+    }
+    if (emitBefore) deps.emitBefore(name, args, metadata)
+  }
+
+  function runCommand<T>(
+    name: string,
+    args: unknown[],
+    fn: () => T,
+    metadata: RuntimeCommandMetadata = defaultMetadata,
+  ): T {
+    const inBatch = deps.isBatching()
+    prepare(name, args, metadata, !inBatch)
+    const started = performance.now()
+    const ownsEffects = deps.canOwnEffects()
+    if (ownsEffects) deps.beginEffects()
+    const historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
+    const checkpoint =
+      ownsEffects && metadata.validate !== false
+        ? deps.beginPersistentTransaction()
+        : null
+
+    try {
+      const result = fn()
+      if (metadata.validate !== false) {
+        if (inBatch) deps.markValidationPending()
+        else deps.validate(name)
+      }
+      if (ownsEffects) deps.commitEffects()
+      if (!inBatch) {
+        deps.emitAfter(name, args, performance.now() - started, metadata)
+      }
+      if (historyBefore) deps.publishCommit(name, metadata, historyBefore)
+      return result
+    } catch (error) {
+      if (checkpoint) deps.rollbackPersistentTransaction(checkpoint)
+      if (ownsEffects) deps.rollbackEffects()
+      throw error
+    }
+  }
+
+  async function runAsyncCommand<T>(
+    name: string,
+    args: unknown[],
+    fn: () => Promise<T>,
+    metadata: RuntimeCommandMetadata = defaultMetadata,
+  ): Promise<T> {
+    prepare(name, args, metadata, true)
+    const started = performance.now()
+    const ownsEffects = deps.canOwnEffects()
+    if (ownsEffects) deps.beginEffects()
+    const historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
+    const checkpoint =
+      ownsEffects && metadata.validate !== false
+        ? deps.beginPersistentTransaction()
+        : null
+
+    try {
+      const result = await fn()
+      if (metadata.validate !== false) deps.validate(name)
+      if (ownsEffects) deps.commitEffects()
+      deps.emitAfter(name, args, performance.now() - started, metadata)
+      if (historyBefore) deps.publishCommit(name, metadata, historyBefore)
+      return result
+    } catch (error) {
+      if (checkpoint) deps.rollbackPersistentTransaction(checkpoint)
+      if (ownsEffects) deps.rollbackEffects()
+      if (deps.isCancellation(error)) return undefined as T
+      throw error
+    }
+  }
+
+  return { runCommand, runAsyncCommand }
 }
 
 /**
