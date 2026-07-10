@@ -3,6 +3,7 @@ import {
   asNodeId,
   BoardConflictError,
   BoardInputError,
+  BoardNotFoundError,
   type BoardPlugin,
   type BoardPluginApis,
   type EdgeId,
@@ -80,10 +81,11 @@ interface ConnectionsPluginApis extends BoardPluginApis {
 function reduceConnectionsState(
   state: ConnectionsState,
   action: ConnectionsAction,
+  reusableEdges?: Map<EdgeId, BoardEdge>,
 ): ConnectionsState {
   switch (action.type) {
     case 'EDGE_CREATED': {
-      const edges = new Map(state.edges)
+      const edges = reusableEdges ?? new Map(state.edges)
       edges.set(action.edge.id, action.edge)
       return {
         edges,
@@ -91,13 +93,13 @@ function reduceConnectionsState(
       }
     }
     case 'EDGE_UPDATED': {
-      const edges = new Map(state.edges)
+      const edges = reusableEdges ?? new Map(state.edges)
       edges.set(action.id, action.after)
       return { ...state, edges }
     }
     case 'EDGE_DELETED': {
       if (!state.edges.has(action.id)) return state
-      const edges = new Map(state.edges)
+      const edges = reusableEdges ?? new Map(state.edges)
       edges.delete(action.id)
       return { ...state, edges }
     }
@@ -228,15 +230,25 @@ export function connectionsPlugin(
     install(engine) {
       const getState = (): ConnectionsState =>
         engine.getPluginState<ConnectionsState>()
+      let batchEdges: Map<EdgeId, BoardEdge> | null = null
       const applyAction = (action: ConnectionsAction): ConnectionsState =>
-        engine.updatePluginState((state: ConnectionsState) =>
-          reduceConnectionsState(state, action),
-        )
+        engine.updatePluginState((state: ConnectionsState) => {
+          if (!engine.isBatching()) {
+            batchEdges = null
+            return reduceConnectionsState(state, action)
+          }
+          if (state.edges !== batchEdges) {
+            batchEdges = new Map(state.edges)
+          }
+          return reduceConnectionsState(state, action, batchEdges)
+        })
 
       function getEdgeOrThrow(id: EdgeId, op: string): BoardEdge {
         const edge = getState().edges.get(id)
         if (!edge) {
-          throw new Error(`Cannot ${op} edge: edge "${id}" does not exist.`)
+          throw new BoardNotFoundError(
+            `Cannot ${op} edge: edge "${id}" does not exist.`,
+          )
         }
         return edge
       }
@@ -253,12 +265,12 @@ export function connectionsPlugin(
             [input],
             () => {
               if (!engine.hasNode(input.from)) {
-                throw new Error(
+                throw new BoardNotFoundError(
                   `Cannot create edge: source node "${input.from}" does not exist.`,
                 )
               }
               if (!engine.hasNode(input.to)) {
-                throw new Error(
+                throw new BoardNotFoundError(
                   `Cannot create edge: target node "${input.to}" does not exist.`,
                 )
               }
@@ -314,12 +326,12 @@ export function connectionsPlugin(
               const nextFrom = 'from' in patch ? patch.from : current.from
               const nextTo = 'to' in patch ? patch.to : current.to
               if (!nextFrom || !engine.hasNode(nextFrom)) {
-                throw new Error(
+                throw new BoardNotFoundError(
                   `Cannot update edge: source node "${nextFrom}" does not exist.`,
                 )
               }
               if (!nextTo || !engine.hasNode(nextTo)) {
-                throw new Error(
+                throw new BoardNotFoundError(
                   `Cannot update edge: target node "${nextTo}" does not exist.`,
                 )
               }
@@ -395,6 +407,7 @@ export function connectionsPlugin(
             .filter((edge) => edge.from === from && edge.to === to)
         },
         getConfig() {
+          engine.assertActive()
           return { ...config }
         },
       }
@@ -402,23 +415,27 @@ export function connectionsPlugin(
       engine.extend('connections', api)
 
       let prevEdges: ReadonlyMap<EdgeId, BoardEdge> = getState().edges
-      const unsubscribe = engine.onCommit(() => {
+      const unsubscribe = engine.projectCommit(() => {
         const next = getState().edges
-        if (next === prevEdges) return
-        for (const [id, edge] of next) {
-          const before = prevEdges.get(id)
-          if (!before) {
-            engine.emit('edge:created', cloneEdge(edge))
-          } else if (before !== edge) {
-            engine.emit('edge:updated', cloneEdge(edge), cloneEdge(before))
+        if (next === prevEdges) return () => undefined
+        const beforeEdges = prevEdges
+        return () => {
+          batchEdges = null
+          for (const [id, edge] of next) {
+            const before = beforeEdges.get(id)
+            if (!before) {
+              engine.emit('edge:created', cloneEdge(edge))
+            } else if (before !== edge) {
+              engine.emit('edge:updated', cloneEdge(edge), cloneEdge(before))
+            }
           }
-        }
-        for (const [id] of prevEdges) {
-          if (!next.has(id)) {
-            engine.emit('edge:deleted', id)
+          for (const [id] of beforeEdges) {
+            if (!next.has(id)) {
+              engine.emit('edge:deleted', id)
+            }
           }
+          prevEdges = next
         }
-        prevEdges = next
       })
 
       return () => {

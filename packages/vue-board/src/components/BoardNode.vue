@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import type { BoardNode, ResizeHandle } from '@lupinum/board-core'
 import { useBoardEngine } from '../useBoardEngine.js'
+import { runBoardCommand } from '../composables/runBoardCommand.js'
 import { resolveNodeColorStyle } from '../nodeColors.js'
 import BoardNodeHandle from './BoardNodeHandle.vue'
 
@@ -80,12 +81,12 @@ watch(
 )
 
 function commit(): void {
-  engine.commitTextEdit(props.node.id, draft.value)
+  runBoardCommand(() => engine.commitTextEdit(props.node.id, draft.value))
 }
 
 function cancel(): void {
   draft.value = getTextContent(props.node)
-  engine.cancelTextEdit()
+  runBoardCommand(() => engine.cancelTextEdit())
 }
 
 function onEditorKeydown(event: KeyboardEvent): void {
@@ -108,12 +109,12 @@ function beginKeyboardEdit(event: KeyboardEvent): void {
     return
   }
   event.preventDefault()
-  engine.beginTextEdit(props.node.id)
+  runBoardCommand(() => engine.beginTextEdit(props.node.id))
 }
 
 function selectOnFocus(): void {
   if (!props.selected) {
-    engine.select(props.node.id)
+    runBoardCommand(() => engine.select(props.node.id))
   }
 }
 

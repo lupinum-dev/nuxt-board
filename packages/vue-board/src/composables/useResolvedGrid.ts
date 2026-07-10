@@ -5,6 +5,7 @@ import {
   type BoardGridOptions,
   type ResolvedBoardGridOptions,
 } from '../grid.js'
+import { runBoardCommand } from './runBoardCommand.js'
 
 /** Inputs used to merge the `BoardRoot` grid prop with engine grid state. */
 interface UseResolvedGridOptions {
@@ -73,7 +74,7 @@ export function useResolvedGrid(
           patch.edgeSnapThreshold = value.edgeSnapThreshold
         if (value.pattern !== undefined) patch.pattern = value.pattern
         if (Object.keys(patch).length > 0) {
-          options.engine.updateGridSettings(patch)
+          runBoardCommand(() => options.engine.updateGridSettings(patch))
         }
       }
     },

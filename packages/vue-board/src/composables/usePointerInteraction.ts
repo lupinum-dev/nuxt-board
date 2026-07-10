@@ -1,12 +1,12 @@
-import { shallowRef, type Ref } from 'vue'
+import { onBeforeUnmount, shallowRef, type Ref } from 'vue'
 import {
   asNodeId,
-  CommandBlockedError,
   type BoardEngine,
   type Point,
   type ResizeHandle,
 } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
+import { runBoardCommand, tryBoardCommand } from './runBoardCommand.js'
 
 const POINTER_DRAG_THRESHOLD = 6
 
@@ -62,26 +62,6 @@ function isBoardInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
-function runBoardCommand<T>(fn: () => T): T | undefined {
-  try {
-    return fn()
-  } catch (error) {
-    if (error instanceof CommandBlockedError) {
-      return undefined
-    }
-    throw error
-  }
-}
-
-function tryBoardCommand(fn: () => void): boolean {
-  let ran = false
-  const result = runBoardCommand(() => {
-    fn()
-    ran = true
-  })
-  return ran || result !== undefined
-}
-
 /**
  * Translate pointer input from `BoardRoot` into engine commands.
  *
@@ -103,6 +83,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     space: boolean
   } | null = null
   let rafScheduled = false
+  let rafId: number | null = null
 
   function findNodeIdAtPoint(screenPoint: Point): string | undefined {
     const world = engine.screenToWorld(screenPoint)
@@ -280,6 +261,10 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function flushPendingPointer(): void {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
     if (pendingPointer) {
       runBoardCommand(() =>
         interaction.updatePointer(pendingPointer!.id, pendingPointer!.point, {
@@ -364,7 +349,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
     if (!rafScheduled) {
       rafScheduled = true
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
         if (pendingPointer) {
           runBoardCommand(() =>
             interaction.updatePointer(
@@ -378,6 +363,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
           )
         }
         rafScheduled = false
+        rafId = null
         pendingPointer = null
       })
     }
@@ -407,6 +393,18 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
     flushPendingPointer()
     runBoardCommand(() => interaction.endInteraction(event.pointerId))
+  }
+
+  function onPointerCancel(event: PointerEvent): void {
+    activePointers.delete(event.pointerId)
+    clearPendingInteraction(event.pointerId)
+    pendingPointer = null
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    rafScheduled = false
+    runBoardCommand(() => interaction.cancelInteraction(event.pointerId))
   }
 
   function onWheel(event: WheelEvent): void {
@@ -451,10 +449,21 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
   }
 
+  onBeforeUnmount(() => {
+    if (rafId !== null) cancelAnimationFrame(rafId)
+    rafId = null
+    rafScheduled = false
+    pendingPointer = null
+    activePointers.clear()
+    clearPendingInteraction()
+    runBoardCommand(() => interaction.cancelInteraction())
+  })
+
   return {
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerCancel,
     onWheel,
     onDoubleClick,
   }

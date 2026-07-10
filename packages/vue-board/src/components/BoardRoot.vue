@@ -205,13 +205,19 @@ function toLocalPoint(clientX: number, clientY: number): Point {
   }
 }
 
-const { onPointerDown, onPointerMove, onPointerUp, onWheel, onDoubleClick } =
-  usePointerInteraction({
-    engine,
-    rootElement,
-    spacePressed,
-    toLocalPoint,
-  })
+const {
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onWheel,
+  onDoubleClick,
+} = usePointerInteraction({
+  engine,
+  rootElement,
+  spacePressed,
+  toLocalPoint,
+})
 
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
   engine,
@@ -255,7 +261,7 @@ onBeforeUnmount(() => {
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
-    @pointercancel="onPointerUp"
+    @pointercancel="onPointerCancel"
     @wheel="onWheel"
     @dblclick="onDoubleClick"
     @keydown="onKeyDown"

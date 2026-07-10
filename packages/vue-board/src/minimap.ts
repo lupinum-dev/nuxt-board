@@ -264,29 +264,39 @@ export const BoardMinimap = defineComponent({
                 viewport: minimap.viewportRect.value,
               })
             : [
-                ...minimap.minimapNodes.value.map((entry) =>
-                  h('div', {
-                    key: entry.node.id,
-                    style: {
-                      position: 'absolute',
-                      left: `${entry.x}px`,
-                      top: `${entry.y}px`,
-                      width: `${entry.width}px`,
-                      height: `${entry.height}px`,
-                      border: '1px solid currentColor',
-                    },
-                  }),
-                ),
-                h('div', {
-                  style: {
-                    position: 'absolute',
-                    left: `${minimap.viewportRect.value.x}px`,
-                    top: `${minimap.viewportRect.value.y}px`,
-                    width: `${minimap.viewportRect.value.width}px`,
-                    height: `${minimap.viewportRect.value.height}px`,
-                    border: '1px solid currentColor',
+                h(
+                  'svg',
+                  {
+                    width: props.width,
+                    height: props.height,
+                    viewBox: `0 0 ${props.width} ${props.height}`,
+                    style: { display: 'block' },
+                    'aria-hidden': 'true',
                   },
-                }),
+                  [
+                    h('path', {
+                      d: minimap.minimapNodes.value
+                        .map(
+                          (entry) =>
+                            `M${entry.x},${entry.y}h${entry.width}v${entry.height}h-${entry.width}Z`,
+                        )
+                        .join(''),
+                      fill: 'currentColor',
+                      opacity: 0.22,
+                      stroke: 'currentColor',
+                      'stroke-width': 0.75,
+                    }),
+                    h('rect', {
+                      x: minimap.viewportRect.value.x,
+                      y: minimap.viewportRect.value.y,
+                      width: minimap.viewportRect.value.width,
+                      height: minimap.viewportRect.value.height,
+                      fill: 'none',
+                      stroke: 'currentColor',
+                      'stroke-width': 1,
+                    }),
+                  ],
+                ),
               ],
         ],
       )

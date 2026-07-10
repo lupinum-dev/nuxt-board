@@ -49,6 +49,30 @@ beforeEach(() => {
 })
 
 describe('BoardMinimap', () => {
+  it('renders 10,000 projected nodes without per-node DOM elements', () => {
+    const engine = createBoardEngine()
+    engine.batch(() => {
+      for (let index = 0; index < 10_000; index += 1) {
+        engine.createNode({
+          type: 'text',
+          x: (index % 100) * 20,
+          y: Math.floor(index / 100) * 20,
+          width: 16,
+          height: 16,
+          select: false,
+        })
+      }
+    })
+
+    const wrapper = mount(BoardMinimap, {
+      props: { engine, width: 200, height: 120 },
+    })
+
+    expect(wrapper.findAll('svg path')).toHaveLength(1)
+    expect(wrapper.element.childElementCount).toBe(1)
+    wrapper.unmount()
+  })
+
   it('pans continuously while dragging across the minimap', async () => {
     const engine = createBoardEngine()
     engine.setViewportSize({ x: 400, y: 300 })

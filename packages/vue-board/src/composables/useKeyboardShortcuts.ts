@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted, type Ref } from 'vue'
 import type { BoardEngine, GridSettings } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
+import { runBoardCommand } from './runBoardCommand.js'
 
 /** Options for wiring keyboard shortcuts to a board engine instance. */
 interface UseKeyboardShortcutsOptions {
@@ -42,6 +43,10 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   })
 
   function onKeyDown(event: KeyboardEvent): void {
+    runBoardCommand(() => handleKeyDown(event))
+  }
+
+  function handleKeyDown(event: KeyboardEvent): void {
     if (event.code === 'Space' && !shouldIgnoreHotkeys(event)) {
       event.preventDefault()
       spacePressed.value = true
@@ -57,7 +62,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     ).history
     if (event.key === 'Escape') {
       engine.clearSelection()
-      interaction.endInteraction()
+      interaction.cancelInteraction()
       return
     }
     if (event.key === 'Delete' || event.key === 'Backspace') {

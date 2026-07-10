@@ -3,7 +3,7 @@
 import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createBoardEngine } from '@lupinum/board-core'
+import { asEdgeId, createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
 import { connectionsPlugin } from '../src'
 import { BoardConnectionLayer } from '../src/vue'
@@ -76,6 +76,61 @@ beforeEach(() => {
 })
 
 describe('BoardConnectionLayer', () => {
+  it('does not create DOM paths for 10,000 offscreen edges', async () => {
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+    const visibleA = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      select: false,
+    })
+    const visibleB = engine.createNode({
+      type: 'text',
+      x: 300,
+      y: 0,
+      select: false,
+    })
+    const offscreenA = engine.createNode({
+      type: 'text',
+      x: 100_000,
+      y: 100_000,
+      select: false,
+    })
+    const offscreenB = engine.createNode({
+      type: 'text',
+      x: 100_300,
+      y: 100_000,
+      select: false,
+    })
+    engine.batch(() => {
+      engine.plugins.connections.createEdge({
+        id: asEdgeId('visible'),
+        from: visibleA.id,
+        to: visibleB.id,
+        data: {},
+      })
+      for (let index = 0; index < 10_000; index += 1) {
+        engine.plugins.connections.createEdge({
+          id: asEdgeId(`offscreen-${index}`),
+          from: offscreenA.id,
+          to: offscreenB.id,
+          data: {},
+        })
+      }
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { viewport: () => h(BoardConnectionLayer) },
+      attachTo: document.body,
+    })
+    await nextTick()
+    await nextTick()
+
+    expect(queryAll('[data-connection-edge-id]').length).toBeLessThan(10)
+    wrapper.unmount()
+  }, 15_000)
+
   it('rerenders path geometry when nodes move', async () => {
     const engine = createBoardEngine({
       plugins: [connectionsPlugin()],

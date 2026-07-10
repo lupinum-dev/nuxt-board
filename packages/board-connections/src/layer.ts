@@ -3,16 +3,15 @@ import {
   computed,
   defineComponent,
   h,
-  nextTick,
   shallowRef,
   useId,
   watch,
   type PropType,
 } from 'vue'
 import {
+  boundsIntersect,
   type BoardEngine,
   type BoardNode,
-  type EdgeId,
   type NodeId,
 } from '@lupinum/board-core'
 import { useBoardEngine } from '@lupinum/vue-board'
@@ -23,7 +22,6 @@ import {
   resolveEdgeRenderState,
   resolveFloatingEndpoint,
 } from './geometry.js'
-import { edgeEndsForDirectionality } from './directionality.js'
 import type {
   AnchorPosition,
   AnchorSide,
@@ -35,6 +33,7 @@ import type {
   ConnectionsEventMap,
   ResolvedConnectionEndpoint,
 } from './types.js'
+
 import {
   CONNECTION_DRAG_THRESHOLD,
   EDGE_ARROW_MARKER_SIZE,
@@ -43,7 +42,6 @@ import {
   floatingNodeAt,
   resolveArrowScreenSize,
   resolveLodAmount,
-  sameAnchor,
   worldPointFromClient,
 } from './layer-helpers.js'
 import {
@@ -56,14 +54,13 @@ import {
 import {
   advanceConnectionDrag,
   type ConnectionDragState,
-  type CreateDragState,
   type DragEnd,
   type PendingConnectionDrag,
-  type ReconnectDragState,
 } from './controller.js'
 import { renderConnectionPreview, renderDefaultEdgePath } from './renderer.js'
 import { ConnectionLabel } from './connection-label.js'
 import { renderConnectionToolbar } from './connection-toolbar.js'
+import { createConnectionActions } from './connection-actions.js'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
@@ -101,6 +98,16 @@ export const BoardConnectionLayer = defineComponent({
     const sideCache = new Map<
       string,
       { source: AnchorSide; target: AnchorSide }
+    >()
+    const geometryCache = new Map<
+      string,
+      {
+        key: string
+        routing: ConnectionRouting
+        sourceNode: BoardNode
+        targetNode: BoardNode
+        geometry: ReturnType<typeof resolveEdgeRenderState>
+      }
     >()
     const hoveredEdgeId = shallowRef<string | null>(null)
     const hoveredNodeId = shallowRef<NodeId | null>(null)
@@ -226,13 +233,28 @@ export const BoardConnectionLayer = defineComponent({
       const currentEngine = engine.value
       const routing =
         props.routing ?? currentEngine.plugins.connections.getConfig().routing
+      const viewport = injected.viewportSize.value
+      const camera = injected.$camera.value
+      const visibleBounds =
+        viewport.x > 0 && viewport.y > 0
+          ? currentEngine.getVisibleBounds(viewport.x, viewport.y)
+          : null
+      const margin = 400 / Math.max(camera.z, 0.1)
+      const expandedBounds = visibleBounds
+        ? {
+            minX: visibleBounds.minX - margin,
+            minY: visibleBounds.minY - margin,
+            maxX: visibleBounds.maxX + margin,
+            maxY: visibleBounds.maxY + margin,
+          }
+        : null
       const nextCache = new Map<
         string,
         { source: AnchorSide; target: AnchorSide }
       >()
 
-      const resolved = currentEngine.plugins.connections
-        .getEdges()
+      const edges = currentEngine.plugins.connections.getEdges()
+      const resolved = edges
         .map((edge) => {
           const sourceNode = nodes.get(edge.from)
           const targetNode = nodes.get(edge.to)
@@ -240,22 +262,49 @@ export const BoardConnectionLayer = defineComponent({
             return null
           }
 
-          const previous = sideCache.get(String(edge.id))
-          const geometry = resolveEdgeRenderState(
-            edge,
+          const edgeId = String(edge.id)
+          const geometryKey = JSON.stringify([
+            edge.from,
+            edge.to,
+            edge.fromAnchor,
+            edge.toAnchor,
+            edge.fromEnd,
+            edge.toEnd,
+          ])
+          const cached = geometryCache.get(edgeId)
+          const previous = sideCache.get(edgeId)
+          const geometry =
+            cached?.key === geometryKey &&
+            cached.routing === routing &&
+            cached.sourceNode === sourceNode &&
+            cached.targetNode === targetNode
+              ? cached.geometry
+              : resolveEdgeRenderState(edge, sourceNode, targetNode, {
+                  routing,
+                  previousSourceSide: previous?.source,
+                  previousTargetSide: previous?.target,
+                })
+
+          geometryCache.set(edgeId, {
+            key: geometryKey,
+            routing,
             sourceNode,
             targetNode,
-            {
-              routing,
-              previousSourceSide: previous?.source,
-              previousTargetSide: previous?.target,
-            },
-          )
+            geometry,
+          })
 
-          nextCache.set(String(edge.id), {
+          nextCache.set(edgeId, {
             source: geometry.source.side,
             target: geometry.target.side,
           })
+
+          if (
+            expandedBounds &&
+            selectedEdgeId.value !== edgeId &&
+            !boundsIntersect(expandedBounds, geometry.route.bounds)
+          ) {
+            return null
+          }
 
           return {
             edge,
@@ -269,6 +318,10 @@ export const BoardConnectionLayer = defineComponent({
       sideCache.clear()
       for (const [edgeId, value] of nextCache) {
         sideCache.set(edgeId, value)
+      }
+      const liveIds = new Set(edges.map((edge) => String(edge.id)))
+      for (const id of geometryCache.keys()) {
+        if (!liveIds.has(id)) geometryCache.delete(id)
       }
 
       return resolved
@@ -286,6 +339,34 @@ export const BoardConnectionLayer = defineComponent({
         props.endpointMode ??
         engine.value.plugins.connections.getConfig().endpointMode,
     )
+
+    const {
+      onEdgePointerDown,
+      beginLabelEdit,
+      commitLabelEdit,
+      clearLabel,
+      cancelLabelEdit,
+      setDirectionality,
+      applyEdgeColor,
+      resetEndpointAnchor,
+      deleteEdge,
+      commitDrag,
+    } = createConnectionActions({
+      getEngine: () => engine.value,
+      getEntry: (edgeId) => entryById.value.get(edgeId),
+      getRootElement: () => injected.rootElement.value,
+      getEndpointMode: () => endpointMode.value,
+      createNodeForConnection: () => props.createNodeForConnection,
+      state: {
+        hoveredEdgeId,
+        hoveredNodeHandle,
+        selectedEdgeId,
+        editingEdgeId,
+        labelDraft,
+        colorMenuEdgeId,
+        directionMenuEdgeId,
+      },
+    })
 
     watch(entries, (current) => {
       const ids = new Set(current.map((entry) => String(entry.edge.id)))
@@ -458,219 +539,6 @@ export const BoardConnectionLayer = defineComponent({
     const hotspotCornerClearance = computed(
       () => 18 / Math.max(injected.$camera.value.z, 0.25),
     )
-
-    function onEdgePointerDown(edgeId: string, event: PointerEvent): void {
-      event.preventDefault()
-      event.stopPropagation()
-      if (editingEdgeId.value && editingEdgeId.value !== edgeId) {
-        commitLabelEdit()
-      }
-      selectedEdgeId.value = edgeId
-      hoveredEdgeId.value = edgeId
-      hoveredNodeHandle.value = null
-    }
-
-    function beginLabelEdit(edgeId: string): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry) {
-        return
-      }
-      selectedEdgeId.value = edgeId
-      hoveredEdgeId.value = edgeId
-      editingEdgeId.value = edgeId
-      labelDraft.value = entry.edge.label ?? ''
-      nextTick(() => {
-        const input =
-          injected.rootElement.value?.querySelector<HTMLInputElement>(
-            `[data-connection-label-input="${edgeId}"]`,
-          )
-        if (input) {
-          input.focus()
-          input.select()
-        }
-      })
-    }
-
-    function commitLabelEdit(): void {
-      const id = editingEdgeId.value
-      if (!id) {
-        return
-      }
-      const entry = entryById.value.get(id)
-      editingEdgeId.value = null
-      if (!entry) {
-        return
-      }
-      const next = labelDraft.value.trim()
-      const current = entry.edge.label ?? ''
-      if (next === current) {
-        return
-      }
-      engine.value.plugins.connections.updateEdge(entry.edge.id, {
-        label: next ? next : undefined,
-      })
-    }
-
-    function clearLabel(edgeId: string): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry || !entry.edge.label) {
-        return
-      }
-      if (editingEdgeId.value === edgeId) {
-        editingEdgeId.value = null
-      }
-      engine.value.plugins.connections.updateEdge(entry.edge.id, {
-        label: undefined,
-      })
-    }
-
-    function cancelLabelEdit(): void {
-      editingEdgeId.value = null
-      labelDraft.value = ''
-    }
-
-    function setDirectionality(
-      edgeId: string,
-      direction: 'none' | 'to' | 'both',
-    ): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry) {
-        return
-      }
-      const next = edgeEndsForDirectionality(
-        direction === 'to' ? 'end' : direction,
-      )
-      engine.value.plugins.connections.updateEdge(entry.edge.id, {
-        fromEnd: next.fromEnd,
-        toEnd: next.toEnd,
-      })
-      directionMenuEdgeId.value = null
-    }
-
-    function applyEdgeColor(edgeId: string, color: string | undefined): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry) {
-        return
-      }
-      engine.value.plugins.connections.updateEdge(entry.edge.id, { color })
-      colorMenuEdgeId.value = null
-    }
-
-    function resetEndpointAnchor(edgeId: string, end: DragEnd | 'both'): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry) {
-        return
-      }
-      engine.value.plugins.connections.updateEdge(entry.edge.id, {
-        ...(end === 'from' || end === 'both' ? { fromAnchor: undefined } : {}),
-        ...(end === 'to' || end === 'both' ? { toAnchor: undefined } : {}),
-      })
-    }
-
-    function deleteEdge(edgeId: string): void {
-      const entry = entryById.value.get(edgeId)
-      if (!entry) {
-        return
-      }
-      if (editingEdgeId.value === edgeId) {
-        editingEdgeId.value = null
-      }
-      if (selectedEdgeId.value === edgeId) {
-        selectedEdgeId.value = null
-      }
-      if (hoveredEdgeId.value === edgeId) {
-        hoveredEdgeId.value = null
-      }
-      if (colorMenuEdgeId.value === edgeId) {
-        colorMenuEdgeId.value = null
-      }
-      if (directionMenuEdgeId.value === edgeId) {
-        directionMenuEdgeId.value = null
-      }
-      engine.value.plugins.connections.deleteEdge(entry.edge.id as EdgeId)
-    }
-
-    function commitReconnect(active: ReconnectDragState): void {
-      const entry = entryById.value.get(active.edgeId)
-      if (!entry || !active.candidateNodeId) {
-        return
-      }
-
-      const nodeId = active.candidateNodeId
-      const connections = engine.value.plugins.connections
-      if (active.end === 'from') {
-        if (
-          entry.edge.from === nodeId &&
-          sameAnchor(entry.edge.fromAnchor, active.candidateAnchor)
-        ) {
-          return
-        }
-        connections.updateEdge(entry.edge.id, {
-          from: nodeId,
-          fromAnchor: active.candidateAnchor ?? undefined,
-        })
-        return
-      }
-
-      if (
-        entry.edge.to === nodeId &&
-        sameAnchor(entry.edge.toAnchor, active.candidateAnchor)
-      ) {
-        return
-      }
-
-      connections.updateEdge(entry.edge.id, {
-        to: nodeId,
-        toAnchor: active.candidateAnchor ?? undefined,
-      })
-    }
-
-    function commitCreate(active: CreateDragState): void {
-      const currentEngine = engine.value
-      const sourceNode = currentEngine.findNode(active.sourceNodeId)
-      if (!sourceNode) {
-        return
-      }
-
-      const targetNode = active.candidateNodeId
-        ? currentEngine.findNode(active.candidateNodeId)
-        : props.createNodeForConnection?.({
-            sourceNodeId: active.sourceNodeId,
-            sourceSide: active.sourceSide,
-            pointerWorld: { ...active.pointerWorld },
-            candidateAnchor: active.candidateAnchor
-              ? { ...active.candidateAnchor }
-              : null,
-          })
-      if (!targetNode) {
-        return
-      }
-
-      const createdEdge = currentEngine.plugins.connections.createEdge({
-        from: sourceNode.id,
-        to: targetNode.id,
-        fromAnchor:
-          endpointMode.value === 'manual'
-            ? { side: active.sourceSide, offset: 0.5 }
-            : undefined,
-        toAnchor:
-          endpointMode.value === 'manual' && active.candidateAnchor
-            ? active.candidateAnchor
-            : undefined,
-        data: {},
-      })
-
-      selectedEdgeId.value = String(createdEdge.id)
-      hoveredEdgeId.value = String(createdEdge.id)
-    }
-
-    function commitDrag(active: ConnectionDragState): void {
-      if (active.mode === 'reconnect') {
-        commitReconnect(active)
-      } else {
-        commitCreate(active)
-      }
-    }
 
     function beginReconnectDrag(
       entry: EdgeRenderEntry,

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { BoardColorPreset, BoardNode, NodeId } from '@lupinum/board-core'
 import { BOARD_COLOR_PRESETS } from '../nodeColors.js'
 import { useBoardEngine } from '../useBoardEngine.js'
+import { runBoardCommand } from '../composables/runBoardCommand.js'
 
 const { engine, $camera, $nodes, $selection, $interaction } = useBoardEngine()
 const paletteOpen = ref(false)
@@ -65,7 +66,7 @@ function applyColor(color: BoardColorPreset | undefined): void {
   engine.batch(() => {
     for (const node of selectedNodes.value) {
       if (!node.locked) {
-        engine.updateNode(node.id, { color })
+        runBoardCommand(() => engine.updateNode(node.id, { color }))
       }
     }
   })
@@ -74,7 +75,7 @@ function applyColor(color: BoardColorPreset | undefined): void {
 
 function removeSelected(event: MouseEvent): void {
   stop(event)
-  engine.deleteSelected()
+  runBoardCommand(() => engine.deleteSelected())
 }
 
 function togglePalette(event: MouseEvent): void {
@@ -95,7 +96,7 @@ function editSelected(event: MouseEvent): void {
   stop(event)
   const node = selectedNodes.value[0]
   if (node) {
-    engine.beginTextEdit(node.id)
+    runBoardCommand(() => engine.beginTextEdit(node.id))
   }
 }
 

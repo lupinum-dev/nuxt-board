@@ -10,3 +10,13 @@ bare.on('edge:created', () => undefined)
 const connected = createBoardEngine({ plugins: [connectionsPlugin()] })
 connected.plugins.connections.getEdges()
 connected.on('edge:created', (edge) => edge.id)
+
+declare const enableConnections: boolean
+const conditionalPlugins = enableConnections
+  ? ([connectionsPlugin()] as const)
+  : ([] as const)
+const conditional = createBoardEngine({ plugins: conditionalPlugins })
+// @ts-expect-error A conditionally installed plugin is not guaranteed to exist.
+conditional.plugins.connections.getEdges()
+// @ts-expect-error Conditional plugin events are not guaranteed to exist.
+conditional.on('edge:created', () => undefined)
