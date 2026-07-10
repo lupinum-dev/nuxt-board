@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { asNodeId, createBoardEngine } from '../src'
 import type { BoardNode, JsonCanvasDocument } from '../src'
 import {
-  defineInternalBoardFeature,
-  type InternalBoardFeature,
+  defineInternalBoardPlugin,
+  type InternalBoardPlugin,
 } from '../src/internal'
 
 describe('board-core public document API', () => {
@@ -351,7 +351,7 @@ describe('board-core public document API', () => {
 
   it('rolls back core and extension state when an extension import hook fails', () => {
     let extensionState!: () => { imports: number }
-    const failingFeature: InternalBoardFeature = defineInternalBoardFeature({
+    const failingFeature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
@@ -377,7 +377,7 @@ describe('board-core public document API', () => {
       },
     })
     const engine = createBoardEngine({
-      extensions: [failingFeature],
+      plugins: [failingFeature],
     })
     const existing = engine.createNode({
       id: asNodeId('keep'),

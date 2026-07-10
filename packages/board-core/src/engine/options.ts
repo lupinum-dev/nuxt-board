@@ -1,7 +1,7 @@
 import { BoardInputError } from '../errors.js'
 import type {
   BoardEngineOptions,
-  BoardExtension,
+  BoardPlugin,
   BoxSelectBehavior,
   Camera,
   GridSettings,
@@ -14,7 +14,7 @@ interface ResolvedBoardConfiguration {
   zoom: ZoomSettings
   grid: GridSettings
   nodeConstraints: NodeConstraints
-  extensions: readonly BoardExtension[]
+  plugins: readonly BoardPlugin[]
   diagnostics: BoardEngineOptions['diagnostics']
   boxSelectBehavior: BoxSelectBehavior
 }
@@ -99,7 +99,7 @@ export function validateBoardConfiguration(
   }
 
   const extensionNames = new Set<string>()
-  for (const extension of config.extensions) {
+  for (const extension of config.plugins) {
     if (extensionNames.has(extension.name)) {
       throw new BoardInputError(
         `Board extension name "${extension.name}" is registered more than once.`,

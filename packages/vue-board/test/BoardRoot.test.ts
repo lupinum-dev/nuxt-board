@@ -495,7 +495,7 @@ describe('BoardRoot', () => {
 
   it('keeps slot state in sync with undo and redo replays', async () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
@@ -503,7 +503,7 @@ describe('BoardRoot', () => {
       y: 20,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -524,11 +524,11 @@ describe('BoardRoot', () => {
     await flushBoardRootSnapshot()
     expect(wrapper.find('.state-count').text()).toBe('0')
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     await flushBoardRootSnapshot()
     expect(wrapper.find('.state-count').text()).toBe('1')
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     await flushBoardRootSnapshot()
     expect(wrapper.find('.state-count').text()).toBe('0')
   })

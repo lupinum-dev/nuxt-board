@@ -39,7 +39,7 @@ internal feature reactions.
 
 Connections and history use the current internal feature hooks:
 
-- `engine.extend()` exposes a internal API under `engine.ext`.
+- `engine.extend()` exposes a internal API under `engine.plugins`.
 - Optional slices let a feature reduce dispatched actions into its own state.
 - Optional persistence hooks let a feature contribute to import/export.
 - `engine.onAction()` lets a feature react to core actions, such as deleting

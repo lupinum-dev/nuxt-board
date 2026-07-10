@@ -11,11 +11,11 @@ import { createBoardEngine } from '@lupinum/board-core'
 import { historyPlugin } from '@lupinum/board-history'
 
 const engine = createBoardEngine({
-  extensions: [historyPlugin({ maxSteps: 200 })],
+  plugins: [historyPlugin({ maxSteps: 200 })],
 })
 
-engine.ext.history.undo()
-engine.ext.history.redo()
+engine.plugins.history.undo()
+engine.plugins.history.redo()
 ```
 
 The plugin captures reducer actions between command lifecycle events and replays

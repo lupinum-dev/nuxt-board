@@ -7,12 +7,12 @@ import {
   createBoardEngine,
 } from '@lupinum/board-core'
 import {
-  defineInternalBoardFeature,
-  type InternalBoardFeature,
+  defineInternalBoardPlugin,
+  type InternalBoardPlugin,
 } from '@lupinum/board-core/internal'
 import {
   buildConnectionRoute,
-  connectionPlugin,
+  connectionsPlugin,
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
   resolveEdgeRenderState,
@@ -21,7 +21,7 @@ import {
 function expectEdgesReferenceExistingNodes(
   engine: ReturnType<typeof createBoardEngine>,
 ): void {
-  for (const edge of engine.ext.connections.getEdges()) {
+  for (const edge of engine.plugins.connections.getEdges()) {
     expect(engine.hasNode(edge.from)).toBe(true)
     expect(engine.hasNode(edge.to)).toBe(true)
   }
@@ -29,12 +29,12 @@ function expectEdgesReferenceExistingNodes(
 
 describe('connections plugin', () => {
   it('rejects duplicate edge ids and invalid edge boundaries', () => {
-    const engine = createBoardEngine({ extensions: [connectionPlugin()] })
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
     const source = engine.createNode({ type: 'text', text: 'Source' })
     const target = engine.createNode({ type: 'text', text: 'Target' })
     const id = asEdgeId('duplicate-edge')
 
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       id,
       from: source.id,
       to: target.id,
@@ -42,17 +42,17 @@ describe('connections plugin', () => {
     })
 
     expect(() =>
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         id,
         from: source.id,
         to: target.id,
         data: {},
       }),
     ).toThrow(BoardConflictError)
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
 
     expect(() =>
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         from: source.id,
         to: target.id,
         fromAnchor: { side: 'left', offset: 2 },
@@ -60,7 +60,7 @@ describe('connections plugin', () => {
       }),
     ).toThrow(BoardInputError)
     expect(() =>
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         from: source.id,
         to: target.id,
         color: 'tomato',
@@ -71,8 +71,8 @@ describe('connections plugin', () => {
 
   it('exposes resolved connection defaults through the public extension', () => {
     const engine = createBoardEngine({
-      extensions: [
-        connectionPlugin({
+      plugins: [
+        connectionsPlugin({
           routing: 'smooth-step',
           endpointMode: 'manual',
           defaultArrow: 'both',
@@ -80,19 +80,21 @@ describe('connections plugin', () => {
       ],
     })
 
-    expect(engine.ext.connections.getConfig()).toEqual({
+    expect(engine.plugins.connections.getConfig()).toEqual({
       routing: 'smooth-step',
       endpointMode: 'manual',
       defaultArrow: 'both',
     })
     expect(
-      Object.keys(engine.ext.connections).filter((key) => key.startsWith('__')),
+      Object.keys(engine.plugins.connections).filter((key) =>
+        key.startsWith('__'),
+      ),
     ).toEqual([])
   })
 
   it('creates edges, queries them, and removes them with deleted nodes', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -107,7 +109,7 @@ describe('connections plugin', () => {
       text: 'Node',
     })
 
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       label: 'depends on',
@@ -116,13 +118,13 @@ describe('connections plugin', () => {
     })
     expect(edge).toBeDefined()
     expect(
-      engine.ext.connections.getEdgesBetween(first.id, second.id),
+      engine.plugins.connections.getEdgesBetween(first.id, second.id),
     ).toHaveLength(1)
     expect(edge.label).toBe('depends on')
     expect(edge.color).toBe('#0f766e')
 
     engine.deleteNode(first.id)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
   })
 
   it('exports and imports edges through the connections extension only', () => {
@@ -130,7 +132,7 @@ describe('connections plugin', () => {
     const secondId = asNodeId('second')
     const edgeId = asEdgeId('edge-a')
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
       initialDocument: {
         nodes: [
           {
@@ -154,7 +156,7 @@ describe('connections plugin', () => {
         ],
       },
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       id: edgeId,
       from: firstId,
       to: secondId,
@@ -185,10 +187,10 @@ describe('connections plugin', () => {
       data: { weight: 2 },
     })
 
-    const restored = createBoardEngine({ extensions: [connectionPlugin()] })
+    const restored = createBoardEngine({ plugins: [connectionsPlugin()] })
     restored.importJSON(JSON.stringify(exported), 'replace')
 
-    expect(restored.ext.connections.getEdges()).toEqual([
+    expect(restored.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({
         id: edgeId,
         from: firstId,
@@ -237,7 +239,7 @@ describe('connections plugin', () => {
 
   it('removes edges when deleting a group that still has child nodes', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
       grid: { snap: false },
     })
     const group = engine.createNode({
@@ -268,24 +270,24 @@ describe('connections plugin', () => {
       text: 'Node',
     })
     engine.syncGroupZOrder(group.id)
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: inner.id,
       to: outer.id,
       data: {},
     })
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
 
     engine.select([group.id])
     engine.deleteSelected()
 
     expect(engine.getSnapshot().nodes).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
     expectEdgesReferenceExistingNodes(engine)
   })
 
   it('clears stale edges when replacing the board document', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -299,7 +301,7 @@ describe('connections plugin', () => {
       y: 100,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       data: {},
@@ -317,13 +319,13 @@ describe('connections plugin', () => {
     )
 
     expect(engine.getSnapshot().nodes).toHaveLength(0)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
     expectEdgesReferenceExistingNodes(engine)
   })
 
   it('hydrates initialDocument edges after installing the connections plugin', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
       initialDocument: {
         nodes: [
           {
@@ -358,8 +360,8 @@ describe('connections plugin', () => {
       },
     })
 
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: asNodeId('source'),
       to: asNodeId('target'),
       label: 'initial',
@@ -368,7 +370,7 @@ describe('connections plugin', () => {
 
   it('remaps imported edges to cloned node ids during merge imports', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     engine.createNode({
       id: asNodeId('source'),
@@ -422,7 +424,7 @@ describe('connections plugin', () => {
     const imported = Array.from(engine.getState().nodes.values()).filter(
       (node) => node.text?.startsWith('Imported'),
     )
-    const edge = engine.ext.connections.getEdges()[0]
+    const edge = engine.plugins.connections.getEdges()[0]
     expect(imported).toHaveLength(2)
     expect(edge).toMatchObject({ label: 'merged' })
     expect(imported.map((node) => node.id)).toContain(edge?.from)
@@ -432,7 +434,7 @@ describe('connections plugin', () => {
 
   it('keeps every edge attached to existing nodes across replace and merge imports', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const first = engine.createNode({
       id: asNodeId('first'),
@@ -448,7 +450,7 @@ describe('connections plugin', () => {
       y: 0,
       text: 'Second',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       id: asEdgeId('stale-edge'),
       from: first.id,
       to: second.id,
@@ -488,9 +490,9 @@ describe('connections plugin', () => {
       'replace',
     )
 
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
     expect(
-      engine.ext.connections.getEdge(asEdgeId('stale-edge')),
+      engine.plugins.connections.getEdge(asEdgeId('stale-edge')),
     ).toBeUndefined()
     expectEdgesReferenceExistingNodes(engine)
 
@@ -527,12 +529,12 @@ describe('connections plugin', () => {
       'merge',
     )
 
-    expect(engine.ext.connections.getEdges()).toHaveLength(2)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(2)
     expectEdgesReferenceExistingNodes(engine)
   })
 
   it('rolls back imported connection state when a later feature import fails', () => {
-    const failingFeature: InternalBoardFeature = defineInternalBoardFeature({
+    const failingFeature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failing-import',
       persistence: {
         importDocument() {
@@ -542,7 +544,7 @@ describe('connections plugin', () => {
       install() {},
     })
     const engine = createBoardEngine({
-      extensions: [connectionPlugin(), failingFeature],
+      plugins: [connectionsPlugin(), failingFeature],
     })
     const keepA = engine.createNode({
       id: asNodeId('keep-a'),
@@ -558,7 +560,7 @@ describe('connections plugin', () => {
       y: 0,
       text: 'Keep B',
     })
-    const keepEdge = engine.ext.connections.createEdge({
+    const keepEdge = engine.plugins.connections.createEdge({
       id: asEdgeId('keep-edge'),
       from: keepA.id,
       to: keepB.id,
@@ -596,7 +598,7 @@ describe('connections plugin', () => {
     ).toThrow(/feature import failed/)
 
     expect(engine.getSnapshot()).toEqual(before)
-    expect(engine.ext.connections.getEdges()).toEqual([keepEdge])
+    expect(engine.plugins.connections.getEdges()).toEqual([keepEdge])
     expectEdgesReferenceExistingNodes(engine)
   })
 
@@ -763,7 +765,7 @@ describe('connections plugin', () => {
 
   it('updates edges and emits edge:updated while preserving identity fields', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -786,7 +788,7 @@ describe('connections plugin', () => {
     const updated = vi.fn()
     engine.on('edge:updated', updated)
 
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       fromAnchor: { side: 'right', offset: 0.25 },
@@ -796,7 +798,7 @@ describe('connections plugin', () => {
       data: { version: 1 },
     })
 
-    const next = engine.ext.connections.updateEdge(edge.id, {
+    const next = engine.plugins.connections.updateEdge(edge.id, {
       to: third.id,
       toAnchor: undefined,
       label: 'new',
@@ -811,7 +813,7 @@ describe('connections plugin', () => {
     expect(next.toAnchor).toBeUndefined()
     expect(next.label).toBe('new')
     expect(next.data).toEqual({ version: 2 })
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       id: edge.id,
       to: third.id,
       label: 'new',
@@ -831,7 +833,7 @@ describe('connections plugin', () => {
 
   it('throws when creating an edge with non-existent nodes', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
@@ -841,14 +843,14 @@ describe('connections plugin', () => {
     })
 
     expect(() =>
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         from: node.id,
         to: asNodeId('non-existent'),
         data: {},
       }),
     ).toThrow('target node')
     expect(() =>
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         from: asNodeId('non-existent'),
         to: node.id,
         data: {},

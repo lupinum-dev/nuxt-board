@@ -8,9 +8,9 @@ pnpm add @lupinum/board-connections @lupinum/board-core @lupinum/vue-board
 
 ```ts
 import { createBoardEngine } from '@lupinum/board-core'
-import { connectionPlugin } from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
 
-const engine = createBoardEngine({ extensions: [connectionPlugin()] })
+const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
 const first = engine.createNode({ type: 'text', text: 'First node' })
 const second = engine.createNode({
   type: 'text',
@@ -18,7 +18,7 @@ const second = engine.createNode({
   text: 'Node',
 })
 
-engine.ext.connections.createEdge({
+engine.plugins.connections.createEdge({
   from: first.id,
   to: second.id,
   data: {},

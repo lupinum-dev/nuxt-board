@@ -40,7 +40,7 @@ Examples may choose `grid.size: 20` for readability, but do not call that the de
 - `initialNodes` expects complete `BoardNode` records, including `zIndex`, `locked`, and `visible`. Use this for deterministic SSR/tests.
 - `createNode(input)` accepts partial `NodeInput` and fills defaults. Use it for imperative setup and interactive creation.
 - `initialDocument` accepts a normalized JSON Canvas document. Documents with edges require the connections extension to be installed.
-- `extensions` installs first-party feature plugins such as `connectionPlugin()` and `historyPlugin()`.
+- `plugins` installs first-party feature plugins such as `connectionsPlugin()` and `historyPlugin()`.
 
 ## Node Shape
 

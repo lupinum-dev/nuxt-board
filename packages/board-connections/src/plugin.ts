@@ -3,15 +3,15 @@ import {
   BoardConflictError,
   BoardInputError,
   type BoardEventMap,
-  type BoardExtension,
-  type BoardFeatureExtensions,
+  type BoardPlugin,
+  type BoardPluginApis,
   type EdgeId,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
   type JsonCanvasSide,
 } from '@lupinum/board-core'
 import {
-  defineInternalBoardFeature,
+  defineInternalBoardPlugin,
   type InternalBoardAction,
 } from '@lupinum/board-core/internal'
 import type {
@@ -81,7 +81,7 @@ interface ConnectionsEventMap extends BoardEventMap {
   'edge:deleted': (edgeId: EdgeId) => void
 }
 
-interface ConnectionsFeatureExtensions extends BoardFeatureExtensions {
+interface ConnectionsFeatureExtensions extends BoardPluginApis {
   connections: ConnectionsExtension
 }
 
@@ -157,7 +157,7 @@ declare module '@lupinum/board-core' {
     'edge:deleted': (edgeId: EdgeId) => void
   }
 
-  interface BoardFeatureExtensions {
+  interface BoardPluginApis {
     connections: ConnectionsExtension
   }
 }
@@ -206,9 +206,9 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
   }
 }
 
-export function connectionPlugin(
+export function connectionsPlugin(
   options: ConnectionPluginOptions = {},
-): BoardExtension {
+): BoardPlugin {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
@@ -219,7 +219,7 @@ export function connectionPlugin(
   }
   const defaults = defaultEnds(defaultArrow)
 
-  const feature = defineInternalBoardFeature<
+  const feature = defineInternalBoardPlugin<
     ConnectionsFeatureExtensions,
     ConnectionsEventMap
   >({
@@ -231,7 +231,7 @@ export function connectionPlugin(
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
-        const edges = engine.ext.connections.getEdges()
+        const edges = engine.plugins.connections.getEdges()
         if (edges.length === 0) {
           return {}
         }
@@ -253,7 +253,7 @@ export function connectionPlugin(
         }
       },
       importDocument(engine, document, mode, idMap): void {
-        const api = engine.ext.connections
+        const api = engine.plugins.connections
         if (mode === 'replace') {
           for (const edge of api.getEdges()) {
             api.deleteEdge(edge.id)

@@ -249,13 +249,13 @@ export const BoardConnectionLayer = defineComponent({
       const nodes = injected.$nodes.value
       const currentEngine = engine.value
       const routing =
-        props.routing ?? currentEngine.ext.connections.getConfig().routing
+        props.routing ?? currentEngine.plugins.connections.getConfig().routing
       const nextCache = new Map<
         string,
         { source: AnchorSide; target: AnchorSide }
       >()
 
-      const resolved = currentEngine.ext.connections
+      const resolved = currentEngine.plugins.connections
         .getEdges()
         .map((edge) => {
           const sourceNode = nodes.get(edge.from)
@@ -308,7 +308,7 @@ export const BoardConnectionLayer = defineComponent({
     const endpointMode = computed<ConnectionEndpointMode>(
       () =>
         props.endpointMode ??
-        engine.value.ext.connections.getConfig().endpointMode,
+        engine.value.plugins.connections.getConfig().endpointMode,
     )
 
     watch(entries, (current) => {
@@ -344,7 +344,7 @@ export const BoardConnectionLayer = defineComponent({
         ? nodes.get(active.candidateNodeId)
         : undefined
       const routing =
-        props.routing ?? engine.value.ext.connections.getConfig().routing
+        props.routing ?? engine.value.plugins.connections.getConfig().routing
 
       if (active.mode === 'reconnect') {
         const entry = entryById.value.get(active.edgeId)
@@ -589,7 +589,7 @@ export const BoardConnectionLayer = defineComponent({
       if (next === current) {
         return
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, {
+      engine.value.plugins.connections.updateEdge(entry.edge.id, {
         label: next ? next : undefined,
       })
     }
@@ -602,7 +602,7 @@ export const BoardConnectionLayer = defineComponent({
       if (editingEdgeId.value === edgeId) {
         editingEdgeId.value = null
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, {
+      engine.value.plugins.connections.updateEdge(entry.edge.id, {
         label: undefined,
       })
     }
@@ -628,7 +628,7 @@ export const BoardConnectionLayer = defineComponent({
         to: { fromEnd: 'none', toEnd: 'arrow' },
         both: { fromEnd: 'arrow', toEnd: 'arrow' },
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, {
+      engine.value.plugins.connections.updateEdge(entry.edge.id, {
         fromEnd: next[direction].fromEnd,
         toEnd: next[direction].toEnd,
       })
@@ -640,7 +640,7 @@ export const BoardConnectionLayer = defineComponent({
       if (!entry) {
         return
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, { color })
+      engine.value.plugins.connections.updateEdge(entry.edge.id, { color })
       colorMenuEdgeId.value = null
     }
 
@@ -649,7 +649,7 @@ export const BoardConnectionLayer = defineComponent({
       if (!entry) {
         return
       }
-      engine.value.ext.connections.updateEdge(entry.edge.id, {
+      engine.value.plugins.connections.updateEdge(entry.edge.id, {
         ...(end === 'from' || end === 'both' ? { fromAnchor: undefined } : {}),
         ...(end === 'to' || end === 'both' ? { toAnchor: undefined } : {}),
       })
@@ -675,7 +675,7 @@ export const BoardConnectionLayer = defineComponent({
       if (directionMenuEdgeId.value === edgeId) {
         directionMenuEdgeId.value = null
       }
-      engine.value.ext.connections.deleteEdge(entry.edge.id as EdgeId)
+      engine.value.plugins.connections.deleteEdge(entry.edge.id as EdgeId)
     }
 
     function commitReconnect(active: ReconnectDragState): void {
@@ -685,7 +685,7 @@ export const BoardConnectionLayer = defineComponent({
       }
 
       const nodeId = active.candidateNodeId
-      const connections = engine.value.ext.connections
+      const connections = engine.value.plugins.connections
       if (active.end === 'from') {
         if (
           entry.edge.from === nodeId &&
@@ -734,7 +734,7 @@ export const BoardConnectionLayer = defineComponent({
         return
       }
 
-      const createdEdge = currentEngine.ext.connections.createEdge({
+      const createdEdge = currentEngine.plugins.connections.createEdge({
         from: sourceNode.id,
         to: targetNode.id,
         fromAnchor:

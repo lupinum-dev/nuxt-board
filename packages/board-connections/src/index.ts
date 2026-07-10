@@ -1,5 +1,5 @@
-/** Install the connections plugin and its `engine.ext.connections` extension. */
-export { connectionPlugin } from './plugin.js'
+/** Install the connections plugin and its `engine.plugins.connections` extension. */
+export { connectionsPlugin } from './plugin.js'
 /** SVG layer that renders edges, labels, handles, and connection previews. */
 export { BoardConnectionLayer } from './layer.js'
 

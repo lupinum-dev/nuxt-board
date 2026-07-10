@@ -1,10 +1,10 @@
 import type {
   BoardEventMap,
-  BoardExtension,
-  BoardFeatureExtensions,
+  BoardPlugin,
+  BoardPluginApis,
 } from '@lupinum/board-core'
 import {
-  defineInternalBoardFeature,
+  defineInternalBoardPlugin,
   type InternalHistoryRoot,
 } from '@lupinum/board-core/internal'
 
@@ -47,7 +47,7 @@ interface HistoryEventMap extends BoardEventMap {
   'history:clear': () => void
 }
 
-interface HistoryFeatureExtensions extends BoardFeatureExtensions {
+interface HistoryFeatureExtensions extends BoardPluginApis {
   history: HistoryExtension
 }
 
@@ -59,7 +59,7 @@ declare module '@lupinum/board-core' {
     'history:clear': () => void
   }
 
-  interface BoardFeatureExtensions {
+  interface BoardPluginApis {
     history: HistoryExtension
   }
 }
@@ -69,12 +69,10 @@ function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
 }
 
 /** Install deterministic undo/redo backed by committed structural roots. */
-export function historyPlugin(
-  options: HistoryPluginOptions = {},
-): BoardExtension {
+export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
 
-  return defineInternalBoardFeature<HistoryFeatureExtensions, HistoryEventMap>({
+  return defineInternalBoardPlugin<HistoryFeatureExtensions, HistoryEventMap>({
     name: 'history',
     install(engine) {
       const undoStack: HistoryFrame[] = []

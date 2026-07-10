@@ -6,35 +6,35 @@ export type {
 export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
 
 export type {
-  InternalBoardFeature,
-  InternalBoardFeatureDefinition,
-  InternalFeatureContext,
+  InternalBoardPlugin,
+  InternalBoardPluginDefinition,
+  InternalPluginContext,
   InternalFeaturePersistence,
 } from './types.js'
 
 import type {
   BoardEventMap,
-  BoardExtension,
-  BoardFeatureExtensions,
-  InternalBoardFeature,
-  InternalBoardFeatureDefinition,
+  BoardPlugin,
+  BoardPluginApis,
+  InternalBoardPlugin,
+  InternalBoardPluginDefinition,
 } from './types.js'
 
-export function defineInternalBoardFeature<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export function defineInternalBoardPlugin<
+  TExtensions extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 >(
-  feature: InternalBoardFeatureDefinition<TExtensions, TEvents>,
-): InternalBoardFeature<TExtensions, TEvents> {
-  return feature as InternalBoardFeature<TExtensions, TEvents>
+  feature: InternalBoardPluginDefinition<TExtensions, TEvents>,
+): InternalBoardPlugin<TExtensions, TEvents> {
+  return feature as InternalBoardPlugin<TExtensions, TEvents>
 }
 
-export function assertInternalBoardFeature(
-  extension: BoardExtension,
-): asserts extension is InternalBoardFeature {
-  const maybeFeature = extension as Partial<InternalBoardFeature>
+export function assertInternalBoardPlugin(
+  extension: BoardPlugin,
+): asserts extension is InternalBoardPlugin {
+  const maybeFeature = extension as Partial<InternalBoardPlugin>
   if (typeof maybeFeature.name !== 'string' || maybeFeature.name.length === 0) {
     throw new Error(
       'Invalid board extension: expected a named extension token.',

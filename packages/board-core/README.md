@@ -26,7 +26,7 @@ Use this package directly for framework-agnostic state and with
 
 The `@lupinum/board-core/internal` subpath is published only for first-party
 packages in this workspace. Applications should use the top-level
-`@lupinum/board-core` API and install supported features through `extensions`.
+`@lupinum/board-core` API and install supported features through `plugins`.
 
 - Docs: https://vue-board.vercel.app
 - Issues: https://github.com/lupinum/nuxt-board/issues

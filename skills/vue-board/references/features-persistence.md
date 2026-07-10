@@ -36,11 +36,11 @@ Both plugin and layer are required:
 ```ts
 import {
   BoardConnectionLayer,
-  connectionPlugin,
+  connectionsPlugin,
 } from '@lupinum/board-connections'
 
 const engine = createBoardEngine({
-  extensions: [connectionPlugin({ routing: 'bezier' })],
+  plugins: [connectionsPlugin({ routing: 'bezier' })],
 })
 ```
 
@@ -60,7 +60,7 @@ Create edges after endpoint nodes exist:
 const source = engine.createNode({ type: 'text', text: 'Source' })
 const target = engine.createNode({ type: 'text', x: 420, text: 'Target' })
 
-engine.ext.connections.createEdge({
+engine.plugins.connections.createEdge({
   from: source.id,
   to: target.id,
   label: 'depends on',
@@ -87,11 +87,11 @@ pnpm add @lupinum/board-history
 import { historyPlugin } from '@lupinum/board-history'
 
 const engine = createBoardEngine({
-  extensions: [historyPlugin({ maxSteps: 100, debounceMs: 500 })],
+  plugins: [historyPlugin({ maxSteps: 100, debounceMs: 500 })],
 })
 ```
 
-Use `engine.ext.history.undo()` and `redo()`. Read methods such as `canUndo()`, `canRedo()`, and `getState()` do not flush pending entries. Call `flushPending()` when the UI needs to commit a debounced move/update before reading stack availability.
+Use `engine.plugins.history.undo()` and `redo()`. Read methods such as `canUndo()`, `canRedo()`, and `getState()` do not flush pending entries. Call `flushPending()` when the UI needs to commit a debounced move/update before reading stack availability.
 
 History defaults are `maxSteps: 200` and `debounceMs: 300`. It debounces coalescable move and node-update commands, not arbitrary command sequences. If connections are installed, node deletion undo restores connected edges.
 

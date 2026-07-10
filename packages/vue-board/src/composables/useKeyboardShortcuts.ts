@@ -49,7 +49,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     const mod = event.metaKey || event.ctrlKey
     const selection = engine.getSelection()
     const history = (
-      engine.ext as unknown as {
+      engine.plugins as unknown as {
         history?: { undo: () => void; redo: () => void }
       }
     ).history

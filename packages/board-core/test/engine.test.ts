@@ -8,8 +8,8 @@ import {
   createBoardEngine,
 } from '../src'
 import {
-  defineInternalBoardFeature,
-  type InternalBoardFeature,
+  defineInternalBoardPlugin,
+  type InternalBoardPlugin,
 } from '../src/internal'
 
 describe('board engine', () => {
@@ -59,14 +59,14 @@ describe('board engine', () => {
 
   it('runs feature cleanups once when destroyed', () => {
     const cleanup = vi.fn()
-    const feature: InternalBoardFeature = defineInternalBoardFeature({
+    const feature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'cleanup-test',
       install() {
         return cleanup
       },
     })
     const engine = createBoardEngine({
-      extensions: [feature],
+      plugins: [feature],
     })
 
     engine.destroy()
@@ -105,7 +105,7 @@ describe('board engine', () => {
   it('rejects malformed extension objects before install', () => {
     expect(() =>
       createBoardEngine({
-        extensions: [{ name: 'fake' } as never],
+        plugins: [{ name: 'fake' } as never],
       }),
     ).toThrow(
       /Invalid board extension "fake": expected an internal feature token/,
@@ -125,7 +125,7 @@ describe('board engine', () => {
   it('rolls back strict validation failures after node updates', () => {
     let readFeatureState!: () => { updates: number }
     const actions: string[] = []
-    const feature: InternalBoardFeature = defineInternalBoardFeature({
+    const feature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'rollback-probe',
       slice: {
         initial: { updates: 0 },
@@ -142,7 +142,7 @@ describe('board engine', () => {
     })
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [feature],
+      plugins: [feature],
     })
     const node = engine.createNode({
       type: 'text',
@@ -170,7 +170,7 @@ describe('board engine', () => {
 
   it('rolls back invalid node creation and import payloads', () => {
     const actions: string[] = []
-    const actionProbe: InternalBoardFeature = defineInternalBoardFeature({
+    const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'action-probe',
       install(engine) {
         return engine.onAction((action) => actions.push(action.type))
@@ -178,7 +178,7 @@ describe('board engine', () => {
     })
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [actionProbe],
+      plugins: [actionProbe],
     })
     const beforeCreate = engine.getSnapshot()
     const events: string[] = []
@@ -567,7 +567,7 @@ describe('board engine', () => {
   it('fires command hooks and rejects duplicate feature names', () => {
     const events: string[] = []
     let installs = 0
-    const feature: InternalBoardFeature = defineInternalBoardFeature({
+    const feature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'audit',
       install(engine) {
         installs += 1
@@ -584,11 +584,11 @@ describe('board engine', () => {
       },
     })
 
-    expect(() => createBoardEngine({ extensions: [feature, feature] })).toThrow(
+    expect(() => createBoardEngine({ plugins: [feature, feature] })).toThrow(
       BoardInputError,
     )
 
-    const engine = createBoardEngine({ extensions: [feature] })
+    const engine = createBoardEngine({ plugins: [feature] })
     engine.createNode({ type: 'text', x: 0, y: 0, text: 'Hello' })
 
     expect(installs).toBe(1)
@@ -709,13 +709,13 @@ describe('board engine', () => {
 
   it('rolls back a failed batch without publishing partial effects', () => {
     const actions: string[] = []
-    const actionProbe: InternalBoardFeature = defineInternalBoardFeature({
+    const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failed-batch-action-probe',
       install(featureEngine) {
         return featureEngine.onAction((action) => actions.push(action.type))
       },
     })
-    const engine = createBoardEngine({ extensions: [actionProbe] })
+    const engine = createBoardEngine({ plugins: [actionProbe] })
     const before = engine.getSnapshot()
     const events: string[] = []
     const notifications: Array<[number, number]> = []

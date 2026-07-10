@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
 import {
-  connectionPlugin,
+  connectionsPlugin,
   BoardConnectionLayer,
   type ConnectionRouting,
 } from '@lupinum/board-connections'
@@ -30,7 +30,7 @@ type PlaygroundApi = {
 const engine = createBoardEngine({
   diagnostics: { traceLimit: 500 },
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
-  extensions: [historyPlugin(), connectionPlugin()],
+  plugins: [historyPlugin(), connectionsPlugin()],
 })
 
 // ━━ UI state ━━
@@ -100,13 +100,13 @@ async function seedScene(count: number): Promise<void> {
   })
 
   if (created.length >= 3) {
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: created[0]!.id,
       to: created[1]!.id,
       label: 'A',
       data: {},
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: created[1]!.id,
       to: created[2]!.id,
       label: 'B',

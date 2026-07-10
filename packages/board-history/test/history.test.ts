@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { CommandBlockedError, createBoardEngine } from '@lupinum/board-core'
-import { connectionPlugin } from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '../src'
 
 describe('history plugin', () => {
   it('does not record guard-blocked commands', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     engine.addCommandGuard((name, _args, next) => {
       if (name === 'createNode') return
@@ -21,7 +21,7 @@ describe('history plugin', () => {
     ).toThrow(CommandBlockedError)
 
     expect(engine.getSnapshot().nodes).toHaveLength(0)
-    expect(engine.ext.history.getState()).toEqual({
+    expect(engine.plugins.history.getState()).toEqual({
       undoDepth: 0,
       redoDepth: 0,
       current: null,
@@ -30,7 +30,7 @@ describe('history plugin', () => {
 
   it('undoes and redoes node deletion', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
 
     const node = engine.createNode({
@@ -43,17 +43,17 @@ describe('history plugin', () => {
     engine.deleteSelected()
     expect(engine.getSnapshot().nodes).toHaveLength(0)
 
-    expect(engine.ext.history.undo).toBeDefined()
-    engine.ext.history.undo()
+    expect(engine.plugins.history.undo).toBeDefined()
+    engine.plugins.history.undo()
     expect(engine.getSnapshot().nodes).toHaveLength(1)
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.getSnapshot().nodes).toHaveLength(0)
   })
 
   it('emits public event payloads without replay actions', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const payloads: unknown[] = []
 
@@ -65,8 +65,8 @@ describe('history plugin', () => {
       type: 'text',
       text: 'Event payload',
     })
-    engine.ext.history.undo()
-    engine.ext.history.redo()
+    engine.plugins.history.undo()
+    engine.plugins.history.redo()
 
     expect(payloads).toHaveLength(3)
     for (const payload of payloads) {
@@ -80,7 +80,7 @@ describe('history plugin', () => {
 
   it('excludes camera commands and records an interaction commit', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
 
     const node = engine.createNode({
@@ -89,17 +89,17 @@ describe('history plugin', () => {
       y: 0,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
     engine.panBy(100, 40)
-    expect(engine.ext.history.getState().undoDepth).toBe(0)
+    expect(engine.plugins.history.getState().undoDepth).toBe(0)
 
     engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 40, y: 0 })
     engine.updatePointer(1, { x: 80, y: 0 })
     engine.endInteraction(1)
 
-    expect(engine.ext.history.canUndo()).toBe(true)
-    engine.ext.history.undo()
+    expect(engine.plugins.history.canUndo()).toBe(true)
+    engine.plugins.history.undo()
     expect(
       engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
     ).toMatchObject({ x: 0, y: 0 })
@@ -107,7 +107,7 @@ describe('history plugin', () => {
 
   it('records commits synchronously without pending timers', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
 
     engine.createNode({
@@ -117,14 +117,14 @@ describe('history plugin', () => {
       text: 'Pending',
     })
 
-    expect(engine.ext.history.getState()).toEqual({
+    expect(engine.plugins.history.getState()).toEqual({
       undoDepth: 1,
       redoDepth: 0,
       current: 'createNode',
     })
-    expect(engine.ext.history.canUndo()).toBe(true)
-    expect(engine.ext.history.canRedo()).toBe(false)
-    expect(engine.ext.history.getState()).toEqual({
+    expect(engine.plugins.history.canUndo()).toBe(true)
+    expect(engine.plugins.history.canRedo()).toBe(false)
+    expect(engine.plugins.history.getState()).toEqual({
       undoDepth: 1,
       redoDepth: 0,
       current: 'createNode',
@@ -133,7 +133,7 @@ describe('history plugin', () => {
 
   it('undoes and redoes text edits from the built-in editor flow', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
@@ -141,25 +141,25 @@ describe('history plugin', () => {
       y: 0,
       text: 'Before',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.beginTextEdit(node.id)
     engine.commitTextEdit(node.id, 'After')
 
     expect(engine.findNode(node.id)?.text).toBe('After')
-    expect(engine.ext.history.canUndo()).toBe(true)
+    expect(engine.plugins.history.canUndo()).toBe(true)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.findNode(node.id)?.text).toBe('Before')
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.findNode(node.id)?.text).toBe('After')
   })
 
   it('coalesces interactive resize updates into an undoable change', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
@@ -169,7 +169,7 @@ describe('history plugin', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.beginResize(node.id, 'se', 1, { x: 120, y: 80 })
     engine.updatePointer(1, { x: 160, y: 110 })
@@ -177,19 +177,19 @@ describe('history plugin', () => {
     engine.endInteraction(1)
 
     expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
-    expect(engine.ext.history.getState().undoDepth).toBe(1)
+    expect(engine.plugins.history.getState().undoDepth).toBe(1)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.findNode(node.id)).toMatchObject({ width: 120, height: 80 })
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
   })
 
   it('undoes and redoes multi-node drag updates', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -203,7 +203,7 @@ describe('history plugin', () => {
       y: 50,
       text: 'Second',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.select([first.id, second.id])
     engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
@@ -212,20 +212,20 @@ describe('history plugin', () => {
 
     expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
     expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })
-    expect(engine.ext.history.getState().undoDepth).toBe(1)
+    expect(engine.plugins.history.getState().undoDepth).toBe(1)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.findNode(first.id)).toMatchObject({ x: 0, y: 0 })
     expect(engine.findNode(second.id)).toMatchObject({ x: 100, y: 50 })
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
     expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })
   })
 
   it('restores connection plugin state during undo and redo', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin(), historyPlugin()],
+      plugins: [connectionsPlugin(), historyPlugin()],
     })
 
     const first = engine.createNode({
@@ -240,9 +240,9 @@ describe('history plugin', () => {
       y: 0,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       label: 'A->B',
@@ -253,24 +253,24 @@ describe('history plugin', () => {
     expect(edge).toBeDefined()
 
     engine.deleteNode(first.id)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.getSnapshot().nodes).toHaveLength(2)
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       label: 'A->B',
       fromEnd: 'arrow',
       color: '#111827',
     })
 
-    engine.ext.history.redo()
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    engine.plugins.history.redo()
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
   })
 
   it('restores dependent nodes before replaying connection creations on undo', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin(), historyPlugin()],
+      plugins: [connectionsPlugin(), historyPlugin()],
     })
 
     const first = engine.createNode({
@@ -285,12 +285,12 @@ describe('history plugin', () => {
       y: 0,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       data: {},
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.deleteNode(first.id)
 
@@ -298,7 +298,7 @@ describe('history plugin', () => {
     const off = engine.on('edge:created', (edge) => {
       endpointChecks.push(engine.hasNode(edge.from) && engine.hasNode(edge.to))
     })
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     off()
 
     expect(endpointChecks).toEqual([true])
@@ -307,7 +307,7 @@ describe('history plugin', () => {
   it('undoes and redoes group deletion with child connection edges intact', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [connectionPlugin(), historyPlugin()],
+      plugins: [connectionsPlugin(), historyPlugin()],
     })
     const group = engine.createNode({
       type: 'group',
@@ -336,59 +336,59 @@ describe('history plugin', () => {
       text: 'Outside',
       select: false,
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: child.id,
       to: outside.id,
       label: 'child edge',
       data: { kind: 'group-delete' },
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.select(group.id)
     engine.deleteSelected()
 
     expect(engine.hasNode(group.id)).toBe(false)
     expect(engine.hasNode(child.id)).toBe(false)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.getNode(child.id).parentId).toBe(group.id)
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       from: child.id,
       to: outside.id,
       label: 'child edge',
       data: { kind: 'group-delete' },
     })
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.hasNode(group.id)).toBe(false)
     expect(engine.hasNode(child.id)).toBe(false)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
   })
 
   it('restores nextZIndex during undo and redo', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
 
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
     const before = engine.getSnapshot().nextZIndex
     const created = engine.createNode({ type: 'text', x: 0, y: 0, text: '' })
 
     expect(engine.getSnapshot().nextZIndex).toBe(before + 1)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.hasNode(created.id)).toBe(false)
     expect(engine.getSnapshot().nextZIndex).toBe(before)
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.hasNode(created.id)).toBe(true)
     expect(engine.getSnapshot().nextZIndex).toBe(before + 1)
   })
 
   it('does not record board replacement imports in history', () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin()],
+      plugins: [historyPlugin()],
     })
     const existing = engine.createNode({
       type: 'text',
@@ -396,7 +396,7 @@ describe('history plugin', () => {
       y: 0,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.importJSON(
       JSON.stringify({
@@ -418,14 +418,14 @@ describe('history plugin', () => {
       'replace',
     )
 
-    expect(engine.ext.history.canUndo()).toBe(false)
+    expect(engine.plugins.history.canUndo()).toBe(false)
     expect(engine.getSnapshot().nodes).toHaveLength(1)
     expect(engine.getSnapshot().nodes[0]?.text).toBe('Imported')
   })
 
   it('undoes and redoes edge reconnect updates', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin(), historyPlugin()],
+      plugins: [connectionsPlugin(), historyPlugin()],
     })
 
     const first = engine.createNode({
@@ -446,7 +446,7 @@ describe('history plugin', () => {
       y: 0,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: first.id,
       to: second.id,
       fromAnchor: { side: 'right', offset: 0.3 },
@@ -455,26 +455,26 @@ describe('history plugin', () => {
       data: {},
     })
 
-    engine.ext.history.clear()
-    engine.ext.connections.updateEdge(edge.id, {
+    engine.plugins.history.clear()
+    engine.plugins.connections.updateEdge(edge.id, {
       to: third.id,
       toAnchor: undefined,
     })
 
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       to: third.id,
       fromAnchor: { side: 'right', offset: 0.3 },
       toAnchor: undefined,
     })
 
-    engine.ext.history.undo()
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    engine.plugins.history.undo()
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       to: second.id,
       toAnchor: { side: 'left', offset: 0.6 },
     })
 
-    engine.ext.history.redo()
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    engine.plugins.history.redo()
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       to: third.id,
       toAnchor: undefined,
     })
@@ -482,7 +482,7 @@ describe('history plugin', () => {
 
   it('undoes and redoes mixed node and connection changes captured in one batch', () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin(), historyPlugin()],
+      plugins: [connectionsPlugin(), historyPlugin()],
     })
     const first = engine.createNode({
       type: 'text',
@@ -496,11 +496,11 @@ describe('history plugin', () => {
       y: 0,
       text: 'Target',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     engine.batch(() => {
       engine.updateNode(first.id, { text: 'After' })
-      engine.ext.connections.createEdge({
+      engine.plugins.connections.createEdge({
         from: first.id,
         to: second.id,
         label: 'batched',
@@ -509,16 +509,16 @@ describe('history plugin', () => {
     })
 
     expect(engine.getNode(first.id).text).toBe('After')
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.getNode(first.id).text).toBe('Before')
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     expect(engine.getNode(first.id).text).toBe('After')
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: first.id,
       to: second.id,
       label: 'batched',

@@ -709,7 +709,7 @@ export function getVisibleEdges(
   routing?: ConnectionRouting,
 ): BoardEdge[] {
   const nodes = engine.$nodes.get()
-  return engine.ext.connections.getEdges().filter((edge) => {
+  return engine.plugins.connections.getEdges().filter((edge) => {
     const sourceNode = nodes.get(edge.from)
     const targetNode = nodes.get(edge.to)
     if (!sourceNode || !targetNode) {

@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
-  connectionPlugin,
+  connectionsPlugin,
   BoardConnectionLayer,
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
@@ -19,7 +19,7 @@ interface WorkflowStep {
 
 const engine = createBoardEngine({
   grid: { size: 24, majorEvery: 4, snap: true, pattern: 'line' },
-  extensions: [historyPlugin(), connectionPlugin({ routing: 'step' })],
+  plugins: [historyPlugin(), connectionsPlugin({ routing: 'step' })],
 })
 
 const CAPTURE_ID = asNodeId('capture')
@@ -53,10 +53,10 @@ const workflowSteps = ref<WorkflowStep[]>(createWorkflowSteps())
 const stepsByNodeId = computed(
   () => new Map(workflowSteps.value.map((step) => [step.id, step])),
 )
-const historyState = ref(engine.ext.history.getState())
+const historyState = ref(engine.plugins.history.getState())
 
 function syncHistoryState() {
-  historyState.value = engine.ext.history.getState()
+  historyState.value = engine.plugins.history.getState()
 }
 
 const unsubscribeHistory = [
@@ -119,23 +119,23 @@ function seed() {
     'replace',
   )
 
-  for (const edge of engine.ext.connections.getEdges()) {
-    engine.ext.connections.deleteEdge(edge.id)
+  for (const edge of engine.plugins.connections.getEdges()) {
+    engine.plugins.connections.deleteEdge(edge.id)
   }
 
-  engine.ext.connections.createEdge({
+  engine.plugins.connections.createEdge({
     from: CAPTURE_ID,
     to: QUALIFY_ID,
     label: 'validated',
     data: {},
   })
-  engine.ext.connections.createEdge({
+  engine.plugins.connections.createEdge({
     from: QUALIFY_ID,
     to: HANDOFF_ID,
     label: 'approved',
     data: {},
   })
-  engine.ext.history.clear()
+  engine.plugins.history.clear()
   syncHistoryState()
 }
 
@@ -173,13 +173,13 @@ onBeforeUnmount(() => {
       </button>
       <button
         :disabled="historyState.undoDepth === 0"
-        @click="engine.ext.history.undo()"
+        @click="engine.plugins.history.undo()"
       >
         Undo
       </button>
       <button
         :disabled="historyState.redoDepth === 0"
-        @click="engine.ext.history.redo()"
+        @click="engine.plugins.history.redo()"
       >
         Redo
       </button>

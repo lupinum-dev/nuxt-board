@@ -1,12 +1,8 @@
+import { createBoardEngine, type BoardEngine, type BoardPlugin } from '../src'
 import {
-  createBoardEngine,
-  type BoardEngine,
-  type BoardExtension,
-} from '../src'
-import {
-  defineInternalBoardFeature,
-  type InternalBoardFeature,
-  type InternalFeatureContext,
+  defineInternalBoardPlugin,
+  type InternalBoardPlugin,
+  type InternalPluginContext,
 } from '../src/internal'
 
 declare const engine: BoardEngine
@@ -20,12 +16,12 @@ engine.applyRecordedAction({ type: 'BATCH', actions: [] })
 // @ts-expect-error Command wrapper is available only to internal features.
 engine.runCommand('probe', [], () => undefined)
 
-// @ts-expect-error BoardExtension is an opaque token, not a structural name bag.
-const fakeExtension: BoardExtension = { name: 'fake' }
+// @ts-expect-error BoardPlugin is an opaque token, not a structural name bag.
+const fakeExtension: BoardPlugin = { name: 'fake' }
 
-const feature: InternalBoardFeature = defineInternalBoardFeature({
+const feature: InternalBoardPlugin = defineInternalBoardPlugin({
   name: 'type-probe',
-  install(featureEngine: InternalFeatureContext) {
+  install(featureEngine: InternalPluginContext) {
     const stop = featureEngine.onAction(() => undefined)
     featureEngine.runCommand('probe', [], () => undefined, {
       history: 'record',
@@ -35,7 +31,7 @@ const feature: InternalBoardFeature = defineInternalBoardFeature({
   },
 })
 
-createBoardEngine({ extensions: [feature] })
+createBoardEngine({ plugins: [feature] })
 // @ts-expect-error Runtime extension installation is intentionally not public.
 engine.use(feature)
 

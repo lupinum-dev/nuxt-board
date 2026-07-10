@@ -77,7 +77,7 @@ import {
   toPersistedDocument,
   withNodeFields,
 } from './engine/persistence.js'
-import { assertInternalBoardFeature } from './internal.js'
+import { assertInternalBoardPlugin } from './internal.js'
 import {
   BoardConflictError,
   BoardDestroyedError,
@@ -99,9 +99,9 @@ import type {
   BoardEngineOptions,
   BoardNode,
   GridSettings,
-  InternalBoardFeature,
-  InternalFeatureContext,
-  BoardFeatureExtensions,
+  InternalBoardPlugin,
+  InternalPluginContext,
+  BoardPluginApis,
   CommandMetadata,
   InteractionState,
   ValidationMode,
@@ -167,7 +167,7 @@ export function createBoardEngine(
     zoom,
     grid,
     nodeConstraints,
-    extensions: options.extensions ?? [],
+    plugins: options.plugins ?? [],
     diagnostics: options.diagnostics,
     boxSelectBehavior,
   })
@@ -192,8 +192,8 @@ export function createBoardEngine(
   const featurePersistence = new Map<
     string,
     {
-      context: InternalFeatureContext
-      hooks: NonNullable<InternalBoardFeature['persistence']>
+      context: InternalPluginContext
+      hooks: NonNullable<InternalBoardPlugin['persistence']>
     }
   >()
   function reduceFeatureStates(
@@ -209,7 +209,7 @@ export function createBoardEngine(
     dispatcher.dispatch(action)
   }
   const clipboard: StoredNode[] = []
-  const ext = {} as BoardFeatureExtensions
+  const plugins = {} as BoardPluginApis
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
   let destroyed = false
@@ -1195,7 +1195,7 @@ export function createBoardEngine(
     )
   }
 
-  function installFeature(feature: InternalBoardFeature): void {
+  function installFeature(feature: InternalBoardPlugin): void {
     if (featureCleanups.has(feature.name)) {
       return
     }
@@ -1211,8 +1211,8 @@ export function createBoardEngine(
         state: feature.slice.initial,
       })
     }
-    const featureCtx: InternalFeatureContext = Object.assign(
-      Object.create(engine) as InternalFeatureContext,
+    const featureCtx: InternalPluginContext = Object.assign(
+      Object.create(engine) as InternalPluginContext,
       {
         getFeatureState: <S>(): S => {
           const entry = featureStates.get(feature.name)
@@ -1235,8 +1235,8 @@ export function createBoardEngine(
     featureCleanups.set(feature.name, cleanup ?? (() => undefined))
   }
 
-  const engine: InternalFeatureContext = {
-    ext,
+  const engine: InternalPluginContext = {
+    plugins,
     $camera,
     $grid,
     $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
@@ -1263,7 +1263,7 @@ export function createBoardEngine(
       destroyReactiveLayer()
     },
     extend(key, value) {
-      ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
+      ;(plugins as unknown as Record<string, unknown>)[key] = value as unknown
     },
     batch(fn) {
       assertAlive()
@@ -2367,8 +2367,8 @@ export function createBoardEngine(
 
   notifyNodesChanged()
 
-  for (const feature of options.extensions ?? []) {
-    assertInternalBoardFeature(feature)
+  for (const feature of options.plugins ?? []) {
+    assertInternalBoardPlugin(feature)
     installFeature(feature)
   }
 

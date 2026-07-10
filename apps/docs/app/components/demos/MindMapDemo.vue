@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine, type NodeId } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
-  connectionPlugin,
+  connectionsPlugin,
   BoardConnectionLayer,
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
@@ -11,12 +11,12 @@ import MindMapTopicNode from './MindMapTopicNode.vue'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
-  extensions: [historyPlugin(), connectionPlugin({ routing: 'bezier' })],
+  plugins: [historyPlugin(), connectionsPlugin({ routing: 'bezier' })],
 })
 
 const selection = ref<NodeId[]>([])
 const edgesVersion = ref(0)
-const historyState = ref(engine.ext.history.getState())
+const historyState = ref(engine.plugins.history.getState())
 const ROOT_ID = asNodeId('root')
 const ENG_ID = asNodeId('eng')
 const DESIGN_ID = asNodeId('design')
@@ -24,7 +24,7 @@ const GROWTH_ID = asNodeId('growth')
 const API_ID = asNodeId('api')
 
 function syncHistoryState() {
-  historyState.value = engine.ext.history.getState()
+  historyState.value = engine.plugins.history.getState()
 }
 
 function refreshEdges() {
@@ -52,7 +52,7 @@ const topicDepthsById = computed(() => {
   while (queue.length > 0) {
     const current = queue.shift()!
     const depth = depths.get(current) ?? 0
-    for (const edge of engine.ext.connections.getEdgesFrom(current)) {
+    for (const edge of engine.plugins.connections.getEdgesFrom(current)) {
       if (depths.has(edge.to)) {
         continue
       }
@@ -139,13 +139,13 @@ function seed() {
     'replace',
   )
 
-  const conn = engine.ext.connections
+  const conn = engine.plugins.connections
   for (const edge of conn.getEdges()) conn.deleteEdge(edge.id)
   conn.createEdge({ from: ROOT_ID, to: ENG_ID, data: {} })
   conn.createEdge({ from: ROOT_ID, to: DESIGN_ID, data: {} })
   conn.createEdge({ from: ROOT_ID, to: GROWTH_ID, data: {} })
   conn.createEdge({ from: ENG_ID, to: API_ID, data: {} })
-  engine.ext.history.clear()
+  engine.plugins.history.clear()
   refreshEdges()
   syncHistoryState()
 }
@@ -167,7 +167,11 @@ function addBranch() {
     text: `New topic ${branchCount}`,
     select: true,
   })
-  engine.ext.connections.createEdge({ from: parent, to: newNode.id, data: {} })
+  engine.plugins.connections.createEdge({
+    from: parent,
+    to: newNode.id,
+    data: {},
+  })
 }
 
 onMounted(async () => {
@@ -190,13 +194,13 @@ onBeforeUnmount(() => {
       <button @click="engine.zoomToFit(72, false)">Zoom to fit</button>
       <button
         :disabled="historyState.undoDepth === 0"
-        @click="engine.ext.history.undo()"
+        @click="engine.plugins.history.undo()"
       >
         Undo
       </button>
       <button
         :disabled="historyState.redoDepth === 0"
-        @click="engine.ext.history.redo()"
+        @click="engine.plugins.history.redo()"
       >
         Redo
       </button>

@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
-  connectionPlugin,
+  connectionsPlugin,
   BoardConnectionLayer,
   type ConnectionRouting,
 } from '@lupinum/board-connections'
@@ -12,10 +12,10 @@ import { BoardMinimap } from '@lupinum/board-minimap'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
-  extensions: [historyPlugin(), connectionPlugin()],
+  plugins: [historyPlugin(), connectionsPlugin()],
 })
 
-const historyState = computed(() => engine.ext.history.getState())
+const historyState = computed(() => engine.plugins.history.getState())
 const routing = ref<ConnectionRouting>('bezier')
 const INPUT_ID = asNodeId('input')
 const PARSE_ID = asNodeId('parse')
@@ -84,7 +84,7 @@ function seed() {
     ),
     'replace',
   )
-  const connections = engine.ext.connections
+  const connections = engine.plugins.connections
   for (const edge of connections.getEdges()) {
     connections.deleteEdge(edge.id)
   }
@@ -167,14 +167,14 @@ onMounted(async () => {
         </button>
       </span>
       <button
-        :disabled="!engine.ext.history.canUndo()"
-        @click="engine.ext.history.undo()"
+        :disabled="!engine.plugins.history.canUndo()"
+        @click="engine.plugins.history.undo()"
       >
         Undo
       </button>
       <button
-        :disabled="!engine.ext.history.canRedo()"
-        @click="engine.ext.history.redo()"
+        :disabled="!engine.plugins.history.canRedo()"
+        @click="engine.plugins.history.redo()"
       >
         Redo
       </button>

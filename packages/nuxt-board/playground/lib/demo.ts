@@ -11,7 +11,7 @@ import {
   type GridPattern,
   type Point,
 } from '@lupinum/board-core'
-import { connectionPlugin } from '../../../board-connections/src/index'
+import { connectionsPlugin } from '../../../board-connections/src/index'
 import { historyPlugin } from '../../../board-history/src/index'
 
 export type DemoSceneId = 'workflow' | 'systems' | 'dense' | 'polish'
@@ -602,7 +602,7 @@ export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
   const engine = createBoardEngine({
     diagnostics: { traceLimit: 400 },
     grid: DEFAULT_GRID,
-    extensions: [historyPlugin(), connectionPlugin()],
+    plugins: [historyPlugin(), connectionsPlugin()],
   })
 
   const scene = loadDemoScene(engine, initialSceneId)
@@ -617,7 +617,7 @@ export function loadDemoScene(
   engine.importJSON(JSON.stringify(demoSceneToDocument(scene)), 'replace')
   engine.clearSelection()
   engine.endInteraction()
-  engine.ext.history.clear()
+  engine.plugins.history.clear()
   return {
     id: scene.id,
     label: scene.label,
@@ -633,7 +633,7 @@ export function importDemoDocument(engine: BoardEngine, json: string): void {
   engine.importJSON(json, 'replace')
   engine.clearSelection()
   engine.endInteraction()
-  engine.ext.history.clear()
+  engine.plugins.history.clear()
 }
 
 export function getDemoCounts(engine: BoardEngine): {
@@ -645,9 +645,9 @@ export function getDemoCounts(engine: BoardEngine): {
   const snapshot = engine.getSnapshot()
   return {
     nodes: snapshot.nodes.length,
-    edges: engine.ext.connections.getEdges().length,
+    edges: engine.plugins.connections.getEdges().length,
     selection: snapshot.selection.length,
-    history: engine.ext.history.getState().undoDepth,
+    history: engine.plugins.history.getState().undoDepth,
   }
 }
 

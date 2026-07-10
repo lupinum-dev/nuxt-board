@@ -3,13 +3,13 @@ import { onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
-  connectionPlugin,
+  connectionsPlugin,
   BoardConnectionLayer,
 } from '@lupinum/board-connections'
 
 const engine = createBoardEngine({
   grid: { size: 18, majorEvery: 6, snap: true, pattern: 'line' },
-  extensions: [connectionPlugin()],
+  plugins: [connectionsPlugin()],
 })
 
 const payload = ref('')
@@ -63,10 +63,10 @@ function seed() {
     ),
     'replace',
   )
-  for (const edge of engine.ext.connections.getEdges()) {
-    engine.ext.connections.deleteEdge(edge.id)
+  for (const edge of engine.plugins.connections.getEdges()) {
+    engine.plugins.connections.deleteEdge(edge.id)
   }
-  engine.ext.connections.createEdge({
+  engine.plugins.connections.createEdge({
     from: SOURCE_ID,
     to: TARGET_ID,
     label: 'json-canvas',

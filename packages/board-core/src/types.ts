@@ -333,10 +333,10 @@ export interface BoardSnapshot {
 /** Validation handling strategy for development and tests. */
 export type ValidationMode = 'strict' | 'warn' | 'off'
 
-export interface BoardFeatureExtensions {}
+export interface BoardPluginApis {}
 
 /** Opaque install token produced by internal extension packages. */
-export interface BoardExtension {
+export interface BoardPlugin {
   readonly name: string
   readonly __boardExtensionBrand: never
 }
@@ -348,7 +348,7 @@ export interface BoardEngineOptions {
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  extensions?: BoardExtension[]
+  plugins?: BoardPlugin[]
   diagnostics?: boolean | { traceLimit?: number }
   validation?: ValidationMode
   initialNodes?: ReadonlyArray<BoardNode>
@@ -442,7 +442,7 @@ export interface Subscribable<T> {
  * and events let host applications observe lifecycle changes.
  */
 export interface BoardEngine {
-  readonly ext: BoardFeatureExtensions
+  readonly plugins: BoardPluginApis
   readonly $camera: Subscribable<Camera>
   readonly $grid: Subscribable<GridSettings>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
@@ -541,13 +541,13 @@ export interface BoardEngine {
  * Internal feature surface used by workspace packages such as history and
  * connections. This is internal infrastructure, not a general plugin surface.
  */
-export interface InternalFeatureContext<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export interface InternalPluginContext<
+  TExtensions extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends Omit<BoardEngine, 'ext'> {
-  readonly ext: TExtensions
+> extends Omit<BoardEngine, 'plugins'> {
+  readonly plugins: TExtensions
   emit<K extends keyof TEvents>(event: K, ...args: Parameters<TEvents[K]>): void
   extend<K extends keyof TExtensions & string>(
     key: K,
@@ -620,16 +620,16 @@ interface InternalFeatureSlice {
 
 /** Optional internal hook for persisted JSON Canvas document data. */
 export interface InternalFeaturePersistence<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+  TExtensions extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 > {
   exportDocument?(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TExtensions, TEvents>,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TExtensions, TEvents>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
@@ -637,26 +637,26 @@ export interface InternalFeaturePersistence<
 }
 
 /** Internal feature contract for state, commands, and side effects. */
-export interface InternalBoardFeature<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export interface InternalBoardPlugin<
+  TExtensions extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends BoardExtension {
+> extends BoardPlugin {
   name: string
   slice?: InternalFeatureSlice
   persistence?: InternalFeaturePersistence<TExtensions, TEvents>
   install(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TExtensions, TEvents>,
     options?: Record<string, unknown>,
   ): void | FeatureCleanup
 }
 
-export type InternalBoardFeatureDefinition<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export type InternalBoardPluginDefinition<
+  TExtensions extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> = Omit<InternalBoardFeature<TExtensions, TEvents>, keyof BoardExtension> & {
+> = Omit<InternalBoardPlugin<TExtensions, TEvents>, keyof BoardPlugin> & {
   readonly name: string
 }

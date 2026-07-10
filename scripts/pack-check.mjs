@@ -213,10 +213,10 @@ writeFileSync(
 import { BoardRoot } from '@lupinum/vue-board'
 import { historyPlugin } from '@lupinum/board-history'
 import { getSelectionBounds } from '@lupinum/board-core'
-import { connectionPlugin } from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
 import { BoardMinimap } from '@lupinum/board-minimap'
 
-const engine = createBoardEngine({ extensions: [historyPlugin(), connectionPlugin()] })
+const engine = createBoardEngine({ plugins: [historyPlugin(), connectionsPlugin()] })
 const node = engine.createNode({ type: 'text', text: 'packed' })
 engine.select(node.id)
 getSelectionBounds(engine)
