@@ -349,6 +349,26 @@ describe('board engine', () => {
     })
   })
 
+  it('keeps pointer-frame geometry out of the persisted document', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0, text: 'Node' })
+
+    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    engine.updatePointer(1, { x: 80, y: 30 })
+
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 80, y: 30 })
+    const document = JSON.parse(engine.exportJSON()) as {
+      nodes: Array<{ id: string; x: number; y: number }>
+    }
+    expect(document.nodes.find((entry) => entry.id === node.id)).toMatchObject({
+      x: 0,
+      y: 0,
+    })
+
+    engine.endInteraction(1)
+    expect(engine.findNode(node.id)).toMatchObject({ x: 80, y: 30 })
+  })
+
   it('bypasses grid snapping while dragging when space is held', () => {
     const engine = createBoardEngine({ grid: { size: 20, snap: true } })
     const node = engine.createNode({

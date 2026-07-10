@@ -11,7 +11,7 @@ import type {
 import type { MutableBoardState } from './types.js'
 
 export function buildPublicNodeMap(
-  state: MutableBoardState,
+  state: Pick<MutableBoardState, 'nodes'>,
 ): ReadonlyMap<NodeId, BoardNode> {
   return new Map(
     Array.from(

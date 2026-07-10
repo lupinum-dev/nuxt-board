@@ -54,7 +54,11 @@ import {
 } from './state/types.js'
 import { normalizeExistingNode } from './state/initial.js'
 import { materializeNode as materializeNodePure } from './helpers/node-shape.js'
-import { buildPublicState, buildSnapshot } from './state/selectors.js'
+import {
+  buildPublicNodeMap,
+  buildPublicState,
+  buildSnapshot,
+} from './state/selectors.js'
 import {
   duplicateForest as duplicateForestPure,
   getCopyClosureNodes as getCopyClosureNodesPure,
@@ -198,6 +202,7 @@ export function createBoardEngine(
   let animationToken = 0
   let destroyed = false
   let activeGestureHistoryRoot: InternalHistoryRoot | null = null
+  const nodeOverrides = new Map<NodeId, StoredNode>()
 
   function assertAlive(): void {
     if (destroyed) {
@@ -248,6 +253,12 @@ export function createBoardEngine(
     state,
     grid,
     emit,
+    getEffectiveNodes: () => {
+      if (nodeOverrides.size === 0) return state.nodes
+      const effective = new Map<NodeId, BoardNode>(state.nodes)
+      for (const [id, node] of nodeOverrides) effective.set(id, node)
+      return effective
+    },
   })
   const {
     batchCtrl,
@@ -579,11 +590,40 @@ export function createBoardEngine(
   })
 
   function assertStoredNode(id: NodeId): StoredNode {
-    const node = state.nodes.get(id)
+    const node = nodeOverrides.get(id) ?? state.nodes.get(id)
     if (!node) {
       throw new BoardNotFoundError(`Node "${id}" does not exist.`)
     }
     return node
+  }
+
+  function setNodeOverride(node: StoredNode): StoredNode {
+    nodeOverrides.set(node.id, node)
+    return node
+  }
+
+  function commitNodeOverrides(
+    interaction: Extract<
+      InteractionState,
+      { mode: 'dragging-nodes' | 'resizing-node' }
+    >,
+  ): void {
+    for (const [id, next] of nodeOverrides) {
+      const before = state.nodes.get(id)
+      if (!before || before === next) continue
+      state.nodes.set(id, next)
+      if (interaction.mode === 'dragging-nodes') {
+        emit('node:moved', materializeNode(next), {
+          x: next.x - before.x,
+          y: next.y - before.y,
+        })
+        emit('node:updated', materializeNode(next), materializeNode(before))
+      } else if (id === interaction.nodeId) {
+        emitNodeResize(before, next)
+      }
+    }
+    nodeOverrides.clear()
+    notifyNodesChanged()
   }
 
   function assertValidNodeGeometry(
@@ -748,19 +788,6 @@ export function createBoardEngine(
 
   function getPublicNode(id: NodeId): BoardNode {
     return materializeNode(assertStoredNode(id))
-  }
-
-  function bumpNodeToFront(id: NodeId): void {
-    const node = state.nodes.get(id)
-    if (!node) {
-      return
-    }
-    const next = replaceStoredNodeAndDispatch(node, {
-      ...node,
-      zIndex: state.nextZIndex++,
-    })
-    emit('node:updated', materializeNode(next), materializeNode(node))
-    restackGroupDescendantsAbove(id)
   }
 
   function getDirectChildren(parentId: NodeId): StoredNode[] {
@@ -1122,6 +1149,7 @@ export function createBoardEngine(
       }
       destroyed = true
       animationToken += 1
+      nodeOverrides.clear()
       for (const cleanup of featureCleanups.values()) {
         cleanup()
       }
@@ -1218,6 +1246,7 @@ export function createBoardEngine(
         'history:restore',
         [],
         () => {
+          nodeOverrides.clear()
           state.nodes = new Map(root.nodes)
           state.selection = new Set(
             Array.from(root.selection).filter((id) => state.nodes.has(id)),
@@ -1778,7 +1807,6 @@ export function createBoardEngine(
             startScreenPoint: { ...screenPoint },
             startNodePositions,
           })
-          bumpNodeToFront(id)
         },
         IGNORE_UNVALIDATED_COMMAND,
       )
@@ -1808,7 +1836,6 @@ export function createBoardEngine(
             },
             aspectRatio: node.width / node.height,
           })
-          bumpNodeToFront(id)
         },
         IGNORE_UNVALIDATED_COMMAND,
       )
@@ -1975,7 +2002,7 @@ export function createBoardEngine(
                 continue
               }
               const before = { x: current.x, y: current.y }
-              const stored = replaceStoredNodeWithoutNotify(current, {
+              const stored = setNodeOverride({
                 ...current,
                 x: preliminary.x + snapResult.dx,
                 y: preliminary.y + snapResult.dy,
@@ -1988,10 +2015,6 @@ export function createBoardEngine(
                   after: { x: stored.x, y: stored.y },
                 })
               }
-              emit('node:moved', materializeNode(stored), {
-                x: stored.x - origin.x,
-                y: stored.y - origin.y,
-              })
             }
             if (moveDeltas.length > 0) {
             }
@@ -2050,11 +2073,10 @@ export function createBoardEngine(
                     )
                   : raw
               setSnapGuides([])
-              const stored = replaceStoredNodeAndDispatch(node, {
+              setNodeOverride({
                 ...node,
                 ...nextBounds,
               })
-              emitNodeResize(node, stored)
             } else {
               const gridSnapped =
                 !bypassSnapping && grid.snap
@@ -2067,11 +2089,10 @@ export function createBoardEngine(
                   : raw
               if (bypassSnapping || !grid.edgeSnap) {
                 setSnapGuides([])
-                const stored = replaceStoredNodeAndDispatch(node, {
+                setNodeOverride({
                   ...node,
                   ...gridSnapped,
                 })
-                emitNodeResize(node, stored)
               } else {
                 const otherEdges = collectOtherNodeEdges(
                   state.nodes.values(),
@@ -2084,11 +2105,10 @@ export function createBoardEngine(
                   grid.edgeSnapThreshold / state.camera.z,
                 )
                 setSnapGuides(snapResult.guides)
-                const stored = replaceStoredNodeAndDispatch(node, {
+                setNodeOverride({
                   ...node,
                   ...snapResult.bounds,
                 })
-                emitNodeResize(node, stored)
               }
             }
           },
@@ -2148,10 +2168,12 @@ export function createBoardEngine(
           const previous = state.interaction
           setSnapGuides([])
           if (previous.mode === 'dragging-nodes') {
+            commitNodeOverrides(previous)
             reparentAfterDrag(previous.nodeIds)
             reparentNodesCapturedByMovedGroups(previous.nodeIds)
           }
           if (previous.mode === 'resizing-node') {
+            commitNodeOverrides(previous)
             reparentNodesCapturedByGroups([previous.nodeId], [previous.nodeId])
           }
           setInteraction({ mode: 'idle' })
@@ -2191,7 +2213,10 @@ export function createBoardEngine(
         (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
       )
       return JSON.stringify(
-        toPersistedDocument(getSnapshot(), featureDocuments),
+        toPersistedDocument(
+          buildSnapshot(state, grid, buildPublicNodeMap(state)),
+          featureDocuments,
+        ),
       )
     },
     importJSON(json, mode = 'replace') {
@@ -2199,6 +2224,7 @@ export function createBoardEngine(
         'importJSON',
         [mode],
         () => {
+          nodeOverrides.clear()
           const document = normalizeDocumentForImport(JSON.parse(json))
           assertCanRestoreDocument(document)
           const snapshot = documentToSnapshot(document)

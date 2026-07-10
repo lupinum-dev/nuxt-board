@@ -41,6 +41,7 @@ interface ReactiveLayer {
 interface ReactiveLayerDeps {
   state: MutableBoardState
   grid: GridSettings
+  getEffectiveNodes: () => Map<NodeId, BoardNode>
   emit: <K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
@@ -48,7 +49,7 @@ interface ReactiveLayerDeps {
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { state, grid, emit } = deps
+  const { state, grid, emit, getEffectiveNodes } = deps
 
   const batchCtrl = createBatchController()
   const $camera = createSubscribable<Camera>(
@@ -80,7 +81,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
 
   function getPublicNodeMap(): ReadonlyMap<NodeId, BoardNode> {
     if (!cachedPublicNodeMap) {
-      cachedPublicNodeMap = buildPublicNodeMap(state)
+      cachedPublicNodeMap = buildPublicNodeMap({ nodes: getEffectiveNodes() })
     }
     return cachedPublicNodeMap
   }
