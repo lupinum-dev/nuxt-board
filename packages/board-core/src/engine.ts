@@ -108,7 +108,6 @@ import type {
   BoardPlugin,
   CommandMetadata,
   InteractionState,
-  ValidationMode,
   JsonCanvasDocument,
   NodeConstraints,
   NodeId,
@@ -133,7 +132,8 @@ export class CommandBlockedError extends BoardError {
 const CONNECTIONS_FEATURE_NAME = 'connections'
 const RECORD_COMMAND: CommandMetadata = { history: 'record' }
 const IGNORE_COMMAND: CommandMetadata = { history: 'ignore' }
-const IGNORE_UNVALIDATED_COMMAND: CommandMetadata = {
+type RuntimeCommandMetadata = CommandMetadata & { validate?: false }
+const IGNORE_UNVALIDATED_COMMAND: RuntimeCommandMetadata = {
   history: 'ignore',
   validate: false,
 }
@@ -160,7 +160,6 @@ export function createBoardEngine<
     ...DEFAULT_NODE_CONSTRAINTS,
     ...options.nodes,
   }
-  const validationMode: ValidationMode = options.validation ?? 'strict'
   const diagnosticsEnabled = Boolean(options.diagnostics)
   const traceLimit =
     typeof options.diagnostics === 'object' &&
@@ -461,7 +460,7 @@ export function createBoardEngine<
     name: string,
     args: unknown[],
     fn: () => T,
-    metadata: CommandMetadata = RECORD_COMMAND,
+    metadata: RuntimeCommandMetadata = RECORD_COMMAND,
   ): T {
     assertAlive()
     const validateCommand = metadata.validate !== false
@@ -527,7 +526,7 @@ export function createBoardEngine<
     name: string,
     args: unknown[],
     fn: () => Promise<T>,
-    metadata: CommandMetadata = RECORD_COMMAND,
+    metadata: RuntimeCommandMetadata = RECORD_COMMAND,
   ): Promise<T> {
     assertAlive()
     const validateCommand = metadata.validate !== false
@@ -587,7 +586,6 @@ export function createBoardEngine<
   }
 
   const validate = createValidator({
-    validationMode,
     getState: () => getState(),
     getGrid: () => grid,
     emitFailure: (failure) => emitImmediate('validation:failed', failure),

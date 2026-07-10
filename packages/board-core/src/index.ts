@@ -55,7 +55,6 @@ export type {
   InteractionMode,
   InteractionState,
   ValidationFailure,
-  ValidationMode,
   BoardPluginApis,
   JsonCanvasBackgroundStyle,
   JsonCanvasDocument,

@@ -330,9 +330,6 @@ export interface BoardSnapshot {
   readonly nextZIndex: number
 }
 
-/** Validation handling strategy for development and tests. */
-export type ValidationMode = 'strict' | 'warn' | 'off'
-
 export interface BoardPluginApis {}
 
 /** Opaque install token carrying the API installed by a plugin factory. */
@@ -348,14 +345,14 @@ type UnionToIntersection<T> = (
   ? TIntersection
   : never
 
-type PluginApi<TPlugin> = TPlugin extends BoardPlugin<infer TApis>
-  ? TApis
-  : never
+type PluginApi<TPlugin> =
+  TPlugin extends BoardPlugin<infer TApis> ? TApis : never
 
-export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> =
-  [TPlugins[number]] extends [never]
-    ? BoardPluginApis
-    : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
+export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> = [
+  TPlugins[number],
+] extends [never]
+  ? BoardPluginApis
+  : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
 
 /** Engine factory options shared by commands, internal features, and renderers. */
 export interface BoardEngineOptions<
@@ -368,7 +365,6 @@ export interface BoardEngineOptions<
   boxSelect?: Partial<BoxSelectSettings>
   plugins?: TPlugins
   diagnostics?: boolean | { traceLimit?: number }
-  validation?: ValidationMode
   initialNodes?: ReadonlyArray<BoardNode>
   initialDocument?: JsonCanvasDocument
 }
@@ -394,7 +390,6 @@ export type CommandHistoryPolicy = 'record' | 'ignore'
 /** Explicit command lifecycle metadata consumed by internal features. */
 export interface CommandMetadata {
   history: CommandHistoryPolicy
-  validate?: boolean
 }
 
 /** Event contract emitted by the board engine. Internal features extend this interface via module augmentation. */

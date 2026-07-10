@@ -6,7 +6,6 @@ import type {
   CommandMetadata,
   GridSettings,
   ValidationFailure,
-  ValidationMode,
 } from '../types.js'
 
 const BATCH_COMMAND_METADATA: CommandMetadata = {
@@ -46,7 +45,6 @@ interface BatchCommandController {
 }
 
 interface ValidationDeps {
-  validationMode: ValidationMode
   getState: () => BoardState
   getGrid: () => GridSettings
   emitFailure: (failure: ValidationFailure) => void
@@ -90,12 +88,11 @@ export function createCommandGuardRegistry(): CommandGuardRegistry {
 
 export function createValidator(deps: ValidationDeps) {
   return function validate(context: string): void {
-    if (deps.validationMode === 'off') return
     const failures = validateState(deps.getState(), deps.getGrid(), context)
     for (const failure of failures) {
       deps.emitFailure(failure)
     }
-    if (failures.length > 0 && deps.validationMode === 'strict') {
+    if (failures.length > 0) {
       throw new Error(
         `Board validation failed in ${context}: ${failures[0]?.message}`,
       )
