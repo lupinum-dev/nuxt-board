@@ -20,7 +20,6 @@ import {
   getBoundsFromNode,
   sortIdsByZIndex,
 } from './hierarchy.js'
-import { cloneInteraction } from './invariants.js'
 import {
   applyResizeDelta,
   applyResizeDeltaLocked,
@@ -70,6 +69,11 @@ import {
   createValidator,
 } from './engine/command-runtime.js'
 import { createReactiveLayer } from './engine/subscribables.js'
+import {
+  stagePersistentRoots,
+  type MutablePluginStates,
+  type PersistentRoots,
+} from './engine/transaction.js'
 import {
   documentToSnapshot,
   materializeSnapshotNodes,
@@ -154,7 +158,7 @@ export function createBoardEngine<
 ): BoardEngine<InstalledPluginApis<TPlugins>, InstalledPluginEvents<TPlugins>> {
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
-  const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
+  let grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
   const boxSelectBehavior: BoxSelectBehavior =
     options.boxSelect?.behavior ?? 'autocad'
   const nodeConstraints: NodeConstraints = {
@@ -184,12 +188,7 @@ export function createBoardEngine<
   const commitListeners = new Set<(commit: InternalBoardCommit) => void>()
   const nodeDeletedHooks = new Set<(nodeId: NodeId) => void>()
   const pluginCleanups = new Map<string, () => void>()
-  const pluginStates = new Map<
-    string,
-    {
-      state: unknown
-    }
-  >()
+  let pluginStates: MutablePluginStates = new Map()
   const pluginPersistence = new Map<
     string,
     {
@@ -214,7 +213,7 @@ export function createBoardEngine<
     }
   }
 
-  const state: MutableBoardState = {
+  let state: MutableBoardState = {
     camera,
     nodes: new Map(),
     selection: new Set(),
@@ -254,8 +253,8 @@ export function createBoardEngine<
   }
 
   const reactive = createReactiveLayer({
-    state,
-    grid,
+    getState: () => state,
+    getGrid: () => grid,
     emit,
     getEffectiveNodes: () => {
       if (nodeOverrides.size === 0) return state.nodes
@@ -328,40 +327,27 @@ export function createBoardEngine<
     return buildPublicState(state, grid, getPublicNodeMap())
   }
 
-  interface EngineRestorePoint {
-    camera: Camera
-    nodes: Map<NodeId, BoardNode>
-    selection: Set<NodeId>
-    interaction: InteractionState
-    snapGuides: SnapGuide[]
-    nextZIndex: number
-    grid: GridSettings
-    pluginStatesSnapshot: Map<string, unknown>
+  function beginPersistentTransaction(): PersistentRoots {
+    const checkpoint = { state, grid, pluginStates }
+    const candidate = stagePersistentRoots(checkpoint)
+    state = candidate.state
+    grid = candidate.grid
+    pluginStates = candidate.pluginStates
+    return checkpoint
   }
 
-  function createRestorePoint(): EngineRestorePoint {
-    return {
-      camera: { ...state.camera },
-      nodes: new Map(state.nodes),
-      selection: new Set(state.selection),
-      interaction: cloneInteraction(state.interaction),
-      snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
-      nextZIndex: state.nextZIndex,
-      grid: { ...grid },
-      pluginStatesSnapshot: new Map(
-        Array.from(pluginStates, ([name, pluginState]) => [
-          name,
-          structuredClone(pluginState.state),
-        ]),
-      ),
-    }
+  function rollbackPersistentTransaction(checkpoint: PersistentRoots): void {
+    state = checkpoint.state
+    grid = checkpoint.grid
+    pluginStates = checkpoint.pluginStates
+    invalidateNodeCache()
   }
 
   function captureHistoryRoot(): InternalHistoryRoot {
     return {
-      nodes: new Map(state.nodes),
+      nodes: state.nodes,
       grid: freezeClone({ ...grid }),
-      selection: new Set(state.selection),
+      selection: state.selection,
       nextZIndex: state.nextZIndex,
       pluginSlices: new Map(
         Array.from(pluginStates, ([name, pluginState]) => [
@@ -421,37 +407,6 @@ export function createBoardEngine<
     }
   }
 
-  function restoreEngineState(
-    restorePoint: EngineRestorePoint,
-    notify = true,
-  ): void {
-    state.camera = { ...restorePoint.camera }
-    state.nodes = new Map(restorePoint.nodes)
-    state.selection = new Set(restorePoint.selection)
-    state.interaction = cloneInteraction(restorePoint.interaction)
-    state.snapGuides = restorePoint.snapGuides.map((guide) => ({ ...guide }))
-    state.nextZIndex = restorePoint.nextZIndex
-    Object.assign(grid, restorePoint.grid)
-    invalidateNodeCache()
-    for (const [
-      name,
-      pluginStateSnapshot,
-    ] of restorePoint.pluginStatesSnapshot) {
-      const pluginState = pluginStates.get(name)
-      if (pluginState) {
-        pluginState.state = structuredClone(pluginStateSnapshot)
-      }
-    }
-    if (notify) {
-      notifyCameraChanged()
-      notifyGridChanged()
-      notifyNodesChanged()
-      notifySelectionChanged()
-      notifyInteractionChanged()
-      notifySnapGuidesChanged()
-    }
-  }
-
   function runCommand<T>(
     name: string,
     args: unknown[],
@@ -460,8 +415,7 @@ export function createBoardEngine<
   ): T {
     assertAlive()
     const validateCommand = metadata.validate !== false
-    // Command guards run before any events are emitted.
-    // If the chain doesn't call next(), the command is cancelled.
+    // Guards run before state is staged or lifecycle events are emitted.
     const blockedReason = commandGuards.run(name, args, metadata)
     if (blockedReason) {
       emitImmediate('command:blocked', name, args, metadata)
@@ -477,8 +431,9 @@ export function createBoardEngine<
       batchCtrl.depth += 1
       eventBus.beginTransaction()
     }
-    const restorePoint = validateCommand ? createRestorePoint() : null
     const historyBefore = ownsEffects ? captureHistoryRoot() : null
+    const checkpoint =
+      ownsEffects && validateCommand ? beginPersistentTransaction() : null
     try {
       const result = fn()
       if (validateCommand) {
@@ -507,8 +462,8 @@ export function createBoardEngine<
       }
       return result
     } catch (error) {
-      if (restorePoint) {
-        restoreEngineState(restorePoint, false)
+      if (checkpoint) {
+        rollbackPersistentTransaction(checkpoint)
       }
       if (ownsEffects) {
         batchCtrl.depth -= 1
@@ -539,8 +494,9 @@ export function createBoardEngine<
       batchCtrl.depth += 1
       eventBus.beginTransaction()
     }
-    const restorePoint = validateCommand ? createRestorePoint() : null
     const historyBefore = ownsEffects ? captureHistoryRoot() : null
+    const checkpoint =
+      ownsEffects && validateCommand ? beginPersistentTransaction() : null
     try {
       const result = await fn()
       if (validateCommand) {
@@ -564,6 +520,9 @@ export function createBoardEngine<
       return result
     } catch (error) {
       if (error instanceof AnimationCancelled) {
+        if (checkpoint) {
+          rollbackPersistentTransaction(checkpoint)
+        }
         if (ownsEffects) {
           batchCtrl.depth -= 1
           batches.rollbackBatchNotifications()
@@ -571,8 +530,8 @@ export function createBoardEngine<
         }
         return undefined as T
       }
-      if (restorePoint) {
-        restoreEngineState(restorePoint, false)
+      if (checkpoint) {
+        rollbackPersistentTransaction(checkpoint)
       }
       if (ownsEffects) {
         batchCtrl.depth -= 1
@@ -1165,15 +1124,15 @@ export function createBoardEngine<
     },
     batch(fn) {
       assertAlive()
-      const restorePoint = createRestorePoint()
       const historyBefore = captureHistoryRoot()
+      const checkpoint = beginPersistentTransaction()
       eventBus.beginTransaction()
       try {
         batches.batch(fn)
         eventBus.commitTransaction()
         publishCommit('batch', RECORD_COMMAND, historyBefore)
       } catch (error) {
-        restoreEngineState(restorePoint, false)
+        rollbackPersistentTransaction(checkpoint)
         eventBus.rollbackTransaction()
         throw error
       }

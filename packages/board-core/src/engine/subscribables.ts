@@ -39,8 +39,8 @@ interface ReactiveLayer {
 }
 
 interface ReactiveLayerDeps {
-  state: MutableBoardState
-  grid: GridSettings
+  getState: () => MutableBoardState
+  getGrid: () => GridSettings
   getEffectiveNodes: () => Map<NodeId, BoardNode>
   emit: <K extends keyof BoardEventMap>(
     event: K,
@@ -49,15 +49,17 @@ interface ReactiveLayerDeps {
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { state, grid, emit, getEffectiveNodes } = deps
+  const { getState, getGrid, emit, getEffectiveNodes } = deps
+  const initialState = getState()
+  const initialGrid = getGrid()
 
   const batchCtrl = createBatchController()
   const $camera = createSubscribable<Camera>(
-    freezeClone({ ...state.camera }),
+    freezeClone({ ...initialState.camera }),
     batchCtrl,
   )
   const $grid = createSubscribable<GridSettings>(
-    freezeClone({ ...grid }),
+    freezeClone({ ...initialGrid }),
     batchCtrl,
   )
   const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
@@ -65,15 +67,15 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     batchCtrl,
   )
   const $selection = createSubscribable<ReadonlySet<NodeId>>(
-    new Set(state.selection),
+    new Set(initialState.selection),
     batchCtrl,
   )
   const $interaction = createSubscribable<InteractionState>(
-    cloneInteraction(state.interaction),
+    cloneInteraction(initialState.interaction),
     batchCtrl,
   )
   const $snapGuides = createSubscribable<readonly SnapGuide[]>(
-    state.snapGuides.map((guide) => freezeClone({ ...guide })),
+    initialState.snapGuides.map((guide) => freezeClone({ ...guide })),
     batchCtrl,
   )
 
@@ -96,26 +98,29 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function notifyCameraChanged(): void {
-    $camera.set(freezeClone({ ...state.camera }))
+    $camera.set(freezeClone({ ...getState().camera }))
   }
 
   function notifyGridChanged(): void {
-    $grid.set(freezeClone({ ...grid }))
+    $grid.set(freezeClone({ ...getGrid() }))
   }
 
   function notifySelectionChanged(): void {
-    $selection.set(new Set(state.selection))
+    $selection.set(new Set(getState().selection))
   }
 
   function notifyInteractionChanged(): void {
-    $interaction.set(cloneInteraction(state.interaction))
+    $interaction.set(cloneInteraction(getState().interaction))
   }
 
   function notifySnapGuidesChanged(): void {
-    $snapGuides.set(state.snapGuides.map((guide) => freezeClone({ ...guide })))
+    $snapGuides.set(
+      getState().snapGuides.map((guide) => freezeClone({ ...guide })),
+    )
   }
 
   function setCamera(next: Camera): void {
+    const state = getState()
     const prev = { ...state.camera }
     if (prev.x === next.x && prev.y === next.y && prev.z === next.z) return
     state.camera = next
@@ -124,6 +129,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setSelection(nextSelection: Iterable<NodeId>): void {
+    const state = getState()
     const prev = Array.from(state.selection.values())
     const next = Array.from(nextSelection)
     if (sameArray(prev, next)) return
@@ -133,6 +139,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setInteraction(next: InteractionState): void {
+    const state = getState()
     const prev = state.interaction
     state.interaction = next
     notifyInteractionChanged()
@@ -150,6 +157,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setSnapGuides(next: SnapGuide[]): void {
+    const state = getState()
     state.snapGuides = next
     notifySnapGuidesChanged()
   }
