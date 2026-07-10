@@ -1,10 +1,18 @@
 import type {
   Bounds,
+  BoardEventMap,
   BoardNode,
   EdgeId,
   NodeId,
   Point,
 } from '@lupinum/board-core'
+
+/** Public events installed with the connections plugin. */
+export interface ConnectionsEventMap extends BoardEventMap {
+  'edge:created': (edge: BoardEdge) => void
+  'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
+  'edge:deleted': (edgeId: EdgeId) => void
+}
 
 /** Side of a rectangular node used for connection anchors. */
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'

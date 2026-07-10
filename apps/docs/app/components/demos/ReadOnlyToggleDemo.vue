@@ -77,12 +77,12 @@ function applyReadOnly() {
     return
   }
 
-  unsubscribeReadOnly = engine.addCommandGuard((name, _args, next) => {
+  unsubscribeReadOnly = engine.addCommandGuard(({ name }) => {
     if (blockedCommands.has(name)) {
       blockedCount.value += 1
-      return
+      return 'Board is read-only.'
     }
-    next()
+    return true
   })
 }
 

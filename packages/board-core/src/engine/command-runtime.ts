@@ -14,7 +14,7 @@ const BATCH_COMMAND_METADATA: CommandMetadata = {
 
 interface CommandGuardRegistry {
   add(fn: CommandGuard): () => void
-  run(name: string, args: unknown[]): boolean
+  run(name: string, args: unknown[], metadata: CommandMetadata): string | null
   clear(): void
 }
 
@@ -61,20 +61,23 @@ export function createCommandGuardRegistry(): CommandGuardRegistry {
     }
   }
 
-  function run(name: string, args: unknown[]): boolean {
-    if (guards.length === 0) return true
-    let proceeded = false
-    let i = 0
-    function step(): void {
-      const guard = guards[i++]
-      if (guard) {
-        guard(name, args, step)
-      } else {
-        proceeded = true
+  function run(
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ): string | null {
+    const command = Object.freeze({
+      name,
+      args: Object.freeze([...args]),
+      metadata: Object.freeze({ ...metadata }),
+    })
+    for (const guard of guards) {
+      const result = guard(command)
+      if (result !== true) {
+        return result
       }
     }
-    step()
-    return proceeded
+    return null
   }
 
   return {

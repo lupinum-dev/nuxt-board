@@ -33,7 +33,7 @@ import type {
   ConnectionsApi,
   CreateNodeForConnectionContext,
   ConnectionRouting,
-  EdgeEnd,
+  ConnectionsEventMap,
   ResolvedConnectionEndpoint,
 } from './types.js'
 import {
@@ -98,9 +98,10 @@ export const BoardConnectionLayer = defineComponent({
     const injected = useBoardEngine()
     const engine = computed(
       () =>
-        injected.engine as BoardEngine<{
-          connections: ConnectionsApi
-        }>,
+        injected.engine as BoardEngine<
+          { connections: ConnectionsApi },
+          ConnectionsEventMap
+        >,
     )
     const version = shallowRef(0)
     const markerId = `board-connection-arrow-${useId().replace(/[^A-Za-z0-9_-]/g, '-')}`

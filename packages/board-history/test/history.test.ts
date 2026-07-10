@@ -8,10 +8,9 @@ describe('history plugin', () => {
     const engine = createBoardEngine({
       plugins: [historyPlugin()],
     })
-    engine.addCommandGuard((name, _args, next) => {
-      if (name === 'createNode') return
-      next()
-    })
+    engine.addCommandGuard(({ name }) =>
+      name === 'createNode' ? 'Board is read-only.' : true,
+    )
 
     expect(() =>
       engine.createNode({

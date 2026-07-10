@@ -137,12 +137,11 @@ Install the same first-party features before importing documents that use them. 
 Use command guards for concrete host policy such as read-only mode:
 
 ```ts
-const removeGuard = engine.addCommandGuard((name, _args, next) => {
-  if (name === 'deleteSelected' || name === 'createNode') {
-    return
-  }
-  next()
-})
+const removeGuard = engine.addCommandGuard(({ name }) =>
+  name === 'deleteSelected' || name === 'createNode'
+    ? 'Board is read-only.'
+    : true,
+)
 ```
 
 Listen to `command:blocked` when UI should explain ignored actions. Remove guards with the returned unsubscribe.

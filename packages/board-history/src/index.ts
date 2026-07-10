@@ -40,7 +40,7 @@ export interface HistoryApi {
   getState: () => HistoryState
 }
 
-interface HistoryEventMap extends BoardEventMap {
+export interface HistoryEventMap extends BoardEventMap {
   'history:push': (entry: HistoryEntry) => void
   'history:undo': (entry: HistoryEntry | null) => void
   'history:redo': (entry: HistoryEntry | null) => void
@@ -51,15 +51,6 @@ interface HistoryPluginApis extends BoardPluginApis {
   history: HistoryApi
 }
 
-declare module '@lupinum/board-core' {
-  interface BoardEventMap {
-    'history:push': (entry: HistoryEntry) => void
-    'history:undo': (entry: HistoryEntry | null) => void
-    'history:redo': (entry: HistoryEntry | null) => void
-    'history:clear': () => void
-  }
-}
-
 function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
   return { label: frame.label, timestamp: frame.timestamp }
 }
@@ -67,7 +58,7 @@ function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
 /** Install deterministic undo/redo backed by committed structural roots. */
 export function historyPlugin(
   options: HistoryPluginOptions = {},
-): BoardPlugin<HistoryPluginApis> {
+): BoardPlugin<HistoryPluginApis, HistoryEventMap> {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
 
   return defineInternalBoardPlugin<HistoryPluginApis, HistoryEventMap>({

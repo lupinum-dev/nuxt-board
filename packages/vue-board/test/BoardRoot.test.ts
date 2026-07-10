@@ -411,16 +411,16 @@ describe('BoardRoot', () => {
       text: 'Node',
     })
     const blocked: string[] = []
-    engine.addCommandGuard((name, _args, next) => {
+    engine.addCommandGuard(({ name }) => {
       if (
         name === 'beginNodeDrag' ||
         name === 'duplicateNodes' ||
         name === 'createNode'
       ) {
         blocked.push(name)
-        return
+        return 'Board is read-only.'
       }
-      next()
+      return true
     })
 
     const wrapper = mount(BoardRoot, {

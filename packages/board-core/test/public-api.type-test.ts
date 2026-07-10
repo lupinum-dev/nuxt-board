@@ -7,7 +7,7 @@ import {
 
 declare const engine: BoardEngine
 
-engine.addCommandGuard((_name, _args, next) => next())
+engine.addCommandGuard(() => true)
 
 // @ts-expect-error Internal action stream is not part of the consumer engine API.
 engine.onAction(() => undefined)

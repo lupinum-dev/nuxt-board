@@ -16,3 +16,5 @@ const engine = createBoardEngine({
 })
 engine.plugins.history.undo()
 engine.plugins.connections.getEdges()
+engine.on('history:push', (historyEntry) => historyEntry.label)
+engine.on('edge:deleted', (edgeId) => edgeId)

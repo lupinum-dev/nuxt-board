@@ -42,6 +42,7 @@ export type {
   ConnectionRouteSegment,
   ConnectionRouting,
   ConnectionsApi,
+  ConnectionsEventMap,
   CreateNodeForConnectionContext,
   EdgeEnd,
   ResolvedConnectionEndpoint,

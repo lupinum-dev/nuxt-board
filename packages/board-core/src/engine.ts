@@ -103,6 +103,7 @@ import type {
   InternalBoardPlugin,
   InternalPluginContext,
   InstalledPluginApis,
+  InstalledPluginEvents,
   BoardPluginApis,
   BoardPlugin,
   CommandMetadata,
@@ -122,8 +123,9 @@ export class CommandBlockedError extends BoardError {
   constructor(
     readonly command: string,
     readonly args: readonly unknown[],
+    readonly reason: string,
   ) {
-    super(`Command "${command}" was blocked by a command guard.`)
+    super(`Command "${command}" was blocked: ${reason}`)
     this.name = 'CommandBlockedError'
   }
 }
@@ -149,7 +151,7 @@ export function createBoardEngine<
   const TPlugins extends readonly BoardPlugin[] = readonly [],
 >(
   options: BoardEngineOptions<TPlugins> = {} as BoardEngineOptions<TPlugins>,
-): BoardEngine<InstalledPluginApis<TPlugins>> {
+): BoardEngine<InstalledPluginApis<TPlugins>, InstalledPluginEvents<TPlugins>> {
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
   const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
@@ -460,9 +462,10 @@ export function createBoardEngine<
     const validateCommand = metadata.validate !== false
     // Command guards run before any events are emitted.
     // If the chain doesn't call next(), the command is cancelled.
-    if (!commandGuards.run(name, args)) {
+    const blockedReason = commandGuards.run(name, args, metadata)
+    if (blockedReason) {
       emitImmediate('command:blocked', name, args, metadata)
-      throw new CommandBlockedError(name, args)
+      throw new CommandBlockedError(name, args, blockedReason)
     }
     const started = performance.now()
     const inBatch = batches.isBatching()
@@ -524,9 +527,10 @@ export function createBoardEngine<
   ): Promise<T> {
     assertAlive()
     const validateCommand = metadata.validate !== false
-    if (!commandGuards.run(name, args)) {
+    const blockedReason = commandGuards.run(name, args, metadata)
+    if (blockedReason) {
       emitImmediate('command:blocked', name, args, metadata)
-      throw new CommandBlockedError(name, args)
+      throw new CommandBlockedError(name, args, blockedReason)
     }
     const started = performance.now()
     emitImmediate('command:before', name, args, metadata)
@@ -2240,5 +2244,8 @@ export function createBoardEngine<
 
   validate('createBoardEngine')
 
-  return engine as unknown as BoardEngine<InstalledPluginApis<TPlugins>>
+  return engine as unknown as BoardEngine<
+    InstalledPluginApis<TPlugins>,
+    InstalledPluginEvents<TPlugins>
+  >
 }

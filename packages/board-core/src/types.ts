@@ -331,11 +331,15 @@ export interface BoardSnapshot {
 
 export interface BoardPluginApis {}
 
-/** Opaque install token carrying the API installed by a plugin factory. */
-export interface BoardPlugin<TApis extends BoardPluginApis = BoardPluginApis> {
+/** Opaque install token carrying the API and events installed by a plugin factory. */
+export interface BoardPlugin<
+  TApis extends BoardPluginApis = BoardPluginApis,
+  TEvents = {},
+> {
   readonly name: string
   readonly __boardPluginBrand: never
   readonly __boardPluginApis: TApis
+  readonly __boardPluginEvents: TEvents
 }
 
 type UnionToIntersection<T> = (
@@ -345,13 +349,22 @@ type UnionToIntersection<T> = (
   : never
 
 type PluginApi<TPlugin> =
-  TPlugin extends BoardPlugin<infer TApis> ? TApis : never
+  TPlugin extends BoardPlugin<infer TApis, infer _TEvents> ? TApis : never
+
+type PluginEvents<TPlugin> =
+  TPlugin extends BoardPlugin<infer _TApis, infer TEvents> ? TEvents : never
 
 export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> = [
   TPlugins[number],
 ] extends [never]
   ? BoardPluginApis
   : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
+
+export type InstalledPluginEvents<TPlugins extends readonly BoardPlugin[]> = [
+  TPlugins[number],
+] extends [never]
+  ? {}
+  : UnionToIntersection<PluginEvents<TPlugins[number]>>
 
 /** Engine factory options shared by commands, internal plugins, and renderers. */
 export interface BoardEngineOptions<
@@ -430,16 +443,15 @@ export interface BoardEventMap {
 export type PluginCleanup = () => void
 export type Unsubscribe = () => void
 
-/**
- * A synchronous command gate for host-level policy such as read-only mode.
- * Call `next()` to allow the command to proceed; omit it to block before state,
- * events, history, or plugin reducers are touched.
- */
-export type CommandGuard = (
-  name: string,
-  args: unknown[],
-  next: () => void,
-) => void
+/** Immutable command description evaluated by host policy guards. */
+export interface CommandContext {
+  readonly name: string
+  readonly args: readonly unknown[]
+  readonly metadata: CommandMetadata
+}
+
+/** Allow a command with `true`, or block it with an actionable reason. */
+export type CommandGuard = (command: Readonly<CommandContext>) => true | string
 
 /** Minimal observable contract used by the engine and framework adapters. */
 export interface Subscribable<T> {
@@ -455,6 +467,7 @@ export interface Subscribable<T> {
  */
 export interface BoardEngine<
   TPluginApis extends BoardPluginApis = BoardPluginApis,
+  TPluginEvents = {},
 > {
   readonly plugins: TPluginApis
   readonly $camera: Subscribable<Camera>
@@ -470,15 +483,18 @@ export interface BoardEngine<
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  on<K extends keyof BoardEventMap>(
+  on<K extends keyof (BoardEventMap & TPluginEvents)>(
     event: K,
-    handler: BoardEventMap[K],
+    handler: (BoardEventMap & TPluginEvents)[K],
   ): Unsubscribe
-  once<K extends keyof BoardEventMap>(
+  once<K extends keyof (BoardEventMap & TPluginEvents)>(
     event: K,
-    handler: BoardEventMap[K],
+    handler: (BoardEventMap & TPluginEvents)[K],
   ): Unsubscribe
-  off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
+  off<K extends keyof (BoardEventMap & TPluginEvents)>(
+    event: K,
+    handler: (BoardEventMap & TPluginEvents)[K],
+  ): void
   exportTrace(): TraceEntry[]
   /**
    * Register a synchronous command gate. Intended for concrete host policy such
@@ -619,7 +635,7 @@ export interface InternalBoardPlugin<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends BoardPlugin<TPluginApis> {
+> extends BoardPlugin<TPluginApis, TEvents> {
   name: string
   slice?: InternalPluginSlice
   persistence?: InternalPluginPersistence<TPluginApis, TEvents>

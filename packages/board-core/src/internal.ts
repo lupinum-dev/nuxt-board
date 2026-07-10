@@ -29,7 +29,7 @@ export function defineInternalBoardPlugin<
 export function assertInternalBoardPlugin(
   plugin: BoardPlugin,
 ): asserts plugin is InternalBoardPlugin {
-  const candidate = plugin as Partial<InternalBoardPlugin>
+  const candidate = plugin as unknown as Partial<InternalBoardPlugin>
   if (typeof candidate.name !== 'string' || candidate.name.length === 0) {
     throw new Error('Invalid board plugin: expected a named plugin token.')
   }

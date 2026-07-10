@@ -219,11 +219,12 @@ describe('board engine', () => {
   it('runs command guards for async camera commands', async () => {
     const engine = createBoardEngine()
     const blocked: string[] = []
-    engine.addCommandGuard((name) => {
+    engine.addCommandGuard(({ name }) => {
       if (name === 'panTo' || name === 'zoomToFit') {
         blocked.push(name)
-        return
+        return 'Camera is locked.'
       }
+      return true
     })
 
     await expect(engine.panTo({ x: 100, y: 100 })).rejects.toBeInstanceOf(

@@ -3,7 +3,6 @@ import {
   asNodeId,
   BoardConflictError,
   BoardInputError,
-  type BoardEventMap,
   type BoardPlugin,
   type BoardPluginApis,
   type EdgeId,
@@ -19,6 +18,7 @@ import type {
   ConnectionConfig,
   ConnectionPluginOptions,
   ConnectionsApi,
+  ConnectionsEventMap,
 } from './types.js'
 
 const CONNECTIONS_FEATURE_NAME = 'connections'
@@ -73,12 +73,6 @@ const initialConnectionsState: ConnectionsState = {
   nextZIndex: 1,
 }
 
-interface ConnectionsEventMap extends BoardEventMap {
-  'edge:created': (edge: BoardEdge) => void
-  'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
-  'edge:deleted': (edgeId: EdgeId) => void
-}
-
 interface ConnectionsPluginApis extends BoardPluginApis {
   connections: ConnectionsApi
 }
@@ -110,14 +104,6 @@ function reduceConnectionsState(
   }
 }
 
-declare module '@lupinum/board-core' {
-  interface BoardEventMap {
-    'edge:created': (edge: BoardEdge) => void
-    'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
-    'edge:deleted': (edgeId: EdgeId) => void
-  }
-}
-
 function cloneEdge<T>(edge: BoardEdge<T>): BoardEdge<T> {
   return {
     ...edge,
@@ -145,7 +131,7 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionsPlugin(
   options: ConnectionPluginOptions = {},
-): BoardPlugin<ConnectionsPluginApis> {
+): BoardPlugin<ConnectionsPluginApis, ConnectionsEventMap> {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
