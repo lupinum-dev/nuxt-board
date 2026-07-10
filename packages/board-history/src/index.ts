@@ -8,7 +8,7 @@ import {
   type InternalHistoryRoot,
 } from '@lupinum/board-core/internal'
 
-/** Public history state exposed by the history plugin extension. */
+/** Public history state exposed by the history plugin API. */
 export interface HistoryState {
   undoDepth: number
   redoDepth: number
@@ -31,7 +31,7 @@ export interface HistoryPluginOptions {
   maxSteps?: number
 }
 
-export interface HistoryExtension {
+export interface HistoryApi {
   undo: () => void
   redo: () => void
   canUndo: () => boolean
@@ -47,8 +47,8 @@ interface HistoryEventMap extends BoardEventMap {
   'history:clear': () => void
 }
 
-interface HistoryFeatureExtensions extends BoardPluginApis {
-  history: HistoryExtension
+interface HistoryPluginApis extends BoardPluginApis {
+  history: HistoryApi
 }
 
 declare module '@lupinum/board-core' {
@@ -67,10 +67,10 @@ function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
 /** Install deterministic undo/redo backed by committed structural roots. */
 export function historyPlugin(
   options: HistoryPluginOptions = {},
-): BoardPlugin<HistoryFeatureExtensions> {
+): BoardPlugin<HistoryPluginApis> {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
 
-  return defineInternalBoardPlugin<HistoryFeatureExtensions, HistoryEventMap>({
+  return defineInternalBoardPlugin<HistoryPluginApis, HistoryEventMap>({
     name: 'history',
     install(engine) {
       const undoStack: HistoryFrame[] = []
@@ -90,7 +90,7 @@ export function historyPlugin(
         engine.emit('history:push', toHistoryEntry(frame))
       })
 
-      const api: HistoryExtension = {
+      const api: HistoryApi = {
         undo() {
           const frame = undoStack.pop() ?? null
           if (!frame) {

@@ -17,11 +17,11 @@ import {
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
   resolveEdgeRenderState,
-  type ConnectionsExtension,
+  type ConnectionsApi,
 } from '../src'
 
 function expectEdgesReferenceExistingNodes(
-  engine: BoardEngine<{ connections: ConnectionsExtension }>,
+  engine: BoardEngine<{ connections: ConnectionsApi }>,
 ): void {
   for (const edge of engine.plugins.connections.getEdges()) {
     expect(engine.hasNode(edge.from)).toBe(true)
@@ -129,7 +129,7 @@ describe('connections plugin', () => {
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
   })
 
-  it('exports and imports edges through the connections extension only', () => {
+  it('exports and imports edges through the connections plugin only', () => {
     const firstId = asNodeId('first')
     const secondId = asNodeId('second')
     const edgeId = asEdgeId('edge-a')
@@ -205,11 +205,11 @@ describe('connections plugin', () => {
     ])
   })
 
-  it('fails clearly instead of silently dropping imported edges without the connections extension', () => {
-    const withoutExtension = createBoardEngine()
+  it('fails clearly instead of silently dropping imported edges without the connections plugin', () => {
+    const withoutPlugin = createBoardEngine()
 
     expect(() =>
-      withoutExtension.importJSON(
+      withoutPlugin.importJSON(
         JSON.stringify({
           nodes: [
             {
@@ -234,9 +234,9 @@ describe('connections plugin', () => {
           edges: [{ id: 'edge-a', fromNode: 'first', toNode: 'second' }],
         }),
       ),
-    ).toThrow(/edges require the connections extension/)
+    ).toThrow(/edges require the connections plugin/)
 
-    expect(withoutExtension.getSnapshot().nodes).toHaveLength(0)
+    expect(withoutPlugin.getSnapshot().nodes).toHaveLength(0)
   })
 
   it('removes edges when deleting a group that still has child nodes', () => {

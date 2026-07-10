@@ -71,15 +71,15 @@ export interface CreateNodeForConnectionContext {
   candidateAnchor: AnchorPosition | null
 }
 
-/** Resolved connection defaults installed with the engine extension. */
+/** Resolved connection defaults installed with the engine plugin. */
 export interface ConnectionConfig {
   routing: ConnectionRouting
   endpointMode: ConnectionEndpointMode
   defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>
 }
 
-/** Engine extension installed by the connections plugin. */
-export interface ConnectionsExtension {
+/** Engine API installed by the connections plugin. */
+export interface ConnectionsApi {
   createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
     input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
       id?: EdgeId

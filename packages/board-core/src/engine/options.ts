@@ -98,13 +98,13 @@ export function validateBoardConfiguration(
     }
   }
 
-  const extensionNames = new Set<string>()
-  for (const extension of config.plugins) {
-    if (extensionNames.has(extension.name)) {
+  const pluginNames = new Set<string>()
+  for (const plugin of config.plugins) {
+    if (pluginNames.has(plugin.name)) {
       throw new BoardInputError(
-        `Board extension name "${extension.name}" is registered more than once.`,
+        `Board plugin name "${plugin.name}" is registered more than once.`,
       )
     }
-    extensionNames.add(extension.name)
+    pluginNames.add(plugin.name)
   }
 }

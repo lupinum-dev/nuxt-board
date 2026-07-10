@@ -354,7 +354,7 @@ export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> = [
   ? BoardPluginApis
   : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
 
-/** Engine factory options shared by commands, internal features, and renderers. */
+/** Engine factory options shared by commands, internal plugins, and renderers. */
 export interface BoardEngineOptions<
   TPlugins extends readonly BoardPlugin[] = readonly [],
 > {
@@ -387,7 +387,7 @@ export interface TraceEntry {
 /** History capture policy attached to command lifecycle events. */
 export type CommandHistoryPolicy = 'record' | 'ignore'
 
-/** Explicit command lifecycle metadata consumed by internal features. */
+/** Explicit command lifecycle metadata consumed by internal plugins. */
 export interface CommandMetadata {
   history: CommandHistoryPolicy
 }
@@ -428,13 +428,13 @@ export interface BoardEventMap {
   'validation:failed': (failure: ValidationFailure) => void
 }
 
-export type FeatureCleanup = () => void
+export type PluginCleanup = () => void
 export type Unsubscribe = () => void
 
 /**
  * A synchronous command gate for host-level policy such as read-only mode.
  * Call `next()` to allow the command to proceed; omit it to block before state,
- * events, history, or feature reducers are touched.
+ * events, history, or plugin reducers are touched.
  */
 export type CommandGuard = (
   name: string,
@@ -553,26 +553,26 @@ export interface BoardEngine<
 }
 
 /**
- * Internal feature surface used by workspace packages such as history and
+ * Internal plugin surface used by workspace packages such as history and
  * connections. This is internal infrastructure, not a general plugin surface.
  */
 export interface InternalPluginContext<
-  TExtensions extends BoardPluginApis = BoardPluginApis,
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 > extends Omit<BoardEngine, 'plugins'> {
-  readonly plugins: TExtensions
+  readonly plugins: TPluginApis
   emit<K extends keyof TEvents>(event: K, ...args: Parameters<TEvents[K]>): void
-  extend<K extends keyof TExtensions & string>(
+  extend<K extends keyof TPluginApis & string>(
     key: K,
-    value: TExtensions[K],
+    value: TPluginApis[K],
   ): void
   /**
    * Execute a named mutation through guarded command handling:
    * command guards → command:before → fn() → validation → command:after.
-   * Use this in internal features so edge/connection operations appear in traces,
-   * are interceptable by command guards, and are captured by the history feature.
+   * Use this in internal plugins so edge/connection operations appear in traces,
+   * are interceptable by command guards, and are captured by the history plugin.
    */
   runCommand<T>(
     name: string,
@@ -581,9 +581,9 @@ export interface InternalPluginContext<
     metadata: CommandMetadata,
   ): T
   /** Read the immutable persistent slice owned by the current plugin. */
-  getFeatureState<S>(): S
+  getPluginState<S>(): S
   /** Replace the current plugin's persistent slice inside the active command. */
-  updateFeatureState<S>(update: (current: S) => S): S
+  updatePluginState<S>(update: (current: S) => S): S
   /** Observe successful outer commits after state and public effects publish. */
   onCommit(
     listener: (commit: import('./state/types.js').InternalBoardCommit) => void,
@@ -593,53 +593,53 @@ export interface InternalPluginContext<
 }
 
 /** Persistent state owned by an internal plugin. */
-interface InternalFeatureSlice {
+interface InternalPluginSlice {
   initial: unknown
 }
 
 /** Optional internal hook for persisted JSON Canvas document data. */
-export interface InternalFeaturePersistence<
-  TExtensions extends BoardPluginApis = BoardPluginApis,
+export interface InternalPluginPersistence<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 > {
   exportDocument?(
-    engine: InternalPluginContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
   ): Partial<JsonCanvasDocument> | void
   importDocument?(
-    engine: InternalPluginContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
   ): void
 }
 
-/** Internal feature contract for state, commands, and side effects. */
+/** Internal plugin contract for state, commands, and side effects. */
 export interface InternalBoardPlugin<
-  TExtensions extends BoardPluginApis = BoardPluginApis,
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends BoardPlugin<TExtensions> {
+> extends BoardPlugin<TPluginApis> {
   name: string
-  slice?: InternalFeatureSlice
-  persistence?: InternalFeaturePersistence<TExtensions, TEvents>
+  slice?: InternalPluginSlice
+  persistence?: InternalPluginPersistence<TPluginApis, TEvents>
   nodeDeleted?(
-    engine: InternalPluginContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
     nodeId: NodeId,
   ): void
   install(
-    engine: InternalPluginContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
     options?: Record<string, unknown>,
-  ): void | FeatureCleanup
+  ): void | PluginCleanup
 }
 
 export type InternalBoardPluginDefinition<
-  TExtensions extends BoardPluginApis = BoardPluginApis,
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> = Omit<InternalBoardPlugin<TExtensions, TEvents>, keyof BoardPlugin> & {
+> = Omit<InternalBoardPlugin<TPluginApis, TEvents>, keyof BoardPlugin> & {
   readonly name: string
 }

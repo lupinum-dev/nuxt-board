@@ -312,7 +312,7 @@ describe('board-core public document API', () => {
     expect(engine.getNode(existing.id).text).toBe('keep')
   })
 
-  it('rejects edge documents without the connections extension before mutating state', () => {
+  it('rejects edge documents without the connections plugin before mutating state', () => {
     const engine = createBoardEngine()
     const existing = engine.createNode({ type: 'text', text: 'keep' })
     const before = engine.getSnapshot()
@@ -343,7 +343,7 @@ describe('board-core public document API', () => {
           edges: [{ id: 'edge', fromNode: 'source', toNode: 'target' }],
         }),
       ),
-    ).toThrow(/edges require the connections extension/)
+    ).toThrow(/edges require the connections plugin/)
 
     expect(engine.getSnapshot()).toEqual(before)
     expect(engine.getNode(existing.id).text).toBe('keep')
@@ -358,14 +358,14 @@ describe('board-core public document API', () => {
       },
       persistence: {
         importDocument(extensionEngine) {
-          extensionEngine.updateFeatureState<{ imports: number }>((state) => ({
+          extensionEngine.updatePluginState<{ imports: number }>((state) => ({
             imports: state.imports + 1,
           }))
           throw new Error('extension import failed')
         },
       },
       install(extensionEngine) {
-        extensionState = () => extensionEngine.getFeatureState()
+        extensionState = () => extensionEngine.getPluginState()
       },
     })
     const engine = createBoardEngine({

@@ -4,7 +4,7 @@ export type {
   InternalBoardPlugin,
   InternalBoardPluginDefinition,
   InternalPluginContext,
-  InternalFeaturePersistence,
+  InternalPluginPersistence,
 } from './types.js'
 
 import type {
@@ -16,28 +16,26 @@ import type {
 } from './types.js'
 
 export function defineInternalBoardPlugin<
-  TExtensions extends BoardPluginApis = BoardPluginApis,
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 >(
-  feature: InternalBoardPluginDefinition<TExtensions, TEvents>,
-): InternalBoardPlugin<TExtensions, TEvents> {
-  return feature as InternalBoardPlugin<TExtensions, TEvents>
+  plugin: InternalBoardPluginDefinition<TPluginApis, TEvents>,
+): InternalBoardPlugin<TPluginApis, TEvents> {
+  return plugin as InternalBoardPlugin<TPluginApis, TEvents>
 }
 
 export function assertInternalBoardPlugin(
-  extension: BoardPlugin,
-): asserts extension is InternalBoardPlugin {
-  const maybeFeature = extension as Partial<InternalBoardPlugin>
-  if (typeof maybeFeature.name !== 'string' || maybeFeature.name.length === 0) {
-    throw new Error(
-      'Invalid board extension: expected a named extension token.',
-    )
+  plugin: BoardPlugin,
+): asserts plugin is InternalBoardPlugin {
+  const candidate = plugin as Partial<InternalBoardPlugin>
+  if (typeof candidate.name !== 'string' || candidate.name.length === 0) {
+    throw new Error('Invalid board plugin: expected a named plugin token.')
   }
-  if (typeof maybeFeature.install !== 'function') {
+  if (typeof candidate.install !== 'function') {
     throw new Error(
-      `Invalid board extension "${maybeFeature.name}": expected an internal feature token created by a first-party extension factory.`,
+      `Invalid board plugin "${candidate.name}": expected a token created by a first-party plugin factory.`,
     )
   }
 }

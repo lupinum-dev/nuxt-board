@@ -114,14 +114,14 @@ describe('hard board domain regressions', () => {
       },
       persistence: {
         importDocument(engine) {
-          engine.updateFeatureState<{ imports: number }>((state) => ({
+          engine.updatePluginState<{ imports: number }>((state) => ({
             imports: state.imports + 1,
           }))
           throw new Error('feature import failed')
         },
       },
       install(engine) {
-        failingFeatureState = () => engine.getFeatureState()
+        failingFeatureState = () => engine.getPluginState()
       },
     })
     const engine = createBoardEngine({

@@ -138,7 +138,7 @@ const IGNORE_UNVALIDATED_COMMAND: RuntimeCommandMetadata = {
 }
 
 /**
- * Create a headless board engine with commands, reactive state, and internal feature hooks.
+ * Create a headless board engine with commands, reactive state, and internal plugin hooks.
  *
  * @example
  * const engine = createBoardEngine({
@@ -181,14 +181,14 @@ export function createBoardEngine<
   const commandGuards = createCommandGuardRegistry()
   const commitListeners = new Set<(commit: InternalBoardCommit) => void>()
   const nodeDeletedHooks = new Set<(nodeId: NodeId) => void>()
-  const featureCleanups = new Map<string, () => void>()
-  const featureStates = new Map<
+  const pluginCleanups = new Map<string, () => void>()
+  const pluginStates = new Map<
     string,
     {
       state: unknown
     }
   >()
-  const featurePersistence = new Map<
+  const pluginPersistence = new Map<
     string,
     {
       context: InternalPluginContext
@@ -339,7 +339,7 @@ export function createBoardEngine<
     snapGuides: SnapGuide[]
     nextZIndex: number
     grid: GridSettings
-    featureStatesSnapshot: Map<string, unknown>
+    pluginStatesSnapshot: Map<string, unknown>
   }
 
   function createRestorePoint(): EngineRestorePoint {
@@ -351,10 +351,10 @@ export function createBoardEngine<
       snapGuides: state.snapGuides.map((guide) => ({ ...guide })),
       nextZIndex: state.nextZIndex,
       grid: { ...grid },
-      featureStatesSnapshot: new Map(
-        Array.from(featureStates, ([name, featureState]) => [
+      pluginStatesSnapshot: new Map(
+        Array.from(pluginStates, ([name, pluginState]) => [
           name,
-          structuredClone(featureState.state),
+          structuredClone(pluginState.state),
         ]),
       ),
     }
@@ -367,9 +367,9 @@ export function createBoardEngine<
       selection: new Set(state.selection),
       nextZIndex: state.nextZIndex,
       pluginSlices: new Map(
-        Array.from(featureStates, ([name, featureState]) => [
+        Array.from(pluginStates, ([name, pluginState]) => [
           name,
-          featureState.state,
+          pluginState.state,
         ]),
       ),
     }
@@ -438,11 +438,11 @@ export function createBoardEngine<
     invalidateNodeCache()
     for (const [
       name,
-      featureStateSnapshot,
-    ] of restorePoint.featureStatesSnapshot) {
-      const featureState = featureStates.get(name)
-      if (featureState) {
-        featureState.state = structuredClone(featureStateSnapshot)
+      pluginStateSnapshot,
+    ] of restorePoint.pluginStatesSnapshot) {
+      const pluginState = pluginStates.get(name)
+      if (pluginState) {
+        pluginState.state = structuredClone(pluginStateSnapshot)
       }
     }
     if (notify) {
@@ -1065,12 +1065,12 @@ export function createBoardEngine<
     return idMap
   }
 
-  function restoreFeatureDocuments(
+  function restorePluginDocuments(
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId> = new Map(),
   ): void {
-    for (const entry of featurePersistence.values()) {
+    for (const entry of pluginPersistence.values()) {
       entry.hooks.importDocument?.(entry.context, document, mode, idMap)
     }
   }
@@ -1078,40 +1078,40 @@ export function createBoardEngine<
   function assertCanRestoreDocument(document: JsonCanvasDocument): void {
     if (
       document.edges?.length &&
-      !featurePersistence.has(CONNECTIONS_FEATURE_NAME)
+      !pluginPersistence.has(CONNECTIONS_FEATURE_NAME)
     ) {
       throw new Error(
-        'Invalid board document: edges require the connections extension.',
+        'Invalid board document: edges require the connections plugin.',
       )
     }
   }
 
-  function installFeature(feature: InternalBoardPlugin): void {
-    if (featureCleanups.has(feature.name)) {
+  function installPlugin(plugin: InternalBoardPlugin): void {
+    if (pluginCleanups.has(plugin.name)) {
       return
     }
-    if (feature.slice) {
-      featureStates.set(feature.name, {
-        state: feature.slice.initial,
+    if (plugin.slice) {
+      pluginStates.set(plugin.name, {
+        state: plugin.slice.initial,
       })
     }
-    const featureCtx: InternalPluginContext = Object.assign(
+    const pluginCtx: InternalPluginContext = Object.assign(
       Object.create(engine) as InternalPluginContext,
       {
-        getFeatureState: <S>(): S => {
-          const entry = featureStates.get(feature.name)
+        getPluginState: <S>(): S => {
+          const entry = pluginStates.get(plugin.name)
           if (!entry) {
             throw new Error(
-              `Feature "${feature.name}" did not register a slice; getFeatureState is unavailable.`,
+              `Plugin "${plugin.name}" did not register a persistent slice.`,
             )
           }
           return entry.state as S
         },
-        updateFeatureState: <S>(update: (current: S) => S): S => {
-          const entry = featureStates.get(feature.name)
+        updatePluginState: <S>(update: (current: S) => S): S => {
+          const entry = pluginStates.get(plugin.name)
           if (!entry) {
             throw new Error(
-              `Plugin "${feature.name}" did not register a persistent slice.`,
+              `Plugin "${plugin.name}" did not register a persistent slice.`,
             )
           }
           const next = update(entry.state as S)
@@ -1120,17 +1120,17 @@ export function createBoardEngine<
         },
       },
     )
-    const cleanup = feature.install(featureCtx)
-    if (feature.nodeDeleted) {
-      nodeDeletedHooks.add((nodeId) => feature.nodeDeleted!(featureCtx, nodeId))
+    const cleanup = plugin.install(pluginCtx)
+    if (plugin.nodeDeleted) {
+      nodeDeletedHooks.add((nodeId) => plugin.nodeDeleted!(pluginCtx, nodeId))
     }
-    if (feature.persistence) {
-      featurePersistence.set(feature.name, {
-        context: featureCtx,
-        hooks: feature.persistence,
+    if (plugin.persistence) {
+      pluginPersistence.set(plugin.name, {
+        context: pluginCtx,
+        hooks: plugin.persistence,
       })
     }
-    featureCleanups.set(feature.name, cleanup ?? (() => undefined))
+    pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
   }
 
   const engine: InternalPluginContext = {
@@ -1148,13 +1148,13 @@ export function createBoardEngine<
       destroyed = true
       animationToken += 1
       nodeOverrides.clear()
-      for (const cleanup of featureCleanups.values()) {
+      for (const cleanup of pluginCleanups.values()) {
         cleanup()
       }
       emit('destroy')
-      featureCleanups.clear()
-      featureStates.clear()
-      featurePersistence.clear()
+      pluginCleanups.clear()
+      pluginStates.clear()
+      pluginPersistence.clear()
       commitListeners.clear()
       nodeDeletedHooks.clear()
       commandGuards.clear()
@@ -1251,9 +1251,9 @@ export function createBoardEngine<
           )
           state.nextZIndex = root.nextZIndex
           Object.assign(grid, root.grid)
-          for (const [name, featureState] of featureStates) {
+          for (const [name, pluginState] of pluginStates) {
             if (root.pluginSlices.has(name)) {
-              featureState.state = root.pluginSlices.get(name)
+              pluginState.state = root.pluginSlices.get(name)
             }
           }
           setInteraction({ mode: 'idle' })
@@ -1265,14 +1265,14 @@ export function createBoardEngine<
         IGNORE_COMMAND,
       )
     },
-    getFeatureState<S>(): S {
+    getPluginState<S>(): S {
       throw new Error(
-        'getFeatureState is only available inside a internal feature install() context.',
+        'getPluginState is only available inside an internal plugin install() context.',
       )
     },
-    updateFeatureState<S>(_update: (current: S) => S): S {
+    updatePluginState<S>(_update: (current: S) => S): S {
       throw new Error(
-        'updateFeatureState is only available inside an internal plugin install() context.',
+        'updatePluginState is only available inside an internal plugin install() context.',
       )
     },
     screenToWorld(point) {
@@ -2206,14 +2206,14 @@ export function createBoardEngine<
     },
     exportJSON() {
       assertAlive()
-      const featureDocuments = Array.from(
-        featurePersistence.values(),
+      const pluginDocuments = Array.from(
+        pluginPersistence.values(),
         (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
       )
       return JSON.stringify(
         toPersistedDocument(
           buildSnapshot(state, grid, buildPublicNodeMap(state)),
-          featureDocuments,
+          pluginDocuments,
         ),
       )
     },
@@ -2227,7 +2227,7 @@ export function createBoardEngine<
           assertCanRestoreDocument(document)
           const snapshot = documentToSnapshot(document)
           const idMap = restoreSnapshot(snapshot, mode)
-          restoreFeatureDocuments(document, mode, idMap)
+          restorePluginDocuments(document, mode, idMap)
         },
         IGNORE_COMMAND,
       )
@@ -2236,14 +2236,14 @@ export function createBoardEngine<
 
   notifyNodesChanged()
 
-  for (const feature of options.plugins ?? []) {
-    assertInternalBoardPlugin(feature)
-    installFeature(feature)
+  for (const plugin of options.plugins ?? []) {
+    assertInternalBoardPlugin(plugin)
+    installPlugin(plugin)
   }
 
   if (initialDocument) {
     assertCanRestoreDocument(initialDocument)
-    restoreFeatureDocuments(initialDocument, 'replace')
+    restorePluginDocuments(initialDocument, 'replace')
   }
 
   validate('createBoardEngine')

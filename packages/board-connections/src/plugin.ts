@@ -16,7 +16,7 @@ import type {
   BoardEdgePatch,
   ConnectionConfig,
   ConnectionPluginOptions,
-  ConnectionsExtension,
+  ConnectionsApi,
   EdgeEnd,
 } from './types.js'
 
@@ -78,8 +78,8 @@ interface ConnectionsEventMap extends BoardEventMap {
   'edge:deleted': (edgeId: EdgeId) => void
 }
 
-interface ConnectionsFeatureExtensions extends BoardPluginApis {
-  connections: ConnectionsExtension
+interface ConnectionsPluginApis extends BoardPluginApis {
+  connections: ConnectionsApi
 }
 
 function reduceConnectionsState(
@@ -163,7 +163,7 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionsPlugin(
   options: ConnectionPluginOptions = {},
-): BoardPlugin<ConnectionsFeatureExtensions> {
+): BoardPlugin<ConnectionsPluginApis> {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'
@@ -174,8 +174,8 @@ export function connectionsPlugin(
   }
   const defaults = defaultEnds(defaultArrow)
 
-  const feature = defineInternalBoardPlugin<
-    ConnectionsFeatureExtensions,
+  const plugin = defineInternalBoardPlugin<
+    ConnectionsPluginApis,
     ConnectionsEventMap
   >({
     name: CONNECTIONS_FEATURE_NAME,
@@ -183,7 +183,7 @@ export function connectionsPlugin(
       initial: initialConnectionsState,
     },
     nodeDeleted(engine, nodeId) {
-      engine.updateFeatureState<ConnectionsState>((state) => {
+      engine.updatePluginState<ConnectionsState>((state) => {
         const edges = new Map(state.edges)
         for (const [id, edge] of edges) {
           if (edge.from === nodeId || edge.to === nodeId) edges.delete(id)
@@ -257,9 +257,9 @@ export function connectionsPlugin(
     },
     install(engine) {
       const getState = (): ConnectionsState =>
-        engine.getFeatureState<ConnectionsState>()
+        engine.getPluginState<ConnectionsState>()
       const applyAction = (action: ConnectionsAction): ConnectionsState =>
-        engine.updateFeatureState((state: ConnectionsState) =>
+        engine.updatePluginState((state: ConnectionsState) =>
           reduceConnectionsState(state, action),
         )
 
@@ -271,7 +271,7 @@ export function connectionsPlugin(
         return edge
       }
 
-      const api: ConnectionsExtension = {
+      const api: ConnectionsApi = {
         createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
           input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
             id?: EdgeId
@@ -457,5 +457,5 @@ export function connectionsPlugin(
     },
   })
 
-  return feature
+  return plugin
 }

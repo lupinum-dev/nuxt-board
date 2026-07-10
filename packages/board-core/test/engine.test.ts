@@ -102,13 +102,13 @@ describe('board engine', () => {
     expect(diagnosticEngine.exportTrace().length).toBeGreaterThan(0)
   })
 
-  it('rejects malformed extension objects before install', () => {
+  it('rejects malformed plugin objects before install', () => {
     expect(() =>
       createBoardEngine({
         plugins: [{ name: 'fake' } as never],
       }),
     ).toThrow(
-      /Invalid board extension "fake": expected an internal feature token/,
+      /Invalid board plugin "fake": expected a token created by a first-party plugin factory/,
     )
   })
 

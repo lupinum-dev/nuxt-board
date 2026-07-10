@@ -29,7 +29,7 @@ import type {
   AnchorSide,
   BoardEdge,
   ConnectionEndpointMode,
-  ConnectionsExtension,
+  ConnectionsApi,
   CreateNodeForConnectionContext,
   ConnectionRouting,
   EdgeEnd,
@@ -102,7 +102,7 @@ export const BoardConnectionLayer = defineComponent({
     const engine = computed(
       () =>
         (props.engine ?? injected.engine) as BoardEngine<{
-          connections: ConnectionsExtension
+          connections: ConnectionsApi
         }>,
     )
     const version = shallowRef(0)

@@ -1,4 +1,4 @@
-/** Install the connections plugin and its `engine.plugins.connections` extension. */
+/** Install the connections plugin and its `engine.plugins.connections` API. */
 export { connectionsPlugin } from './plugin.js'
 /** SVG layer that renders edges, labels, handles, and connection previews. */
 export { BoardConnectionLayer } from './layer.js'
@@ -29,7 +29,7 @@ export {
 /** Types for custom edge colors and preset names. */
 export type { EdgeColorOption, EdgeColorPreset } from './colors.js'
 
-/** Core edge model types and the connections engine extension contract. */
+/** Core edge model types and the connections engine API contract. */
 export type {
   AnchorPosition,
   AnchorSide,
@@ -41,7 +41,7 @@ export type {
   ConnectionRoute,
   ConnectionRouteSegment,
   ConnectionRouting,
-  ConnectionsExtension,
+  ConnectionsApi,
   CreateNodeForConnectionContext,
   EdgeEnd,
   ResolvedConnectionEndpoint,
