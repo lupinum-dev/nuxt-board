@@ -39,7 +39,6 @@ import {
   AnimationCancelled,
   getAnimationFrameDriver,
 } from './helpers/animation.js'
-import type { StoredNode } from './state/versioning.js'
 import type {
   InternalBoardCommit,
   InternalHistoryRoot,
@@ -199,13 +198,13 @@ export function createBoardEngine<
   function notifyNodeDeletedPlugins(nodeId: NodeId): void {
     for (const hook of nodeDeletedHooks) hook(nodeId)
   }
-  const clipboard: StoredNode[] = []
+  const clipboard: BoardNode[] = []
   const plugins = {} as BoardPluginApis
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let animationToken = 0
   let destroyed = false
   let activeGestureHistoryRoot: InternalHistoryRoot | null = null
-  const nodeOverrides = new Map<NodeId, StoredNode>()
+  const nodeOverrides = new Map<NodeId, BoardNode>()
 
   function assertAlive(): void {
     if (destroyed) {
@@ -318,7 +317,7 @@ export function createBoardEngine<
     return freezeClone({ ...viewportSize })
   }
 
-  function materializeNode(node: StoredNode): BoardNode {
+  function materializeNode(node: BoardNode): BoardNode {
     return materializeNodePure(node)
   }
 
@@ -334,7 +333,7 @@ export function createBoardEngine<
 
   interface EngineRestorePoint {
     camera: Camera
-    nodes: Map<NodeId, StoredNode>
+    nodes: Map<NodeId, BoardNode>
     selection: Set<NodeId>
     interaction: InteractionState
     snapGuides: SnapGuide[]
@@ -591,7 +590,7 @@ export function createBoardEngine<
     emitFailure: (failure) => emitImmediate('validation:failed', failure),
   })
 
-  function assertStoredNode(id: NodeId): StoredNode {
+  function assertBoardNode(id: NodeId): BoardNode {
     const node = nodeOverrides.get(id) ?? state.nodes.get(id)
     if (!node) {
       throw new BoardNotFoundError(`Node "${id}" does not exist.`)
@@ -599,7 +598,7 @@ export function createBoardEngine<
     return node
   }
 
-  function setNodeOverride(node: StoredNode): StoredNode {
+  function setNodeOverride(node: BoardNode): BoardNode {
     nodeOverrides.set(node.id, node)
     return node
   }
@@ -661,7 +660,7 @@ export function createBoardEngine<
     if (parent.type !== 'group') {
       throw new Error(`Node "${id}" parent "${parentId}" must be a group.`)
     }
-    let walk: StoredNode | undefined = parent
+    let walk: BoardNode | undefined = parent
     const seen = new Set<NodeId>()
     while (walk) {
       if (walk.id === id || seen.has(walk.id)) {
@@ -672,7 +671,7 @@ export function createBoardEngine<
     }
   }
 
-  function normalizeNode(input: NodeInput): StoredNode {
+  function normalizeNode(input: NodeInput): BoardNode {
     const rawPoint = { x: input.x ?? 0, y: input.y ?? 0 }
     const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint
     const width = grid.snap
@@ -726,7 +725,7 @@ export function createBoardEngine<
     )
   }
 
-  function applyNodePatch(node: StoredNode, patch: NodePatch): StoredNode {
+  function applyNodePatch(node: BoardNode, patch: NodePatch): BoardNode {
     const nextBase = {
       ...node,
       ...patch,
@@ -753,31 +752,31 @@ export function createBoardEngine<
     }
   }
 
-  function replaceStoredNodeWithoutNotify(
-    node: StoredNode,
-    next: StoredNode,
-  ): StoredNode {
+  function replaceBoardNodeWithoutNotify(
+    node: BoardNode,
+    next: BoardNode,
+  ): BoardNode {
     const stored = next
     state.nodes.set(node.id, stored)
     invalidateNodeCache()
     return stored
   }
 
-  function replaceStoredNode(node: StoredNode, next: StoredNode): StoredNode {
-    const stored = replaceStoredNodeWithoutNotify(node, next)
+  function replaceBoardNode(node: BoardNode, next: BoardNode): BoardNode {
+    const stored = replaceBoardNodeWithoutNotify(node, next)
     notifyNodesChanged()
     return stored
   }
 
-  function replaceStoredNodeAndDispatch(
-    node: StoredNode,
-    next: StoredNode,
-  ): StoredNode {
-    const stored = replaceStoredNode(node, next)
+  function replaceBoardNodeAndDispatch(
+    node: BoardNode,
+    next: BoardNode,
+  ): BoardNode {
+    const stored = replaceBoardNode(node, next)
     return stored
   }
 
-  function emitNodeResize(before: StoredNode, after: StoredNode): void {
+  function emitNodeResize(before: BoardNode, after: BoardNode): void {
     const publicNode = materializeNode(after)
     emit('node:resized', publicNode, {
       x: before.x,
@@ -789,10 +788,10 @@ export function createBoardEngine<
   }
 
   function getPublicNode(id: NodeId): BoardNode {
-    return materializeNode(assertStoredNode(id))
+    return materializeNode(assertBoardNode(id))
   }
 
-  function getDirectChildren(parentId: NodeId): StoredNode[] {
+  function getDirectChildren(parentId: NodeId): BoardNode[] {
     return Array.from(state.nodes.values()).filter(
       (node) => node.parentId === parentId,
     )
@@ -832,7 +831,7 @@ export function createBoardEngine<
   }
 
   function fixSubtreeZOrderAfter(
-    parent: StoredNode | null,
+    parent: BoardNode | null,
     nodeId: NodeId,
   ): void {
     const node = state.nodes.get(nodeId)
@@ -841,7 +840,7 @@ export function createBoardEngine<
     }
     let current = node
     if (parent && current.zIndex <= parent.zIndex) {
-      current = replaceStoredNodeAndDispatch(node, {
+      current = replaceBoardNodeAndDispatch(node, {
         ...node,
         zIndex: state.nextZIndex++,
       })
@@ -878,15 +877,12 @@ export function createBoardEngine<
       if (nextParent === node.parentId) {
         continue
       }
-      const updated = replaceStoredNodeAndDispatch(node, {
+      const updated = replaceBoardNodeAndDispatch(node, {
         ...node,
         parentId: nextParent,
       })
       emit('node:updated', materializeNode(updated), materializeNode(node))
-      fixSubtreeZOrderAfter(
-        nextParent ? assertStoredNode(nextParent) : null,
-        id,
-      )
+      fixSubtreeZOrderAfter(nextParent ? assertBoardNode(nextParent) : null, id)
     }
   }
 
@@ -897,7 +893,7 @@ export function createBoardEngine<
     const exclude = new Set(excludeIds)
     const groups = groupIds
       .map((id) => state.nodes.get(id))
-      .filter((node): node is StoredNode => Boolean(node))
+      .filter((node): node is BoardNode => Boolean(node))
       .filter((node) => node.type === 'group' && node.visible)
 
     if (groups.length === 0) {
@@ -927,18 +923,18 @@ export function createBoardEngine<
     reparentNodesCapturedByGroups(movedIds, movedIds)
   }
 
-  function getSelectionNodes(): StoredNode[] {
+  function getSelectionNodes(): BoardNode[] {
     return getSelectionNodesPure(state)
   }
 
-  function getCopyClosureNodes(): StoredNode[] {
+  function getCopyClosureNodes(): BoardNode[] {
     return getCopyClosureNodesPure(state)
   }
 
   function duplicateForest(
-    nodes: StoredNode[],
+    nodes: BoardNode[],
     offset: Point,
-  ): { nodes: StoredNode[]; idMap: ReadonlyMap<NodeId, NodeId> } {
+  ): { nodes: BoardNode[]; idMap: ReadonlyMap<NodeId, NodeId> } {
     return duplicateForestPure(state, grid, nodes, offset)
   }
 
@@ -980,7 +976,7 @@ export function createBoardEngine<
     const source = ids
       ? ids
           .map((id) => state.nodes.get(id))
-          .filter((node): node is StoredNode => Boolean(node && node.visible))
+          .filter((node): node is BoardNode => Boolean(node && node.visible))
       : Array.from(state.nodes.values()).filter((node) => node.visible)
     if (source.length === 0) {
       return null
@@ -1305,7 +1301,7 @@ export function createBoardEngine<
     },
     getNodeAt(worldPoint) {
       assertAlive()
-      let best: StoredNode | null = null
+      let best: BoardNode | null = null
       let bestZ = -Infinity
       for (const node of state.nodes.values()) {
         if (
@@ -1448,9 +1444,9 @@ export function createBoardEngine<
     },
     updateNode(id: NodeId, patch: NodePatch) {
       return runCommand('updateNode', [id, patch], () => {
-        const current = assertStoredNode(id)
+        const current = assertBoardNode(id)
         const next = applyNodePatch(current, patch)
-        const stored = replaceStoredNodeAndDispatch(current, next)
+        const stored = replaceBoardNodeAndDispatch(current, next)
         const publicNode = materializeNode(stored)
         emit('node:updated', publicNode, materializeNode(current))
         return publicNode
@@ -1458,7 +1454,7 @@ export function createBoardEngine<
     },
     deleteNode(id) {
       runCommand('deleteNode', [id], () => {
-        assertStoredNode(id)
+        assertBoardNode(id)
         const toDelete = new Set<NodeId>()
         collectSubtreeIdSet(id, toDelete)
         for (const deleteId of deletionOrderPostOrder(toDelete)) {
@@ -1479,7 +1475,7 @@ export function createBoardEngine<
     },
     moveNode(id, dx, dy) {
       return runCommand('moveNode', [id, dx, dy], () => {
-        const node = assertStoredNode(id)
+        const node = assertBoardNode(id)
         if (node.locked) {
           return materializeNode(node)
         }
@@ -1489,7 +1485,7 @@ export function createBoardEngine<
         )
         const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
-          const current = assertStoredNode(targetId)
+          const current = assertBoardNode(targetId)
           const next = {
             ...current,
             x: grid.snap
@@ -1499,7 +1495,7 @@ export function createBoardEngine<
               ? snapValue(current.y + dy, grid.size)
               : current.y + dy,
           }
-          const stored = replaceStoredNodeWithoutNotify(current, next)
+          const stored = replaceBoardNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
           deltas.push({
             id: targetId,
@@ -1535,7 +1531,7 @@ export function createBoardEngine<
         )
         const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
-          const current = assertStoredNode(targetId)
+          const current = assertBoardNode(targetId)
           const next = {
             ...current,
             x: grid.snap
@@ -1545,7 +1541,7 @@ export function createBoardEngine<
               ? snapValue(current.y + dy, grid.size)
               : current.y + dy,
           }
-          const stored = replaceStoredNodeWithoutNotify(current, next)
+          const stored = replaceBoardNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
           deltas.push({
             id: targetId,
@@ -1567,7 +1563,7 @@ export function createBoardEngine<
     },
     resizeNode(id, handle, dx, dy) {
       return runCommand('resizeNode', [id, handle, dx, dy], () => {
-        const node = assertStoredNode(id)
+        const node = assertBoardNode(id)
         if (node.locked) {
           return materializeNode(node)
         }
@@ -1581,7 +1577,7 @@ export function createBoardEngine<
               minHeight: nodeConstraints.minHeight,
             })
           : raw
-        const stored = replaceStoredNodeAndDispatch(node, {
+        const stored = replaceBoardNodeAndDispatch(node, {
           ...node,
           ...nextBounds,
         })
@@ -1598,8 +1594,8 @@ export function createBoardEngine<
     },
     bringToFront(id) {
       runCommand('bringToFront', [id], () => {
-        const node = assertStoredNode(id)
-        const stored = replaceStoredNodeAndDispatch(node, {
+        const node = assertBoardNode(id)
+        const stored = replaceBoardNodeAndDispatch(node, {
           ...node,
           zIndex: state.nextZIndex++,
         })
@@ -1609,11 +1605,11 @@ export function createBoardEngine<
     },
     sendToBack(id) {
       runCommand('sendToBack', [id], () => {
-        const node = assertStoredNode(id)
+        const node = assertBoardNode(id)
         const minZ = Math.min(
           ...Array.from(state.nodes.values(), (entry) => entry.zIndex),
         )
-        const stored = replaceStoredNodeAndDispatch(node, {
+        const stored = replaceBoardNodeAndDispatch(node, {
           ...node,
           zIndex: minZ - 1,
         })
@@ -1623,8 +1619,8 @@ export function createBoardEngine<
     },
     lockNode(id) {
       runCommand('lockNode', [id], () => {
-        const node = assertStoredNode(id)
-        const stored = replaceStoredNodeAndDispatch(node, {
+        const node = assertBoardNode(id)
+        const stored = replaceBoardNodeAndDispatch(node, {
           ...node,
           locked: true,
         })
@@ -1633,8 +1629,8 @@ export function createBoardEngine<
     },
     unlockNode(id) {
       runCommand('unlockNode', [id], () => {
-        const node = assertStoredNode(id)
-        const stored = replaceStoredNodeAndDispatch(node, {
+        const node = assertBoardNode(id)
+        const stored = replaceBoardNodeAndDispatch(node, {
           ...node,
           locked: false,
         })
@@ -1646,7 +1642,7 @@ export function createBoardEngine<
         const forest = forestIdsFromSeeds(ids)
         const source = Array.from(forest)
           .map((id) => state.nodes.get(id))
-          .filter((node): node is StoredNode => Boolean(node))
+          .filter((node): node is BoardNode => Boolean(node))
           .sort((a, b) => a.zIndex - b.zIndex)
         const duplicated = duplicateForest(source, offset)
         const created = duplicated.nodes
@@ -1779,7 +1775,7 @@ export function createBoardEngine<
         'beginNodeDrag',
         [id, pointerId, screenPoint],
         () => {
-          const node = assertStoredNode(id)
+          const node = assertBoardNode(id)
           if (node.locked) {
             return
           }
@@ -1798,7 +1794,7 @@ export function createBoardEngine<
           }
           const startNodePositions = Object.fromEntries(
             nodeIds.map((nodeId) => {
-              const current = assertStoredNode(nodeId)
+              const current = assertBoardNode(nodeId)
               return [nodeId, { x: current.x, y: current.y }]
             }),
           ) as Record<NodeId, Point>
@@ -1818,7 +1814,7 @@ export function createBoardEngine<
         'beginResize',
         [id, handle, pointerId, screenPoint],
         () => {
-          const node = assertStoredNode(id)
+          const node = assertBoardNode(id)
           if (node.locked) {
             return
           }
@@ -1867,7 +1863,7 @@ export function createBoardEngine<
         'beginTextEdit',
         [id],
         () => {
-          assertStoredNode(id)
+          assertBoardNode(id)
           setSelection([id])
           setInteraction({ mode: 'editing-text', nodeId: id })
         },
@@ -1876,10 +1872,10 @@ export function createBoardEngine<
     },
     commitTextEdit(id, text) {
       return runCommand('commitTextEdit', [id, text], () => {
-        const node = assertStoredNode(id)
+        const node = assertBoardNode(id)
         let stored = node
         if (text !== undefined) {
-          stored = replaceStoredNodeAndDispatch(node, { ...node, text })
+          stored = replaceBoardNodeAndDispatch(node, { ...node, text })
           emit('node:updated', materializeNode(stored), materializeNode(node))
         }
         setInteraction({ mode: 'idle' })
@@ -1948,7 +1944,7 @@ export function createBoardEngine<
             let maxY = -Infinity
 
             for (const nodeId of interaction.nodeIds) {
-              const node = assertStoredNode(nodeId)
+              const node = assertBoardNode(nodeId)
               const origin = interaction.startNodePositions[nodeId]
               if (!origin) {
                 continue
@@ -1997,7 +1993,7 @@ export function createBoardEngine<
             const moveDeltas: { id: NodeId; before: Point; after: Point }[] = []
             let movedNodeCount = 0
             for (const nodeId of interaction.nodeIds) {
-              const current = assertStoredNode(nodeId)
+              const current = assertBoardNode(nodeId)
               const preliminary = prelimBounds[nodeId]
               const origin = interaction.startNodePositions[nodeId]
               if (!preliminary || !origin) {
@@ -2034,7 +2030,7 @@ export function createBoardEngine<
           'updatePointer',
           [pointerId, screenPoint, modifiers],
           () => {
-            const node = assertStoredNode(interaction.nodeId)
+            const node = assertBoardNode(interaction.nodeId)
             const deltaX =
               (screenPoint.x - interaction.startScreenPoint.x) / state.camera.z
             const deltaY =
@@ -2204,7 +2200,7 @@ export function createBoardEngine<
     },
     syncGroupZOrder(groupId) {
       runCommand('syncGroupZOrder', [groupId], () => {
-        assertStoredNode(groupId)
+        assertBoardNode(groupId)
         restackGroupDescendantsAbove(groupId)
       })
     },

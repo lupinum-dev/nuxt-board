@@ -1,7 +1,6 @@
 import type { BoardNode } from '../types.js'
-import type { StoredNode } from './versioning.js'
 
-export function normalizeExistingNode(node: BoardNode): StoredNode {
+export function normalizeExistingNode(node: BoardNode): BoardNode {
   const parentId =
     typeof node.parentId === 'string' && node.parentId.length > 0
       ? node.parentId

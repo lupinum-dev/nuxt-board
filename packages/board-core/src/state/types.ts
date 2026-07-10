@@ -11,7 +11,6 @@ import type {
   SnapGuide,
   ZoomSettings,
 } from '../types.js'
-import type { StoredNode } from './versioning.js'
 
 export const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 }
 export const DEFAULT_ZOOM: ZoomSettings = { min: 0.1, max: 8 }
@@ -33,7 +32,7 @@ export const DEFAULT_VIEWPORT_SIZE: Point = { x: 1280, y: 720 }
 
 export interface MutableBoardState {
   camera: Camera
-  nodes: Map<NodeId, StoredNode>
+  nodes: Map<NodeId, BoardNode>
   selection: Set<NodeId>
   interaction: InteractionState
   snapGuides: SnapGuide[]
