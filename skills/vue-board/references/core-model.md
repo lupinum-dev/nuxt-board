@@ -39,7 +39,7 @@ Examples may choose `grid.size: 20` for readability, but do not call that the de
 
 - `initialNodes` expects complete `BoardNode` records, including `zIndex`, `locked`, and `visible`. Use this for deterministic SSR/tests.
 - `createNode(input)` accepts partial `NodeInput` and fills defaults. Use it for imperative setup and interactive creation.
-- `initialDocument` accepts a normalized JSON Canvas document. Documents with edges require the connections extension to be installed.
+- `initialDocument` accepts a normalized JSON Canvas document. Documents with edges require the connections plugin to be installed.
 - `plugins` installs first-party feature plugins such as `connectionsPlugin()` and `historyPlugin()`.
 
 ## Node Shape
@@ -69,7 +69,7 @@ Use commands as the mutation boundary:
 - Node commands: `createNode`, `updateNode`, `deleteNode`, `moveNode`, `translateSelectedNodes`, `resizeNode`, `bringToFront`, `sendToBack`, `lockNode`, `unlockNode`, `duplicateNodes`, `copySelected`, `pasteClipboard`
 - Selection commands: `select`, `selectAll`, `clearSelection`, `deleteSelected`
 - Camera commands: `panBy`, `panTo`, `zoomAt`, `zoomTo`, `zoomToFit`, `zoomToNodes`
-- Interaction commands: `beginPan`, `beginNodeDrag`, `beginResize`, `beginBoxSelect`, `beginTextEdit`, `commitTextEdit`, `updatePointer`, `endInteraction`
+- Public editing commands: `beginTextEdit`, `commitTextEdit`, `cancelTextEdit`. Pointer sessions are available only to first-party framework adapters.
 - Grid/hierarchy/persistence: `updateGridSettings`, `exportDocument`, `loadDocument`
 
 Reads include `getState`, `getGridSettings`, `getViewportSize`, `getNode`, `findNode`, `hasNode`, `getNodeAt`, `getNodesInBounds`, `getSelection`, `getVisibleBounds`, `screenToWorld`, `worldToScreen`, `exportTrace`, and subscribables such as `$nodes`.

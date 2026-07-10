@@ -128,9 +128,9 @@ Do not persist:
 
 `exportDocument()` persists JSON Canvas nodes, camera, grid, selection, z-order, lock state, visibility, hierarchy, and installed feature metadata.
 
-Install the same first-party features before importing documents that use them. Documents with edges require the connections extension. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
+Install the same first-party plugins before importing documents that use them. Documents with edges require the connections plugin. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
 
-`loadDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
+`loadDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections plugin fail instead of producing a partial board.
 
 ## Read-only and Command Guards
 

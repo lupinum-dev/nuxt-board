@@ -184,34 +184,32 @@ The transaction kernel owns exactly these responsibilities:
 1. reject commands after destruction;
 2. evaluate command guards;
 3. create or join the current outer transaction;
-4. expose typed mutation primitives to command implementations;
-5. collect an ordered change set;
-6. let installed plugins reduce relevant changes into their own slices;
-7. validate the candidate root and plugin slices;
-8. atomically swap the committed root;
-9. publish subscriptions, events, and the internal commit notification;
-10. discard everything on failure.
+4. stage writable core roots, plugin slices, and session checkpoints;
+5. let commands and installed plugins update that candidate;
+6. validate the candidate root and plugin slices;
+7. prepare pure commit projections from the validated before/after roots;
+8. atomically retain the committed candidate;
+9. finalize history and plugin projections;
+10. publish subscriptions and public events;
+11. discard everything on failure.
 
 It does not own domain geometry, persistence parsing, Vue state, history inversion, or arbitrary middleware orchestration.
 
-### Minimal internal API
+### Internal candidate roots
 
 ```ts
-interface BoardTransaction {
-  readonly metadata: CommandMetadata
-  getNode(id: NodeId): BoardNode | undefined
-  setNode(node: BoardNode): void
-  deleteNode(id: NodeId): void
-  setSelection(ids: Iterable<NodeId>): void
-  setGrid(grid: GridSettings): void
-  setCamera(camera: Camera): void
-  setNextZIndex(value: number): void
-  getPluginSlice<S>(name: string): S
-  setPluginSlice<S>(name: string, value: S): void
+interface PersistentRoots {
+  state: MutableBoardState
+  grid: GridSettings
+  pluginStates: Map<string, { state: unknown }>
 }
 ```
 
-These methods lazily clone affected collections and append typed before/after facts to the change set. Commands do not mutate maps directly.
+The outer transaction stages these roots once. Command implementations mutate
+the staged candidate directly and nested commands join it. This deliberately
+keeps the internal write path explicit instead of adding a second transaction
+primitive API that every command and plugin would have to translate through.
+Node records and unchanged plugin slices remain structurally shared.
 
 ### Commit metadata
 
@@ -242,33 +240,34 @@ const result = engine.batch(
 
 If any nested operation throws, the candidate root and queued effects are discarded. Subscribers observe neither the intermediate state nor a compensating rollback state.
 
-### Change sets
+### Commit projections
 
-Change sets are commit facts, not replay instructions:
+Projectors receive immutable before/after structural roots:
 
 ```ts
-interface BoardChangeSet {
-  readonly nodes: readonly NodeChange[]
-  readonly selection?: ValueChange<readonly NodeId[]>
-  readonly grid?: ValueChange<GridSettings>
-  readonly camera?: ValueChange<Camera>
-  readonly pluginSlices: ReadonlyMap<string, ValueChange<unknown>>
+interface InternalBoardCommit {
+  readonly label: string
+  readonly before: InternalHistoryRoot
+  readonly after: InternalHistoryRoot
 }
 ```
 
-They serve three purposes only:
+Projectors prepare deferred, no-throw effects before any public publication:
 
-- derive public events after commit;
-- notify only the subscribables whose values changed;
-- provide diagnostics and tests with an immutable summary.
+- history prepares one structural frame;
+- connections derives its edge events and updates its previous-root reference;
+- a projector that throws during preparation aborts the transaction.
 
-History stores before/after history-root references, not change sets, because change sets would reintroduce inversion and dependency ordering.
+History stores the before/after roots directly. There is no action inversion,
+replay ordering, or generic public change-set abstraction.
 
 ## Commands and domain ownership
 
 ### Commands compute; transactions write
 
-A command may perform complex domain planning—hierarchy closure, snapping, reparenting, z-order repair—but all writes go through `BoardTransaction`.
+A command may perform complex domain planning—hierarchy closure, snapping,
+reparenting, z-order repair—but all persistent writes target the one staged
+outer candidate.
 
 Node deletion is planned in dependency-safe order. Plugins see core changes inside the transaction and update their own slices before commit. Connections therefore removes incident edges atomically without an `onAction` side effect.
 
@@ -903,23 +902,26 @@ apps/
 
 ## Hard-cutover API changes
 
-| v1                                      | vNext                                    |
-| --------------------------------------- | ---------------------------------------- | ------ | -------------------- |
-| `extensions`                            | `plugins`                                |
-| `engine.ext`                            | `engine.plugins`                         |
-| `BoardExtension`                        | `BoardPlugin`                            |
-| `connectionPlugin()`                    | `connectionsPlugin()`                    |
-| globally augmented required plugin APIs | plugin-tuple inferred APIs               |
-| `getSnapshot()`                         | removed; use `getState()`                |
-| `exportJSON()`                          | `exportDocument()`                       |
-| `importJSON(json, mode)`                | `loadDocument(unknown, { mode })`        |
-| `duplicateNodes(): BoardNode[]`         | `duplicateNodes(): DuplicateNodesResult` |
-| public pointer interaction methods      | sealed adapter API                       |
-| engine `ready` event                    | removed                                  |
-| `validation: 'strict'                   | 'warn'                                   | 'off'` | always-valid commits |
-| history `debounceMs`                    | explicit gesture/batch boundaries        |
-| `@lupinum/board-minimap`                | `@lupinum/vue-board/minimap`             |
-| `@lupinum/board-connections` Vue export | `@lupinum/board-connections/vue`         |
+| v1                                        | vNext                                    |
+| ----------------------------------------- | ---------------------------------------- |
+| `extensions`                              | `plugins`                                |
+| `engine.ext`                              | `engine.plugins`                         |
+| `BoardExtension`                          | `BoardPlugin`                            |
+| `connectionPlugin()`                      | `connectionsPlugin()`                    |
+| globally augmented required plugin APIs   | plugin-tuple inferred APIs               |
+| `getSnapshot()`                           | removed; use `getState()`                |
+| `exportJSON()`                            | `exportDocument()`                       |
+| `importJSON(json, mode)`                  | `loadDocument(unknown, { mode })`        |
+| `duplicateNodes(): BoardNode[]`           | `duplicateNodes(): DuplicateNodesResult` |
+| public pointer interaction methods        | sealed adapter API                       |
+| engine `ready` event                      | removed                                  |
+| `validation: 'strict' \| 'warn' \| 'off'` | removed; commits always validate         |
+| history `debounceMs`                      | explicit gesture/batch boundaries        |
+| history `flushPending()`                  | removed; there is no pending timer       |
+| no `$grid` channel                        | `$grid` subscribable                     |
+| no `cancelTextEdit()`                     | `cancelTextEdit()`                       |
+| `@lupinum/board-minimap`                  | `@lupinum/vue-board/minimap`             |
+| `@lupinum/board-connections` Vue export   | `@lupinum/board-connections/vue`         |
 
 No alias packages, forwarding functions, compatibility overloads, feature flags, or migration runtime are added. Documentation and examples change in the same cutover.
 
@@ -1014,10 +1016,11 @@ Do not ship a release containing both history systems.
 
 ### Architecture
 
-- Persistent writes occur only through `BoardTransaction` primitives.
+- Persistent writes occur only against the staged outer candidate roots.
 - No source file contains action inversion or replay code.
 - Plugins mutate only their own immutable slices inside a transaction.
-- Public persistent events originate from one committed-change projector.
+- Core and plugin commit projectors prepare before publication and finalize
+  before reactive values or public events are released.
 - Vue contains no domain identity reconstruction, directionality tables, or document rollback logic.
 
 ### Behavior

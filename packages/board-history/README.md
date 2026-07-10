@@ -18,8 +18,8 @@ engine.plugins.history.undo()
 engine.plugins.history.redo()
 ```
 
-The plugin captures reducer actions between command lifecycle events and replays
-committed structural roots for deterministic undo/redo.
+The plugin captures committed structural roots. A completed drag, resize, text
+edit, or outer `batch()` creates one deterministic undo frame.
 
 - Docs: https://vue-board.vercel.app/api/board-history
 - Issues: https://github.com/lupinum/nuxt-board/issues

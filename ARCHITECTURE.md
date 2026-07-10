@@ -42,8 +42,10 @@ Every outer persistent command stages isolated roots in
 3. writable maps, sets, scalar records, and plugin state holders are staged;
 4. the command and nested commands update the candidate;
 5. core and plugin invariants validate the candidate;
-6. queued subscribable values and public events publish;
-7. commit listeners receive the before/after structural roots.
+6. commit projectors prepare and finalize history/plugin effects from the
+   before/after structural roots;
+7. queued subscribable values publish;
+8. queued public events publish.
 
 Immutable node records and unchanged plugin slices remain shared. On failure,
 the engine restores the prior root references and rolls back queued
@@ -60,8 +62,8 @@ Pointer movement is deliberately outside the persistent transaction hot path.
 An active drag or resize stores immutable origins and updates transient node
 overrides. Vue and connection geometry render the effective projection. Gesture
 completion stages one persistent command, applies the final geometry, clears
-the overrides, and publishes one history boundary. Cancellation can discard
-the session state without rolling a document backward.
+the overrides, and publishes one history boundary. Pointer cancellation and
+Escape discard session overrides without rolling a document backward.
 
 ### Trace: node drag
 
@@ -105,9 +107,12 @@ camera.
 
 ## Events and errors
 
-Persistent entity events are queued until successful publication. Runtime
-interaction events use the session path. Listener exceptions cannot undo an
-already committed command; the event bus isolates and reports them.
+Persistent entity and successful command lifecycle events are queued until
+publication. `command:blocked` and `validation:failed` are explicit failure
+telemetry. Runtime interaction events use the session path. Internal commit
+projection and history finalize before public listeners run, so listener-created
+commands become independent commits. Listener exceptions cannot undo an already
+committed command; the event bus isolates and reports them.
 
 Boundary and lifecycle failures use the small public error taxonomy:
 `BoardInputError`, `BoardNotFoundError`, `BoardConflictError`,
