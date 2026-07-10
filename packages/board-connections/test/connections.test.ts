@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
+import {
+  asEdgeId,
+  asNodeId,
+  BoardConflictError,
+  BoardInputError,
+  createBoardEngine,
+} from '@lupinum/board-core'
 import {
   defineInternalBoardFeature,
   type InternalBoardFeature,
@@ -22,6 +28,47 @@ function expectEdgesReferenceExistingNodes(
 }
 
 describe('connections plugin', () => {
+  it('rejects duplicate edge ids and invalid edge boundaries', () => {
+    const engine = createBoardEngine({ extensions: [connectionPlugin()] })
+    const source = engine.createNode({ type: 'text', text: 'Source' })
+    const target = engine.createNode({ type: 'text', text: 'Target' })
+    const id = asEdgeId('duplicate-edge')
+
+    engine.ext.connections.createEdge({
+      id,
+      from: source.id,
+      to: target.id,
+      data: {},
+    })
+
+    expect(() =>
+      engine.ext.connections.createEdge({
+        id,
+        from: source.id,
+        to: target.id,
+        data: {},
+      }),
+    ).toThrow(BoardConflictError)
+    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+
+    expect(() =>
+      engine.ext.connections.createEdge({
+        from: source.id,
+        to: target.id,
+        fromAnchor: { side: 'left', offset: 2 },
+        data: {},
+      }),
+    ).toThrow(BoardInputError)
+    expect(() =>
+      engine.ext.connections.createEdge({
+        from: source.id,
+        to: target.id,
+        color: 'tomato',
+        data: {},
+      }),
+    ).toThrow(BoardInputError)
+  })
+
   it('exposes resolved connection defaults through the public extension', () => {
     const engine = createBoardEngine({
       extensions: [

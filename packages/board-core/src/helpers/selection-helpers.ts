@@ -2,7 +2,6 @@ import { expandGroupDragSeeds } from '../hierarchy.js'
 import { snapValue } from '../math.js'
 import type { BoardNode, GridSettings, NodeId, Point } from '../types.js'
 import type { StoredNode } from '../state/versioning.js'
-import { ZERO_VERSIONS } from '../state/versioning.js'
 import type { MutableBoardState } from '../state/types.js'
 import { createNodeId } from './ids.js'
 
@@ -29,22 +28,28 @@ export function duplicateForest(
   grid: GridSettings,
   nodes: StoredNode[],
   offset: Point,
-): StoredNode[] {
+): { nodes: StoredNode[]; idMap: ReadonlyMap<NodeId, NodeId> } {
   const sorted = [...nodes].sort((a, b) => a.zIndex - b.zIndex)
   const idMap = new Map<NodeId, NodeId>()
   for (const node of sorted) {
     idMap.set(node.id, createNodeId())
   }
-  return sorted.map((node) => ({
-    ...node,
-    id: idMap.get(node.id)!,
-    parentId:
-      node.parentId && idMap.has(node.parentId)
-        ? idMap.get(node.parentId)
-        : undefined,
-    x: grid.snap ? snapValue(node.x + offset.x, grid.size) : node.x + offset.x,
-    y: grid.snap ? snapValue(node.y + offset.y, grid.size) : node.y + offset.y,
-    zIndex: state.nextZIndex++,
-    ...ZERO_VERSIONS,
-  }))
+  return {
+    nodes: sorted.map((node) => ({
+      ...node,
+      id: idMap.get(node.id)!,
+      parentId:
+        node.parentId && idMap.has(node.parentId)
+          ? idMap.get(node.parentId)
+          : undefined,
+      x: grid.snap
+        ? snapValue(node.x + offset.x, grid.size)
+        : node.x + offset.x,
+      y: grid.snap
+        ? snapValue(node.y + offset.y, grid.size)
+        : node.y + offset.y,
+      zIndex: state.nextZIndex++,
+    })),
+    idMap,
+  }
 }

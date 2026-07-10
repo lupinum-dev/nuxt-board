@@ -22,11 +22,13 @@ interface Dispatcher {
   beginActionTransaction(): void
   commitActionTransaction(): void
   rollbackActionTransaction(): void
+  clear(): void
 }
 
 interface CommandGuardRegistry {
   add(fn: CommandGuard): () => void
   run(name: string, args: unknown[]): boolean
+  clear(): void
 }
 
 interface BatchDeps {
@@ -88,7 +90,13 @@ export function createCommandGuardRegistry(): CommandGuardRegistry {
     return proceeded
   }
 
-  return { add, run }
+  return {
+    add,
+    run,
+    clear: () => {
+      guards.length = 0
+    },
+  }
 }
 
 export function createDispatcher(): Dispatcher {
@@ -136,12 +144,19 @@ export function createDispatcher(): Dispatcher {
     queuedActions.length = 0
   }
 
+  function clear(): void {
+    listeners.clear()
+    queuedActions.length = 0
+    transactionDepth = 0
+  }
+
   return {
     dispatch,
     onAction,
     beginActionTransaction,
     commitActionTransaction,
     rollbackActionTransaction,
+    clear,
   }
 }
 

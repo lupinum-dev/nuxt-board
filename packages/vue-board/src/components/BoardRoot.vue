@@ -14,9 +14,10 @@ import {
   type PropType,
 } from 'vue'
 import {
-  type BoardSnapshot,
+  type BoardState,
   type Camera,
   type BoardEngine,
+  type GridSettings,
   type BoardNode as BoardNodeState,
   type InteractionState,
   type NodeId,
@@ -69,10 +70,10 @@ const emit = defineEmits<{
 const rootElement = ref<HTMLElement | null>(null)
 const engine = props.engine ?? createBoardEngine()
 const ownsEngine = props.engine === undefined
-const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
 const renderersRef = shallowRef<BoardRendererRegistry>(props.renderers)
 
 const $camera = shallowRef<Camera>(engine.$camera.get())
+const $grid = shallowRef<GridSettings>(engine.$grid.get())
 const $nodes = shallowRef<ReadonlyMap<NodeId, BoardNodeState>>(
   engine.$nodes.get(),
 )
@@ -86,19 +87,19 @@ const { viewportSize } = useViewportSize({ rootElement, engine })
 
 const resolvedGrid = useResolvedGrid({
   engine,
-  snapshot,
+  grid: $grid,
   gridProp: toRef(props, 'grid'),
 })
 
 provide(boardEngineKey, {
   engine,
-  snapshot,
   rootElement,
   viewportSize,
   renderers: renderersRef,
   resolvedGrid,
   toLocalPoint,
   $camera,
+  $grid,
   $nodes,
   $selection,
   $interaction,
@@ -129,52 +130,44 @@ const visibleNodes = useLodCulling({
   cullMargin: toRef(props, 'cullMargin'),
 })
 
+const state = computed<BoardState>(() => {
+  void $camera.value
+  void $grid.value
+  void $nodes.value
+  void $selection.value
+  void $interaction.value
+  void $snapGuides.value
+  return engine.getState()
+})
+
 const debugState = computed(() => ({
-  snapshot: snapshot.value,
+  state: state.value,
   camera: $camera.value,
-  grid: snapshot.value.grid,
+  grid: $grid.value,
   selection: Array.from($selection.value),
   interaction: $interaction.value,
   visibleNodeCount: visibleNodes.value.length,
   trace: engine.exportTrace().slice(-20),
 }))
 
-let snapshotDirty = false
-function refreshSnapshot(): void {
-  snapshot.value = engine.getSnapshot()
-}
-
-function scheduleSnapshotRefresh(): void {
-  if (!snapshotDirty) {
-    snapshotDirty = true
-    queueMicrotask(() => {
-      refreshSnapshot()
-      snapshotDirty = false
-    })
-  }
-}
-
 const unsubscribes = [
-  engine.on('command:after', scheduleSnapshotRefresh),
   engine.$camera.subscribe((v) => {
     $camera.value = v
-    scheduleSnapshotRefresh()
+  }),
+  engine.$grid.subscribe((v) => {
+    $grid.value = v
   }),
   engine.$nodes.subscribe((v) => {
     $nodes.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$selection.subscribe((v) => {
     $selection.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$interaction.subscribe((v) => {
     $interaction.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$snapGuides.subscribe((v) => {
     $snapGuides.value = v
-    scheduleSnapshotRefresh()
   }),
 ]
 
@@ -209,7 +202,7 @@ const { onPointerDown, onPointerMove, onPointerUp, onWheel, onDoubleClick } =
 
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
   engine,
-  snapshot,
+  grid: $grid,
   spacePressed,
 })
 
@@ -257,7 +250,7 @@ onBeforeUnmount(() => {
   >
     <BoardGrid />
     <BoardViewport>
-      <slot name="viewport" :engine="engine" :snapshot="snapshot" />
+      <slot name="viewport" :engine="engine" :state="state" />
       <template v-for="node in visibleNodes" :key="node.id">
         <BoardNode
           v-if="node.lod === 'full'"
@@ -331,7 +324,7 @@ onBeforeUnmount(() => {
         <slot name="box-select" v-bind="slotProps" />
       </template>
     </BoardBoxSelect>
-    <slot :engine="engine" :snapshot="snapshot" :debug-state="debugState" />
+    <slot :engine="engine" :state="state" :debug-state="debugState" />
   </div>
 </template>
 

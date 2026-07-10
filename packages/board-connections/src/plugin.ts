@@ -1,5 +1,7 @@
 import {
   asEdgeId,
+  BoardConflictError,
+  BoardInputError,
   type BoardEventMap,
   type BoardExtension,
   type BoardFeatureExtensions,
@@ -22,6 +24,41 @@ import type {
 } from './types.js'
 
 const CONNECTIONS_FEATURE_NAME = 'connections'
+
+const ANCHOR_SIDES = new Set(['top', 'right', 'bottom', 'left'])
+
+function validateAnchor(
+  anchor: BoardEdge['fromAnchor'],
+  field: 'fromAnchor' | 'toAnchor',
+): void {
+  if (!anchor) return
+  if (!ANCHOR_SIDES.has(anchor.side)) {
+    throw new BoardInputError(
+      `Cannot use ${field}: anchor side "${String(anchor.side)}" is unsupported.`,
+    )
+  }
+  if (
+    !Number.isFinite(anchor.offset) ||
+    anchor.offset < 0 ||
+    anchor.offset > 1
+  ) {
+    throw new BoardInputError(
+      `Cannot use ${field}: anchor offset must be a finite number from 0 to 1.`,
+    )
+  }
+}
+
+function validateEdgeColor(color: string | undefined): void {
+  if (
+    color !== undefined &&
+    !/^[1-6]$/.test(color) &&
+    !/^#[0-9a-fA-F]{6}$/.test(color)
+  ) {
+    throw new BoardInputError(
+      `Cannot use edge color "${color}": expected a preset from 1 to 6 or a six-digit hex color.`,
+    )
+  }
+}
 
 interface ConnectionsState {
   readonly edges: ReadonlyMap<EdgeId, BoardEdge>
@@ -291,8 +328,25 @@ export function connectionPlugin(
               }
 
               const state = getState()
+              const id = input.id ?? asEdgeId(crypto.randomUUID())
+              if (state.edges.has(id)) {
+                throw new BoardConflictError(
+                  `Cannot create edge: edge "${id}" already exists.`,
+                )
+              }
+              validateAnchor(input.fromAnchor, 'fromAnchor')
+              validateAnchor(input.toAnchor, 'toAnchor')
+              validateEdgeColor(input.color)
+              if (
+                input.zIndex !== undefined &&
+                !Number.isFinite(input.zIndex)
+              ) {
+                throw new BoardInputError(
+                  'Cannot create edge: zIndex must be a finite number.',
+                )
+              }
               const edge: BoardEdge<T> = {
-                id: input.id ?? asEdgeId(crypto.randomUUID()),
+                id,
                 from: input.from,
                 to: input.to,
                 fromAnchor: input.fromAnchor,
@@ -337,6 +391,15 @@ export function connectionPlugin(
                   `Cannot update edge: target node "${nextTo}" does not exist.`,
                 )
               }
+              validateAnchor(
+                'fromAnchor' in patch ? patch.fromAnchor : current.fromAnchor,
+                'fromAnchor',
+              )
+              validateAnchor(
+                'toAnchor' in patch ? patch.toAnchor : current.toAnchor,
+                'toAnchor',
+              )
+              validateEdgeColor('color' in patch ? patch.color : current.color)
 
               const next: BoardEdge<T> = {
                 ...current,

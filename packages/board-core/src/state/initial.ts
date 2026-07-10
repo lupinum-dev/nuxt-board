@@ -1,6 +1,5 @@
 import type { BoardNode } from '../types.js'
 import type { StoredNode } from './versioning.js'
-import { ZERO_VERSIONS } from './versioning.js'
 
 export function normalizeExistingNode(node: BoardNode): StoredNode {
   const parentId =
@@ -13,6 +12,5 @@ export function normalizeExistingNode(node: BoardNode): StoredNode {
     locked: Boolean(node.locked),
     visible: node.visible !== false,
     parentId,
-    ...ZERO_VERSIONS,
   }
 }

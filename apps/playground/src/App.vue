@@ -291,7 +291,7 @@ onMounted(async () => {
           <PlaygroundDiagnostics
             v-if="showDiagnostics"
             :camera="debugState.camera"
-            :node-count="debugState.snapshot.nodes.length"
+            :node-count="debugState.state.nodes.size"
             :selection-count="debugState.selection.length"
             :interaction-mode="debugState.interaction.mode"
             :visible-count="debugState.visibleNodeCount"

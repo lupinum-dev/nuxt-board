@@ -1,4 +1,5 @@
 import type { Subscribable, Unsubscribe } from './types.js'
+import { BoardDestroyedError } from './errors.js'
 
 /** Batch coordination shared across the subscribables owned by one engine instance. */
 export interface BatchController {
@@ -23,12 +24,21 @@ export function createSubscribable<T>(
 ): Subscribable<T> & {
   set(value: T): void
   notify(): void
+  destroy(): void
 } {
   let current = initial
   let prev = initial
+  let destroyed = false
   const listeners = new Set<(value: T, prev: T) => void>()
 
+  function assertActive(): void {
+    if (destroyed) {
+      throw new BoardDestroyedError()
+    }
+  }
+
   function notify(): void {
+    assertActive()
     if (batch.depth > 0) {
       batch.pending.add(flush)
       return
@@ -37,6 +47,7 @@ export function createSubscribable<T>(
   }
 
   function flush(): void {
+    assertActive()
     const snapshot = current
     const prevSnapshot = prev
     prev = current
@@ -47,16 +58,19 @@ export function createSubscribable<T>(
 
   return {
     get(): T {
+      assertActive()
       return current
     },
 
     set(value: T): void {
+      assertActive()
       prev = current
       current = value
       notify()
     },
 
     subscribe(callback: (value: T, prev: T) => void): Unsubscribe {
+      assertActive()
       listeners.add(callback)
       return () => {
         listeners.delete(callback)
@@ -64,5 +78,10 @@ export function createSubscribable<T>(
     },
 
     notify,
+    destroy(): void {
+      destroyed = true
+      listeners.clear()
+      batch.pending.delete(flush)
+    },
   }
 }

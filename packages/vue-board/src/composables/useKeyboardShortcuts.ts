@@ -1,10 +1,10 @@
 import { onBeforeUnmount, onMounted, type Ref } from 'vue'
-import type { BoardEngine, BoardSnapshot } from '@lupinum/board-core'
+import type { BoardEngine, GridSettings } from '@lupinum/board-core'
 
 /** Options for wiring keyboard shortcuts to a board engine instance. */
 interface UseKeyboardShortcutsOptions {
   engine: BoardEngine
-  snapshot: Ref<BoardSnapshot>
+  grid: Ref<GridSettings>
   spacePressed: Ref<boolean>
 }
 
@@ -23,7 +23,7 @@ function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
  * keyboard nudging while intentionally ignoring editable targets.
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
-  const { engine, snapshot, spacePressed } = options
+  const { engine, grid, spacePressed } = options
 
   function clearTransientKeys(): void {
     spacePressed.value = false
@@ -115,8 +115,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     }
     if (selection.length > 0 && event.key.startsWith('Arrow')) {
       event.preventDefault()
-      const grid = snapshot.value.grid ?? engine.getGridSettings()
-      const step = event.shiftKey ? grid.size * grid.majorEvery : grid.size
+      const step = event.shiftKey
+        ? grid.value.size * grid.value.majorEvery
+        : grid.value.size
       const delta =
         event.key === 'ArrowLeft'
           ? { x: -step, y: 0 }

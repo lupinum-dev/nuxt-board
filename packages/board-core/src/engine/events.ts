@@ -21,6 +21,7 @@ interface EventBus {
   ): () => void
   off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
   exportTrace(): TraceEntry[]
+  clear(): void
 }
 
 export function createEventBus(opts: EventBusOptions): EventBus {
@@ -80,5 +81,10 @@ export function createEventBus(opts: EventBusOptions): EventBus {
     return trace.slice()
   }
 
-  return { emit, on, once, off, exportTrace }
+  function clear(): void {
+    listeners.clear()
+    trace.length = 0
+  }
+
+  return { emit, on, once, off, exportTrace, clear }
 }

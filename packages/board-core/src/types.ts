@@ -233,6 +233,12 @@ export type NodePatch = Partial<
   >
 >
 
+/** Nodes created by duplication plus the canonical source-to-copy identity map. */
+export interface DuplicateNodesResult {
+  readonly nodes: readonly BoardNode[]
+  readonly idMap: ReadonlyMap<NodeId, NodeId>
+}
+
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
 export type BoxSelectBehavior = 'autocad' | 'contain' | 'intersect'
@@ -305,6 +311,7 @@ export type InteractionState =
 /** Internal immutable engine state exposed through `getState()`. */
 export interface BoardState {
   readonly camera: Camera
+  readonly grid: GridSettings
   readonly nodes: ReadonlyMap<NodeId, BoardNode>
   readonly selection: ReadonlySet<NodeId>
   readonly interaction: InteractionState
@@ -374,7 +381,6 @@ export interface CommandMetadata {
 
 /** Event contract emitted by the board engine. Internal features extend this interface via module augmentation. */
 export interface BoardEventMap {
-  ready: () => void
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
   'viewport:change': (size: Point, prev: Point) => void
@@ -438,6 +444,7 @@ export interface Subscribable<T> {
 export interface BoardEngine {
   readonly ext: BoardFeatureExtensions
   readonly $camera: Subscribable<Camera>
+  readonly $grid: Subscribable<GridSettings>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
   readonly $interaction: Subscribable<InteractionState>
@@ -499,7 +506,7 @@ export interface BoardEngine {
   sendToBack(id: NodeId): void
   lockNode(id: NodeId): void
   unlockNode(id: NodeId): void
-  duplicateNodes(ids: NodeId[], offset?: Point): BoardNode[]
+  duplicateNodes(ids: NodeId[], offset?: Point): DuplicateNodesResult
   copySelected(): BoardNode[]
   pasteClipboard(offset?: Point): BoardNode[]
   select(ids: NodeId | NodeId[], mode?: SelectionMode): void

@@ -1,8 +1,8 @@
 import type {
-  BoardSnapshot,
   Camera,
   BoardEngine,
   BoardNode,
+  GridSettings,
   InteractionState,
   NodeId,
   Point,
@@ -13,8 +13,6 @@ import type { BoardRendererRegistry, ResolvedBoardGridOptions } from './grid.js'
 
 export interface BoardEngineContext {
   engine: BoardEngine
-  /** @deprecated Use individual reactive refs ($camera, $nodes, etc.) instead. */
-  snapshot: ShallowRef<BoardSnapshot>
   rootElement: Ref<HTMLElement | null>
   viewportSize: Ref<Point>
   renderers: Ref<BoardRendererRegistry>
@@ -22,6 +20,7 @@ export interface BoardEngineContext {
   toLocalPoint: (clientX: number, clientY: number) => Point
   // Granular reactive state from engine subscribables
   $camera: ShallowRef<Camera>
+  $grid: ShallowRef<GridSettings>
   $nodes: ShallowRef<ReadonlyMap<NodeId, BoardNode>>
   $selection: ShallowRef<ReadonlySet<NodeId>>
   $interaction: ShallowRef<InteractionState>

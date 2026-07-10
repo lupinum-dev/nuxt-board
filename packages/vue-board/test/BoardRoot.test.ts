@@ -68,7 +68,7 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
-  it('coalesces full snapshot refreshes after command notifications', async () => {
+  it('uses granular subscriptions without rebuilding full snapshots', async () => {
     const engine = createBoardEngine()
     const getSnapshot = vi.spyOn(engine, 'getSnapshot')
     mount(BoardRoot, {
@@ -76,7 +76,7 @@ describe('BoardRoot', () => {
       attachTo: document.body,
     })
 
-    expect(getSnapshot).toHaveBeenCalledTimes(1)
+    expect(getSnapshot).not.toHaveBeenCalled()
 
     engine.createNode({
       type: 'text',
@@ -86,7 +86,7 @@ describe('BoardRoot', () => {
     })
     await flushBoardRootSnapshot()
 
-    expect(getSnapshot).toHaveBeenCalledTimes(2)
+    expect(getSnapshot).not.toHaveBeenCalled()
   })
 
   it('starts drag and resize only after the pointer clears the movement threshold', async () => {
@@ -493,7 +493,7 @@ describe('BoardRoot', () => {
     expect(wrapper.find('.board-grid').exists()).toBe(true)
   })
 
-  it('keeps slot snapshot state in sync with undo and redo replays', async () => {
+  it('keeps slot state in sync with undo and redo replays', async () => {
     const engine = createBoardEngine({
       extensions: [historyPlugin({ debounceMs: 0 })],
     })
@@ -508,26 +508,29 @@ describe('BoardRoot', () => {
     const wrapper = mount(BoardRoot, {
       props: { engine },
       slots: {
-        default: ({ snapshot }: { snapshot: { nodes: Array<unknown> } }) =>
-          h('div', { class: 'snapshot-count' }, String(snapshot.nodes.length)),
+        default: ({
+          state,
+        }: {
+          state: { nodes: ReadonlyMap<string, unknown> }
+        }) => h('div', { class: 'state-count' }, String(state.nodes.size)),
       },
       attachTo: document.body,
     })
 
     await nextTick()
-    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+    expect(wrapper.find('.state-count').text()).toBe('1')
 
     engine.deleteNode(node.id)
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('0')
+    expect(wrapper.find('.state-count').text()).toBe('0')
 
     engine.ext.history.undo()
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+    expect(wrapper.find('.state-count').text()).toBe('1')
 
     engine.ext.history.redo()
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('0')
+    expect(wrapper.find('.state-count').text()).toBe('0')
   })
 
   it('ignores connection-layer interactive targets for board interactions', () => {

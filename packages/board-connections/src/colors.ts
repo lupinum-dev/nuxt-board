@@ -1,25 +1,21 @@
-export type EdgeColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
+import {
+  BOARD_COLOR_PRESETS,
+  colorForPreset as coreColorForPreset,
+  type BoardColorOption,
+  type BoardColorPreset,
+} from '@lupinum/board-core'
 
-export interface EdgeColorOption {
-  preset: EdgeColorPreset
-  hex: string
-  label: string
-}
+/** JSON Canvas color preset shared by nodes and edges. */
+export type EdgeColorPreset = BoardColorPreset
+/** Edge-facing alias for the canonical board color option. */
+export type EdgeColorOption = BoardColorOption
 
-export const EDGE_COLOR_PRESETS: readonly EdgeColorOption[] = [
-  { preset: '1', hex: '#e06c6c', label: 'Red' },
-  { preset: '2', hex: '#e09a4d', label: 'Orange' },
-  { preset: '3', hex: '#d6b64a', label: 'Yellow' },
-  { preset: '4', hex: '#4ea371', label: 'Green' },
-  { preset: '5', hex: '#4ea8c4', label: 'Cyan' },
-  { preset: '6', hex: '#9a6fc4', label: 'Purple' },
-] as const
+/** Canonical JSON Canvas palette; edges and nodes intentionally share semantics. */
+export const EDGE_COLOR_PRESETS: readonly EdgeColorOption[] =
+  BOARD_COLOR_PRESETS
 
 export function colorForPreset(preset: EdgeColorPreset): string {
-  return (
-    EDGE_COLOR_PRESETS.find((option) => option.preset === preset)?.hex ??
-    EDGE_COLOR_PRESETS[0]!.hex
-  )
+  return coreColorForPreset(preset)
 }
 
 export function presetForColor(

@@ -40,7 +40,6 @@ import {
   getAnimationFrameDriver,
 } from './helpers/animation.js'
 import type { StoredNode } from './state/versioning.js'
-import { ZERO_VERSIONS, bumpVersions } from './state/versioning.js'
 import type { MutableBoardState } from './state/types.js'
 import {
   DEFAULT_CAMERA,
@@ -75,6 +74,16 @@ import {
   withNodeFields,
 } from './engine/persistence.js'
 import { assertInternalBoardFeature } from './internal.js'
+import {
+  BoardConflictError,
+  BoardDestroyedError,
+  BoardError,
+  BoardNotFoundError,
+} from './errors.js'
+import {
+  validateBoardConfiguration,
+  validateGridSettings,
+} from './engine/options.js'
 import type {
   BoxSelectBehavior,
   BoxSelectMode,
@@ -103,7 +112,7 @@ import type {
   ZoomSettings,
 } from './types.js'
 
-export class CommandBlockedError extends Error {
+export class CommandBlockedError extends BoardError {
   constructor(
     readonly command: string,
     readonly args: readonly unknown[],
@@ -142,11 +151,22 @@ export function createBoardEngine(
     ...options.nodes,
   }
   const validationMode: ValidationMode = options.validation ?? 'strict'
-  const diagnosticsEnabled = options.diagnostics !== false
+  const diagnosticsEnabled = Boolean(options.diagnostics)
   const traceLimit =
-    typeof options.diagnostics === 'object' && options.diagnostics.traceLimit
+    typeof options.diagnostics === 'object' &&
+    options.diagnostics.traceLimit !== undefined
       ? options.diagnostics.traceLimit
       : 500
+
+  validateBoardConfiguration({
+    camera,
+    zoom,
+    grid,
+    nodeConstraints,
+    extensions: options.extensions ?? [],
+    diagnostics: options.diagnostics,
+    boxSelectBehavior,
+  })
 
   const eventBus = createEventBus({ diagnosticsEnabled, traceLimit })
   const { emit, on, once, off } = eventBus
@@ -189,6 +209,12 @@ export function createBoardEngine(
   let animationToken = 0
   let destroyed = false
 
+  function assertAlive(): void {
+    if (destroyed) {
+      throw new BoardDestroyedError()
+    }
+  }
+
   const state: MutableBoardState = {
     camera,
     nodes: new Map(),
@@ -219,18 +245,25 @@ export function createBoardEngine(
 
   for (const node of options.initialNodes ?? []) {
     const normalized = normalizeExistingNode(node)
+    if (state.nodes.has(normalized.id)) {
+      throw new BoardConflictError(
+        `Cannot initialize board: node "${normalized.id}" is duplicated.`,
+      )
+    }
     state.nodes.set(normalized.id, normalized)
     state.nextZIndex = Math.max(state.nextZIndex, normalized.zIndex + 1)
   }
 
   const reactive = createReactiveLayer({
     state,
+    grid,
     emit,
     dispatch: dispatchAction,
   })
   const {
     batchCtrl,
     $camera,
+    $grid,
     $nodes,
     $selection,
     $interaction,
@@ -239,6 +272,7 @@ export function createBoardEngine(
     invalidateNodeCache,
     notifyNodesChanged,
     notifyCameraChanged,
+    notifyGridChanged,
     notifySelectionChanged,
     notifyInteractionChanged,
     notifySnapGuidesChanged,
@@ -246,6 +280,7 @@ export function createBoardEngine(
     setSelection,
     setInteraction,
     setSnapGuides,
+    destroy: destroyReactiveLayer,
   } = reactive
 
   const batches = createBatchCommandController({
@@ -258,6 +293,7 @@ export function createBoardEngine(
   })
 
   function getGridSettings(): GridSettings {
+    assertAlive()
     return freezeClone({ ...grid })
   }
 
@@ -275,6 +311,7 @@ export function createBoardEngine(
   }
 
   function getViewportSize(): Point {
+    assertAlive()
     return freezeClone({ ...viewportSize })
   }
 
@@ -294,11 +331,13 @@ export function createBoardEngine(
   }
 
   function getSnapshot(): BoardSnapshot {
+    assertAlive()
     return buildSnapshot(state, grid, getPublicNodeMap())
   }
 
   function getState(): BoardState {
-    return buildPublicState(state, getPublicNodeMap())
+    assertAlive()
+    return buildPublicState(state, grid, getPublicNodeMap())
   }
 
   interface EngineRestorePoint {
@@ -348,6 +387,7 @@ export function createBoardEngine(
       }
     }
     notifyCameraChanged()
+    notifyGridChanged()
     notifyNodesChanged()
     notifySelectionChanged()
     notifyInteractionChanged()
@@ -360,6 +400,7 @@ export function createBoardEngine(
     fn: () => T,
     metadata: CommandMetadata = RECORD_COMMAND,
   ): T {
+    assertAlive()
     const validateCommand = metadata.validate !== false
     // Command guards run before any events are emitted.
     // If the chain doesn't call next(), the command is cancelled.
@@ -403,6 +444,7 @@ export function createBoardEngine(
     fn: () => Promise<T>,
     metadata: CommandMetadata = RECORD_COMMAND,
   ): Promise<T> {
+    assertAlive()
     const validateCommand = metadata.validate !== false
     if (!commandGuards.run(name, args)) {
       emit('command:blocked', name, args, metadata)
@@ -443,7 +485,7 @@ export function createBoardEngine(
   function assertStoredNode(id: NodeId): StoredNode {
     const node = state.nodes.get(id)
     if (!node) {
-      throw new Error(`Node "${id}" does not exist.`)
+      throw new BoardNotFoundError(`Node "${id}" does not exist.`)
     }
     return node
   }
@@ -515,6 +557,11 @@ export function createBoardEngine(
         ? input.parentId
         : undefined
     const id = input.id ?? createNodeId()
+    if (state.nodes.has(id)) {
+      throw new BoardConflictError(
+        `Cannot create node: node "${id}" already exists.`,
+      )
+    }
     assertValidNodeGeometry(id, {
       x: snappedPoint.x,
       y: snappedPoint.y,
@@ -536,7 +583,6 @@ export function createBoardEngine(
         locked: Boolean(input.locked),
         visible: input.visible !== false,
         parentId,
-        ...ZERO_VERSIONS,
       },
       input,
     )
@@ -566,9 +612,6 @@ export function createBoardEngine(
       y,
       width,
       height,
-      version: node.version,
-      geometryVersion: node.geometryVersion,
-      dataVersion: node.dataVersion,
     }
   }
 
@@ -576,7 +619,7 @@ export function createBoardEngine(
     node: StoredNode,
     next: StoredNode,
   ): StoredNode {
-    const stored = bumpVersions(node, next)
+    const stored = next
     state.nodes.set(node.id, stored)
     invalidateNodeCache()
     return stored
@@ -777,7 +820,10 @@ export function createBoardEngine(
     return getCopyClosureNodesPure(state)
   }
 
-  function duplicateForest(nodes: StoredNode[], offset: Point): StoredNode[] {
+  function duplicateForest(
+    nodes: StoredNode[],
+    offset: Point,
+  ): { nodes: StoredNode[]; idMap: ReadonlyMap<NodeId, NodeId> } {
     return duplicateForestPure(state, grid, nodes, offset)
   }
 
@@ -968,11 +1014,11 @@ export function createBoardEngine(
         for (const delta of action.deltas) {
           const current = state.nodes.get(delta.id)
           if (!current) continue
-          const next = bumpVersions(current, {
+          const next = {
             ...current,
             x: delta.after.x,
             y: delta.after.y,
-          })
+          }
           state.nodes.set(delta.id, next)
           emit('node:moved', materializeNode(next), {
             x: delta.after.x - delta.before.x,
@@ -1061,6 +1107,7 @@ export function createBoardEngine(
   const engine: InternalFeatureContext = {
     ext,
     $camera,
+    $grid,
     $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
     $selection: $selection as Subscribable<ReadonlySet<NodeId>>,
     $interaction,
@@ -1074,15 +1121,20 @@ export function createBoardEngine(
       for (const cleanup of featureCleanups.values()) {
         cleanup()
       }
+      emit('destroy')
       featureCleanups.clear()
       featureStates.clear()
       featurePersistence.clear()
-      emit('destroy')
+      dispatcher.clear()
+      commandGuards.clear()
+      eventBus.clear()
+      destroyReactiveLayer()
     },
     extend(key, value) {
       ;(ext as unknown as Record<string, unknown>)[key] = value as unknown
     },
     batch(fn) {
+      assertAlive()
       const restorePoint = createRestorePoint()
       try {
         batches.batch(fn)
@@ -1098,33 +1150,20 @@ export function createBoardEngine(
     updateGridSettings(patch) {
       return runCommand('updateGridSettings', [patch], () => {
         const before = { ...grid }
-        if (patch.size !== undefined) {
-          grid.size = Math.max(1, Math.round(patch.size))
-        }
-        if (patch.majorEvery !== undefined) {
-          grid.majorEvery = Math.max(1, Math.round(patch.majorEvery))
-        }
-        if (patch.snap !== undefined) {
-          grid.snap = patch.snap
-        }
-        if (patch.edgeSnap !== undefined) {
-          grid.edgeSnap = patch.edgeSnap
-        }
-        if (patch.edgeSnapThreshold !== undefined) {
-          grid.edgeSnapThreshold = Math.max(1, patch.edgeSnapThreshold)
-        }
-        if (patch.pattern !== undefined) {
-          grid.pattern = patch.pattern
-        }
+        const next = { ...grid, ...patch }
+        validateGridSettings(next)
+        Object.assign(grid, next)
         dispatchAction({
           type: 'GRID_UPDATED',
           before,
           after: { ...grid },
         })
+        notifyGridChanged()
         return getGridSettings()
       })
     },
     setViewportSize(size) {
+      assertAlive()
       const next = {
         x: Math.max(1, size.x),
         y: Math.max(1, size.y),
@@ -1137,11 +1176,26 @@ export function createBoardEngine(
       emit('viewport:change', freezeClone({ ...next }), freezeClone(prev))
     },
     emit,
-    on,
-    once,
-    off,
-    exportTrace: eventBus.exportTrace,
-    addCommandGuard: commandGuards.add,
+    on(event, handler) {
+      assertAlive()
+      return on(event, handler)
+    },
+    once(event, handler) {
+      assertAlive()
+      return once(event, handler)
+    },
+    off(event, handler) {
+      assertAlive()
+      off(event, handler)
+    },
+    exportTrace() {
+      assertAlive()
+      return eventBus.exportTrace()
+    },
+    addCommandGuard(fn) {
+      assertAlive()
+      return commandGuards.add(fn)
+    },
     runCommand<T>(
       name: string,
       args: unknown[],
@@ -1150,8 +1204,14 @@ export function createBoardEngine(
     ): T {
       return runCommand(name, args, fn, metadata)
     },
-    dispatch: dispatchAction,
-    onAction: dispatcher.onAction,
+    dispatch(action) {
+      assertAlive()
+      dispatchAction(action)
+    },
+    onAction(listener) {
+      assertAlive()
+      return dispatcher.onAction(listener)
+    },
     applyRecordedAction,
     invertAction: invertActionImpl,
     getFeatureState<S>(): S {
@@ -1160,24 +1220,31 @@ export function createBoardEngine(
       )
     },
     screenToWorld(point) {
+      assertAlive()
       return screenToWorld(point, state.camera)
     },
     worldToScreen(point) {
+      assertAlive()
       return worldToScreen(point, state.camera)
     },
     getVisibleBounds(width, height) {
+      assertAlive()
       return getVisibleBounds(width, height, state.camera)
     },
     getNode(id) {
+      assertAlive()
       return getPublicNode(id)
     },
     findNode(id) {
+      assertAlive()
       return state.nodes.has(id) ? getPublicNode(id) : null
     },
     hasNode(id) {
+      assertAlive()
       return state.nodes.has(id)
     },
     getNodeAt(worldPoint) {
+      assertAlive()
       let best: StoredNode | null = null
       let bestZ = -Infinity
       for (const node of state.nodes.values()) {
@@ -1193,6 +1260,7 @@ export function createBoardEngine(
       return best ? materializeNode(best) : null
     },
     getNodesInBounds(bounds) {
+      assertAlive()
       return Array.from(state.nodes.values())
         .filter(
           (node) =>
@@ -1528,7 +1596,8 @@ export function createBoardEngine(
           .filter((node): node is StoredNode => Boolean(node))
           .sort((a, b) => a.zIndex - b.zIndex)
         const nextZIndexBefore = state.nextZIndex
-        const created = duplicateForest(source, offset)
+        const duplicated = duplicateForest(source, offset)
+        const created = duplicated.nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
           dispatchAction({ type: 'NODE_CREATED', node })
@@ -1537,7 +1606,10 @@ export function createBoardEngine(
         dispatchNextZIndexChange(nextZIndexBefore)
         notifyNodesChanged()
         setSelection(created.map((node) => node.id))
-        return created.map((node) => materializeNode(node))
+        return {
+          nodes: created.map((node) => materializeNode(node)),
+          idMap: duplicated.idMap,
+        }
       })
     },
     copySelected() {
@@ -1552,7 +1624,7 @@ export function createBoardEngine(
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
       return runCommand('pasteClipboard', [offset], () => {
         const nextZIndexBefore = state.nextZIndex
-        const created = duplicateForest(clipboard, offset)
+        const created = duplicateForest(clipboard, offset).nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
           dispatchAction({ type: 'NODE_CREATED', node })
@@ -2071,6 +2143,7 @@ export function createBoardEngine(
       )
     },
     getUniformTranslationTargets(seedIds) {
+      assertAlive()
       return collectUniformTranslationTargets(
         seedIds,
         state.nodes as Map<NodeId, BoardNode>,
@@ -2083,6 +2156,7 @@ export function createBoardEngine(
       })
     },
     exportJSON() {
+      assertAlive()
       const featureDocuments = Array.from(
         featurePersistence.values(),
         (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
@@ -2120,7 +2194,6 @@ export function createBoardEngine(
   }
 
   validate('createBoardEngine')
-  emit('ready')
 
   return engine
 }

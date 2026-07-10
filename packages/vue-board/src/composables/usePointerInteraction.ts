@@ -230,21 +230,17 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     if (pending.kind === 'drag') {
       if (event.altKey) {
         const sourceNode = engine.findNode(asNodeId(pending.nodeId))
-        const created =
-          runBoardCommand(() =>
-            engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 }),
-          ) ?? []
+        const duplicated = runBoardCommand(() =>
+          engine.duplicateNodes(engine.getSelection(), { x: 0, y: 0 }),
+        )
+        const created = duplicated?.nodes ?? []
+        const duplicatedId = sourceNode
+          ? duplicated?.idMap.get(sourceNode.id)
+          : undefined
         const dragNode =
-          (sourceNode &&
-            created.find(
-              (node) =>
-                node.type === sourceNode.type &&
-                node.x === sourceNode.x &&
-                node.y === sourceNode.y &&
-                node.width === sourceNode.width &&
-                node.height === sourceNode.height,
-            )) ??
-          created[0]
+          (duplicatedId
+            ? created.find((node) => node.id === duplicatedId)
+            : undefined) ?? created[0]
         if (dragNode) {
           started = startPointerInteraction(
             event.pointerId,

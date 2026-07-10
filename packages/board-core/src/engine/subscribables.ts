@@ -6,6 +6,7 @@ import type {
   BoardEventMap,
   BoardNode,
   Camera,
+  GridSettings,
   InteractionState,
   NodeId,
   SnapGuide,
@@ -18,6 +19,7 @@ import type { Action } from '../state/actions.js'
 interface ReactiveLayer {
   batchCtrl: BatchController
   $camera: Subscribable<Camera>
+  $grid: Subscribable<GridSettings>
   $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   $selection: Subscribable<ReadonlySet<NodeId>>
   $interaction: Subscribable<InteractionState>
@@ -26,6 +28,7 @@ interface ReactiveLayer {
   invalidateNodeCache: () => void
   notifyNodesChanged: () => void
   notifyCameraChanged: () => void
+  notifyGridChanged: () => void
   notifySelectionChanged: () => void
   notifyInteractionChanged: () => void
   notifySnapGuidesChanged: () => void
@@ -33,10 +36,12 @@ interface ReactiveLayer {
   setSelection: (next: Iterable<NodeId>) => void
   setInteraction: (next: InteractionState) => void
   setSnapGuides: (next: SnapGuide[]) => void
+  destroy: () => void
 }
 
 interface ReactiveLayerDeps {
   state: MutableBoardState
+  grid: GridSettings
   emit: <K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
@@ -45,11 +50,15 @@ interface ReactiveLayerDeps {
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { state, emit, dispatch } = deps
+  const { state, grid, emit, dispatch } = deps
 
   const batchCtrl = createBatchController()
   const $camera = createSubscribable<Camera>(
     freezeClone({ ...state.camera }),
+    batchCtrl,
+  )
+  const $grid = createSubscribable<GridSettings>(
+    freezeClone({ ...grid }),
     batchCtrl,
   )
   const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
@@ -89,6 +98,10 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
 
   function notifyCameraChanged(): void {
     $camera.set(freezeClone({ ...state.camera }))
+  }
+
+  function notifyGridChanged(): void {
+    $grid.set(freezeClone({ ...grid }))
   }
 
   function notifySelectionChanged(): void {
@@ -143,9 +156,20 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     notifySnapGuidesChanged()
   }
 
+  function destroy(): void {
+    $camera.destroy()
+    $grid.destroy()
+    $nodes.destroy()
+    $selection.destroy()
+    $interaction.destroy()
+    $snapGuides.destroy()
+    batchCtrl.pending.clear()
+  }
+
   return {
     batchCtrl,
     $camera,
+    $grid,
     $nodes,
     $selection,
     $interaction,
@@ -154,6 +178,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     invalidateNodeCache,
     notifyNodesChanged,
     notifyCameraChanged,
+    notifyGridChanged,
     notifySelectionChanged,
     notifyInteractionChanged,
     notifySnapGuidesChanged,
@@ -161,5 +186,6 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     setSelection,
     setInteraction,
     setSnapGuides,
+    destroy,
   }
 }

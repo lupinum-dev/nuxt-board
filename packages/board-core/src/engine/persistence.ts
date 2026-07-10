@@ -594,6 +594,7 @@ export function documentToSnapshot(
   const failures = validateState(
     {
       camera,
+      grid: gridSettings,
       nodes: new Map(nodes.map((node) => [node.id, node])),
       selection: new Set(selection),
       interaction: { mode: 'idle' },

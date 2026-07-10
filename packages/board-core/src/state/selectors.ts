@@ -42,10 +42,12 @@ export function buildSnapshot(
 
 export function buildPublicState(
   state: MutableBoardState,
+  grid: GridSettings,
   publicNodes: ReadonlyMap<NodeId, BoardNode>,
 ): BoardState {
   return {
     camera: freezeClone({ ...state.camera }),
+    grid: freezeClone({ ...grid }),
     nodes: new Map(publicNodes),
     selection: new Set(state.selection),
     interaction: cloneInteraction(state.interaction),

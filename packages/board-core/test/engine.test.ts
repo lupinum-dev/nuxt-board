@@ -1,11 +1,62 @@
 import { describe, expect, it, vi } from 'vitest'
-import { asNodeId, CommandBlockedError, createBoardEngine } from '../src'
+import {
+  asNodeId,
+  BoardConflictError,
+  BoardDestroyedError,
+  BoardInputError,
+  CommandBlockedError,
+  createBoardEngine,
+} from '../src'
 import {
   defineInternalBoardFeature,
   type InternalBoardFeature,
 } from '../src/internal'
 
 describe('board engine', () => {
+  it.each([
+    ['zero camera zoom', { camera: { z: 0 } }],
+    ['negative camera zoom', { camera: { z: -1 } }],
+    ['reversed zoom bounds', { zoom: { min: 2, max: 1 } }],
+    ['non-finite edge snap threshold', { grid: { edgeSnapThreshold: NaN } }],
+    ['negative node minimum', { nodes: { minWidth: -1 } }],
+    [
+      'default smaller than minimum',
+      { nodes: { minWidth: 200, defaultWidth: 100 } },
+    ],
+    ['invalid diagnostics limit', { diagnostics: { traceLimit: -1 } }],
+  ])('rejects invalid constructor configuration: %s', (_label, options) => {
+    expect(() => createBoardEngine(options)).toThrow(BoardInputError)
+  })
+
+  it('rejects duplicate initial and created node ids without overwriting state', () => {
+    const id = asNodeId('duplicate')
+    const node = {
+      id,
+      type: 'text' as const,
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      text: 'First',
+      zIndex: 1,
+      locked: false,
+      visible: true,
+    }
+
+    expect(() =>
+      createBoardEngine({ initialNodes: [node, { ...node, text: 'Second' }] }),
+    ).toThrow(BoardConflictError)
+
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      initialNodes: [node],
+    })
+    expect(() =>
+      engine.createNode({ id, type: 'text', text: 'Replacement' }),
+    ).toThrow(BoardConflictError)
+    expect(engine.getNode(id).text).toBe('First')
+  })
+
   it('runs feature cleanups once when destroyed', () => {
     const cleanup = vi.fn()
     const feature: InternalBoardFeature = defineInternalBoardFeature({
@@ -22,6 +73,33 @@ describe('board engine', () => {
     engine.destroy()
 
     expect(cleanup).toHaveBeenCalledTimes(1)
+  })
+
+  it('makes destruction terminal and releases subscribable listeners', () => {
+    const engine = createBoardEngine()
+    const nodes = engine.$nodes
+    const listener = vi.fn()
+    nodes.subscribe(listener)
+
+    engine.destroy()
+
+    expect(() => engine.getState()).toThrow(BoardDestroyedError)
+    expect(() => nodes.get()).toThrow(BoardDestroyedError)
+    expect(() => nodes.subscribe(listener)).toThrow(BoardDestroyedError)
+    expect(() => engine.createNode({ type: 'text' })).toThrow(
+      BoardDestroyedError,
+    )
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('keeps diagnostics off unless explicitly enabled', () => {
+    const defaultEngine = createBoardEngine()
+    defaultEngine.createNode({ type: 'text' })
+    expect(defaultEngine.exportTrace()).toEqual([])
+
+    const diagnosticEngine = createBoardEngine({ diagnostics: true })
+    diagnosticEngine.createNode({ type: 'text' })
+    expect(diagnosticEngine.exportTrace().length).toBeGreaterThan(0)
   })
 
   it('rejects malformed extension objects before install', () => {
@@ -486,7 +564,7 @@ describe('board engine', () => {
     expect(engine.getSnapshot().nodes).toHaveLength(1)
   })
 
-  it('fires command hooks and installs features only once per name', () => {
+  it('fires command hooks and rejects duplicate feature names', () => {
     const events: string[] = []
     let installs = 0
     const feature: InternalBoardFeature = defineInternalBoardFeature({
@@ -506,7 +584,11 @@ describe('board engine', () => {
       },
     })
 
-    const engine = createBoardEngine({ extensions: [feature, feature] })
+    expect(() => createBoardEngine({ extensions: [feature, feature] })).toThrow(
+      BoardInputError,
+    )
+
+    const engine = createBoardEngine({ extensions: [feature] })
     engine.createNode({ type: 'text', x: 0, y: 0, text: 'Hello' })
 
     expect(installs).toBe(1)
