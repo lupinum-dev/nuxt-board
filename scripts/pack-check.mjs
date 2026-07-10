@@ -1,15 +1,13 @@
 import {
   existsSync,
-  cpSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -108,32 +106,6 @@ function unpackTarball(tarball) {
   return join(targetDir, 'package')
 }
 
-function packageNodeModulesPath(packageName) {
-  return packageName.startsWith('@')
-    ? join(consumerDir, 'node_modules', ...packageName.split('/'))
-    : join(consumerDir, 'node_modules', packageName)
-}
-
-function linkNodeModulesEntries(sourceDir) {
-  if (!existsSync(sourceDir)) {
-    return
-  }
-  for (const entry of readdirSync(sourceDir, { withFileTypes: true })) {
-    if (entry.name === '@lupinum') {
-      continue
-    }
-    const target = join(consumerDir, 'node_modules', entry.name)
-    if (existsSync(target)) {
-      continue
-    }
-    symlinkSync(
-      join(sourceDir, entry.name),
-      target,
-      entry.isDirectory() ? 'dir' : 'file',
-    )
-  }
-}
-
 rmSync(outputDir, { recursive: true, force: true })
 mkdirSync(tarballDir, { recursive: true })
 mkdirSync(unpackDir, { recursive: true })
@@ -189,16 +161,39 @@ for (const tarball of tarballs) {
   assertNoLocalPaths(packageRoot)
 }
 
-mkdirSync(join(consumerDir, 'node_modules'), { recursive: true })
-linkNodeModulesEntries(join(rootDir, 'node_modules'))
-for (const packageDir of packageDirs) {
-  linkNodeModulesEntries(join(rootDir, packageDir, 'node_modules'))
-}
-for (const [name, entry] of packedPackages) {
-  const target = packageNodeModulesPath(name)
-  mkdirSync(dirname(target), { recursive: true })
-  cpSync(entry.packageRoot, target, { recursive: true })
-}
+mkdirSync(consumerDir, { recursive: true })
+const rootManifest = readJson(join(rootDir, 'package.json'))
+const nuxtManifest = readJson(join(rootDir, 'packages/nuxt-board/package.json'))
+const packedDependencies = Object.fromEntries(
+  Array.from(packedPackages, ([name, entry]) => [
+    name,
+    `file:${entry.tarball}`,
+  ]),
+)
+writeFileSync(
+  join(consumerDir, 'package.json'),
+  JSON.stringify(
+    {
+      private: true,
+      type: 'module',
+      dependencies: packedDependencies,
+      devDependencies: {
+        '@types/node': rootManifest.devDependencies['@types/node'],
+        nuxt: nuxtManifest.devDependencies.nuxt,
+        typescript: rootManifest.devDependencies.typescript,
+        vue: rootManifest.devDependencies.vue,
+      },
+      pnpm: {
+        overrides: packedDependencies,
+      },
+    },
+    null,
+    2,
+  ),
+)
+run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], {
+  cwd: consumerDir,
+})
 
 const importLines = Array.from(packedPackages.keys())
   .map((name) => `await import(${JSON.stringify(name)})`)
