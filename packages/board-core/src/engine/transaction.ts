@@ -42,6 +42,11 @@ interface TransactionExecutorDeps<TRoot> {
   captureHistoryRoot: () => InternalHistoryRoot
   beginPersistentTransaction: () => TRoot
   rollbackPersistentTransaction: (checkpoint: TRoot) => void
+  beforeExecute: (
+    name: string,
+    metadata: CommandMetadata,
+    historyBefore: InternalHistoryRoot | null,
+  ) => InternalHistoryRoot | null
   publishCommit: (
     label: string,
     metadata: CommandMetadata,
@@ -105,13 +110,15 @@ export function createTransactionExecutor<TRoot>(
     const ownsEffects = deps.canOwnEffects()
     if (ownsEffects) deps.beginEffects()
     if (!inBatch) deps.emitBefore(name, args, metadata)
-    const historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
+    let historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
     const checkpoint =
       ownsEffects && metadata.validate !== false
         ? deps.beginPersistentTransaction()
         : null
 
     try {
+      historyBefore =
+        deps.beforeExecute(name, metadata, historyBefore) ?? historyBefore
       const result = fn()
       if (metadata.validate !== false) {
         if (inBatch) deps.markValidationPending()

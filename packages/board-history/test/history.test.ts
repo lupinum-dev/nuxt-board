@@ -34,6 +34,38 @@ describe('history plugin', () => {
     expect(engine.plugins.history.canUndo()).toBe(false)
   })
 
+  it('records commands after cancelling a preview from the restored session root', () => {
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      plugins: [historyPlugin()],
+    })
+    const previous = engine.createNode({
+      type: 'text',
+      x: 400,
+      y: 400,
+      text: 'Previous',
+    })
+    const previewed = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      text: 'Before',
+    })
+    engine.select(previous.id)
+    engine.plugins.history.clear()
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginBoxSelect(1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 300, y: 200 })
+    expect(engine.getSelection()).toEqual([previewed.id])
+
+    engine.updateNode(previewed.id, { text: 'After' })
+
+    expect(engine.getSelection()).toEqual([previous.id])
+    engine.plugins.history.undo()
+    expect(engine.getSelection()).toEqual([previous.id])
+    expect(engine.getNode(previewed.id)).toMatchObject({ text: 'Before' })
+  })
+
   it('finalizes history before reentrant public listeners run commands', () => {
     const engine = createBoardEngine({ plugins: [historyPlugin()] })
     engine.on('node:created', (node) => {

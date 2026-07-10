@@ -210,6 +210,7 @@ export function createBoardEngine<
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let destroyed = false
   let activeGestureHistoryRoot: InternalHistoryRoot | null = null
+  let activeBoxSelectionBefore: ReadonlySet<NodeId> | null = null
   const nodeOverrides = new Map<NodeId, BoardNode>()
   let indexedNodeRoot: ReadonlyMap<NodeId, BoardNode> | null = null
   let snapEdgeIndex: SnapEdgeIndex | null = null
@@ -355,6 +356,7 @@ export function createBoardEngine<
     clipboard: BoardNode[]
     nodeOverrides: Map<NodeId, BoardNode>
     activeGestureHistoryRoot: InternalHistoryRoot | null
+    activeBoxSelectionBefore: ReadonlySet<NodeId> | null
   }
 
   function beginPersistentTransaction(): EngineCheckpoint {
@@ -364,6 +366,7 @@ export function createBoardEngine<
       clipboard: [...clipboard],
       nodeOverrides: new Map(nodeOverrides),
       activeGestureHistoryRoot,
+      activeBoxSelectionBefore,
     }
     const candidate = stagePersistentRoots(roots)
     state = candidate.state
@@ -382,6 +385,7 @@ export function createBoardEngine<
       nodeOverrides.set(id, node)
     }
     activeGestureHistoryRoot = checkpoint.activeGestureHistoryRoot
+    activeBoxSelectionBefore = checkpoint.activeBoxSelectionBefore
     invalidateNodeCache()
   }
 
@@ -454,6 +458,20 @@ export function createBoardEngine<
     emitFailure: (failure) => emitImmediate('validation:failed', failure),
   })
 
+  function discardActiveInteraction(): void {
+    if (state.interaction.mode === 'idle' && nodeOverrides.size === 0) return
+    const hadNodeOverrides = nodeOverrides.size > 0
+    const selectionBefore =
+      state.interaction.mode === 'box-select' ? activeBoxSelectionBefore : null
+    nodeOverrides.clear()
+    activeGestureHistoryRoot = null
+    activeBoxSelectionBefore = null
+    setSnapGuides([])
+    if (selectionBefore) setSelection(selectionBefore)
+    setInteraction({ mode: 'idle' })
+    if (hadNodeOverrides) notifyNodesChanged()
+  }
+
   const { runCommand, runAsyncCommand } = createTransactionExecutor({
     assertAlive,
     runGuard: (name, args, metadata) => commandGuards.run(name, args, metadata),
@@ -485,6 +503,21 @@ export function createBoardEngine<
     captureHistoryRoot,
     beginPersistentTransaction,
     rollbackPersistentTransaction,
+    beforeExecute: (name, metadata, historyBefore) => {
+      const restoresBoxSelection =
+        state.interaction.mode === 'box-select' &&
+        activeBoxSelectionBefore !== null
+      if (metadata.history === 'record' && name !== 'endInteraction') {
+        discardActiveInteraction()
+        if (restoresBoxSelection && historyBefore) {
+          return {
+            ...historyBefore,
+            selection: new Set(state.selection),
+          }
+        }
+      }
+      return null
+    },
     publishCommit,
     validate,
     isCancellation: (error) => error instanceof AnimationCancelled,
@@ -879,6 +912,7 @@ export function createBoardEngine<
       cameraSession.cancelAnimations()
       nodeOverrides.clear()
       activeGestureHistoryRoot = null
+      activeBoxSelectionBefore = null
       for (const cleanup of pluginCleanups.values()) {
         cleanup()
       }
@@ -901,12 +935,26 @@ export function createBoardEngine<
         batches.batch(fn)
         return
       }
-      const historyBefore = captureHistoryRoot()
+      const originalHistoryBefore = captureHistoryRoot()
       const checkpoint = beginPersistentTransaction()
       eventBus.beginTransaction()
+      let historyBefore = originalHistoryBefore
       try {
-        batches.batch(fn, () =>
-          publishCommit('batch', RECORD_COMMAND, historyBefore),
+        batches.batch(
+          () => {
+            const restoresBoxSelection =
+              state.interaction.mode === 'box-select' &&
+              activeBoxSelectionBefore !== null
+            discardActiveInteraction()
+            if (restoresBoxSelection) {
+              historyBefore = {
+                ...originalHistoryBefore,
+                selection: new Set(state.selection),
+              }
+            }
+            fn()
+          },
+          () => publishCommit('batch', RECORD_COMMAND, historyBefore),
         )
         eventBus.commitTransaction()
       } catch (error) {
@@ -980,6 +1028,7 @@ export function createBoardEngine<
         [],
         () => {
           nodeOverrides.clear()
+          activeBoxSelectionBefore = null
           state.nodes = new Map(root.nodes)
           state.selection = new Set(
             Array.from(root.selection).filter((id) => state.nodes.has(id)),
@@ -1419,6 +1468,7 @@ export function createBoardEngine<
         'select',
         [ids, mode],
         () => {
+          discardActiveInteraction()
           const resolved = Array.isArray(ids) ? ids : [ids]
           if (mode === 'replace') {
             setSelection(resolved)
@@ -1446,6 +1496,7 @@ export function createBoardEngine<
         'selectAll',
         [],
         () => {
+          discardActiveInteraction()
           setSelection(
             Array.from(state.nodes.values())
               .filter((node) => node.visible)
@@ -1460,6 +1511,7 @@ export function createBoardEngine<
         'clearSelection',
         [],
         () => {
+          discardActiveInteraction()
           setSelection([])
         },
         IGNORE_COMMAND,
@@ -1497,6 +1549,7 @@ export function createBoardEngine<
         'beginPan',
         [pointerId, screenPoint],
         () => {
+          discardActiveInteraction()
           setInteraction({
             mode: 'panning',
             pointerId,
@@ -1511,6 +1564,8 @@ export function createBoardEngine<
         'beginNodeDrag',
         [id, pointerId, screenPoint],
         () => {
+          assertBoardNode(id)
+          discardActiveInteraction()
           const node = assertBoardNode(id)
           if (node.locked) {
             return
@@ -1550,6 +1605,8 @@ export function createBoardEngine<
         'beginResize',
         [id, handle, pointerId, screenPoint],
         () => {
+          assertBoardNode(id)
+          discardActiveInteraction()
           const node = assertBoardNode(id)
           if (node.locked) {
             return
@@ -1579,7 +1636,9 @@ export function createBoardEngine<
         'beginBoxSelect',
         [pointerId, screenPoint],
         () => {
+          discardActiveInteraction()
           const worldPoint = engine.screenToWorld(screenPoint)
+          activeBoxSelectionBefore = new Set(state.selection)
           setSelection([])
           setInteraction({
             mode: 'box-select',
@@ -1605,6 +1664,7 @@ export function createBoardEngine<
               `Cannot edit text for ${node.type} node "${id}".`,
             )
           }
+          discardActiveInteraction()
           setSelection([id])
           setInteraction({ mode: 'editing-text', nodeId: id })
         },
@@ -1931,6 +1991,7 @@ export function createBoardEngine<
         gestureCommit,
       )
       activeGestureHistoryRoot = null
+      activeBoxSelectionBefore = null
     },
     cancelInteraction(pointerId) {
       const interaction = state.interaction
@@ -1946,11 +2007,7 @@ export function createBoardEngine<
         'cancelInteraction',
         [pointerId],
         () => {
-          nodeOverrides.clear()
-          activeGestureHistoryRoot = null
-          setSnapGuides([])
-          setInteraction({ mode: 'idle' })
-          notifyNodesChanged()
+          discardActiveInteraction()
         },
         IGNORE_UNVALIDATED_COMMAND,
       )
@@ -1990,6 +2047,7 @@ export function createBoardEngine<
           const snapshot = documentToSnapshot(normalized)
           nodeOverrides.clear()
           activeGestureHistoryRoot = null
+          activeBoxSelectionBefore = null
           const idMap = restoreSnapshot(snapshot, mode)
           restorePluginDocuments(normalized, mode, idMap)
         },

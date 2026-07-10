@@ -4,6 +4,7 @@ import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { asEdgeId, createBoardEngine } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { BoardRoot } from '@lupinum/vue-board'
 import { connectionsPlugin } from '../src'
 import { BoardConnectionLayer } from '../src/vue'
@@ -178,6 +179,63 @@ describe('BoardConnectionLayer', () => {
     ).getAttribute('d')
 
     expect(before).not.toBe(after)
+    wrapper.unmount()
+  })
+
+  it('renders transient endpoint geometry and restores it on cancellation', async () => {
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      plugins: [connectionsPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+    })
+    engine.plugins.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      data: {},
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { viewport: () => h(BoardConnectionLayer) },
+      attachTo: document.body,
+    })
+    await nextTick()
+
+    const path = () =>
+      query(
+        '.board-connection-layer > g > path:not([data-connection-hit])',
+      ).getAttribute('d')
+    const before = path()
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginResize(target.id, 'se', 1, { x: 400, y: 200 })
+    interaction.updatePointer(1, { x: 480, y: 250 })
+    await nextTick()
+    await nextTick()
+
+    expect(path()).not.toBe(before)
+    expect(
+      engine.exportDocument().nodes.find((node) => node.id === target.id),
+    ).toMatchObject({
+      width: 120,
+      height: 80,
+    })
+
+    interaction.cancelInteraction(1)
+    await nextTick()
+    await nextTick()
+    expect(path()).toBe(before)
     wrapper.unmount()
   })
 

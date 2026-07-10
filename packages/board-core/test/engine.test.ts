@@ -569,6 +569,65 @@ describe('board engine', () => {
     expect(engine.getSelection()).toEqual([contained.id, crossing.id])
   })
 
+  it('restores the previous selection when box selection is cancelled', () => {
+    const engine = createBoardEngine()
+    const previous = engine.createNode({
+      type: 'text',
+      x: 400,
+      y: 400,
+      width: 80,
+      height: 60,
+    })
+    const previewed = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+    })
+    engine.select(previous.id)
+    const interaction = getBoardInteractionAdapter(engine)
+
+    interaction.beginBoxSelect(1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 200, y: 160 })
+    expect(engine.getSelection()).toEqual([previewed.id])
+
+    interaction.cancelInteraction(1)
+    expect(engine.getSelection()).toEqual([previous.id])
+    expect(engine.getState().interaction.mode).toBe('idle')
+  })
+
+  it('preserves an active box-selection preview when a command fails', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const previous = engine.createNode({
+      type: 'text',
+      x: 400,
+      y: 400,
+      width: 80,
+      height: 60,
+    })
+    const previewed = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 80,
+      height: 60,
+    })
+    engine.select(previous.id)
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginBoxSelect(1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 200, y: 160 })
+
+    expect(() => engine.updateNode(previewed.id, { width: -1 })).toThrow(
+      BoardInputError,
+    )
+    expect(engine.getState().interaction.mode).toBe('box-select')
+    expect(engine.getSelection()).toEqual([previewed.id])
+
+    interaction.cancelInteraction(1)
+    expect(engine.getSelection()).toEqual([previous.id])
+  })
+
   it('allows forcing contain-only box selection via config', () => {
     const engine = createBoardEngine({
       boxSelect: { behavior: 'contain' },
@@ -746,12 +805,106 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({ x: 40, y: 20 })
+
     engine.deleteNode(node.id)
 
     const snapshot = engine.getState()
     expect(snapshot.nodes).toHaveLength(0)
+    expect(engine.$nodes.get().has(node.id)).toBe(false)
     expect(engine.getState().interaction.mode).toBe('idle')
+    interaction.endInteraction(1)
+    expect(engine.hasNode(node.id)).toBe(false)
+  })
+
+  it('cancels transient geometry before a concurrent document command', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      text: 'Before',
+    })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+
+    engine.updateNode(node.id, { text: 'After' })
+
+    expect(engine.getState().interaction.mode).toBe('idle')
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({
+      x: 0,
+      y: 0,
+      text: 'After',
+    })
+    interaction.endInteraction(1)
+    expect(engine.getNode(node.id)).toMatchObject({
+      x: 0,
+      y: 0,
+      text: 'After',
+    })
+  })
+
+  it('discards the previous preview before starting another interaction', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+    })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+
+    interaction.beginResize(node.id, 'se', 2, { x: 200, y: 100 })
+
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({ x: 0, y: 0 })
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'resizing-node',
+      pointerId: 2,
+      startNodeBounds: { x: 0, y: 0, width: 200, height: 100 },
+    })
+  })
+
+  it('preserves the current preview when a replacement interaction fails', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+
+    expect(() =>
+      interaction.beginResize(asNodeId('missing'), 'se', 2, {
+        x: 200,
+        y: 100,
+      }),
+    ).toThrow('Node "missing" does not exist.')
+
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({ x: 40, y: 20 })
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'dragging-nodes',
+      pointerId: 1,
+    })
+  })
+
+  it('cancels an active gesture before changing selection explicitly', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const dragged = engine.createNode({ type: 'text', x: 0, y: 0 })
+    const selected = engine.createNode({ type: 'text', x: 300, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(dragged.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+
+    engine.select(selected.id)
+
+    expect(engine.getState().interaction.mode).toBe('idle')
+    expect(engine.$nodes.get().get(dragged.id)).toMatchObject({ x: 0, y: 0 })
+    expect(engine.getSelection()).toEqual([selected.id])
   })
 
   it('returns detached public nodes from snapshots', () => {
@@ -1624,6 +1777,26 @@ describe('transaction isolation regressions', () => {
     expect(engine.$nodes.get().size).toBe(0)
     expect(events).toEqual([])
     expect(notifications).toEqual([])
+  })
+
+  it('restores an active preview when an interrupting batch fails', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 40, y: 20 })
+
+    expect(() =>
+      engine.batch(() => {
+        engine.createNode({ id: asNodeId('duplicate'), type: 'text' })
+        engine.createNode({ id: asNodeId('duplicate'), type: 'text' })
+      }),
+    ).toThrow(BoardConflictError)
+
+    expect(engine.getState().interaction.mode).toBe('dragging-nodes')
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({ x: 40, y: 20 })
+    interaction.cancelInteraction(1)
+    expect(engine.getNode(node.id)).toMatchObject({ x: 0, y: 0 })
   })
 
   it('rolls the clipboard back with a failed batch', () => {
