@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
+      '@lupinum/board-core/internal': fileURLToPath(
+        new URL('../board-core/src/internal.ts', import.meta.url),
+      ),
       '@lupinum/board-core': fileURLToPath(
         new URL('../board-core/src/index.ts', import.meta.url),
       ),
@@ -23,7 +26,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@lupinum/board-core'],
+      external: ['vue', '@lupinum/board-core', '@lupinum/board-core/internal'],
     },
   },
 })
