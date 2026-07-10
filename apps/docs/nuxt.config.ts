@@ -14,6 +14,7 @@ const boardCore = workspacePackage('board-core/src/index.ts')
 const vueBoard = workspacePackage('vue-board/src/index.ts')
 const boardHistory = workspacePackage('board-history/src/index.ts')
 const boardConnections = workspacePackage('board-connections/src/index.ts')
+const boardConnectionsVue = workspacePackage('board-connections/src/vue.ts')
 const boardMinimap = workspacePackage('vue-board/src/minimap.ts')
 
 export default defineNuxtConfig({
@@ -68,6 +69,7 @@ export default defineNuxtConfig({
     '@lupinum/vue-board': vueBoard,
     '@lupinum/board-history': boardHistory,
     '@lupinum/board-connections': boardConnections,
+    '@lupinum/board-connections/vue': boardConnectionsVue,
     '@lupinum/vue-board/minimap': boardMinimap,
   },
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
-import { BoardConnectionLayer } from '../../board-connections/src/index'
+import { BoardConnectionLayer } from '../../board-connections/src/vue'
 import { BoardMinimap } from '../../vue-board/src/minimap'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import DemoDiagnostics from '~/components/DemoDiagnostics.vue'

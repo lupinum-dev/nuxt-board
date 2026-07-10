@@ -14,7 +14,7 @@ import {
   type BoardNode,
   type Point,
 } from '@lupinum/board-core'
-import { useBoardEngine } from '@lupinum/vue-board'
+import { useBoardEngine } from './useBoardEngine.js'
 
 /** Sizing options for the minimap composable and component. */
 export interface MinimapOptions {

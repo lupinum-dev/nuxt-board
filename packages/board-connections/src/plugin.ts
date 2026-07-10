@@ -12,13 +12,13 @@ import {
   type JsonCanvasSide,
 } from '@lupinum/board-core'
 import { defineInternalBoardPlugin } from '@lupinum/board-core/internal'
+import { edgeEndsForDirectionality } from './directionality.js'
 import type {
   BoardEdge,
   BoardEdgePatch,
   ConnectionConfig,
   ConnectionPluginOptions,
   ConnectionsApi,
-  EdgeEnd,
 } from './types.js'
 
 const CONNECTIONS_FEATURE_NAME = 'connections'
@@ -118,25 +118,6 @@ declare module '@lupinum/board-core' {
   }
 }
 
-function defaultEnds(
-  defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>,
-): {
-  fromEnd: EdgeEnd
-  toEnd: EdgeEnd
-} {
-  switch (defaultArrow) {
-    case 'start':
-      return { fromEnd: 'arrow', toEnd: 'none' }
-    case 'both':
-      return { fromEnd: 'arrow', toEnd: 'arrow' }
-    case 'none':
-      return { fromEnd: 'none', toEnd: 'none' }
-    case 'end':
-    default:
-      return { fromEnd: 'none', toEnd: 'arrow' }
-  }
-}
-
 function cloneEdge<T>(edge: BoardEdge<T>): BoardEdge<T> {
   return {
     ...edge,
@@ -173,7 +154,7 @@ export function connectionsPlugin(
     endpointMode,
     defaultArrow,
   }
-  const defaults = defaultEnds(defaultArrow)
+  const defaults = edgeEndsForDirectionality(defaultArrow)
 
   const plugin = defineInternalBoardPlugin<
     ConnectionsPluginApis,

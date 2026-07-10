@@ -68,6 +68,23 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
+  it('allows bundled presentation chrome to be disabled directly', () => {
+    const wrapper = mount(BoardRoot, {
+      props: {
+        engine: createBoardEngine(),
+        grid: false,
+        selectionToolbar: false,
+        snapGuides: false,
+        boxSelect: false,
+      },
+    })
+
+    expect(wrapper.find('.board-grid').exists()).toBe(false)
+    expect(wrapper.find('.board-selection-toolbar').exists()).toBe(false)
+    expect(wrapper.find('.board-snap-guides').exists()).toBe(false)
+    expect(wrapper.find('.board-box-select').exists()).toBe(false)
+  })
+
   it('uses granular subscriptions without rebuilding full snapshots', async () => {
     const engine = createBoardEngine()
     const getState = vi.spyOn(engine, 'getState')

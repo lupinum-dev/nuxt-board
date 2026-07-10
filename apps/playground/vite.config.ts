@@ -41,6 +41,15 @@ export default defineConfig({
         ),
       },
       {
+        find: /^@lupinum\/board-connections\/vue$/,
+        replacement: fileURLToPath(
+          new URL(
+            '../../packages/board-connections/src/vue.ts',
+            import.meta.url,
+          ),
+        ),
+      },
+      {
         find: /^@lupinum\/board-connections$/,
         replacement: fileURLToPath(
           new URL(

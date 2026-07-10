@@ -9,6 +9,7 @@ pnpm add @lupinum/board-connections @lupinum/board-core @lupinum/vue-board
 ```ts
 import { createBoardEngine } from '@lupinum/board-core'
 import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 
 const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
 const first = engine.createNode({ type: 'text', text: 'First node' })

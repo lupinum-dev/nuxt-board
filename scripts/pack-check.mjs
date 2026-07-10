@@ -213,6 +213,7 @@ import { BoardRoot } from '@lupinum/vue-board'
 import { historyPlugin } from '@lupinum/board-history'
 import { getSelectionBounds } from '@lupinum/board-core'
 import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
 const engine = createBoardEngine({ plugins: [historyPlugin(), connectionsPlugin()] })
@@ -221,6 +222,7 @@ engine.select(node.id)
 getSelectionBounds(engine)
 engine.exportDocument()
 void BoardRoot
+void BoardConnectionLayer
 void BoardMinimap
 `,
 )

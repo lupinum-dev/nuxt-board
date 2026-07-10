@@ -34,10 +34,8 @@ pnpm add @lupinum/board-connections
 Both plugin and layer are required:
 
 ```ts
-import {
-  BoardConnectionLayer,
-  connectionsPlugin,
-} from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 
 const engine = createBoardEngine({
   plugins: [connectionsPlugin({ routing: 'bezier' })],
@@ -73,7 +71,7 @@ Endpoint mode:
 - `auto`: UI-created edges store no anchors and resolve best sides as nodes move.
 - `manual`: UI-created edges store side offsets chosen by the user.
 
-`BoardConnectionLayer` can be rendered as a direct/default child of `BoardRoot`; it teleports and transforms its SVG layer itself. Its `engine` prop is optional, but the layer must still render under `BoardRoot` because it uses board DOM and camera context.
+`BoardConnectionLayer` renders as a child of `BoardRoot` and always uses that root's engine, DOM, and camera context. It intentionally has no separate `engine` prop.
 
 ## History
 

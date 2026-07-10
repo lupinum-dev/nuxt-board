@@ -24,6 +24,7 @@ import {
   resolveFloatingEndpoint,
 } from './geometry.js'
 import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors.js'
+import { edgeEndsForDirectionality } from './directionality.js'
 import type {
   AnchorPosition,
   AnchorSide,
@@ -78,10 +79,6 @@ const TOOLBAR_ICON_SIZE = 24
 export const BoardConnectionLayer = defineComponent({
   name: 'BoardConnectionLayer',
   props: {
-    engine: {
-      type: Object as PropType<BoardEngine | null>,
-      default: null,
-    },
     routing: {
       type: String as PropType<ConnectionRouting | undefined>,
       default: undefined,
@@ -101,7 +98,7 @@ export const BoardConnectionLayer = defineComponent({
     const injected = useBoardEngine()
     const engine = computed(
       () =>
-        (props.engine ?? injected.engine) as BoardEngine<{
+        injected.engine as BoardEngine<{
           connections: ConnectionsApi
         }>,
     )
@@ -546,17 +543,12 @@ export const BoardConnectionLayer = defineComponent({
       if (!entry) {
         return
       }
-      const next: Record<
-        'none' | 'to' | 'both',
-        { fromEnd: EdgeEnd; toEnd: EdgeEnd }
-      > = {
-        none: { fromEnd: 'none', toEnd: 'none' },
-        to: { fromEnd: 'none', toEnd: 'arrow' },
-        both: { fromEnd: 'arrow', toEnd: 'arrow' },
-      }
+      const next = edgeEndsForDirectionality(
+        direction === 'to' ? 'end' : direction,
+      )
       engine.value.plugins.connections.updateEdge(entry.edge.id, {
-        fromEnd: next[direction].fromEnd,
-        toEnd: next[direction].toEnd,
+        fromEnd: next.fromEnd,
+        toEnd: next.toEnd,
       })
       directionMenuEdgeId.value = null
     }

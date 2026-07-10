@@ -95,9 +95,9 @@ function wrapSelectionInGroup() {
   if (selected.length === 0) {
     return
   }
-  const nodes = engine
-    .getState()
-    .nodes.filter((node) => selected.includes(node.id))
+  const nodes = Array.from(engine.getState().nodes.values()).filter((node) =>
+    selected.includes(node.id),
+  )
   if (nodes.length === 0) {
     return
   }

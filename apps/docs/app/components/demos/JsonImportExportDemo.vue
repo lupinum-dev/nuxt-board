@@ -2,10 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
-import {
-  connectionsPlugin,
-  BoardConnectionLayer,
-} from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 
 const engine = createBoardEngine({
   grid: { size: 18, majorEvery: 6, snap: true, pattern: 'line' },

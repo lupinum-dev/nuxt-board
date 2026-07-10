@@ -2,10 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine, type NodeId } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
-import {
-  connectionsPlugin,
-  BoardConnectionLayer,
-} from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { historyPlugin } from '@lupinum/board-history'
 import MindMapTopicNode from './MindMapTopicNode.vue'
 

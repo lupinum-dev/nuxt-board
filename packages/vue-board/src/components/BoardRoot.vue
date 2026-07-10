@@ -53,6 +53,18 @@ const props = defineProps({
     type: [Boolean, Object] as PropType<boolean | BoardGridOptions>,
     default: true,
   },
+  selectionToolbar: {
+    type: Boolean,
+    default: true,
+  },
+  snapGuides: {
+    type: Boolean,
+    default: true,
+  },
+  boxSelect: {
+    type: Boolean,
+    default: true,
+  },
   renderers: {
     type: Object as PropType<BoardRendererRegistry>,
     default: () => ({}),
@@ -249,7 +261,7 @@ onBeforeUnmount(() => {
     @keydown="onKeyDown"
     @keyup="onKeyUp"
   >
-    <BoardGrid />
+    <BoardGrid v-if="grid !== false" />
     <BoardViewport>
       <slot name="viewport" :engine="engine" :state="state" />
       <template v-for="node in visibleNodes" :key="node.id">
@@ -318,9 +330,9 @@ onBeforeUnmount(() => {
         />
       </template>
     </BoardViewport>
-    <BoardSelectionToolbar />
-    <BoardSnapGuides />
-    <BoardBoxSelect>
+    <BoardSelectionToolbar v-if="selectionToolbar" />
+    <BoardSnapGuides v-if="snapGuides" />
+    <BoardBoxSelect v-if="boxSelect">
       <template #default="slotProps">
         <slot name="box-select" v-bind="slotProps" />
       </template>

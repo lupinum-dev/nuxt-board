@@ -5,7 +5,8 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
-import { BoardConnectionLayer, connectionsPlugin } from '../src'
+import { connectionsPlugin } from '../src'
+import { BoardConnectionLayer } from '../src/vue'
 
 function dispatchPointerEvent(
   target: EventTarget,

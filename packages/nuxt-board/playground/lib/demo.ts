@@ -4,15 +4,20 @@ import {
   createBoardEngine,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
-  type BoardSnapshot,
   type BoardEngine,
   type BoardNode,
   type GridSettings,
   type GridPattern,
   type Point,
 } from '@lupinum/board-core'
-import { connectionsPlugin } from '../../../board-connections/src/index'
-import { historyPlugin } from '../../../board-history/src/index'
+import {
+  connectionsPlugin,
+  type ConnectionsApi,
+} from '../../../board-connections/src/index'
+import {
+  historyPlugin,
+  type HistoryApi,
+} from '../../../board-history/src/index'
 
 export type DemoSceneId = 'workflow' | 'systems' | 'dense' | 'polish'
 
@@ -26,9 +31,21 @@ interface DemoScene {
   id: DemoSceneId
   label: string
   summary: string
-  snapshot: BoardSnapshot
+  snapshot: DemoSceneState
   edges: JsonCanvasEdge[]
 }
+
+interface DemoSceneState {
+  camera: Point & { z: number }
+  grid: GridSettings
+  nodes: DemoNode[]
+  nextZIndex: number
+}
+
+export type DemoEngine = BoardEngine<{
+  history: HistoryApi
+  connections: ConnectionsApi
+}>
 
 type DemoNode = BoardNode
 
@@ -161,14 +178,11 @@ function snapshotFrom(
   nodes: DemoNode[],
   camera: Point & { z: number },
   grid = DEFAULT_GRID,
-): BoardSnapshot {
+): DemoSceneState {
   return {
     camera,
     grid,
     nodes,
-    selection: [],
-    interaction: { mode: 'idle' },
-    snapGuides: [],
     nextZIndex: nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1,
   }
 }
@@ -596,13 +610,13 @@ function getScene(id: DemoSceneId): DemoScene {
 }
 
 export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
-  engine: BoardEngine
+  engine: DemoEngine
   scene: DemoSceneOption
 } {
   const engine = createBoardEngine({
     diagnostics: { traceLimit: 400 },
     grid: DEFAULT_GRID,
-    plugins: [historyPlugin(), connectionsPlugin()],
+    plugins: [historyPlugin(), connectionsPlugin()] as const,
   })
 
   const scene = loadDemoScene(engine, initialSceneId)
@@ -610,7 +624,7 @@ export function createDemoEngine(initialSceneId: DemoSceneId = 'workflow'): {
 }
 
 export function loadDemoScene(
-  engine: BoardEngine,
+  engine: DemoEngine,
   sceneId: DemoSceneId,
 ): DemoSceneOption {
   const scene = getScene(sceneId)
@@ -625,18 +639,18 @@ export function loadDemoScene(
   }
 }
 
-export function exportDemoDocument(engine: BoardEngine): string {
+export function exportDemoDocument(engine: DemoEngine): string {
   return JSON.stringify(engine.exportDocument(), null, 2)
 }
 
-export function importDemoDocument(engine: BoardEngine, json: string): void {
+export function importDemoDocument(engine: DemoEngine, json: string): void {
   engine.importDocument(JSON.parse(json), 'replace')
   engine.clearSelection()
   engine.endInteraction()
   engine.plugins.history.clear()
 }
 
-export function getDemoCounts(engine: BoardEngine): {
+export function getDemoCounts(engine: DemoEngine): {
   nodes: number
   edges: number
   selection: number
@@ -644,20 +658,20 @@ export function getDemoCounts(engine: BoardEngine): {
 } {
   const snapshot = engine.getState()
   return {
-    nodes: snapshot.nodes.length,
+    nodes: snapshot.nodes.size,
     edges: engine.plugins.connections.getEdges().length,
-    selection: snapshot.selection.length,
+    selection: snapshot.selection.size,
     history: engine.plugins.history.getState().undoDepth,
   }
 }
 
 export function wrapSelectionInGroup(
-  engine: BoardEngine,
+  engine: DemoEngine,
 ): 'created' | 'grouped' {
   const selection = engine.getSelection()
   const snapshot = engine.getState()
   const groupPadding = 32
-  const groupId = `group-${snapshot.nextZIndex}`
+  const groupId = `group-${Math.max(0, ...Array.from(snapshot.nodes.values(), (node) => node.zIndex)) + 1}`
 
   if (selection.length === 0) {
     const viewport = engine.getViewportSize()
@@ -681,7 +695,7 @@ export function wrapSelectionInGroup(
     return 'created'
   }
 
-  const selectedNodes = snapshot.nodes.filter((node) =>
+  const selectedNodes = Array.from(snapshot.nodes.values()).filter((node) =>
     selection.includes(node.id),
   )
   if (selectedNodes.length === 0) {
@@ -723,6 +737,6 @@ export function wrapSelectionInGroup(
   return 'grouped'
 }
 
-export function getLastTraceLabel(engine: BoardEngine): string {
+export function getLastTraceLabel(engine: DemoEngine): string {
   return engine.exportTrace().at(-1)?.event ?? 'ready'
 }

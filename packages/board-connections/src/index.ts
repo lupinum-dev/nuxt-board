@@ -1,8 +1,8 @@
 /** Install the connections plugin and its `engine.plugins.connections` API. */
 export { connectionsPlugin } from './plugin.js'
-/** SVG layer that renders edges, labels, handles, and connection previews. */
-export { BoardConnectionLayer } from './layer.js'
-
+/** Shared mapping from directionality choices to persisted endpoint markers. */
+export { edgeEndsForDirectionality } from './directionality.js'
+export type { ConnectionDirectionality } from './directionality.js'
 /** Geometry helpers for resolving anchors, routes, and render state. */
 export {
   buildConnectionRoute,

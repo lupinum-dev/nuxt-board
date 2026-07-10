@@ -4,9 +4,9 @@ import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
   connectionsPlugin,
-  BoardConnectionLayer,
   type ConnectionRouting,
 } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { historyPlugin } from '@lupinum/board-history'
 import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
