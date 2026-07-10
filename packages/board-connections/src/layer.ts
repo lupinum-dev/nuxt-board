@@ -47,17 +47,19 @@ import {
   EDGE_LABEL_SCREEN_FONT_SIZE,
   EDGE_STROKE_LOD_FADE_START,
   EDGE_STROKE_LOD_SOFTEN_AT,
-  anchorForPointOnNode,
-  edgeIdFromTarget,
   floatingNodeAt,
-  nodeHandleFromTarget,
   resolveArrowScreenSize,
   resolveLodAmount,
   sameAnchor,
-  sameEdgeTarget,
   worldPointFromClient,
-  type HoveredNodeHandle,
 } from './layer-helpers.js'
+import {
+  edgeIdFromTarget,
+  nodeHandleFromTarget,
+  resolveNodeHandleAtWorldPoint,
+  sameEdgeTarget,
+  type ConnectionNodeHandle,
+} from './hit-testing.js'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
@@ -133,7 +135,7 @@ export const BoardConnectionLayer = defineComponent({
     >()
     const hoveredEdgeId = shallowRef<string | null>(null)
     const hoveredNodeId = shallowRef<NodeId | null>(null)
-    const hoveredNodeHandle = shallowRef<HoveredNodeHandle | null>(null)
+    const hoveredNodeHandle = shallowRef<ConnectionNodeHandle | null>(null)
     const selectedEdgeId = shallowRef<string | null>(null)
     const pendingDrag = shallowRef<PendingDragState | null>(null)
     const dragState = shallowRef<DragState | null>(null)
@@ -215,7 +217,12 @@ export const BoardConnectionLayer = defineComponent({
           const nodeUnderCursor = currentEngine.getNodeAt(worldPoint)
           const nodeHandle =
             nodeHandleFromTarget(event.target) ??
-            resolveNodeHandleAtWorldPoint(worldPoint)
+            resolveNodeHandleAtWorldPoint(
+              injected.$nodes.value.values(),
+              worldPoint,
+              hotspotThickness.value,
+              hotspotCornerClearance.value,
+            )
 
           hoveredEdgeId.value =
             edgeId ?? (selectedEdgeId.value ? selectedEdgeId.value : null)
@@ -482,65 +489,6 @@ export const BoardConnectionLayer = defineComponent({
     const hotspotCornerClearance = computed(
       () => 18 / Math.max(injected.$camera.value.z, 0.25),
     )
-
-    function resolveNodeHandleAtWorldPoint(
-      point: Point,
-    ): HoveredNodeHandle | null {
-      const threshold = hotspotThickness.value
-      let best: HoveredNodeHandle | null = null
-      let bestZIndex = -Infinity
-
-      for (const node of injected.$nodes.value.values()) {
-        if (!node.visible || node.zIndex <= bestZIndex) {
-          continue
-        }
-
-        const left = node.x
-        const right = node.x + node.width
-        const top = node.y
-        const bottom = node.y + node.height
-        if (
-          point.x < left - threshold ||
-          point.x > right + threshold ||
-          point.y < top - threshold ||
-          point.y > bottom + threshold
-        ) {
-          continue
-        }
-
-        const clearance = Math.min(
-          hotspotCornerClearance.value,
-          Math.min(node.width, node.height) / 3,
-        )
-        let closestSide: AnchorSide | null = null
-        let closestDistance = Infinity
-        const considerSide = (side: AnchorSide, distance: number): void => {
-          if (distance < closestDistance) {
-            closestSide = side
-            closestDistance = distance
-          }
-        }
-
-        if (point.x >= left + clearance && point.x <= right - clearance) {
-          considerSide('top', Math.abs(point.y - top))
-          considerSide('bottom', Math.abs(point.y - bottom))
-        }
-        if (point.y >= top + clearance && point.y <= bottom - clearance) {
-          considerSide('left', Math.abs(point.x - left))
-          considerSide('right', Math.abs(point.x - right))
-        }
-
-        if (closestSide && closestDistance <= threshold) {
-          best = {
-            nodeId: node.id,
-            ...anchorForPointOnNode(node, closestSide, point),
-          }
-          bestZIndex = node.zIndex
-        }
-      }
-
-      return best
-    }
 
     function onEdgePointerDown(edgeId: string, event: PointerEvent): void {
       event.preventDefault()
@@ -876,7 +824,12 @@ export const BoardConnectionLayer = defineComponent({
           event.clientX,
           event.clientY,
         )
-        const candidateHandle = resolveNodeHandleAtWorldPoint(nextWorld)
+        const candidateHandle = resolveNodeHandleAtWorldPoint(
+          injected.$nodes.value.values(),
+          nextWorld,
+          hotspotThickness.value,
+          hotspotCornerClearance.value,
+        )
         const candidateNode = candidateHandle
           ? currentEngine.findNode(candidateHandle.nodeId)
           : currentEngine.getNodeAt(nextWorld)
