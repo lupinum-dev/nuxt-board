@@ -115,10 +115,6 @@ declare module '@lupinum/board-core' {
     'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
     'edge:deleted': (edgeId: EdgeId) => void
   }
-
-  interface BoardPluginApis {
-    connections: ConnectionsExtension
-  }
 }
 
 function defaultEnds(
@@ -167,7 +163,7 @@ function edgeToJsonCanvas(edge: BoardEdge): JsonCanvasEdge {
 
 export function connectionsPlugin(
   options: ConnectionPluginOptions = {},
-): BoardPlugin {
+): BoardPlugin<ConnectionsFeatureExtensions> {
   const routing = options.routing ?? 'bezier'
   const endpointMode = options.endpointMode ?? 'auto'
   const defaultArrow = options.defaultArrow ?? 'end'

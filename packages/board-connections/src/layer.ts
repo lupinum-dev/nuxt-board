@@ -29,6 +29,7 @@ import type {
   AnchorSide,
   BoardEdge,
   ConnectionEndpointMode,
+  ConnectionsExtension,
   CreateNodeForConnectionContext,
   ConnectionRouting,
   EdgeEnd,
@@ -98,7 +99,12 @@ export const BoardConnectionLayer = defineComponent({
   },
   setup(props, { slots }) {
     const injected = useBoardEngine()
-    const engine = computed(() => props.engine ?? injected.engine)
+    const engine = computed(
+      () =>
+        (props.engine ?? injected.engine) as BoardEngine<{
+          connections: ConnectionsExtension
+        }>,
+    )
     const version = shallowRef(0)
     const markerId = `board-connection-arrow-${useId().replace(/[^A-Za-z0-9_-]/g, '-')}`
     const sideCache = new Map<

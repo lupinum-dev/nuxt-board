@@ -335,20 +335,38 @@ export type ValidationMode = 'strict' | 'warn' | 'off'
 
 export interface BoardPluginApis {}
 
-/** Opaque install token produced by internal extension packages. */
-export interface BoardPlugin {
+/** Opaque install token carrying the API installed by a plugin factory. */
+export interface BoardPlugin<TApis extends BoardPluginApis = BoardPluginApis> {
   readonly name: string
-  readonly __boardExtensionBrand: never
+  readonly __boardPluginBrand: never
+  readonly __boardPluginApis: TApis
 }
 
+type UnionToIntersection<T> = (
+  T extends unknown ? (value: T) => void : never
+) extends (value: infer TIntersection) => void
+  ? TIntersection
+  : never
+
+type PluginApi<TPlugin> = TPlugin extends BoardPlugin<infer TApis>
+  ? TApis
+  : never
+
+export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> =
+  [TPlugins[number]] extends [never]
+    ? BoardPluginApis
+    : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
+
 /** Engine factory options shared by commands, internal features, and renderers. */
-export interface BoardEngineOptions {
+export interface BoardEngineOptions<
+  TPlugins extends readonly BoardPlugin[] = readonly [],
+> {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  plugins?: BoardPlugin[]
+  plugins?: TPlugins
   diagnostics?: boolean | { traceLimit?: number }
   validation?: ValidationMode
   initialNodes?: ReadonlyArray<BoardNode>
@@ -441,8 +459,10 @@ export interface Subscribable<T> {
  * Commands mutate persistent board state, subscribables expose reactive state,
  * and events let host applications observe lifecycle changes.
  */
-export interface BoardEngine {
-  readonly plugins: BoardPluginApis
+export interface BoardEngine<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
+> {
+  readonly plugins: TPluginApis
   readonly $camera: Subscribable<Camera>
   readonly $grid: Subscribable<GridSettings>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
@@ -606,7 +626,7 @@ export interface InternalBoardPlugin<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends BoardPlugin {
+> extends BoardPlugin<TExtensions> {
   name: string
   slice?: InternalFeatureSlice
   persistence?: InternalFeaturePersistence<TExtensions, TEvents>

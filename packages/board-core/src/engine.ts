@@ -103,7 +103,9 @@ import type {
   GridSettings,
   InternalBoardPlugin,
   InternalPluginContext,
+  InstalledPluginApis,
   BoardPluginApis,
+  BoardPlugin,
   CommandMetadata,
   InteractionState,
   ValidationMode,
@@ -144,9 +146,11 @@ const IGNORE_UNVALIDATED_COMMAND: CommandMetadata = {
  *   initialNodes: [{ id: asNodeId('a'), type: 'text', x: 0, y: 0, width: 160, height: 80, text: 'Hello', zIndex: 1, locked: false, visible: true }],
  * })
  */
-export function createBoardEngine(
-  options: BoardEngineOptions = {},
-): BoardEngine {
+export function createBoardEngine<
+  const TPlugins extends readonly BoardPlugin[] = readonly [],
+>(
+  options: BoardEngineOptions<TPlugins> = {} as BoardEngineOptions<TPlugins>,
+): BoardEngine<InstalledPluginApis<TPlugins>> {
   const camera: Camera = { ...DEFAULT_CAMERA, ...options.camera }
   const zoom: ZoomSettings = { ...DEFAULT_ZOOM, ...options.zoom }
   const grid: GridSettings = { ...DEFAULT_GRID, ...options.grid }
@@ -2250,5 +2254,5 @@ export function createBoardEngine(
 
   validate('createBoardEngine')
 
-  return engine
+  return engine as unknown as BoardEngine<InstalledPluginApis<TPlugins>>
 }

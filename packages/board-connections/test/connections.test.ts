@@ -4,6 +4,7 @@ import {
   asNodeId,
   BoardConflictError,
   BoardInputError,
+  type BoardEngine,
   createBoardEngine,
 } from '@lupinum/board-core'
 import {
@@ -16,10 +17,11 @@ import {
   resolveAutoAnchorSide,
   resolveConnectionEndpoint,
   resolveEdgeRenderState,
+  type ConnectionsExtension,
 } from '../src'
 
 function expectEdgesReferenceExistingNodes(
-  engine: ReturnType<typeof createBoardEngine>,
+  engine: BoardEngine<{ connections: ConnectionsExtension }>,
 ): void {
   for (const edge of engine.plugins.connections.getEdges()) {
     expect(engine.hasNode(edge.from)).toBe(true)

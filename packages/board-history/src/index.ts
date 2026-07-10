@@ -58,10 +58,6 @@ declare module '@lupinum/board-core' {
     'history:redo': (entry: HistoryEntry | null) => void
     'history:clear': () => void
   }
-
-  interface BoardPluginApis {
-    history: HistoryExtension
-  }
 }
 
 function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
@@ -69,7 +65,9 @@ function toHistoryEntry(frame: HistoryFrame): HistoryEntry {
 }
 
 /** Install deterministic undo/redo backed by committed structural roots. */
-export function historyPlugin(options: HistoryPluginOptions = {}): BoardPlugin {
+export function historyPlugin(
+  options: HistoryPluginOptions = {},
+): BoardPlugin<HistoryFeatureExtensions> {
   const maxSteps = Math.max(1, options.maxSteps ?? 200)
 
   return defineInternalBoardPlugin<HistoryFeatureExtensions, HistoryEventMap>({
