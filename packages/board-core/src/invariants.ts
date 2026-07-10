@@ -1,5 +1,4 @@
 import type {
-  BoardSnapshot,
   BoardState,
   BoardNode,
   GridSettings,
@@ -58,36 +57,14 @@ export function cloneInteraction(
   }
 }
 
-function createSnapshot(state: BoardState, grid: GridSettings): BoardSnapshot {
-  const nodes = Array.from(state.nodes.values()).sort(
-    (a, b) => a.zIndex - b.zIndex,
-  )
-  return {
-    camera: { ...state.camera },
-    grid: { ...grid },
-    nodes,
-    selection: Array.from(state.selection.values()),
-    interaction: cloneInteraction(state.interaction),
-    snapGuides: [...state.snapGuides],
-    nextZIndex: nodes.reduce(
-      (next, node) => Math.max(next, node.zIndex + 1),
-      1,
-    ),
-  }
-}
-
 export function validateState(
   state: BoardState,
   grid: GridSettings,
   context: string,
 ): ValidationFailure[] {
   const failures: ValidationFailure[] = []
-  let snapshot: BoardSnapshot | null = null
-  const lazySnapshot = () =>
-    snapshot ?? (snapshot = createSnapshot(state, grid))
-
   const push = (name: string, message: string) => {
-    failures.push({ name, message, context, snapshot: lazySnapshot() })
+    failures.push({ name, message, context, state })
   }
 
   if (

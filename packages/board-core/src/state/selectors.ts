@@ -2,7 +2,7 @@ import { cloneInteraction } from '../invariants.js'
 import { freezeClone } from '../helpers/clone.js'
 import { materializeNode } from '../helpers/node-shape.js'
 import type {
-  BoardSnapshot,
+  InternalBoardSnapshot,
   BoardState,
   BoardNode,
   GridSettings,
@@ -25,7 +25,7 @@ export function buildSnapshot(
   state: MutableBoardState,
   grid: GridSettings,
   publicNodes: ReadonlyMap<NodeId, BoardNode>,
-): BoardSnapshot {
+): InternalBoardSnapshot {
   const nodes = Array.from(publicNodes.values()).sort(
     (a, b) => a.zIndex - b.zIndex,
   )

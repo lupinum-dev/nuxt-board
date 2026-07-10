@@ -4,7 +4,7 @@ import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types.js'
 import { normalizeExistingNode } from '../state/initial.js'
 import type {
   BoardNode,
-  BoardSnapshot,
+  InternalBoardSnapshot,
   CanvasColor,
   GridSettings,
   JsonCanvasDocument,
@@ -219,7 +219,7 @@ function getDocumentMetadata(
 }
 
 export function toPersistedDocument(
-  snapshot: BoardSnapshot,
+  snapshot: InternalBoardSnapshot,
   featureDocuments: Partial<JsonCanvasDocument>[],
 ): JsonCanvasDocument {
   let metadata: VueBoardDocumentMetadata = {
@@ -554,13 +554,15 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   }
 }
 
-export function materializeSnapshotNodes(snapshot: BoardSnapshot): BoardNode[] {
+export function materializeSnapshotNodes(
+  snapshot: InternalBoardSnapshot,
+): BoardNode[] {
   return [...snapshot.nodes]
 }
 
 export function documentToSnapshot(
   document: JsonCanvasDocument,
-): BoardSnapshot {
+): InternalBoardSnapshot {
   const metadata = getDocumentMetadata(document)
   const nodes = document.nodes.map((node, index) =>
     normalizeExistingNode(
@@ -584,7 +586,7 @@ export function documentToSnapshot(
     nodes.reduce((max, node) => Math.max(max, node.zIndex), 0) + 1
   const camera = { ...DEFAULT_CAMERA, ...(metadata?.camera ?? {}) }
 
-  const snapshot: BoardSnapshot = {
+  const snapshot: InternalBoardSnapshot = {
     camera,
     grid: gridSettings,
     nodes,

@@ -323,8 +323,8 @@ export interface BoardState {
   readonly snapGuides: readonly SnapGuide[]
 }
 
-/** Runtime board snapshot used by selectors, renderers, and tests. */
-export interface BoardSnapshot {
+/** Internal array form used for document normalization, validation, and encoding. */
+export interface InternalBoardSnapshot {
   readonly camera: Camera
   readonly grid: GridSettings
   readonly nodes: readonly BoardNode[]
@@ -390,7 +390,7 @@ export interface BoardEngineOptions<
 export interface ValidationFailure {
   name: string
   message: string
-  snapshot: BoardSnapshot
+  state: BoardState
   context: string
 }
 

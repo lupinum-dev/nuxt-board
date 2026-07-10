@@ -96,7 +96,7 @@ import {
 import type {
   BoxSelectBehavior,
   BoxSelectMode,
-  BoardSnapshot,
+  InternalBoardSnapshot,
   BoardState,
   Bounds,
   Camera,
@@ -971,7 +971,7 @@ export function createBoardEngine<
   }
 
   function restoreSnapshot(
-    snapshot: BoardSnapshot,
+    snapshot: InternalBoardSnapshot,
     mode: 'replace' | 'merge',
   ): Map<NodeId, NodeId> {
     const snapshotNodes = materializeSnapshotNodes(snapshot)
