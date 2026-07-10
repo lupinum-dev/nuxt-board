@@ -7,7 +7,7 @@ import {
   type ConnectionRouting,
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardMinimap } from '@lupinum/vue-board/minimap'
 import { BoardRoot, type BoardRendererRegistry } from '@lupinum/vue-board'
 import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
 import ImageNodeRenderer from './components/ImageNodeRenderer.vue'

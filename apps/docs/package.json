@@ -17,7 +17,6 @@
     "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
-    "@lupinum/board-minimap": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
     "@nuxt/content": "^3.14.0",
     "@nuxt/ui": "^4.8.0",

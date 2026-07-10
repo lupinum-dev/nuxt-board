@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.10.0",
   "scripts": {
     "build": "pnpm build:packages && pnpm build:docs",
-    "build:packages": "pnpm --filter ./packages/board-core --filter ./packages/vue-board --filter ./packages/board-history --filter ./packages/board-connections --filter ./packages/board-minimap --filter ./packages/nuxt-board -r build",
+    "build:packages": "pnpm --filter ./packages/board-core --filter ./packages/vue-board --filter ./packages/board-history --filter ./packages/board-connections --filter ./packages/nuxt-board -r build",
     "build:docs": "pnpm --filter docs build",
     "dev": "pnpm dev:playground",
     "dev:docs": "pnpm --filter docs dev",

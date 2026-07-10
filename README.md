@@ -90,7 +90,7 @@ Install only the pieces you need.
 | `nuxt-board`                 | Nuxt module with board component/composable auto-imports.                    |
 | `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
 | `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
-| `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
+| `@lupinum/vue-board/minimap`     | Minimap composable and renderer.                                             |
 
 ## What You Get
 

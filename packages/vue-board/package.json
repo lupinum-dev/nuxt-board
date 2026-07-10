@@ -15,6 +15,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./minimap": {
+      "types": "./dist/minimap.d.ts",
+      "import": "./dist/minimap.js"
+    },
     "./style.css": "./dist/index.css"
   },
   "repository": {
@@ -37,7 +41,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && vue-tsc -p tsconfig.build.json"
+    "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/normalize-vue-declarations.mjs dist"
   },
   "dependencies": {
     "@lupinum/board-core": "workspace:*"

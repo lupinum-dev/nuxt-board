@@ -23,8 +23,8 @@ export default defineNuxtConfig({
     '@lupinum/board-connections': fileURLToPath(
       new URL('../../board-connections/src/index.ts', import.meta.url),
     ),
-    '@lupinum/board-minimap': fileURLToPath(
-      new URL('../../board-minimap/src/index.ts', import.meta.url),
+    '@lupinum/vue-board/minimap': fileURLToPath(
+      new URL('../../vue-board/src/minimap.ts', import.meta.url),
     ),
   },
   build: {
@@ -34,7 +34,7 @@ export default defineNuxtConfig({
       '@lupinum/vue-board',
       '@lupinum/board-connections',
       '@lupinum/board-history',
-      '@lupinum/board-minimap',
+      '@lupinum/vue-board/minimap',
       'nuxt-board',
     ],
   },

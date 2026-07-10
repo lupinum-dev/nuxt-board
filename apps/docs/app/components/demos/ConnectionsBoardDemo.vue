@@ -8,7 +8,7 @@ import {
   type ConnectionRouting,
 } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },

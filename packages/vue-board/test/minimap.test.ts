@@ -1,7 +1,7 @@
 import { effectScope } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
-import { useMinimap } from '../src'
+import { useMinimap } from '../src/minimap'
 
 describe('minimap', () => {
   it('projects nodes and viewport into minimap space', () => {

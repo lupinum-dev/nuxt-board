@@ -13,9 +13,13 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      entry: {
+        index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        minimap: fileURLToPath(new URL('./src/minimap.ts', import.meta.url)),
+      },
       name: 'VueBoard',
-      fileName: 'index',
+      fileName: (_format, entryName) => `${entryName}.js`,
+      cssFileName: 'index',
       formats: ['es'],
     },
     rollupOptions: {

@@ -50,9 +50,9 @@ export default defineConfig({
         ),
       },
       {
-        find: /^@lupinum\/board-minimap$/,
+        find: /^@lupinum\/vue-board\/minimap$/,
         replacement: fileURLToPath(
-          new URL('../../packages/board-minimap/src/index.ts', import.meta.url),
+          new URL('../../packages/vue-board/src/minimap.ts', import.meta.url),
         ),
       },
     ],

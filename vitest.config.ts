@@ -21,8 +21,8 @@ export default defineConfig({
       '@lupinum/board-connections': fileURLToPath(
         new URL('./packages/board-connections/src/index.ts', import.meta.url),
       ),
-      '@lupinum/board-minimap': fileURLToPath(
-        new URL('./packages/board-minimap/src/index.ts', import.meta.url),
+      '@lupinum/vue-board/minimap': fileURLToPath(
+        new URL('./packages/vue-board/minimap/src/index.ts', import.meta.url),
       ),
     },
   },

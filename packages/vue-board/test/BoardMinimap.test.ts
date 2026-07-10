@@ -3,7 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
-import { BoardMinimap } from '../src'
+import { BoardMinimap } from '../src/minimap'
 
 function dispatchPointerEvent(
   target: EventTarget,

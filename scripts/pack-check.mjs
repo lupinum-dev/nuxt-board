@@ -22,7 +22,6 @@ const packageDirs = [
   'packages/vue-board',
   'packages/board-history',
   'packages/board-connections',
-  'packages/board-minimap',
   'packages/nuxt-board',
 ]
 
@@ -214,7 +213,7 @@ import { BoardRoot } from '@lupinum/vue-board'
 import { historyPlugin } from '@lupinum/board-history'
 import { getSelectionBounds } from '@lupinum/board-core'
 import { connectionsPlugin } from '@lupinum/board-connections'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
 const engine = createBoardEngine({ plugins: [historyPlugin(), connectionsPlugin()] })
 const node = engine.createNode({ type: 'text', text: 'packed' })

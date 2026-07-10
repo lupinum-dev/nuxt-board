@@ -17,7 +17,7 @@ Use this reference for first-party feature packages, JSON Canvas persistence, an
 - Connections engine plugin: `packages/board-connections/src/plugin.ts`
 - Connections Vue layer: `packages/board-connections/src/layer.ts`
 - History plugin: `packages/board-history/src/index.ts`
-- Minimap component/composable: `packages/board-minimap/src/index.ts`
+- Minimap component/composable: `packages/vue-board/minimap/src/index.ts`
 - Core persistence: `packages/board-core/src/engine/persistence.ts`
 - Engine import/export hooks: `packages/board-core/src/engine.ts`
 
@@ -102,7 +102,7 @@ History is runtime state. Do not persist undo/redo stacks in board documents.
 Install when overview navigation is needed:
 
 ```bash
-pnpm add @lupinum/board-minimap
+pnpm add @lupinum/vue-board/minimap
 ```
 
 Render under `BoardRoot`:
