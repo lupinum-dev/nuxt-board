@@ -14,6 +14,25 @@ import {
 } from '../src/internal'
 
 describe('board engine', () => {
+  it('reports listener failures without rolling back committed state', () => {
+    const failures: Array<{ error: unknown; event: string }> = []
+    const engine = createBoardEngine({
+      onUnhandledError(error, context) {
+        failures.push({ error, event: context.event })
+      },
+    })
+    engine.on('node:created', () => {
+      throw new Error('listener failed')
+    })
+
+    const node = engine.createNode({ type: 'text', text: 'Committed' })
+
+    expect(engine.hasNode(node.id)).toBe(true)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({ event: 'node:created' })
+    expect(failures[0]?.error).toBeInstanceOf(Error)
+  })
+
   it.each([
     ['zero camera zoom', { camera: { z: 0 } }],
     ['negative camera zoom', { camera: { z: -1 } }],

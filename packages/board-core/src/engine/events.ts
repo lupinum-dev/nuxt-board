@@ -4,6 +4,10 @@ import type { ListenerMap } from '../state/types.js'
 interface EventBusOptions {
   diagnosticsEnabled: boolean
   traceLimit: number
+  onUnhandledError?: (
+    error: unknown,
+    context: { source: 'event-listener'; event: string },
+  ) => void
 }
 
 interface EventBus {
@@ -67,7 +71,14 @@ export function createEventBus(opts: EventBusOptions): EventBus {
           ...args,
         )
       } catch (error) {
-        console.error(`[board] handler for "${String(event)}" threw:`, error)
+        if (opts.onUnhandledError) {
+          opts.onUnhandledError(error, {
+            source: 'event-listener',
+            event: String(event),
+          })
+        } else {
+          console.error(`[board] handler for "${String(event)}" threw:`, error)
+        }
       }
     }
   }

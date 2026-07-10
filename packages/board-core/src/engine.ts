@@ -184,7 +184,11 @@ export function createBoardEngine<
     boxSelectBehavior,
   })
 
-  const eventBus = createEventBus({ diagnosticsEnabled, traceLimit })
+  const eventBus = createEventBus({
+    diagnosticsEnabled,
+    traceLimit,
+    onUnhandledError: options.onUnhandledError,
+  })
   const { emit, emitImmediate, on, once, off } = eventBus
   const commandGuards = createCommandGuardRegistry()
   const commitListeners = new Set<(commit: InternalBoardCommit) => void>()

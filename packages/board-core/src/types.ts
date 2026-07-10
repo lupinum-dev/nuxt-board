@@ -382,6 +382,10 @@ export interface BoardEngineOptions<
   boxSelect?: Partial<BoxSelectSettings>
   plugins?: TPlugins
   diagnostics?: boolean | { traceLimit?: number }
+  onUnhandledError?: (
+    error: unknown,
+    context: { readonly source: 'event-listener'; readonly event: string },
+  ) => void
   initialNodes?: ReadonlyArray<BoardNode>
   initialDocument?: JsonCanvasDocument
 }
