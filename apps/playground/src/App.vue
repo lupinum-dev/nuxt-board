@@ -34,7 +34,7 @@ const engine = createBoardEngine({
 })
 
 // ━━ UI state ━━
-const selectedScene = ref<25 | 100 | 500>(25)
+const selectedScene = ref<25 | 100 | 500 | 2000>(25)
 const showGrid = ref(true)
 const snapToGrid = ref(true)
 const gridPattern = ref<'line' | 'dot' | 'cross' | 'none'>('line')
@@ -71,50 +71,48 @@ function clearBoard(): void {
 }
 
 async function seedScene(count: number): Promise<void> {
-  clearBoard()
   const columns = Math.ceil(Math.sqrt(count))
   const created: BoardNode[] = []
 
-  for (let i = 0; i < count; i += 1) {
-    const col = i % columns
-    const row = Math.floor(i / columns)
-    created.push(
-      engine.createNode({
-        type: 'text',
-        x: col * 320,
-        y: row * 220,
-        width: 240,
-        height: 140,
-        text: `Node ${i + 1}\n${col}:${row}`,
-      }),
-    )
-  }
+  engine.batch(() => {
+    clearBoard()
+    for (let i = 0; i < count; i += 1) {
+      const col = i % columns
+      const row = Math.floor(i / columns)
+      created.push(
+        engine.createNode({
+          type: 'text',
+          x: col * 320,
+          y: row * 220,
+          width: 240,
+          height: 140,
+          text: `Node ${i + 1}\n${col}:${row}`,
+        }),
+      )
+    }
 
-  engine.createNode({
-    type: 'file',
-    x: -360,
-    y: 120,
-    width: 280,
-    height: 180,
-    file: 'Reference tile',
+    engine.createNode({
+      type: 'file',
+      x: -360,
+      y: 120,
+      width: 280,
+      height: 180,
+      file: 'Reference tile',
+    })
+
+    const edgeCount = count >= 500 ? Math.min(200, count - 1) : 2
+    for (let i = 0; i < edgeCount; i += 1) {
+      engine.plugins.connections.createEdge({
+        from: created[i]!.id,
+        to: created[i + 1]!.id,
+        ...(i < 2 ? { label: String.fromCharCode(65 + i) } : {}),
+        data: {},
+      })
+    }
+
+    engine.clearSelection()
   })
 
-  if (created.length >= 3) {
-    engine.plugins.connections.createEdge({
-      from: created[0]!.id,
-      to: created[1]!.id,
-      label: 'A',
-      data: {},
-    })
-    engine.plugins.connections.createEdge({
-      from: created[1]!.id,
-      to: created[2]!.id,
-      label: 'B',
-      data: {},
-    })
-  }
-
-  engine.clearSelection()
   await engine.zoomToFit(80, false)
 }
 
