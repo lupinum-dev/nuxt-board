@@ -1846,6 +1846,7 @@ export function createBoardEngine<
                 })
               }
             }
+            notifyNodesChanged()
           },
           IGNORE_UNVALIDATED_COMMAND,
         )

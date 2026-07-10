@@ -214,6 +214,34 @@ describe('BoardRoot', () => {
     })
   })
 
+  it('renders transient resize geometry before pointer release', async () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 100,
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const interaction = getBoardInteractionAdapter(engine)
+
+    interaction.beginResize(node.id, 'se', 1, { x: 240, y: 140 })
+    interaction.updatePointer(1, { x: 280, y: 170 })
+    await flushBoardRootSnapshot()
+
+    const rendered = wrapper.find(`[data-node-id="${node.id}"]`)
+    expect(rendered.attributes('style')).toContain('width: 240px')
+    expect(rendered.attributes('style')).toContain('height: 130px')
+    expect(engine.exportDocument().nodes[0]).toMatchObject({
+      width: 200,
+      height: 100,
+    })
+  })
+
   it('renders a registry renderer for JSON Canvas node types', () => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'file', x: 40, y: 40, file: 'Poster' })

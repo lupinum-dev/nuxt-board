@@ -247,6 +247,9 @@ test('keeps connections attached through drag resize and zoom interactions', asy
     resizeHandleBox.y + resizeHandleBox.height / 2 + 35,
     { steps: 10 },
   )
+  await expect
+    .poll(async () => (await output.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(outputBox.width + 20)
   await page.mouse.up()
 
   await board.evaluate((element) => {

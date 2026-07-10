@@ -465,6 +465,44 @@ describe('board engine', () => {
     expect(engine.getState().snapGuides).toEqual([])
   })
 
+  it('publishes transient resize geometry before the gesture commits', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+    })
+    const updates: Array<{ width: number; height: number }> = []
+    engine.$nodes.subscribe((nodes) => {
+      const current = nodes.get(node.id)
+      if (current) {
+        updates.push({ width: current.width, height: current.height })
+      }
+    })
+
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginResize(node.id, 'se', 1, { x: 200, y: 100 })
+    interaction.updatePointer(1, { x: 240, y: 130 })
+
+    expect(engine.$nodes.get().get(node.id)).toMatchObject({
+      width: 240,
+      height: 130,
+    })
+    expect(engine.exportDocument().nodes[0]).toMatchObject({
+      width: 200,
+      height: 100,
+    })
+    expect(updates.at(-1)).toEqual({ width: 240, height: 130 })
+
+    interaction.endInteraction(1)
+    expect(engine.getNode(node.id)).toMatchObject({
+      width: 240,
+      height: 130,
+    })
+  })
+
   it('supports box selection in screen space', () => {
     const engine = createBoardEngine()
     const first = engine.createNode({
