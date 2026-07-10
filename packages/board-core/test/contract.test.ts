@@ -7,6 +7,17 @@ import {
 } from '../src/internal'
 
 describe('board-core public document API', () => {
+  it.each([
+    ['zero camera zoom', { camera: { z: 0 } }],
+    ['negative edge snap threshold', { grid: { edgeSnapThreshold: -1 } }],
+    ['fractional major grid interval', { grid: { majorEvery: 1.5 } }],
+  ])('rejects invalid semantic metadata: %s', (_label, metadata) => {
+    const engine = createBoardEngine()
+    expect(() =>
+      engine.loadDocument({ nodes: [], 'x-vue-board': metadata }),
+    ).toThrow(/Invalid board document/)
+  })
+
   it('exports persisted state as JSON Canvas with board metadata under x-vue-board', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({

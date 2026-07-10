@@ -5,6 +5,99 @@ import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '../src'
 
 describe('history plugin', () => {
+  it('does not let camera animation absorb concurrent document history', async () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+    const animation = engine.zoomTo(2, true)
+    engine.createNode({ type: 'text', text: 'during animation' })
+
+    expect(engine.plugins.history.getState().undoDepth).toBe(1)
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(0)
+
+    engine.destroy()
+    await animation
+  })
+
+  it('records one frame for successful nested batches', () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+
+    engine.batch(() => {
+      engine.createNode({ type: 'text', text: 'outer' })
+      engine.batch(() => {
+        engine.createNode({ type: 'text', text: 'inner' })
+      })
+    })
+
+    expect(engine.plugins.history.getState().undoDepth).toBe(1)
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(engine.plugins.history.canUndo()).toBe(false)
+  })
+
+  it('finalizes history before reentrant public listeners run commands', () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+    engine.on('node:created', (node) => {
+      if (node.text === 'first') {
+        engine.createNode({ type: 'text', text: 'second' })
+      }
+    })
+
+    engine.createNode({ type: 'text', text: 'first' })
+    expect(engine.plugins.history.getState().undoDepth).toBe(2)
+
+    engine.plugins.history.undo()
+    expect(
+      [...engine.getState().nodes.values()].map((node) => node.text),
+    ).toEqual(['first'])
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(0)
+  })
+
+  it('does not record plugin hydration from the initial document', () => {
+    const engine = createBoardEngine({
+      initialDocument: {
+        nodes: [
+          {
+            id: 'a',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 80,
+            text: 'a',
+          },
+          {
+            id: 'b',
+            type: 'text',
+            x: 200,
+            y: 0,
+            width: 100,
+            height: 80,
+            text: 'b',
+          },
+        ],
+        edges: [{ id: 'edge', fromNode: 'a', toNode: 'b' }],
+      },
+      plugins: [historyPlugin(), connectionsPlugin()],
+    })
+
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.history.canUndo()).toBe(false)
+  })
+
+  it('makes plugin reads terminal after destruction', () => {
+    const engine = createBoardEngine({
+      plugins: [historyPlugin(), connectionsPlugin()],
+    })
+    engine.destroy()
+
+    expect(() => engine.getSelection()).toThrow(/destroyed/)
+    expect(() => engine.plugins.history.getState()).toThrow(/destroyed/)
+    expect(() => engine.plugins.history.canUndo()).toThrow(/destroyed/)
+    expect(() => engine.plugins.connections.getEdges()).toThrow(/destroyed/)
+    expect(() => engine.plugins.connections.getConfig()).toThrow(/destroyed/)
+  })
+
   it('does not record guard-blocked commands', () => {
     const engine = createBoardEngine({
       plugins: [historyPlugin()],

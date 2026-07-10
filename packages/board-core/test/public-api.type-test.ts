@@ -1,4 +1,9 @@
-import { createBoardEngine, type BoardEngine, type BoardPlugin } from '../src'
+import {
+  createBoardEngine,
+  type BoardEngine,
+  type BoardNode,
+  type BoardPlugin,
+} from '../src'
 import {
   defineInternalBoardPlugin,
   type InternalBoardPlugin,
@@ -27,7 +32,7 @@ const fakeExtension: BoardPlugin = { name: 'fake' }
 const feature: InternalBoardPlugin = defineInternalBoardPlugin({
   name: 'type-probe',
   install(featureEngine: InternalPluginContext) {
-    const stop = featureEngine.onCommit(() => undefined)
+    const stop = featureEngine.projectCommit(() => () => undefined)
     featureEngine.runCommand('probe', [], () => undefined, {
       history: 'record',
     })
@@ -41,3 +46,17 @@ engine.use(feature)
 
 // @ts-expect-error Public nodes are JSON Canvas node types for the first release.
 createBoardEngine().createNode({ type: 'custom-card' })
+
+declare const node: BoardNode
+if (node.type === 'text') {
+  node.text.toUpperCase()
+  // @ts-expect-error Text nodes cannot contain file data.
+  node.file.toUpperCase()
+}
+if (node.type === 'file') node.file.toUpperCase()
+if (node.type === 'link') node.url.toUpperCase()
+
+// @ts-expect-error File nodes require a file value.
+createBoardEngine().createNode({ type: 'file' })
+// @ts-expect-error Link nodes require a URL value.
+createBoardEngine().createNode({ type: 'link' })

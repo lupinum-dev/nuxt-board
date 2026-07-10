@@ -72,10 +72,17 @@ export function createEventBus(opts: EventBusOptions): EventBus {
         )
       } catch (error) {
         if (opts.onUnhandledError) {
-          opts.onUnhandledError(error, {
-            source: 'event-listener',
-            event: String(event),
-          })
+          try {
+            opts.onUnhandledError(error, {
+              source: 'event-listener',
+              event: String(event),
+            })
+          } catch (reportingError) {
+            console.error(
+              `[board] onUnhandledError failed while reporting "${String(event)}":`,
+              reportingError,
+            )
+          }
         } else {
           console.error(`[board] handler for "${String(event)}" threw:`, error)
         }

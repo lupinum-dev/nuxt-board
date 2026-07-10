@@ -112,6 +112,16 @@ describe('board engine', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 
+  it('keeps pointer methods off the runtime public facade', () => {
+    const engine = createBoardEngine()
+    expect(Object.keys(engine)).not.toContain('beginNodeDrag')
+    expect(Object.keys(engine)).not.toContain('runCommand')
+    expect('beginNodeDrag' in engine).toBe(false)
+    expect(getBoardInteractionAdapter(engine).beginNodeDrag).toBeTypeOf(
+      'function',
+    )
+  })
+
   it('keeps diagnostics off unless explicitly enabled', () => {
     const defaultEngine = createBoardEngine()
     defaultEngine.createNode({ type: 'text' })
@@ -147,7 +157,9 @@ describe('board engine', () => {
     const feature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'rollback-probe',
       install(engine) {
-        return engine.onCommit((commit) => commits.push(commit.label))
+        return engine.projectCommit(
+          (commit) => () => commits.push(commit.label),
+        )
       },
     })
     const engine = createBoardEngine({
@@ -182,7 +194,9 @@ describe('board engine', () => {
     const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'action-probe',
       install(engine) {
-        return engine.onCommit((commit) => commits.push(commit.label))
+        return engine.projectCommit(
+          (commit) => () => commits.push(commit.label),
+        )
       },
     })
     const engine = createBoardEngine({
@@ -719,6 +733,21 @@ describe('board engine', () => {
     expect(engine.getNode(node.id).x).toBe(10)
   })
 
+  it('does not expose mutation methods on reactive collection values', () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text' })
+    engine.select(node.id)
+
+    const nodes = engine.$nodes.get() as unknown as Map<unknown, unknown>
+    const selection = engine.$selection.get() as unknown as Set<unknown>
+
+    expect(nodes.set).toBeUndefined()
+    expect(nodes.delete).toBeUndefined()
+    expect(selection.add).toBeUndefined()
+    expect(selection.clear).toBeUndefined()
+    expect(engine.getNode(node.id)).toBeDefined()
+  })
+
   it('emits paired batch command hooks', () => {
     const engine = createBoardEngine()
     const events: string[] = []
@@ -753,7 +782,9 @@ describe('board engine', () => {
     const actionProbe: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failed-batch-action-probe',
       install(featureEngine) {
-        return featureEngine.onCommit((commit) => commits.push(commit.label))
+        return featureEngine.projectCommit(
+          (commit) => () => commits.push(commit.label),
+        )
       },
     })
     const engine = createBoardEngine({ plugins: [actionProbe] })
@@ -1506,5 +1537,102 @@ describe('board engine', () => {
       expect(pastedGroup).toBeDefined()
       expect(pastedChild?.parentId).toBe(pastedGroup?.id)
     })
+  })
+})
+
+describe('transaction isolation regressions', () => {
+  it('rolls back when commit projection fails before public publication', () => {
+    const plugin: InternalBoardPlugin = defineInternalBoardPlugin({
+      name: 'failing-projector',
+      install(engine) {
+        return engine.projectCommit(() => {
+          throw new Error('projection failed')
+        })
+      },
+    })
+    const engine = createBoardEngine({ plugins: [plugin] })
+    const events: string[] = []
+    engine.on('node:created', () => events.push('created'))
+
+    expect(() => engine.createNode({ type: 'text' })).toThrow(
+      'projection failed',
+    )
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(events).toEqual([])
+  })
+
+  it('aborts an outer batch when a failed inner batch is caught', () => {
+    const engine = createBoardEngine()
+    const events: string[] = []
+    const notifications: number[] = []
+    engine.on('node:created', (node) => events.push(node.id))
+    engine.$nodes.subscribe((nodes) => notifications.push(nodes.size))
+
+    expect(() =>
+      engine.batch(() => {
+        engine.createNode({ id: asNodeId('outer'), type: 'text' })
+        try {
+          engine.batch(() => {
+            engine.createNode({ id: asNodeId('inner'), type: 'text' })
+            engine.createNode({ id: asNodeId('inner'), type: 'text' })
+          })
+        } catch {
+          // The outer transaction remains poisoned even when this is caught.
+        }
+      }),
+    ).toThrow(BoardConflictError)
+
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(engine.$nodes.get().size).toBe(0)
+    expect(events).toEqual([])
+    expect(notifications).toEqual([])
+  })
+
+  it('rolls the clipboard back with a failed batch', () => {
+    const engine = createBoardEngine()
+    engine.createNode({ id: asNodeId('keep'), type: 'text', text: 'keep' })
+    engine.copySelected()
+
+    expect(() =>
+      engine.batch(() => {
+        engine.createNode({
+          id: asNodeId('candidate'),
+          type: 'text',
+          text: 'leak',
+        })
+        engine.copySelected()
+        engine.createNode({ id: asNodeId('candidate'), type: 'text' })
+      }),
+    ).toThrow(BoardConflictError)
+
+    engine.clearSelection()
+    expect(engine.pasteClipboard().map((node) => node.text)).toEqual(['keep'])
+  })
+
+  it('preserves transient gesture geometry when document validation fails', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 100, y: 0 })
+
+    expect(() => engine.loadDocument({ invalid: true })).toThrow(
+      BoardInputError,
+    )
+    expect(engine.getState().nodes.get(node.id)?.x).toBe(100)
+    expect(engine.getState().interaction.mode).toBe('dragging-nodes')
+  })
+
+  it('discards transient geometry when an interaction is cancelled', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', x: 0, y: 0 })
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    interaction.updatePointer(1, { x: 100, y: 0 })
+
+    interaction.cancelInteraction(1)
+
+    expect(engine.getNode(node.id).x).toBe(0)
+    expect(engine.getState().interaction.mode).toBe('idle')
   })
 })

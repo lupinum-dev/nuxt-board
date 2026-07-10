@@ -51,6 +51,12 @@ interface TransactionExecutorDeps<TRoot> {
   isCancellation: (error: unknown) => boolean
 }
 
+interface CommitOverride {
+  before: InternalHistoryRoot
+  label: string
+  metadata: CommandMetadata
+}
+
 /** Own guarded command staging, validation, publication, and rollback order. */
 export function createTransactionExecutor<TRoot>(
   deps: TransactionExecutorDeps<TRoot>,
@@ -60,6 +66,7 @@ export function createTransactionExecutor<TRoot>(
     args: unknown[],
     fn: () => T,
     metadata?: RuntimeCommandMetadata,
+    commitOverride?: CommitOverride,
   ) => T
   runAsyncCommand: <T>(
     name: string,
@@ -90,12 +97,14 @@ export function createTransactionExecutor<TRoot>(
     args: unknown[],
     fn: () => T,
     metadata: RuntimeCommandMetadata = defaultMetadata,
+    commitOverride?: CommitOverride,
   ): T {
     const inBatch = deps.isBatching()
-    prepare(name, args, metadata, !inBatch)
+    prepare(name, args, metadata, false)
     const started = performance.now()
     const ownsEffects = deps.canOwnEffects()
     if (ownsEffects) deps.beginEffects()
+    if (!inBatch) deps.emitBefore(name, args, metadata)
     const historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
     const checkpoint =
       ownsEffects && metadata.validate !== false
@@ -108,11 +117,18 @@ export function createTransactionExecutor<TRoot>(
         if (inBatch) deps.markValidationPending()
         else deps.validate(name)
       }
-      if (ownsEffects) deps.commitEffects()
+      const commitBefore = commitOverride?.before ?? historyBefore
+      if (commitBefore) {
+        deps.publishCommit(
+          commitOverride?.label ?? name,
+          commitOverride?.metadata ?? metadata,
+          commitBefore,
+        )
+      }
       if (!inBatch) {
         deps.emitAfter(name, args, performance.now() - started, metadata)
       }
-      if (historyBefore) deps.publishCommit(name, metadata, historyBefore)
+      if (ownsEffects) deps.commitEffects()
       return result
     } catch (error) {
       if (checkpoint) deps.rollbackPersistentTransaction(checkpoint)
@@ -127,26 +143,15 @@ export function createTransactionExecutor<TRoot>(
     fn: () => Promise<T>,
     metadata: RuntimeCommandMetadata = defaultMetadata,
   ): Promise<T> {
-    prepare(name, args, metadata, true)
+    prepare(name, args, metadata, false)
     const started = performance.now()
-    const ownsEffects = deps.canOwnEffects()
-    if (ownsEffects) deps.beginEffects()
-    const historyBefore = ownsEffects ? deps.captureHistoryRoot() : null
-    const checkpoint =
-      ownsEffects && metadata.validate !== false
-        ? deps.beginPersistentTransaction()
-        : null
-
     try {
       const result = await fn()
       if (metadata.validate !== false) deps.validate(name)
-      if (ownsEffects) deps.commitEffects()
+      deps.emitBefore(name, args, metadata)
       deps.emitAfter(name, args, performance.now() - started, metadata)
-      if (historyBefore) deps.publishCommit(name, metadata, historyBefore)
       return result
     } catch (error) {
-      if (checkpoint) deps.rollbackPersistentTransaction(checkpoint)
-      if (ownsEffects) deps.rollbackEffects()
       if (deps.isCancellation(error)) return undefined as T
       throw error
     }

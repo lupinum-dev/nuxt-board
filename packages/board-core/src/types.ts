@@ -167,32 +167,120 @@ export interface JsonCanvasDocument {
   readonly 'x-vue-board'?: VueBoardDocumentMetadata
 }
 
-/** Public immutable node shape returned by snapshots, selectors, and commands. */
-export interface BoardNode {
+interface BoardNodeBase {
   readonly id: NodeId
-  readonly type: JsonCanvasNodeType
   readonly x: number
   readonly y: number
   readonly width: number
   readonly height: number
   readonly color?: CanvasColor
-  readonly text?: string
-  readonly file?: string
-  readonly subpath?: string
-  readonly url?: string
-  readonly label?: string
-  readonly background?: string
-  readonly backgroundStyle?: JsonCanvasBackgroundStyle
   readonly zIndex: number
   readonly locked: boolean
   readonly visible: boolean
   readonly parentId?: NodeId
 }
 
-/** Input accepted by `createNode`, with sensible defaults for omitted fields. */
-export interface NodeInput {
+/** Canonical immutable node shape returned by state, selectors, and commands. */
+export type BoardNode =
+  | (BoardNodeBase & {
+      readonly type: 'text'
+      readonly text: string
+      readonly file?: never
+      readonly subpath?: never
+      readonly url?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'file'
+      readonly file: string
+      readonly subpath?: string
+      readonly text?: never
+      readonly url?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'link'
+      readonly url: string
+      readonly text?: never
+      readonly file?: never
+      readonly subpath?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'group'
+      readonly label?: string
+      readonly background?: string
+      readonly backgroundStyle?: JsonCanvasBackgroundStyle
+      readonly text?: never
+      readonly file?: never
+      readonly subpath?: never
+      readonly url?: never
+    })
+
+interface NodeInputBase {
   id?: NodeId
-  type?: JsonCanvasNodeType
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  color?: CanvasColor
+  locked?: boolean
+  visible?: boolean
+  parentId?: NodeId
+  select?: boolean
+}
+
+/** Input accepted by `createNode`, with text defaults and explicit file/link values. */
+export type NodeInput =
+  | (NodeInputBase & {
+      type?: 'text'
+      text?: string
+      file?: never
+      subpath?: never
+      url?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'file'
+      file: string
+      subpath?: string
+      text?: never
+      url?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'link'
+      url: string
+      text?: never
+      file?: never
+      subpath?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'group'
+      label?: string
+      background?: string
+      backgroundStyle?: JsonCanvasBackgroundStyle
+      text?: never
+      file?: never
+      subpath?: never
+      url?: never
+    })
+
+/** Partial update payload accepted by `updateNode`. */
+export interface NodePatch {
   x?: number
   y?: number
   width?: number
@@ -208,30 +296,7 @@ export interface NodeInput {
   locked?: boolean
   visible?: boolean
   parentId?: NodeId
-  select?: boolean
 }
-
-/** Partial update payload accepted by `updateNode`. */
-export type NodePatch = Partial<
-  Pick<
-    BoardNode,
-    | 'x'
-    | 'y'
-    | 'width'
-    | 'height'
-    | 'text'
-    | 'file'
-    | 'subpath'
-    | 'url'
-    | 'label'
-    | 'background'
-    | 'backgroundStyle'
-    | 'color'
-    | 'locked'
-    | 'visible'
-    | 'parentId'
-  >
->
 
 /** Nodes created by duplication plus the canonical source-to-copy identity map. */
 export interface DuplicateNodesResult {
@@ -359,17 +424,31 @@ type PluginApi<TPlugin> =
 type PluginEvents<TPlugin> =
   TPlugin extends BoardPlugin<infer _TApis, infer TEvents> ? TEvents : never
 
-export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> = [
+type InstalledPluginApisForTuple<TPlugins extends readonly BoardPlugin[]> = [
   TPlugins[number],
 ] extends [never]
   ? BoardPluginApis
   : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
 
-export type InstalledPluginEvents<TPlugins extends readonly BoardPlugin[]> = [
+type InstalledPluginEventsForTuple<TPlugins extends readonly BoardPlugin[]> = [
   TPlugins[number],
 ] extends [never]
   ? {}
   : UnionToIntersection<PluginEvents<TPlugins[number]>>
+
+/**
+ * Distribute over conditional plugin tuples so only APIs present in every
+ * possible runtime branch can be accessed without narrowing.
+ */
+export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> =
+  TPlugins extends readonly BoardPlugin[]
+    ? InstalledPluginApisForTuple<TPlugins>
+    : never
+
+export type InstalledPluginEvents<TPlugins extends readonly BoardPlugin[]> =
+  TPlugins extends readonly BoardPlugin[]
+    ? InstalledPluginEventsForTuple<TPlugins>
+    : never
 
 /** Engine factory options shared by commands, internal plugins, and renderers. */
 export interface BoardEngineOptions<
@@ -576,6 +655,7 @@ export interface InternalInteractionAdapter {
     modifiers?: { shift?: boolean; space?: boolean },
   ): void
   endInteraction(pointerId?: number): void
+  cancelInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
 }
@@ -591,6 +671,10 @@ export interface InternalPluginContext<
   } = BoardEventMap,
 > extends Omit<BoardEngine, 'plugins'> {
   readonly plugins: TPluginApis
+  /** Assert that the owning engine has not been destroyed. */
+  assertActive(): void
+  /** Whether the current command has joined an explicit outer batch. */
+  isBatching(): boolean
   emit<K extends keyof TEvents>(event: K, ...args: Parameters<TEvents[K]>): void
   extend<K extends keyof TPluginApis & string>(
     key: K,
@@ -612,9 +696,11 @@ export interface InternalPluginContext<
   getPluginState<S>(): S
   /** Replace the current plugin's persistent slice inside the active command. */
   updatePluginState<S>(update: (current: S) => S): S
-  /** Observe successful outer commits after state and public effects publish. */
-  onCommit(
-    listener: (commit: import('./state/types.js').InternalBoardCommit) => void,
+  /** Prepare a no-throw effect for a validated outer commit. */
+  projectCommit(
+    projector: (
+      commit: import('./state/types.js').InternalBoardCommit,
+    ) => () => void,
   ): Unsubscribe
   /** Atomically restore a persistent root without recording another history frame. */
   restoreHistoryRoot(root: import('./state/types.js').InternalHistoryRoot): void

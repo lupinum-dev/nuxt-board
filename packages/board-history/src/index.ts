@@ -67,22 +67,25 @@ export function historyPlugin(
       const undoStack: HistoryFrame[] = []
       const redoStack: HistoryFrame[] = []
 
-      const offCommit = engine.onCommit((commit) => {
-        if (commit.metadata.history === 'ignore') return
-        const frame: HistoryFrame = {
+      const offCommit = engine.projectCommit((commit) => {
+        if (commit.metadata.history === 'ignore') return () => undefined
+        const frame: HistoryFrame = Object.freeze({
           label: commit.label,
           timestamp: commit.timestamp,
           before: commit.before,
           after: commit.after,
+        })
+        return () => {
+          undoStack.push(frame)
+          if (undoStack.length > maxSteps) undoStack.shift()
+          redoStack.length = 0
+          engine.emit('history:push', toHistoryEntry(frame))
         }
-        undoStack.push(frame)
-        if (undoStack.length > maxSteps) undoStack.shift()
-        redoStack.length = 0
-        engine.emit('history:push', toHistoryEntry(frame))
       })
 
       const api: HistoryApi = {
         undo() {
+          engine.assertActive()
           const frame = undoStack.pop() ?? null
           if (!frame) {
             engine.emit('history:undo', null)
@@ -93,6 +96,7 @@ export function historyPlugin(
           engine.emit('history:undo', toHistoryEntry(frame))
         },
         redo() {
+          engine.assertActive()
           const frame = redoStack.pop() ?? null
           if (!frame) {
             engine.emit('history:redo', null)
@@ -102,18 +106,28 @@ export function historyPlugin(
           undoStack.push(frame)
           engine.emit('history:redo', toHistoryEntry(frame))
         },
-        canUndo: () => undoStack.length > 0,
-        canRedo: () => redoStack.length > 0,
+        canUndo: () => {
+          engine.assertActive()
+          return undoStack.length > 0
+        },
+        canRedo: () => {
+          engine.assertActive()
+          return redoStack.length > 0
+        },
         clear() {
+          engine.assertActive()
           undoStack.length = 0
           redoStack.length = 0
           engine.emit('history:clear')
         },
-        getState: () => ({
-          undoDepth: undoStack.length,
-          redoDepth: redoStack.length,
-          current: undoStack[undoStack.length - 1]?.label ?? null,
-        }),
+        getState: () => {
+          engine.assertActive()
+          return {
+            undoDepth: undoStack.length,
+            redoDepth: redoStack.length,
+            current: undoStack[undoStack.length - 1]?.label ?? null,
+          }
+        },
       }
 
       engine.extend('history', api)

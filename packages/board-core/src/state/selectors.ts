@@ -10,13 +10,23 @@ import type {
 } from '../types.js'
 import type { MutableBoardState } from './types.js'
 
+const materializedNodes = new WeakMap<BoardNode, BoardNode>()
+
+function getMaterializedNode(node: BoardNode): BoardNode {
+  const cached = materializedNodes.get(node)
+  if (cached) return cached
+  const materialized = materializeNode(node)
+  materializedNodes.set(node, materialized)
+  return materialized
+}
+
 export function buildPublicNodeMap(
   state: Pick<MutableBoardState, 'nodes'>,
 ): ReadonlyMap<NodeId, BoardNode> {
   return new Map(
     Array.from(
       state.nodes.values(),
-      (node) => [node.id, materializeNode(node)] as const,
+      (node) => [node.id, getMaterializedNode(node)] as const,
     ),
   )
 }

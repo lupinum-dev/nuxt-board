@@ -4,11 +4,8 @@ import {
   clamp,
   getBoundsFromPoints,
   getVisibleBounds,
-  lerpCamera,
   pointInBounds,
   screenToWorld,
-  snapPoint,
-  snapSize,
   snapValue,
   worldToScreen,
   zoomCameraAtScreenPoint,
@@ -27,17 +24,14 @@ import {
   snapResizedBoundsLocked,
 } from './resize.js'
 import {
-  collectOtherNodeEdges,
-  collectOtherNodeEdgesExcluding,
+  buildSnapEdgeIndex,
   snapBoundsToEdges,
   snapPositionToEdges,
+  type SnapEdgeIndex,
 } from './snap.js'
 import { freezeClone } from './helpers/clone.js'
 import { createNodeId } from './helpers/ids.js'
-import {
-  AnimationCancelled,
-  getAnimationFrameDriver,
-} from './helpers/animation.js'
+import { AnimationCancelled } from './helpers/animation.js'
 import type {
   InternalBoardCommit,
   InternalHistoryRoot,
@@ -80,11 +74,15 @@ import {
   documentToSnapshot,
   materializeSnapshotNodes,
   normalizeDocumentForImport,
-  normalizeNodeType,
   toPersistedDocument,
-  withNodeFields,
 } from './engine/persistence.js'
 import { assertInternalBoardPlugin } from './internal.js'
+import { registerBoardInteractionAdapter } from './engine/interaction-adapter.js'
+import { createCameraSession } from './engine/camera-session.js'
+import {
+  applyNodePatchToNode,
+  normalizeNodeInput,
+} from './engine/node-shape.js'
 import {
   BoardConflictError,
   BoardDestroyedError,
@@ -101,7 +99,6 @@ import type {
   BoxSelectMode,
   InternalBoardSnapshot,
   BoardState,
-  Bounds,
   Camera,
   BoardEngine,
   BoardEngineOptions,
@@ -192,7 +189,9 @@ export function createBoardEngine<
   })
   const { emit, emitImmediate, on, once, off } = eventBus
   const commandGuards = createCommandGuardRegistry()
-  const commitListeners = new Set<(commit: InternalBoardCommit) => void>()
+  const commitProjectors = new Set<
+    (commit: InternalBoardCommit) => () => void
+  >()
   const nodeDeletedHooks = new Set<(nodeId: NodeId) => void>()
   const pluginCleanups = new Map<string, () => void>()
   let pluginStates: MutablePluginStates = new Map()
@@ -209,10 +208,19 @@ export function createBoardEngine<
   const clipboard: BoardNode[] = []
   const plugins = {} as BoardPluginApis
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
-  let animationToken = 0
   let destroyed = false
   let activeGestureHistoryRoot: InternalHistoryRoot | null = null
   const nodeOverrides = new Map<NodeId, BoardNode>()
+  let indexedNodeRoot: ReadonlyMap<NodeId, BoardNode> | null = null
+  let snapEdgeIndex: SnapEdgeIndex | null = null
+
+  function getSnapEdgeIndex(): SnapEdgeIndex {
+    if (indexedNodeRoot !== state.nodes || !snapEdgeIndex) {
+      indexedNodeRoot = state.nodes
+      snapEdgeIndex = buildSnapEdgeIndex(state.nodes.values())
+    }
+    return snapEdgeIndex
+  }
 
   function assertAlive(): void {
     if (destroyed) {
@@ -293,12 +301,20 @@ export function createBoardEngine<
     destroy: destroyReactiveLayer,
   } = reactive
 
+  const cameraSession = createCameraSession({
+    getCamera: () => state.camera,
+    getNodes: () => state.nodes.values(),
+    getViewportSize: () => viewportSize,
+    setCamera,
+    zoom,
+  })
+
   const batches = createBatchCommandController({
     batchCtrl,
     emitCommandBefore: (name, args, metadata) =>
-      emitImmediate('command:before', name, args, metadata),
+      emit('command:before', name, args, metadata),
     emitCommandAfter: (name, args, duration, metadata) =>
-      emitImmediate('command:after', name, args, duration, metadata),
+      emit('command:after', name, args, duration, metadata),
     validate: (ctx) => validate(ctx),
   })
 
@@ -334,19 +350,38 @@ export function createBoardEngine<
     return buildPublicState(state, grid, getPublicNodeMap())
   }
 
-  function beginPersistentTransaction(): PersistentRoots {
-    const checkpoint = { state, grid, pluginStates }
-    const candidate = stagePersistentRoots(checkpoint)
+  interface EngineCheckpoint {
+    roots: PersistentRoots
+    clipboard: BoardNode[]
+    nodeOverrides: Map<NodeId, BoardNode>
+    activeGestureHistoryRoot: InternalHistoryRoot | null
+  }
+
+  function beginPersistentTransaction(): EngineCheckpoint {
+    const roots = { state, grid, pluginStates }
+    const checkpoint: EngineCheckpoint = {
+      roots,
+      clipboard: [...clipboard],
+      nodeOverrides: new Map(nodeOverrides),
+      activeGestureHistoryRoot,
+    }
+    const candidate = stagePersistentRoots(roots)
     state = candidate.state
     grid = candidate.grid
     pluginStates = candidate.pluginStates
     return checkpoint
   }
 
-  function rollbackPersistentTransaction(checkpoint: PersistentRoots): void {
-    state = checkpoint.state
-    grid = checkpoint.grid
-    pluginStates = checkpoint.pluginStates
+  function rollbackPersistentTransaction(checkpoint: EngineCheckpoint): void {
+    state = checkpoint.roots.state
+    grid = checkpoint.roots.grid
+    pluginStates = checkpoint.roots.pluginStates
+    clipboard.splice(0, clipboard.length, ...checkpoint.clipboard)
+    nodeOverrides.clear()
+    for (const [id, node] of checkpoint.nodeOverrides) {
+      nodeOverrides.set(id, node)
+    }
+    activeGestureHistoryRoot = checkpoint.activeGestureHistoryRoot
     invalidateNodeCache()
   }
 
@@ -409,9 +444,8 @@ export function createBoardEngine<
       before,
       after,
     })
-    for (const listener of commitListeners) {
-      listener(commit)
-    }
+    const effects = Array.from(commitProjectors, (project) => project(commit))
+    for (const effect of effects) effect()
   }
 
   const validate = createValidator({
@@ -426,9 +460,9 @@ export function createBoardEngine<
     emitBlocked: (name, args, metadata) =>
       emitImmediate('command:blocked', name, args, metadata),
     emitBefore: (name, args, metadata) =>
-      emitImmediate('command:before', name, args, metadata),
+      emit('command:before', name, args, metadata),
     emitAfter: (name, args, duration, metadata) =>
-      emitImmediate('command:after', name, args, duration, metadata),
+      emit('command:after', name, args, duration, metadata),
     createBlockedError: (name, args, reason) =>
       new CommandBlockedError(name, args, reason),
     isBatching: () => batches.isBatching(),
@@ -493,133 +527,23 @@ export function createBoardEngine<
     notifyNodesChanged()
   }
 
-  function assertValidNodeGeometry(
-    id: NodeId,
-    geometry: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
-  ): void {
-    if (
-      !Number.isFinite(geometry.x) ||
-      !Number.isFinite(geometry.y) ||
-      !Number.isFinite(geometry.width) ||
-      !Number.isFinite(geometry.height) ||
-      geometry.width <= 0 ||
-      geometry.height <= 0
-    ) {
-      throw new BoardInputError(`Invalid node geometry for "${id}".`)
-    }
-  }
-
-  function assertValidParentLink(
-    id: NodeId,
-    parentId: NodeId | undefined,
-  ): void {
-    if (parentId === undefined) {
-      return
-    }
-    if (parentId === id) {
-      throw new BoardInputError(`Node "${id}" cannot be its own parent.`)
-    }
-    const parent = state.nodes.get(parentId)
-    if (!parent) {
-      throw new BoardInputError(
-        `Node "${id}" references missing parent "${parentId}".`,
-      )
-    }
-    if (parent.type !== 'group') {
-      throw new BoardInputError(
-        `Node "${id}" parent "${parentId}" must be a group.`,
-      )
-    }
-    let walk: BoardNode | undefined = parent
-    const seen = new Set<NodeId>()
-    while (walk) {
-      if (walk.id === id || seen.has(walk.id)) {
-        throw new BoardInputError(`Node "${id}" cannot create a parent cycle.`)
-      }
-      seen.add(walk.id)
-      walk = walk.parentId ? state.nodes.get(walk.parentId) : undefined
-    }
-  }
-
   function normalizeNode(input: NodeInput): BoardNode {
-    const rawPoint = { x: input.x ?? 0, y: input.y ?? 0 }
-    const snappedPoint = grid.snap ? snapPoint(rawPoint, grid.size) : rawPoint
-    const width = grid.snap
-      ? snapSize(
-          input.width ?? nodeConstraints.defaultWidth,
-          grid.size,
-          nodeConstraints.minWidth,
-        )
-      : (input.width ?? nodeConstraints.defaultWidth)
-    const height = grid.snap
-      ? snapSize(
-          input.height ?? nodeConstraints.defaultHeight,
-          grid.size,
-          nodeConstraints.minHeight,
-        )
-      : (input.height ?? nodeConstraints.defaultHeight)
-    const type = normalizeNodeType(input.type)
-    const parentId =
-      typeof input.parentId === 'string' && input.parentId.length > 0
-        ? input.parentId
-        : undefined
-    const id = input.id ?? createNodeId()
-    if (state.nodes.has(id)) {
-      throw new BoardConflictError(
-        `Cannot create node: node "${id}" already exists.`,
-      )
-    }
-    assertValidNodeGeometry(id, {
-      x: snappedPoint.x,
-      y: snappedPoint.y,
-      width,
-      height,
+    const normalized = normalizeNodeInput(input, {
+      nodes: state.nodes,
+      grid,
+      constraints: nodeConstraints,
+      nextZIndex: state.nextZIndex,
     })
-    assertValidParentLink(id, parentId)
-
-    return withNodeFields(
-      {
-        id,
-        type,
-        x: snappedPoint.x,
-        y: snappedPoint.y,
-        width,
-        height,
-        color: input.color,
-        zIndex: state.nextZIndex++,
-        locked: Boolean(input.locked),
-        visible: input.visible !== false,
-        parentId,
-      },
-      input,
-    )
+    state.nextZIndex = normalized.nextZIndex
+    return normalized.node
   }
 
   function applyNodePatch(node: BoardNode, patch: NodePatch): BoardNode {
-    const nextBase = {
-      ...node,
-      ...patch,
-      parentId: 'parentId' in patch ? patch.parentId : node.parentId,
-      color: 'color' in patch ? patch.color : node.color,
-    }
-    const x = grid.snap ? snapValue(nextBase.x, grid.size) : nextBase.x
-    const y = grid.snap ? snapValue(nextBase.y, grid.size) : nextBase.y
-    const width = grid.snap
-      ? snapSize(nextBase.width, grid.size, nodeConstraints.minWidth)
-      : nextBase.width
-    const height = grid.snap
-      ? snapSize(nextBase.height, grid.size, nodeConstraints.minHeight)
-      : nextBase.height
-    assertValidNodeGeometry(node.id, { x, y, width, height })
-    assertValidParentLink(node.id, nextBase.parentId)
-
-    return {
-      ...nextBase,
-      x,
-      y,
-      width,
-      height,
-    }
+    return applyNodePatchToNode(node, patch, {
+      nodes: state.nodes,
+      grid,
+      constraints: nodeConstraints,
+    })
   }
 
   function replaceBoardNodeWithoutNotify(
@@ -814,74 +738,6 @@ export function createBoardEngine<
     )
   }
 
-  async function animateCamera(target: Camera): Promise<void> {
-    animationToken += 1
-    const token = animationToken
-    const start = { ...state.camera }
-    const started = performance.now()
-    const duration = 280
-    const { raf } = getAnimationFrameDriver()
-
-    await new Promise<void>((resolve, reject) => {
-      const tick = () => {
-        if (token !== animationToken) {
-          reject(new AnimationCancelled())
-          return
-        }
-        const elapsed = performance.now() - started
-        const t = clamp(elapsed / duration, 0, 1)
-        const eased = 1 - Math.pow(1 - t, 3)
-        setCamera(lerpCamera(start, target, eased))
-        if (t < 1) {
-          raf(tick)
-        } else {
-          resolve()
-        }
-      }
-      raf(tick)
-    })
-  }
-
-  function computeFitCamera(ids: NodeId[] | null, padding = 40): Camera | null {
-    const source = ids
-      ? ids
-          .map((id) => state.nodes.get(id))
-          .filter((node): node is BoardNode => Boolean(node && node.visible))
-      : Array.from(state.nodes.values()).filter((node) => node.visible)
-    if (source.length === 0) {
-      return null
-    }
-    const bounds = source.reduce<Bounds>((acc, node) => {
-      const current = getBoundsFromNode(node)
-      return {
-        minX: Math.min(acc.minX, current.minX),
-        minY: Math.min(acc.minY, current.minY),
-        maxX: Math.max(acc.maxX, current.maxX),
-        maxY: Math.max(acc.maxY, current.maxY),
-      }
-    }, getBoundsFromNode(source[0]!))
-
-    const width = Math.max(1, bounds.maxX - bounds.minX)
-    const height = Math.max(1, bounds.maxY - bounds.minY)
-    const zoomLevel = clamp(
-      Math.min(
-        (viewportSize.x - padding * 2) / width,
-        (viewportSize.y - padding * 2) / height,
-      ),
-      zoom.min,
-      zoom.max,
-    )
-    const center = {
-      x: (bounds.minX + bounds.maxX) / 2,
-      y: (bounds.minY + bounds.maxY) / 2,
-    }
-    return {
-      x: viewportSize.x / (2 * zoomLevel) - center.x,
-      y: viewportSize.y / (2 * zoomLevel) - center.y,
-      z: zoomLevel,
-    }
-  }
-
   function restoreSnapshot(
     snapshot: InternalBoardSnapshot,
     mode: 'replace' | 'merge',
@@ -969,6 +825,7 @@ export function createBoardEngine<
       Object.create(engine) as InternalPluginContext,
       {
         getPluginState: <S>(): S => {
+          assertAlive()
           const entry = pluginStates.get(plugin.name)
           if (!entry) {
             throw new Error(
@@ -978,6 +835,7 @@ export function createBoardEngine<
           return entry.state as S
         },
         updatePluginState: <S>(update: (current: S) => S): S => {
+          assertAlive()
           const entry = pluginStates.get(plugin.name)
           if (!entry) {
             throw new Error(
@@ -1005,6 +863,8 @@ export function createBoardEngine<
 
   const engine: InternalPluginContext & InternalInteractionAdapter = {
     plugins,
+    assertActive: assertAlive,
+    isBatching: () => batches.isBatching(),
     $camera,
     $grid,
     $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
@@ -1016,8 +876,9 @@ export function createBoardEngine<
         return
       }
       destroyed = true
-      animationToken += 1
+      cameraSession.cancelAnimations()
       nodeOverrides.clear()
+      activeGestureHistoryRoot = null
       for (const cleanup of pluginCleanups.values()) {
         cleanup()
       }
@@ -1025,7 +886,7 @@ export function createBoardEngine<
       pluginCleanups.clear()
       pluginStates.clear()
       pluginPersistence.clear()
-      commitListeners.clear()
+      commitProjectors.clear()
       nodeDeletedHooks.clear()
       commandGuards.clear()
       eventBus.clear()
@@ -1036,13 +897,18 @@ export function createBoardEngine<
     },
     batch(fn) {
       assertAlive()
+      if (batches.isBatching()) {
+        batches.batch(fn)
+        return
+      }
       const historyBefore = captureHistoryRoot()
       const checkpoint = beginPersistentTransaction()
       eventBus.beginTransaction()
       try {
-        batches.batch(fn)
+        batches.batch(fn, () =>
+          publishCommit('batch', RECORD_COMMAND, historyBefore),
+        )
         eventBus.commitTransaction()
-        publishCommit('batch', RECORD_COMMAND, historyBefore)
       } catch (error) {
         rollbackPersistentTransaction(checkpoint)
         eventBus.rollbackTransaction()
@@ -1103,10 +969,10 @@ export function createBoardEngine<
     ): T {
       return runCommand(name, args, fn, metadata)
     },
-    onCommit(listener) {
+    projectCommit(projector) {
       assertAlive()
-      commitListeners.add(listener)
-      return () => commitListeners.delete(listener)
+      commitProjectors.add(projector)
+      return () => commitProjectors.delete(projector)
     },
     restoreHistoryRoot(root) {
       runCommand(
@@ -1214,7 +1080,7 @@ export function createBoardEngine<
         [worldPoint, animated],
         async () => {
           if (animated) {
-            await animateCamera(target)
+            await cameraSession.animateTo(target)
           } else {
             setCamera(target)
           }
@@ -1254,7 +1120,7 @@ export function createBoardEngine<
         [level, animated],
         async () => {
           if (animated) {
-            await animateCamera(target)
+            await cameraSession.animateTo(target)
           } else {
             setCamera(target)
           }
@@ -1267,12 +1133,12 @@ export function createBoardEngine<
         'zoomToFit',
         [padding, animated],
         async () => {
-          const target = computeFitCamera(null, padding)
+          const target = cameraSession.computeFit(null, padding)
           if (!target) {
             return
           }
           if (animated) {
-            await animateCamera(target)
+            await cameraSession.animateTo(target)
           } else {
             setCamera(target)
           }
@@ -1285,12 +1151,12 @@ export function createBoardEngine<
         'zoomToNodes',
         [ids, padding, animated],
         async () => {
-          const target = computeFitCamera(ids, padding)
+          const target = cameraSession.computeFit(ids, padding)
           if (!target) {
             return
           }
           if (animated) {
-            await animateCamera(target)
+            await cameraSession.animateTo(target)
           } else {
             setCamera(target)
           }
@@ -1623,6 +1489,7 @@ export function createBoardEngine<
       })
     },
     getSelection() {
+      assertAlive()
       return Array.from(state.selection.values())
     },
     beginPan(pointerId, screenPoint) {
@@ -1732,7 +1599,12 @@ export function createBoardEngine<
         'beginTextEdit',
         [id],
         () => {
-          assertBoardNode(id)
+          const node = assertBoardNode(id)
+          if (node.type !== 'text') {
+            throw new BoardInputError(
+              `Cannot edit text for ${node.type} node "${id}".`,
+            )
+          }
           setSelection([id])
           setInteraction({ mode: 'editing-text', nodeId: id })
         },
@@ -1742,7 +1614,12 @@ export function createBoardEngine<
     commitTextEdit(id, text) {
       return runCommand('commitTextEdit', [id, text], () => {
         const node = assertBoardNode(id)
-        let stored = node
+        if (node.type !== 'text') {
+          throw new BoardInputError(
+            `Cannot edit text for ${node.type} node "${id}".`,
+          )
+        }
+        let stored: BoardNode = node
         if (text !== undefined) {
           stored = replaceBoardNodeAndDispatch(node, { ...node, text })
           emit('node:updated', materializeNode(stored), materializeNode(node))
@@ -1850,10 +1727,6 @@ export function createBoardEngine<
                 ? { dx: 0, dy: 0, guides: [] as SnapGuide[] }
                 : (() => {
                     const excludeIds = new Set(interaction.nodeIds)
-                    const otherEdges = collectOtherNodeEdgesExcluding(
-                      state.nodes.values(),
-                      excludeIds,
-                    )
                     const groupBounds = {
                       x: minX,
                       y: minY,
@@ -1862,43 +1735,32 @@ export function createBoardEngine<
                     }
                     return snapPositionToEdges(
                       groupBounds,
-                      otherEdges,
+                      getSnapEdgeIndex(),
                       grid.edgeSnapThreshold / state.camera.z,
+                      excludeIds,
                     )
                   })()
             setSnapGuides(snapResult.guides)
 
-            const moveDeltas: { id: NodeId; before: Point; after: Point }[] = []
             let movedNodeCount = 0
             for (const nodeId of interaction.nodeIds) {
               const current = assertBoardNode(nodeId)
               const preliminary = prelimBounds[nodeId]
-              const origin = interaction.startNodePositions[nodeId]
-              if (!preliminary || !origin) {
+              if (!preliminary) {
                 continue
               }
-              const before = { x: current.x, y: current.y }
-              const stored = setNodeOverride({
+              setNodeOverride({
                 ...current,
                 x: preliminary.x + snapResult.dx,
                 y: preliminary.y + snapResult.dy,
               })
               movedNodeCount += 1
-              if (stored.x !== before.x || stored.y !== before.y) {
-                moveDeltas.push({
-                  id: nodeId,
-                  before,
-                  after: { x: stored.x, y: stored.y },
-                })
-              }
-            }
-            if (moveDeltas.length > 0) {
             }
             if (movedNodeCount > 0) {
               notifyNodesChanged()
             }
           },
-          IGNORE_COMMAND,
+          IGNORE_UNVALIDATED_COMMAND,
         )
         return
       }
@@ -1970,15 +1832,12 @@ export function createBoardEngine<
                   ...gridSnapped,
                 })
               } else {
-                const otherEdges = collectOtherNodeEdges(
-                  state.nodes.values(),
-                  interaction.nodeId,
-                )
                 const snapResult = snapBoundsToEdges(
                   gridSnapped,
                   interaction.handle,
-                  otherEdges,
+                  getSnapEdgeIndex(),
                   grid.edgeSnapThreshold / state.camera.z,
+                  new Set([interaction.nodeId]),
                 )
                 setSnapGuides(snapResult.guides)
                 setNodeOverride({
@@ -1988,7 +1847,7 @@ export function createBoardEngine<
               }
             }
           },
-          IGNORE_COMMAND,
+          IGNORE_UNVALIDATED_COMMAND,
         )
         return
       }
@@ -2037,6 +1896,19 @@ export function createBoardEngine<
       ) {
         return
       }
+      const gestureCommit =
+        activeGestureHistoryRoot &&
+        (interaction.mode === 'dragging-nodes' ||
+          interaction.mode === 'resizing-node')
+          ? {
+              before: activeGestureHistoryRoot,
+              label:
+                interaction.mode === 'dragging-nodes'
+                  ? 'moveNodes'
+                  : 'resizeNode',
+              metadata: RECORD_COMMAND,
+            }
+          : undefined
       runCommand(
         'endInteraction',
         [pointerId],
@@ -2054,20 +1926,33 @@ export function createBoardEngine<
           }
           setInteraction({ mode: 'idle' })
         },
-        IGNORE_COMMAND,
+        gestureCommit ? RECORD_COMMAND : IGNORE_COMMAND,
+        gestureCommit,
       )
-      if (
-        activeGestureHistoryRoot &&
-        (interaction.mode === 'dragging-nodes' ||
-          interaction.mode === 'resizing-node')
-      ) {
-        publishCommit(
-          interaction.mode === 'dragging-nodes' ? 'moveNodes' : 'resizeNode',
-          RECORD_COMMAND,
-          activeGestureHistoryRoot,
-        )
-      }
       activeGestureHistoryRoot = null
+    },
+    cancelInteraction(pointerId) {
+      const interaction = state.interaction
+      if (interaction.mode === 'idle') return
+      if (
+        'pointerId' in interaction &&
+        pointerId !== undefined &&
+        interaction.pointerId !== pointerId
+      ) {
+        return
+      }
+      runCommand(
+        'cancelInteraction',
+        [pointerId],
+        () => {
+          nodeOverrides.clear()
+          activeGestureHistoryRoot = null
+          setSnapGuides([])
+          setInteraction({ mode: 'idle' })
+          notifyNodesChanged()
+        },
+        IGNORE_UNVALIDATED_COMMAND,
+      )
     },
     getUniformTranslationTargets(seedIds) {
       assertAlive()
@@ -2099,10 +1984,11 @@ export function createBoardEngine<
         'loadDocument',
         [mode],
         () => {
-          nodeOverrides.clear()
           const normalized = normalizeDocumentForImport(document)
           assertCanRestoreDocument(normalized)
           const snapshot = documentToSnapshot(normalized)
+          nodeOverrides.clear()
+          activeGestureHistoryRoot = null
           const idMap = restoreSnapshot(snapshot, mode)
           restorePluginDocuments(normalized, mode, idMap)
         },
@@ -2120,13 +2006,42 @@ export function createBoardEngine<
 
   if (initialDocument) {
     assertCanRestoreDocument(initialDocument)
-    restorePluginDocuments(initialDocument, 'replace')
+    runCommand(
+      'initializeDocument',
+      [],
+      () => restorePluginDocuments(initialDocument, 'replace'),
+      IGNORE_COMMAND,
+    )
   }
 
   validate('createBoardEngine')
 
-  return engine as unknown as BoardEngine<
+  const internalKeys = new Set([
+    'emit',
+    'assertActive',
+    'isBatching',
+    'extend',
+    'runCommand',
+    'projectCommit',
+    'restoreHistoryRoot',
+    'getPluginState',
+    'updatePluginState',
+    'beginPan',
+    'beginNodeDrag',
+    'beginResize',
+    'beginBoxSelect',
+    'updatePointer',
+    'endInteraction',
+    'cancelInteraction',
+    'getUniformTranslationTargets',
+    'syncGroupZOrder',
+  ])
+  const publicEngine = Object.fromEntries(
+    Object.entries(engine).filter(([key]) => !internalKeys.has(key)),
+  ) as unknown as BoardEngine<
     InstalledPluginApis<TPlugins>,
     InstalledPluginEvents<TPlugins>
   >
+  registerBoardInteractionAdapter(publicEngine, engine)
+  return publicEngine
 }

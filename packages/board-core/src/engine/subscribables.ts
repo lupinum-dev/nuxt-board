@@ -1,5 +1,10 @@
 import { cloneInteraction } from '../invariants.js'
-import { sameArray, freezeClone } from '../helpers/clone.js'
+import {
+  sameArray,
+  freezeClone,
+  readonlyMapView,
+  readonlySetView,
+} from '../helpers/clone.js'
 import { createBatchController, createSubscribable } from '../subscribable.js'
 import type { BatchController } from '../subscribable.js'
 import type {
@@ -63,11 +68,11 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     batchCtrl,
   )
   const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
-    new Map(),
+    readonlyMapView(new Map()),
     batchCtrl,
   )
   const $selection = createSubscribable<ReadonlySet<NodeId>>(
-    new Set(initialState.selection),
+    readonlySetView(new Set(initialState.selection)),
     batchCtrl,
   )
   const $interaction = createSubscribable<InteractionState>(
@@ -94,7 +99,15 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
 
   function notifyNodesChanged(): void {
     cachedPublicNodeMap = null
-    $nodes.set(new Map(getPublicNodeMap()))
+    if (batchCtrl.depth > 0) {
+      batchCtrl.pending.add(publishNodes)
+      return
+    }
+    publishNodes()
+  }
+
+  function publishNodes(): void {
+    $nodes.set(readonlyMapView(getPublicNodeMap()))
   }
 
   function notifyCameraChanged(): void {
@@ -106,7 +119,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function notifySelectionChanged(): void {
-    $selection.set(new Set(getState().selection))
+    $selection.set(readonlySetView(new Set(getState().selection)))
   }
 
   function notifyInteractionChanged(): void {

@@ -70,18 +70,32 @@ export function validateState(
   if (
     !Number.isFinite(state.camera.x) ||
     !Number.isFinite(state.camera.y) ||
-    !Number.isFinite(state.camera.z)
+    !Number.isFinite(state.camera.z) ||
+    state.camera.z <= 0
   ) {
-    push('camera.finite', 'Camera values must be finite numbers.')
+    push(
+      'camera.valid',
+      'Camera position must be finite and zoom must be greater than 0.',
+    )
   }
 
   if (grid.size <= 0 || !Number.isFinite(grid.size)) {
     push('grid.size', 'Grid size must be a finite number greater than 0.')
   }
-  if (grid.majorEvery < 1 || !Number.isFinite(grid.majorEvery)) {
+  if (
+    grid.majorEvery < 1 ||
+    !Number.isFinite(grid.majorEvery) ||
+    !Number.isInteger(grid.majorEvery)
+  ) {
     push(
       'grid.majorEvery',
-      'Grid majorEvery must be a finite number greater than or equal to 1.',
+      'Grid majorEvery must be an integer greater than or equal to 1.',
+    )
+  }
+  if (grid.edgeSnapThreshold <= 0 || !Number.isFinite(grid.edgeSnapThreshold)) {
+    push(
+      'grid.edgeSnapThreshold',
+      'Grid edgeSnapThreshold must be a finite number greater than 0.',
     )
   }
 
@@ -147,9 +161,6 @@ function validateNode(
   }
   if (node.width <= 0 || node.height <= 0) {
     push('node.size', `Node ${node.id} must have positive width and height.`)
-  }
-  if (!node.type) {
-    push('node.type', `Node ${node.id} must have a type.`)
   }
 }
 

@@ -11,6 +11,12 @@ interface EdgeCandidate {
   value: number
   extentMin: number
   extentMax: number
+  nodeId?: NodeId
+}
+
+export interface SnapEdgeIndex {
+  readonly x: readonly EdgeCandidate[]
+  readonly y: readonly EdgeCandidate[]
 }
 
 export interface SnapResult {
@@ -61,6 +67,35 @@ export function collectOtherNodeEdgesExcluding(
   return edges
 }
 
+/** Rebuildable index derived only from the current canonical node root. */
+export function buildSnapEdgeIndex(nodes: Iterable<BoardNode>): SnapEdgeIndex {
+  const x: EdgeCandidate[] = []
+  const y: EdgeCandidate[] = []
+  for (const node of nodes) {
+    if (!node.visible) continue
+    for (const edge of collectNodeEdges(node)) {
+      ;(edge.axis === 'x' ? x : y).push({ ...edge, nodeId: node.id })
+    }
+  }
+  x.sort((left, right) => left.value - right.value)
+  y.sort((left, right) => left.value - right.value)
+  return { x, y }
+}
+
+function lowerBound(
+  candidates: readonly EdgeCandidate[],
+  value: number,
+): number {
+  let low = 0
+  let high = candidates.length
+  while (low < high) {
+    const middle = (low + high) >>> 1
+    if (candidates[middle]!.value < value) low = middle + 1
+    else high = middle
+  }
+  return low
+}
+
 function findBestSnap(
   activeValue: number,
   activeExtentMin: number,
@@ -68,12 +103,19 @@ function findBestSnap(
   axis: SnapAxis,
   candidates: EdgeCandidate[],
   threshold: number,
+  index?: SnapEdgeIndex,
+  excludeIds?: ReadonlySet<NodeId>,
 ): { snappedValue: number; guide: SnapGuide } | null {
   let bestDist = threshold
   let bestCandidate: EdgeCandidate | null = null
 
-  for (const candidate of candidates) {
+  const source = index?.[axis] ?? candidates
+  const start = index ? lowerBound(source, activeValue - threshold) : 0
+  for (let position = start; position < source.length; position += 1) {
+    const candidate = source[position]!
+    if (index && candidate.value >= activeValue + threshold) break
     if (candidate.axis !== axis) continue
+    if (candidate.nodeId && excludeIds?.has(candidate.nodeId)) continue
     const dist = Math.abs(candidate.value - activeValue)
     if (dist < bestDist) {
       bestDist = dist
@@ -100,8 +142,9 @@ function findBestSnap(
 export function snapBoundsToEdges(
   bounds: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
   handle: ResizeHandle,
-  otherEdges: EdgeCandidate[],
+  otherEdges: EdgeCandidate[] | SnapEdgeIndex,
   threshold: number,
+  excludeIds?: ReadonlySet<NodeId>,
 ): SnapResult {
   let { x, y, width, height } = bounds
   const guides: SnapGuide[] = []
@@ -110,7 +153,16 @@ export function snapBoundsToEdges(
   const bottom = y + height
 
   if (handle.includes('e')) {
-    const snap = findBestSnap(right, y, bottom, 'x', otherEdges, threshold)
+    const snap = findBestSnap(
+      right,
+      y,
+      bottom,
+      'x',
+      Array.isArray(otherEdges) ? otherEdges : [],
+      threshold,
+      Array.isArray(otherEdges) ? undefined : otherEdges,
+      excludeIds,
+    )
     if (snap) {
       width = snap.snappedValue - x
       guides.push(snap.guide)
@@ -118,7 +170,16 @@ export function snapBoundsToEdges(
   }
 
   if (handle.includes('w')) {
-    const snap = findBestSnap(x, y, bottom, 'x', otherEdges, threshold)
+    const snap = findBestSnap(
+      x,
+      y,
+      bottom,
+      'x',
+      Array.isArray(otherEdges) ? otherEdges : [],
+      threshold,
+      Array.isArray(otherEdges) ? undefined : otherEdges,
+      excludeIds,
+    )
     if (snap) {
       const oldRight = x + width
       x = snap.snappedValue
@@ -128,7 +189,16 @@ export function snapBoundsToEdges(
   }
 
   if (handle.includes('s')) {
-    const snap = findBestSnap(bottom, x, right, 'y', otherEdges, threshold)
+    const snap = findBestSnap(
+      bottom,
+      x,
+      right,
+      'y',
+      Array.isArray(otherEdges) ? otherEdges : [],
+      threshold,
+      Array.isArray(otherEdges) ? undefined : otherEdges,
+      excludeIds,
+    )
     if (snap) {
       height = snap.snappedValue - y
       guides.push(snap.guide)
@@ -136,7 +206,16 @@ export function snapBoundsToEdges(
   }
 
   if (handle.includes('n')) {
-    const snap = findBestSnap(y, x, right, 'y', otherEdges, threshold)
+    const snap = findBestSnap(
+      y,
+      x,
+      right,
+      'y',
+      Array.isArray(otherEdges) ? otherEdges : [],
+      threshold,
+      Array.isArray(otherEdges) ? undefined : otherEdges,
+      excludeIds,
+    )
     if (snap) {
       const oldBottom = y + height
       y = snap.snappedValue
@@ -150,8 +229,9 @@ export function snapBoundsToEdges(
 
 export function snapPositionToEdges(
   bounds: Pick<BoardNode, 'x' | 'y' | 'width' | 'height'>,
-  otherEdges: EdgeCandidate[],
+  otherEdges: EdgeCandidate[] | SnapEdgeIndex,
   threshold: number,
+  excludeIds?: ReadonlySet<NodeId>,
 ): DragSnapResult {
   let dx = 0
   let dy = 0
@@ -162,8 +242,28 @@ export function snapPositionToEdges(
   const bottom = y + height
 
   // Snap X axis: check left and right edges, pick closest
-  const snapLeft = findBestSnap(x, y, bottom, 'x', otherEdges, threshold)
-  const snapRight = findBestSnap(right, y, bottom, 'x', otherEdges, threshold)
+  const candidates = Array.isArray(otherEdges) ? otherEdges : []
+  const index = Array.isArray(otherEdges) ? undefined : otherEdges
+  const snapLeft = findBestSnap(
+    x,
+    y,
+    bottom,
+    'x',
+    candidates,
+    threshold,
+    index,
+    excludeIds,
+  )
+  const snapRight = findBestSnap(
+    right,
+    y,
+    bottom,
+    'x',
+    candidates,
+    threshold,
+    index,
+    excludeIds,
+  )
 
   if (snapLeft && snapRight) {
     const distLeft = Math.abs(snapLeft.snappedValue - x)
@@ -189,16 +289,20 @@ export function snapPositionToEdges(
     x + dx,
     right + dx,
     'y',
-    otherEdges,
+    candidates,
     threshold,
+    index,
+    excludeIds,
   )
   const snapBottom = findBestSnap(
     bottom,
     x + dx,
     right + dx,
     'y',
-    otherEdges,
+    candidates,
     threshold,
+    index,
+    excludeIds,
   )
 
   if (snapTop && snapBottom) {

@@ -39,8 +39,8 @@ interface BatchCommandController {
   isBatching(): boolean
   markValidationPending(): void
   begin(): void
-  end(): void
-  batch(fn: () => void): void
+  end(beforePublish?: () => void): void
+  batch(fn: () => void, beforePublish?: () => void): void
   flushBatchNotifications(): void
   rollbackBatchNotifications(): void
 }
@@ -110,6 +110,7 @@ export function createBatchCommandController(
   let depth = 0
   let startedAt = 0
   let validationPending = false
+  let failedWith: unknown | null = null
 
   function flushBatchNotifications(): void {
     const pending = [...deps.batchCtrl.pending]
@@ -134,13 +135,17 @@ export function createBatchCommandController(
     depth += 1
   }
 
-  function end(): void {
+  function end(beforePublish?: () => void): void {
     depth -= 1
     if (depth !== 0) return
     try {
+      if (failedWith !== null) {
+        throw failedWith
+      }
       if (validationPending) {
         deps.validate('batch')
       }
+      beforePublish?.()
       deps.batchCtrl.depth -= 1
       flushBatchNotifications()
     } catch (error) {
@@ -149,6 +154,7 @@ export function createBatchCommandController(
       throw error
     } finally {
       validationPending = false
+      failedWith = null
     }
     deps.emitCommandAfter(
       'batch',
@@ -158,20 +164,22 @@ export function createBatchCommandController(
     )
   }
 
-  function batch(fn: () => void): void {
+  function batch(fn: () => void, beforePublish?: () => void): void {
     begin()
     try {
       fn()
     } catch (error) {
+      failedWith ??= error
       depth -= 1
       if (depth === 0) {
         validationPending = false
         deps.batchCtrl.depth -= 1
         rollbackBatchNotifications()
+        failedWith = null
       }
       throw error
     }
-    end()
+    end(beforePublish)
   }
 
   return {

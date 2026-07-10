@@ -51,8 +51,20 @@ export function normalizeNodeType(value: unknown): JsonCanvasNodeType {
   )
 }
 
-export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
-  base: T,
+export function withNodeFields(
+  base: Pick<
+    BoardNode,
+    | 'id'
+    | 'x'
+    | 'y'
+    | 'width'
+    | 'height'
+    | 'color'
+    | 'zIndex'
+    | 'locked'
+    | 'visible'
+    | 'parentId'
+  > & { type: JsonCanvasNodeType },
   input: {
     type?: string
     text?: string
@@ -63,7 +75,7 @@ export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
     background?: string
     backgroundStyle?: string
   },
-): T & Partial<BoardNode> {
+): BoardNode {
   switch (base.type) {
     case 'file':
       return {
@@ -72,12 +84,12 @@ export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
         ...(typeof input.subpath === 'string'
           ? { subpath: input.subpath }
           : {}),
-      }
+      } as unknown as BoardNode
     case 'link':
       return {
         ...base,
         url: typeof input.url === 'string' ? input.url : '',
-      }
+      } as unknown as BoardNode
     case 'group':
       return {
         ...base,
@@ -90,13 +102,13 @@ export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
         input.backgroundStyle === 'repeat'
           ? { backgroundStyle: input.backgroundStyle }
           : {}),
-      }
+      } as unknown as BoardNode
     case 'text':
     default:
       return {
         ...base,
         text: typeof input.text === 'string' ? input.text : '',
-      }
+      } as unknown as BoardNode
   }
 }
 
@@ -347,10 +359,26 @@ function validateDocumentMetadata(metadata: unknown): void {
       'Invalid board document: board metadata selection must be an array.',
     )
   }
+  if (
+    Array.isArray(meta.selection) &&
+    meta.selection.some((id) => typeof id !== 'string')
+  ) {
+    throw new BoardInputError(
+      'Invalid board document: board metadata selection must contain only node IDs.',
+    )
+  }
   assertOptionalFiniteNumber(
     meta.nextZIndex,
     'Invalid board document: board metadata nextZIndex must be finite.',
   )
+  if (
+    meta.nextZIndex !== undefined &&
+    (!Number.isInteger(meta.nextZIndex) || meta.nextZIndex < 1)
+  ) {
+    throw new BoardInputError(
+      'Invalid board document: board metadata nextZIndex must be a positive integer.',
+    )
+  }
 
   if (meta.nodes !== undefined) {
     const nodes = assertRecord(

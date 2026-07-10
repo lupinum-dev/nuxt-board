@@ -12,8 +12,10 @@ export type {
 export function getBoardInteractionAdapter(
   engine: import('./types.js').BoardEngine,
 ): InternalInteractionAdapter {
-  return engine as unknown as InternalInteractionAdapter
+  return getRegisteredBoardInteractionAdapter(engine)
 }
+
+import { getRegisteredBoardInteractionAdapter } from './engine/interaction-adapter.js'
 
 import type {
   BoardEventMap,
