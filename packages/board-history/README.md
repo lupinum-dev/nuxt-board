@@ -19,7 +19,7 @@ engine.plugins.history.redo()
 ```
 
 The plugin captures reducer actions between command lifecycle events and replays
-inverse actions for undo/redo.
+committed structural roots for deterministic undo/redo.
 
 - Docs: https://vue-board.vercel.app/api/board-history
 - Issues: https://github.com/lupinum/nuxt-board/issues

@@ -12,7 +12,7 @@ where behavior actually lives, not how many layers the repository can name.
 | `@lupinum/vue-board`         | Vue components and composables that render a `BoardEngine` and translate DOM input into engine commands.                                        |
 | `@lupinum/board-connections` | First-party edge state, JSON Canvas edge persistence, connection geometry, and Vue connection rendering.                                        |
 | `@lupinum/board-history`     | Undo/redo for engine actions captured around command events.                                                                                    |
-| `@lupinum/vue-board/minimap`     | Derived minimap projection and renderer.                                                                                                        |
+| `@lupinum/vue-board/minimap` | Derived minimap projection and renderer.                                                                                                        |
 | `nuxt-board`                 | Nuxt registration for core helpers and Vue components/composables. It does not own board behavior.                                              |
 | `apps/docs`                  | Hand-maintained docs and examples. API pages are content files, not a complete generated source of truth.                                       |
 
@@ -60,7 +60,7 @@ Read these files in order:
    node positions, dispatches `NODES_MOVED`, applies snapping, and reparents
    nodes when needed.
 3. `packages/board-history/src/index.ts` records dispatched actions between
-   `command:before` and `command:after`, then replays inverse actions for undo.
+   successful outer commits and restores structural roots for undo.
 
 ## Verification
 

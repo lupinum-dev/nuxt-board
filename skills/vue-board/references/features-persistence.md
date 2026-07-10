@@ -87,13 +87,13 @@ pnpm add @lupinum/board-history
 import { historyPlugin } from '@lupinum/board-history'
 
 const engine = createBoardEngine({
-  plugins: [historyPlugin({ maxSteps: 100, debounceMs: 500 })],
+  plugins: [historyPlugin({ maxSteps: 100 })],
 })
 ```
 
-Use `engine.plugins.history.undo()` and `redo()`. Read methods such as `canUndo()`, `canRedo()`, and `getState()` do not flush pending entries. Call `flushPending()` when the UI needs to commit a debounced move/update before reading stack availability.
+Use `engine.plugins.history.undo()` and `redo()`. History is updated synchronously after each successful outer command, completed gesture, or batch.
 
-History defaults are `maxSteps: 200` and `debounceMs: 300`. It debounces coalescable move and node-update commands, not arbitrary command sequences. If connections are installed, node deletion undo restores connected edges.
+History defaults to `maxSteps: 200`. It stores committed structural roots without action replay or timers. If connections are installed, node deletion undo restores connected edges.
 
 History is runtime state. Do not persist undo/redo stacks in board documents.
 
@@ -102,7 +102,7 @@ History is runtime state. Do not persist undo/redo stacks in board documents.
 Install when overview navigation is needed:
 
 ```bash
-pnpm add @lupinum/vue-board/minimap
+pnpm add @lupinum/vue-board
 ```
 
 Render under `BoardRoot`:
