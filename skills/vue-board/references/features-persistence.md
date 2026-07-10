@@ -115,7 +115,7 @@ Minimap has no engine plugin. `BoardMinimap` derives from `BoardRoot` context un
 
 ## Persistence
 
-Persist only `engine.exportDocument()` output. Import with `engine.importDocument(json, 'replace')` or `'merge'`.
+Persist only `engine.exportDocument()` output. Load with `engine.loadDocument(json, { mode: 'replace' })` or `{ mode: 'merge' }`.
 
 Do not persist:
 
@@ -130,7 +130,7 @@ Do not persist:
 
 Install the same first-party features before importing documents that use them. Documents with edges require the connections extension. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
 
-`importDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
+`loadDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
 
 ## Read-only and Command Guards
 

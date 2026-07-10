@@ -92,7 +92,7 @@ describe('hard board domain regressions', () => {
     const restored = createBoardEngine({
       plugins: [connectionsPlugin()],
     })
-    restored.importDocument(exported, 'replace')
+    restored.loadDocument(exported, { mode: 'replace' })
 
     expect(restored.getNode(asNodeId('inner')).parentId).toBe(asNodeId('group'))
     expect(restored.plugins.connections.getEdges()).toEqual([
@@ -113,7 +113,7 @@ describe('hard board domain regressions', () => {
         initial: { imports: 0 },
       },
       persistence: {
-        importDocument(engine) {
+        loadDocument(engine) {
           engine.updatePluginState<{ imports: number }>((state) => ({
             imports: state.imports + 1,
           }))
@@ -161,7 +161,7 @@ describe('hard board domain regressions', () => {
     engine.on('history:push', (entry) => historyEvents.push(entry.label))
 
     expect(() =>
-      engine.importDocument(
+      engine.loadDocument(
         {
           nodes: [
             {
@@ -191,7 +191,7 @@ describe('hard board domain regressions', () => {
             },
           ],
         },
-        'replace',
+        { mode: 'replace' },
       ),
     ).toThrow(/feature import failed/)
 

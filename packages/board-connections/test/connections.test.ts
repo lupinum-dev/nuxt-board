@@ -190,7 +190,7 @@ describe('connections plugin', () => {
     })
 
     const restored = createBoardEngine({ plugins: [connectionsPlugin()] })
-    restored.importDocument(exported, 'replace')
+    restored.loadDocument(exported, { mode: 'replace' })
 
     expect(restored.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({
@@ -209,7 +209,7 @@ describe('connections plugin', () => {
     const withoutPlugin = createBoardEngine()
 
     expect(() =>
-      withoutPlugin.importDocument({
+      withoutPlugin.loadDocument({
         nodes: [
           {
             id: 'first',
@@ -307,7 +307,7 @@ describe('connections plugin', () => {
       data: {},
     })
 
-    engine.importDocument(
+    engine.loadDocument(
       {
         nodes: [],
         'x-vue-board': {
@@ -315,7 +315,7 @@ describe('connections plugin', () => {
           nextZIndex: 1,
         },
       },
-      'replace',
+      { mode: 'replace' },
     )
 
     expect(engine.getState().nodes.size).toBe(0)
@@ -387,7 +387,7 @@ describe('connections plugin', () => {
       text: 'Existing target',
     })
 
-    engine.importDocument(
+    engine.loadDocument(
       {
         nodes: [
           {
@@ -418,7 +418,7 @@ describe('connections plugin', () => {
           },
         ],
       },
-      'merge',
+      { mode: 'merge' },
     )
 
     const imported = Array.from(engine.getState().nodes.values()).filter(
@@ -457,7 +457,7 @@ describe('connections plugin', () => {
       data: {},
     })
 
-    engine.importDocument(
+    engine.loadDocument(
       {
         nodes: [
           {
@@ -487,7 +487,7 @@ describe('connections plugin', () => {
           },
         ],
       },
-      'replace',
+      { mode: 'replace' },
     )
 
     expect(engine.plugins.connections.getEdges()).toHaveLength(1)
@@ -496,7 +496,7 @@ describe('connections plugin', () => {
     ).toBeUndefined()
     expectEdgesReferenceExistingNodes(engine)
 
-    engine.importDocument(
+    engine.loadDocument(
       {
         nodes: [
           {
@@ -526,7 +526,7 @@ describe('connections plugin', () => {
           },
         ],
       },
-      'merge',
+      { mode: 'merge' },
     )
 
     expect(engine.plugins.connections.getEdges()).toHaveLength(2)
@@ -537,7 +537,7 @@ describe('connections plugin', () => {
     const failingFeature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failing-import',
       persistence: {
-        importDocument() {
+        loadDocument() {
           throw new Error('feature import failed')
         },
       },
@@ -569,7 +569,7 @@ describe('connections plugin', () => {
     const before = engine.getState()
 
     expect(() =>
-      engine.importDocument(
+      engine.loadDocument(
         {
           nodes: [
             {
@@ -593,7 +593,7 @@ describe('connections plugin', () => {
           ],
           edges: [{ id: 'new-edge', fromNode: 'new-a', toNode: 'new-b' }],
         },
-        'replace',
+        { mode: 'replace' },
       ),
     ).toThrow(/feature import failed/)
 

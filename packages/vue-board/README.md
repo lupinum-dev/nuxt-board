@@ -26,7 +26,7 @@ engine.createNode({
 </template>
 ```
 
-Keep the `engine` instance passed to `BoardRoot` stable after mount. To replace board contents, load them through engine commands such as `importDocument`.
+Keep the `engine` instance passed to `BoardRoot` stable after mount. To replace board contents, load them through engine commands such as `loadDocument`.
 
 Peer dependency: Vue 3.5 or newer.
 

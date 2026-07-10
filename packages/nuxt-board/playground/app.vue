@@ -121,7 +121,7 @@ function exportDocument(): void {
   status.value = 'Exported current board as JSON Canvas.'
 }
 
-function importDocument(): void {
+function loadDocument(): void {
   if (!documentText.value.trim()) {
     status.value = 'Nothing to import yet.'
     return
@@ -276,7 +276,7 @@ function groupSelection(): void {
           :scene-summary="activeScene.summary"
           :benchmark-result="benchmarkResult"
           :status="status"
-          @import="importDocument"
+          @import="loadDocument"
         />
       </div>
     </section>

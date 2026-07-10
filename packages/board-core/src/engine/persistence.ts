@@ -604,7 +604,7 @@ export function documentToSnapshot(
       snapGuides: [],
     },
     gridSettings,
-    'importDocument',
+    'loadDocument',
   )
   if (failures.length > 0) {
     throw new Error(

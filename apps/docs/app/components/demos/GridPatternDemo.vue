@@ -19,7 +19,7 @@ function seedOne(
   pattern: 'line' | 'dot' | 'cross' | 'none',
   engine: ReturnType<typeof createBoardEngine>,
 ) {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: 0, y: 0, z: 1 },
       grid: { ...engine.getGridSettings(), pattern },
@@ -52,7 +52,7 @@ function seedOne(
       selection: [],
       nextZIndex: 3,
     }),
-    'replace',
+    { mode: 'replace' },
   )
 }
 

@@ -63,7 +63,7 @@ export default defineNuxtConfig({
 
 ## How It Works
 
-`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `importDocument`.
+`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `loadDocument`.
 
 `BoardRoot` subscribes to the engine and renders the viewport, grid, nodes, resize handles, selection toolbar, snap guides, and pointer interaction. Custom renderers replace node content; they do not replace the interaction model.
 
@@ -77,7 +77,7 @@ export default defineNuxtConfig({
 </template>
 ```
 
-Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `importDocument`.
+Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `loadDocument`.
 
 ## Packages
 

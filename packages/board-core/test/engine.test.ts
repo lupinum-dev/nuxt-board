@@ -194,7 +194,7 @@ describe('board engine', () => {
     const beforeImport = engine.getState()
 
     expect(() =>
-      engine.importDocument(
+      engine.loadDocument(
         {
           nodes: [
             {
@@ -208,7 +208,7 @@ describe('board engine', () => {
             },
           ],
         },
-        'replace',
+        { mode: 'replace' },
       ),
     ).toThrow(/Invalid board document/)
     expect(engine.getState()).toEqual(beforeImport)
@@ -764,7 +764,7 @@ describe('board engine', () => {
       },
     }
 
-    engine.importDocument(importData, 'merge')
+    engine.loadDocument(importData, { mode: 'merge' })
 
     const snapshot = engine.getState()
     expect(snapshot.nodes).toHaveLength(2)
@@ -892,7 +892,7 @@ describe('board engine', () => {
     it('keeps imported descendants above their group after hierarchy changes', () => {
       const engine = createBoardEngine({ grid: { snap: false } })
 
-      engine.importDocument(
+      engine.loadDocument(
         {
           nodes: [
             {
@@ -920,7 +920,7 @@ describe('board engine', () => {
             },
           },
         },
-        'replace',
+        { mode: 'replace' },
       )
 
       engine.syncGroupZOrder(asNodeId('group'))

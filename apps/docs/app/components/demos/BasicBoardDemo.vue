@@ -13,7 +13,7 @@ function syncNodeCount() {
 }
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: -80, y: -20, z: 1 },
       grid: engine.getGridSettings(),
@@ -73,7 +73,7 @@ function seed() {
       selection: [],
       nextZIndex: 4,
     }),
-    'replace',
+    { mode: 'replace' },
   )
   syncNodeCount()
 }

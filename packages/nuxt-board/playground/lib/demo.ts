@@ -628,7 +628,7 @@ export function loadDemoScene(
   sceneId: DemoSceneId,
 ): DemoSceneOption {
   const scene = getScene(sceneId)
-  engine.importDocument(demoSceneToDocument(scene), 'replace')
+  engine.loadDocument(demoSceneToDocument(scene), { mode: 'replace' })
   engine.clearSelection()
   engine.endInteraction()
   engine.plugins.history.clear()
@@ -644,7 +644,7 @@ export function exportDemoDocument(engine: DemoEngine): string {
 }
 
 export function importDemoDocument(engine: DemoEngine, json: string): void {
-  engine.importDocument(JSON.parse(json), 'replace')
+  engine.loadDocument(JSON.parse(json), { mode: 'replace' })
   engine.clearSelection()
   engine.endInteraction()
   engine.plugins.history.clear()

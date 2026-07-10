@@ -24,7 +24,7 @@ function exportDocument() {
 }
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: 0, y: 0, z: 1 },
       grid: engine.getGridSettings(),
@@ -57,7 +57,7 @@ function seed() {
         },
       ],
     }),
-    'replace',
+    { mode: 'replace' },
   )
   for (const edge of engine.plugins.connections.getEdges()) {
     engine.plugins.connections.deleteEdge(edge.id)
@@ -82,7 +82,7 @@ function setFormatMode(nextMode: 'pretty' | 'compact') {
 
 function importBoard() {
   if (!payload.value.trim()) return
-  engine.importDocument(JSON.parse(payload.value), 'replace')
+  engine.loadDocument(JSON.parse(payload.value), { mode: 'replace' })
 }
 
 onMounted(async () => {

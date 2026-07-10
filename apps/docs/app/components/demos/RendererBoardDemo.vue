@@ -16,7 +16,7 @@ const renderers: BoardRendererRegistry = {
 }
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: 0, y: 0, z: 1 },
       grid: engine.getGridSettings(),
@@ -62,7 +62,7 @@ function seed() {
         },
       ],
     }),
-    'replace',
+    { mode: 'replace' },
   )
 }
 

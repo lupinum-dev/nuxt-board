@@ -63,7 +63,7 @@ const topicDepthsById = computed(() => {
 })
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: -60, y: -40, z: 1 },
       grid: engine.getGridSettings(),
@@ -132,7 +132,7 @@ function seed() {
         },
       ],
     }),
-    'replace',
+    { mode: 'replace' },
   )
 
   const conn = engine.plugins.connections

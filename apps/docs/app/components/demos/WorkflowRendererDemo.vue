@@ -67,7 +67,7 @@ const unsubscribeHistory = [
 function seed() {
   workflowSteps.value = createWorkflowSteps()
 
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: -40, y: -30, z: 1 },
       grid: engine.getGridSettings(),
@@ -112,7 +112,7 @@ function seed() {
         },
       ],
     }),
-    'replace',
+    { mode: 'replace' },
   )
 
   for (const edge of engine.plugins.connections.getEdges()) {

@@ -18,9 +18,9 @@ async function seedConnectionScene(page: Page) {
       window as unknown as {
         __boardPlayground: {
           engine: {
-            importDocument: (
+            loadDocument: (
               document: unknown,
-              mode: 'replace' | 'merge',
+              options?: { mode?: 'replace' | 'merge' },
             ) => void
             zoomTo: (level: number, animated?: boolean) => Promise<void>
             plugins: {
@@ -35,7 +35,7 @@ async function seedConnectionScene(page: Page) {
       }
     ).__boardPlayground
 
-    api.engine.importDocument(
+    api.engine.loadDocument(
       {
         nodes: [
           {
@@ -88,7 +88,7 @@ async function seedConnectionScene(page: Page) {
           },
         },
       },
-      'replace',
+      { mode: 'replace' },
     )
 
     const connections = api.engine.plugins.connections

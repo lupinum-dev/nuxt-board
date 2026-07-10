@@ -20,7 +20,7 @@ watch(gridSnap, (v) => engine.updateGridSettings({ snap: v }))
 watch(edgeSnap, (v) => engine.updateGridSettings({ edgeSnap: v }))
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: 0, y: 0, z: 1 },
       grid: engine.getGridSettings(),
@@ -65,7 +65,7 @@ function seed() {
       selection: [],
       nextZIndex: 4,
     }),
-    'replace',
+    { mode: 'replace' },
   )
 }
 

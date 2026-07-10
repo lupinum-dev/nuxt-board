@@ -239,6 +239,11 @@ export interface DuplicateNodesResult {
   readonly idMap: ReadonlyMap<NodeId, NodeId>
 }
 
+/** Options controlling how a validated document enters the current board. */
+export interface DocumentLoadOptions {
+  mode?: 'replace' | 'merge'
+}
+
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
 export type BoxSelectBehavior = 'autocad' | 'contain' | 'intersect'
@@ -563,7 +568,7 @@ export interface BoardEngine<
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
   exportDocument(): JsonCanvasDocument
-  importDocument(document: unknown, mode?: 'replace' | 'merge'): void
+  loadDocument(document: unknown, options?: DocumentLoadOptions): void
 }
 
 /**
@@ -621,7 +626,7 @@ export interface InternalPluginPersistence<
   exportDocument?(
     engine: InternalPluginContext<TPluginApis, TEvents>,
   ): Partial<JsonCanvasDocument> | void
-  importDocument?(
+  loadDocument?(
     engine: InternalPluginContext<TPluginApis, TEvents>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',

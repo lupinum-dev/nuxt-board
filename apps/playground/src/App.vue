@@ -149,7 +149,7 @@ function exportJsonCanvas(): string {
 
 function importJsonCanvas(): void {
   if (!exportedJson.value) return
-  engine.importDocument(JSON.parse(exportedJson.value), 'replace')
+  engine.loadDocument(JSON.parse(exportedJson.value), { mode: 'replace' })
 }
 
 const GROUP_PAD = 36

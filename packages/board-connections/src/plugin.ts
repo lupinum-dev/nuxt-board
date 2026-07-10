@@ -182,7 +182,7 @@ export function connectionsPlugin(
           },
         }
       },
-      importDocument(engine, document, mode, idMap): void {
+      loadDocument(engine, document, mode, idMap): void {
         const api = engine.plugins.connections
         if (mode === 'replace') {
           for (const edge of api.getEdges()) {

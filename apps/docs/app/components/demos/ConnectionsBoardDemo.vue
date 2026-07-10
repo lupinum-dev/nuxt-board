@@ -23,7 +23,7 @@ const SCORE_ID = asNodeId('score')
 const OUTPUT_ID = asNodeId('output')
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: -80, y: -40, z: 1 },
       grid: engine.getGridSettings(),
@@ -80,7 +80,7 @@ function seed() {
       selection: [],
       nextZIndex: 5,
     }),
-    'replace',
+    { mode: 'replace' },
   )
   const connections = engine.plugins.connections
   for (const edge of connections.getEdges()) {

@@ -8,7 +8,7 @@ const engine = createBoardEngine({
 })
 
 function seed() {
-  engine.importDocument(
+  engine.loadDocument(
     createDemoDocument({
       camera: { x: 0, y: 0, z: 1 },
       grid: engine.getGridSettings(),
@@ -41,7 +41,7 @@ function seed() {
       selection: [],
       nextZIndex: 3,
     }),
-    'replace',
+    { mode: 'replace' },
   )
 }
 

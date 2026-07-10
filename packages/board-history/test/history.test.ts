@@ -397,7 +397,7 @@ describe('history plugin', () => {
     })
     engine.plugins.history.clear()
 
-    engine.importDocument(
+    engine.loadDocument(
       {
         nodes: [
           {
@@ -414,7 +414,7 @@ describe('history plugin', () => {
           selection: [existing.id],
         },
       },
-      'replace',
+      { mode: 'replace' },
     )
 
     expect(engine.plugins.history.canUndo()).toBe(false)

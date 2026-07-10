@@ -66,7 +66,7 @@ describe('board-core public document API', () => {
     }
     const engine = createBoardEngine()
 
-    engine.importDocument(document, 'replace')
+    engine.loadDocument(document, { mode: 'replace' })
     const node: BoardNode = engine.getNode(asNodeId('node-a'))
 
     expect(node).toMatchObject({
@@ -84,9 +84,9 @@ describe('board-core public document API', () => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'text', text: 'runtime' })
 
-    expect(() => engine.importDocument(engine.getState(), 'replace')).toThrow(
-      /missing nodes array/,
-    )
+    expect(() =>
+      engine.loadDocument(engine.getState(), { mode: 'replace' }),
+    ).toThrow(/missing nodes array/)
   })
 
   it.each([
@@ -279,7 +279,9 @@ describe('board-core public document API', () => {
     engine.createNode({ type: 'text', text: 'keep' })
     const before = engine.getState()
 
-    expect(() => engine.importDocument(document, 'replace')).toThrow(error)
+    expect(() => engine.loadDocument(document, { mode: 'replace' })).toThrow(
+      error,
+    )
 
     expect(engine.getState()).toEqual(before)
   })
@@ -290,7 +292,7 @@ describe('board-core public document API', () => {
     const before = engine.getState()
 
     expect(() =>
-      engine.importDocument({
+      engine.loadDocument({
         nodes: [
           {
             id: 'bad',
@@ -314,7 +316,7 @@ describe('board-core public document API', () => {
     const before = engine.getState()
 
     expect(() =>
-      engine.importDocument({
+      engine.loadDocument({
         nodes: [
           {
             id: 'source',
@@ -351,7 +353,7 @@ describe('board-core public document API', () => {
         initial: { imports: 0 },
       },
       persistence: {
-        importDocument(extensionEngine) {
+        loadDocument(extensionEngine) {
           extensionEngine.updatePluginState<{ imports: number }>((state) => ({
             imports: state.imports + 1,
           }))
@@ -375,7 +377,7 @@ describe('board-core public document API', () => {
     const before = engine.getState()
 
     expect(() =>
-      engine.importDocument(
+      engine.loadDocument(
         {
           nodes: [
             {
@@ -393,7 +395,7 @@ describe('board-core public document API', () => {
             nextZIndex: 10,
           },
         },
-        'replace',
+        { mode: 'replace' },
       ),
     ).toThrow(/extension import failed/)
 

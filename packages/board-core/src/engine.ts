@@ -1070,7 +1070,7 @@ export function createBoardEngine<
     idMap: ReadonlyMap<NodeId, NodeId> = new Map(),
   ): void {
     for (const entry of pluginPersistence.values()) {
-      entry.hooks.importDocument?.(entry.context, document, mode, idMap)
+      entry.hooks.loadDocument?.(entry.context, document, mode, idMap)
     }
   }
 
@@ -2213,9 +2213,10 @@ export function createBoardEngine<
         pluginDocuments,
       )
     },
-    importDocument(document, mode = 'replace') {
+    loadDocument(document, options = {}) {
+      const mode = options.mode ?? 'replace'
       runCommand(
-        'importDocument',
+        'loadDocument',
         [mode],
         () => {
           nodeOverrides.clear()
