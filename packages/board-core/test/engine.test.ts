@@ -9,6 +9,7 @@ import {
 } from '../src'
 import {
   defineInternalBoardPlugin,
+  getBoardInteractionAdapter,
   type InternalBoardPlugin,
 } from '../src/internal'
 
@@ -252,9 +253,12 @@ describe('board engine', () => {
     })
     engine.select([first.id, second.id])
 
-    engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 50, y: 20 })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginNodeDrag(first.id, 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 50, y: 20 })
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     const snapshot = engine.getState()
     expect(snapshot.nodes.get(first.id)).toMatchObject({
@@ -288,13 +292,16 @@ describe('board engine', () => {
       text: 'Third',
     })
     engine.select([first.id, second.id, third.id])
-    engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginNodeDrag(first.id, 1, {
+      x: 0,
+      y: 0,
+    })
 
     let notifications = 0
     const unsubscribe = engine.$nodes.subscribe(() => {
       notifications += 1
     })
-    engine.updatePointer(1, { x: 50, y: 20 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 50, y: 20 })
     unsubscribe()
 
     expect(notifications).toBe(1)
@@ -338,9 +345,13 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 48, y: 14 }, { shift: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 48, y: 14 },
+      { shift: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getState().nodes.get(node.id)).toMatchObject({
       x: 48,
@@ -352,8 +363,8 @@ describe('board engine', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({ type: 'text', x: 0, y: 0, text: 'Node' })
 
-    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 80, y: 30 })
+    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 80, y: 30 })
 
     expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 80, y: 30 })
     const document = engine.exportDocument() as unknown as {
@@ -364,7 +375,7 @@ describe('board engine', () => {
       y: 0,
     })
 
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).endInteraction(1)
     expect(engine.findNode(node.id)).toMatchObject({ x: 80, y: 30 })
   })
 
@@ -377,9 +388,13 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 17, y: 9 },
+      { space: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getState().nodes.get(node.id)).toMatchObject({
       x: 17,
@@ -399,9 +414,16 @@ describe('board engine', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 17, y: 9 },
+      { space: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getState().nodes.get(node.id)).toMatchObject({
       width: 217,
@@ -429,9 +451,9 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginBoxSelect(1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 200, y: 160 })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginBoxSelect(1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getSelection()).toEqual([first.id])
   })
@@ -455,23 +477,23 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginBoxSelect(1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 200, y: 160 })
     expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'window',
     })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getSelection()).toEqual([contained.id])
 
-    engine.beginBoxSelect(2, { x: 200, y: 160 })
-    engine.updatePointer(2, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(2, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).updatePointer(2, { x: 0, y: 0 })
     expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'crossing',
     })
-    engine.endInteraction(2)
+    getBoardInteractionAdapter(engine).endInteraction(2)
 
     expect(engine.getSelection()).toEqual([contained.id, crossing.id])
   })
@@ -497,13 +519,13 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginBoxSelect(1, { x: 200, y: 160 })
-    engine.updatePointer(1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(1, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 0, y: 0 })
     expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'window',
     })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getSelection()).toEqual([contained.id])
   })
@@ -529,13 +551,13 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginBoxSelect(1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 200, y: 160 })
     expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'crossing',
     })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.getSelection()).toEqual([contained.id, crossing.id])
   })
@@ -653,7 +675,7 @@ describe('board engine', () => {
       text: 'Node',
     })
 
-    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
     engine.deleteNode(node.id)
 
     const snapshot = engine.getState()
@@ -845,11 +867,14 @@ describe('board engine', () => {
         select: false,
         text: 'p',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([group.id])
-      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 30, y: 20 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(group.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 30, y: 20 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
       const snap = engine.getState()
       expect(snap.nodes.get(group.id)).toMatchObject({
         x: 30,
@@ -881,7 +906,7 @@ describe('board engine', () => {
         select: false,
         text: 'p',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.bringToFront(group.id)
       const snap = engine.getState()
       const gz = snap.nodes.get(group.id)!.zIndex
@@ -923,7 +948,7 @@ describe('board engine', () => {
         { mode: 'replace' },
       )
 
-      engine.syncGroupZOrder(asNodeId('group'))
+      getBoardInteractionAdapter(engine).syncGroupZOrder(asNodeId('group'))
       engine.sendToBack(asNodeId('group'))
 
       const group = engine.getNode(asNodeId('group'))
@@ -998,11 +1023,14 @@ describe('board engine', () => {
         select: false,
         text: 'p',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([child.id])
-      engine.beginNodeDrag(child.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 10, y: 5 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(child.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 10, y: 5 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
       const snap = engine.getState()
       expect(snap.nodes.get(group.id)).toMatchObject({
         x: 100,
@@ -1034,7 +1062,7 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([group.id, child.id])
       engine.translateSelectedNodes(10, 0)
       const snap = engine.getState()
@@ -1067,16 +1095,22 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([loose.id])
-      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: -200, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(loose.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: -200, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
       expect(engine.getState().nodes.get(loose.id)?.parentId).toBe(group.id)
 
-      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 250, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(loose.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 250, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
       expect(engine.getState().nodes.get(loose.id)?.parentId).toBeUndefined()
     })
 
@@ -1099,12 +1133,15 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
 
       engine.select([loose.id])
-      engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: -140, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(loose.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: -140, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
       expect(engine.getState().nodes.get(loose.id)?.parentId).toBeUndefined()
     })
@@ -1128,12 +1165,15 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
 
       engine.select([group.id])
-      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 260, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(group.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 260, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
       const snapshot = engine.getState()
       expect(snapshot.nodes.get(group.id)).toMatchObject({
@@ -1191,12 +1231,15 @@ describe('board engine', () => {
           text: 'Node',
         }),
       ]
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
 
       engine.select([group.id])
-      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 420, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(group.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 420, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
       const snapshot = engine.getState()
       expect(
@@ -1252,11 +1295,14 @@ describe('board engine', () => {
           text: 'Node',
         }),
       ]
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
 
-      engine.beginResize(group.id, 'se', 1, { x: 220, y: 180 })
-      engine.updatePointer(1, { x: 560, y: 280 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginResize(group.id, 'se', 1, {
+        x: 220,
+        y: 180,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 560, y: 280 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
       const snapshot = engine.getState()
       expect(
@@ -1283,12 +1329,15 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
 
       engine.select([group.id])
-      engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 260, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(group.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 260, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
       expect(engine.getState().nodes.get(card.id)?.parentId).toBeUndefined()
     })
@@ -1321,11 +1370,14 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(outer.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(outer.id)
       engine.select([card.id])
-      engine.beginNodeDrag(card.id, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, { x: 0, y: 0 })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginNodeDrag(card.id, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, { x: 0, y: 0 })
+      getBoardInteractionAdapter(engine).endInteraction(1)
       expect(engine.getState().nodes.get(card.id)?.parentId).toBe(inner.id)
     })
 
@@ -1353,7 +1405,7 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([group.id])
       engine.deleteSelected()
       expect(engine.getState().nodes.size).toBe(0)
@@ -1389,7 +1441,7 @@ describe('board engine', () => {
         select: false,
         text: 'Node',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.sendToBack(group.id)
       const snap = engine.getState()
       const gz = snap.nodes.get(group.id)!.zIndex
@@ -1417,7 +1469,7 @@ describe('board engine', () => {
         select: false,
         text: 'p',
       })
-      engine.syncGroupZOrder(group.id)
+      getBoardInteractionAdapter(engine).syncGroupZOrder(group.id)
       engine.select([group.id])
       engine.copySelected()
       engine.pasteClipboard({ x: 300, y: 0 })

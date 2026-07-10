@@ -254,7 +254,6 @@ test('dragging a group over cards captures them as children', async ({
           engine: {
             createNode: (input: Record<string, unknown>) => { id: string }
             select: (ids: string[]) => void
-            syncGroupZOrder: (id: string) => void
           }
         }
       }
@@ -275,7 +274,6 @@ test('dragging a group over cards captures them as children', async ({
       height: 80,
       text: 'Node',
     })
-    api.engine.syncGroupZOrder(group.id)
     api.engine.select([group.id])
     return { groupId: group.id, cardId: card.id }
   })

@@ -70,7 +70,7 @@ Use commands as the mutation boundary:
 - Selection commands: `select`, `selectAll`, `clearSelection`, `deleteSelected`
 - Camera commands: `panBy`, `panTo`, `zoomAt`, `zoomTo`, `zoomToFit`, `zoomToNodes`
 - Interaction commands: `beginPan`, `beginNodeDrag`, `beginResize`, `beginBoxSelect`, `beginTextEdit`, `commitTextEdit`, `updatePointer`, `endInteraction`
-- Grid/hierarchy/persistence: `updateGridSettings`, `getUniformTranslationTargets`, `syncGroupZOrder`, `exportDocument`, `loadDocument`
+- Grid/hierarchy/persistence: `updateGridSettings`, `exportDocument`, `loadDocument`
 
 Reads include `getState`, `getGridSettings`, `getViewportSize`, `getNode`, `findNode`, `hasNode`, `getNodeAt`, `getNodesInBounds`, `getSelection`, `getVisibleBounds`, `screenToWorld`, `worldToScreen`, `exportTrace`, and subscribables such as `$nodes`.
 
@@ -82,7 +82,7 @@ Reads include `getState`, `getGridSettings`, `getViewportSize`, `getNode`, `find
 - Deleting a group deletes its descendants.
 - Group capture during drag checks final bounds. Visible, unlocked nodes fully contained by a moved group become children of that group.
 - If multiple groups contain a node, helpers choose the smallest visible group that fully contains the node bounds.
-- Call `syncGroupZOrder(groupId)` after manually changing hierarchy so descendants render above their group.
+- Hierarchy updates automatically keep descendants stacked above their group.
 
 ## Public Helpers
 

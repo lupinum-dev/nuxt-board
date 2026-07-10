@@ -106,6 +106,7 @@ import type {
   GridSettings,
   InternalBoardPlugin,
   InternalPluginContext,
+  InternalInteractionAdapter,
   InstalledPluginApis,
   InstalledPluginEvents,
   BoardPluginApis,
@@ -1091,7 +1092,7 @@ export function createBoardEngine<
     pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
   }
 
-  const engine: InternalPluginContext = {
+  const engine: InternalPluginContext & InternalInteractionAdapter = {
     plugins,
     $camera,
     $grid,
@@ -1838,6 +1839,15 @@ export function createBoardEngine<
         setInteraction({ mode: 'idle' })
         return materializeNode(stored)
       })
+    },
+    cancelTextEdit() {
+      if (state.interaction.mode !== 'editing-text') return
+      runCommand(
+        'cancelTextEdit',
+        [],
+        () => setInteraction({ mode: 'idle' }),
+        IGNORE_UNVALIDATED_COMMAND,
+      )
     },
     updatePointer(pointerId, screenPoint, modifiers) {
       const interaction = state.interaction

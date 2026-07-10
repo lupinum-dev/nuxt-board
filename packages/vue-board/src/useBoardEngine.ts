@@ -5,6 +5,7 @@ import {
   type NodeId,
   type ResizeHandle,
 } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { boardEngineKey } from './context.js'
 
 /** Access the board context provided by `BoardRoot`. */
@@ -129,6 +130,7 @@ export function useGridStyle() {
 export function useNode(id: NodeId) {
   const { engine, $nodes, $selection, $interaction, toLocalPoint } =
     useBoardEngine()
+  const interaction = getBoardInteractionAdapter(engine)
 
   const node = computed(() => {
     const current = $nodes.value.get(id)
@@ -163,13 +165,13 @@ export function useNode(id: NodeId) {
     beginEdit: () => engine.beginTextEdit(id),
     commitText: (text: string) => engine.commitTextEdit(id, text),
     startDrag: (event: PointerEvent) =>
-      engine.beginNodeDrag(
+      interaction.beginNodeDrag(
         id,
         event.pointerId,
         toLocalPoint(event.clientX, event.clientY),
       ),
     startResize: (handle: ResizeHandle, event: PointerEvent) =>
-      engine.beginResize(
+      interaction.beginResize(
         id,
         handle,
         event.pointerId,

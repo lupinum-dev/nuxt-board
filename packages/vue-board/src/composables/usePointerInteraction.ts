@@ -6,6 +6,7 @@ import {
   type Point,
   type ResizeHandle,
 } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 
 const POINTER_DRAG_THRESHOLD = 6
 
@@ -89,6 +90,7 @@ function tryBoardCommand(fn: () => void): boolean {
  */
 export function usePointerInteraction(options: UsePointerInteractionOptions) {
   const { engine, rootElement, spacePressed, toLocalPoint } = options
+  const interaction = getBoardInteractionAdapter(engine)
 
   const pendingInteraction = shallowRef<PendingPointerInteraction | null>(null)
   const activePointers = new Map<number, ActivePointer>()
@@ -138,13 +140,13 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   ): boolean {
     const started = tryBoardCommand(() => {
       if (kind === 'pan') {
-        engine.beginPan(pointerId, point)
+        interaction.beginPan(pointerId, point)
       } else if (kind === 'drag' && nodeId) {
-        engine.beginNodeDrag(asNodeId(nodeId), pointerId, point)
+        interaction.beginNodeDrag(asNodeId(nodeId), pointerId, point)
       } else if (kind === 'resize' && nodeId && handle) {
-        engine.beginResize(asNodeId(nodeId), handle, pointerId, point)
+        interaction.beginResize(asNodeId(nodeId), handle, pointerId, point)
       } else {
-        engine.beginBoxSelect(pointerId, point)
+        interaction.beginBoxSelect(pointerId, point)
       }
     })
     if (started) {
@@ -280,7 +282,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   function flushPendingPointer(): void {
     if (pendingPointer) {
       runBoardCommand(() =>
-        engine.updatePointer(pendingPointer!.id, pendingPointer!.point, {
+        interaction.updatePointer(pendingPointer!.id, pendingPointer!.point, {
           shift: pendingPointer!.shift,
           space: pendingPointer!.space,
         }),
@@ -298,7 +300,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     })
 
     if (getActiveTouchPoints().length === 2 && event.pointerType === 'touch') {
-      runBoardCommand(() => engine.endInteraction())
+      runBoardCommand(() => interaction.endInteraction())
       rootElement.value?.setPointerCapture(event.pointerId)
       clearPendingInteraction()
       pendingPointer = null
@@ -365,10 +367,14 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       requestAnimationFrame(() => {
         if (pendingPointer) {
           runBoardCommand(() =>
-            engine.updatePointer(pendingPointer!.id, pendingPointer!.point, {
-              shift: pendingPointer!.shift,
-              space: pendingPointer!.space,
-            }),
+            interaction.updatePointer(
+              pendingPointer!.id,
+              pendingPointer!.point,
+              {
+                shift: pendingPointer!.shift,
+                space: pendingPointer!.space,
+              },
+            ),
           )
         }
         rafScheduled = false
@@ -389,7 +395,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
         pinchActive = false
         pinchPrevDistance = 0
         clearPendingInteraction()
-        runBoardCommand(() => engine.endInteraction())
+        runBoardCommand(() => interaction.endInteraction())
       }
       return
     }
@@ -400,7 +406,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
 
     flushPendingPointer()
-    runBoardCommand(() => engine.endInteraction(event.pointerId))
+    runBoardCommand(() => interaction.endInteraction(event.pointerId))
   }
 
   function onWheel(event: WheelEvent): void {

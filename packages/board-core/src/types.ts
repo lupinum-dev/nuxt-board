@@ -548,6 +548,15 @@ export interface BoardEngine<
   clearSelection(): void
   deleteSelected(): void
   getSelection(): NodeId[]
+  beginTextEdit(id: NodeId): void
+  commitTextEdit(id: NodeId, text?: string): BoardNode
+  cancelTextEdit(): void
+  exportDocument(): JsonCanvasDocument
+  loadDocument(document: unknown, options?: DocumentLoadOptions): void
+}
+
+/** Sealed pointer/session adapter consumed by framework integrations. */
+export interface InternalInteractionAdapter {
   beginPan(pointerId: number, screenPoint: Point): void
   beginNodeDrag(id: NodeId, pointerId: number, screenPoint: Point): void
   beginResize(
@@ -557,8 +566,6 @@ export interface BoardEngine<
     screenPoint: Point,
   ): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
-  beginTextEdit(id: NodeId): void
-  commitTextEdit(id: NodeId, text?: string): BoardNode
   updatePointer(
     pointerId: number,
     screenPoint: Point,
@@ -567,8 +574,6 @@ export interface BoardEngine<
   endInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
-  exportDocument(): JsonCanvasDocument
-  loadDocument(document: unknown, options?: DocumentLoadOptions): void
 }
 
 /**

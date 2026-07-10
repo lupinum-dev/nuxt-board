@@ -635,7 +635,6 @@ export function loadDemoScene(
   const scene = getScene(sceneId)
   engine.loadDocument(demoSceneToDocument(scene), { mode: 'replace' })
   engine.clearSelection()
-  engine.endInteraction()
   engine.plugins.history.clear()
   return {
     id: scene.id,
@@ -651,7 +650,6 @@ export function exportDemoDocument(engine: DemoEngine): string {
 export function importDemoDocument(engine: DemoEngine, json: string): void {
   engine.loadDocument(JSON.parse(json), { mode: 'replace' })
   engine.clearSelection()
-  engine.endInteraction()
   engine.plugins.history.clear()
 }
 
@@ -737,7 +735,6 @@ export function wrapSelectionInGroup(
       engine.updateNode(node.id, { parentId: group.id })
     }
   }
-  engine.syncGroupZOrder(group.id)
   engine.select([group.id, ...selection.filter((id) => id !== group.id)])
   return 'grouped'
 }

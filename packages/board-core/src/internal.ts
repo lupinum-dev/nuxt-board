@@ -3,9 +3,17 @@ export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
 export type {
   InternalBoardPlugin,
   InternalBoardPluginDefinition,
+  InternalInteractionAdapter,
   InternalPluginContext,
   InternalPluginPersistence,
 } from './types.js'
+
+/** Resolve the sealed pointer/session surface used by framework adapters. */
+export function getBoardInteractionAdapter(
+  engine: import('./types.js').BoardEngine,
+): InternalInteractionAdapter {
+  return engine as unknown as InternalInteractionAdapter
+}
 
 import type {
   BoardEventMap,
@@ -13,6 +21,7 @@ import type {
   BoardPluginApis,
   InternalBoardPlugin,
   InternalBoardPluginDefinition,
+  InternalInteractionAdapter,
 } from './types.js'
 
 export function defineInternalBoardPlugin<

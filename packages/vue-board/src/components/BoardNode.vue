@@ -85,7 +85,7 @@ function commit(): void {
 
 function cancel(): void {
   draft.value = getTextContent(props.node)
-  engine.endInteraction()
+  engine.cancelTextEdit()
 }
 
 function onEditorKeydown(event: KeyboardEvent): void {

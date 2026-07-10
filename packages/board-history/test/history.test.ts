@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CommandBlockedError, createBoardEngine } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '../src'
 
@@ -92,10 +93,10 @@ describe('history plugin', () => {
     engine.panBy(100, 40)
     expect(engine.plugins.history.getState().undoDepth).toBe(0)
 
-    engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 40, y: 0 })
-    engine.updatePointer(1, { x: 80, y: 0 })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginNodeDrag(node.id, 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 40, y: 0 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 80, y: 0 })
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.plugins.history.canUndo()).toBe(true)
     engine.plugins.history.undo()
@@ -168,10 +169,13 @@ describe('history plugin', () => {
     })
     engine.plugins.history.clear()
 
-    engine.beginResize(node.id, 'se', 1, { x: 120, y: 80 })
-    engine.updatePointer(1, { x: 160, y: 110 })
-    engine.updatePointer(1, { x: 180, y: 120 })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 120,
+      y: 80,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 160, y: 110 })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 180, y: 120 })
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.findNode(node.id)).toMatchObject({ width: 180, height: 120 })
     expect(engine.plugins.history.getState().undoDepth).toBe(1)
@@ -203,9 +207,12 @@ describe('history plugin', () => {
     engine.plugins.history.clear()
 
     engine.select([first.id, second.id])
-    engine.beginNodeDrag(first.id, 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 50, y: 20 })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginNodeDrag(first.id, 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(1, { x: 50, y: 20 })
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
     expect(engine.findNode(first.id)).toMatchObject({ x: 50, y: 20 })
     expect(engine.findNode(second.id)).toMatchObject({ x: 150, y: 70 })

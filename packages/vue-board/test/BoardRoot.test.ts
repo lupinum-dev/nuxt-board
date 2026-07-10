@@ -4,6 +4,7 @@ import { defineComponent, h, markRaw, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { historyPlugin } from '@lupinum/board-history'
 import BoardRoot from '../src/components/BoardRoot.vue'
 
@@ -330,8 +331,8 @@ describe('BoardRoot', () => {
 
   it('switches the default box-select overlay style by drag direction', async () => {
     const engine = createBoardEngine()
-    engine.beginBoxSelect(8, { x: 200, y: 160 })
-    engine.updatePointer(8, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(8, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).updatePointer(8, { x: 0, y: 0 })
 
     const wrapper = mount(BoardRoot, {
       props: { engine },

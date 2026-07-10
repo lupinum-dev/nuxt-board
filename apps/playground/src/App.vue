@@ -216,7 +216,6 @@ function wrapSelectionInGroup(): void {
     }
     engine.updateNode(n.id, { parentId: group.id })
   }
-  engine.syncGroupZOrder(group.id)
   engine.select([group.id, ...sel.filter((id) => id !== group.id)])
 }
 

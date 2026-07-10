@@ -9,6 +9,11 @@ declare const engine: BoardEngine
 
 engine.addCommandGuard(() => true)
 
+// @ts-expect-error Pointer sessions are available only to framework adapters.
+engine.beginNodeDrag('node', 1, { x: 0, y: 0 })
+// @ts-expect-error Pointer projection helpers are not application commands.
+engine.getUniformTranslationTargets([])
+
 // @ts-expect-error Internal action stream is not part of the consumer engine API.
 engine.onAction(() => undefined)
 // @ts-expect-error History replay internals are not part of the consumer engine API.

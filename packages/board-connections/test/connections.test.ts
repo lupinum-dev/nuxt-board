@@ -269,7 +269,6 @@ describe('connections plugin', () => {
       select: false,
       text: 'Node',
     })
-    engine.syncGroupZOrder(group.id)
     engine.plugins.connections.createEdge({
       from: inner.id,
       to: outer.id,

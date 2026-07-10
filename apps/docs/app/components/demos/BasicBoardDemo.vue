@@ -118,7 +118,6 @@ function wrapSelectionInGroup() {
   for (const node of nodes) {
     engine.updateNode(node.id, { parentId: group.id })
   }
-  engine.syncGroupZOrder(group.id)
   engine.select(group.id)
 }
 
