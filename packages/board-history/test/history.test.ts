@@ -20,7 +20,7 @@ describe('history plugin', () => {
       }),
     ).toThrow(CommandBlockedError)
 
-    expect(engine.getSnapshot().nodes).toHaveLength(0)
+    expect(engine.getState().nodes.size).toBe(0)
     expect(engine.plugins.history.getState()).toEqual({
       undoDepth: 0,
       redoDepth: 0,
@@ -41,14 +41,14 @@ describe('history plugin', () => {
     })
     engine.select(node.id)
     engine.deleteSelected()
-    expect(engine.getSnapshot().nodes).toHaveLength(0)
+    expect(engine.getState().nodes.size).toBe(0)
 
     expect(engine.plugins.history.undo).toBeDefined()
     engine.plugins.history.undo()
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
 
     engine.plugins.history.redo()
-    expect(engine.getSnapshot().nodes).toHaveLength(0)
+    expect(engine.getState().nodes.size).toBe(0)
   })
 
   it('emits public event payloads without replay actions', () => {
@@ -100,9 +100,7 @@ describe('history plugin', () => {
 
     expect(engine.plugins.history.canUndo()).toBe(true)
     engine.plugins.history.undo()
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({ x: 0, y: 0 })
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 0, y: 0 })
   })
 
   it('records commits synchronously without pending timers', () => {
@@ -256,7 +254,7 @@ describe('history plugin', () => {
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
     engine.plugins.history.undo()
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getState().nodes.size).toBe(2)
     expect(engine.plugins.connections.getEdges()).toHaveLength(1)
     expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       label: 'A->B',
@@ -372,18 +370,20 @@ describe('history plugin', () => {
     })
 
     engine.plugins.history.clear()
-    const before = engine.getSnapshot().nextZIndex
+    const nextZIndex = () =>
+      engine.exportDocument()['x-vue-board']?.nextZIndex ?? 1
+    const before = nextZIndex()
     const created = engine.createNode({ type: 'text', x: 0, y: 0, text: '' })
 
-    expect(engine.getSnapshot().nextZIndex).toBe(before + 1)
+    expect(nextZIndex()).toBe(before + 1)
 
     engine.plugins.history.undo()
     expect(engine.hasNode(created.id)).toBe(false)
-    expect(engine.getSnapshot().nextZIndex).toBe(before)
+    expect(nextZIndex()).toBe(before)
 
     engine.plugins.history.redo()
     expect(engine.hasNode(created.id)).toBe(true)
-    expect(engine.getSnapshot().nextZIndex).toBe(before + 1)
+    expect(nextZIndex()).toBe(before + 1)
   })
 
   it('does not record board replacement imports in history', () => {
@@ -398,8 +398,8 @@ describe('history plugin', () => {
     })
     engine.plugins.history.clear()
 
-    engine.importJSON(
-      JSON.stringify({
+    engine.importDocument(
+      {
         nodes: [
           {
             id: existing.id,
@@ -414,13 +414,13 @@ describe('history plugin', () => {
         'x-vue-board': {
           selection: [existing.id],
         },
-      }),
+      },
       'replace',
     )
 
     expect(engine.plugins.history.canUndo()).toBe(false)
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
-    expect(engine.getSnapshot().nodes[0]?.text).toBe('Imported')
+    expect(engine.getState().nodes.size).toBe(1)
+    expect(engine.getState().nodes.get(existing.id)?.text).toBe('Imported')
   })
 
   it('undoes and redoes edge reconnect updates', () => {

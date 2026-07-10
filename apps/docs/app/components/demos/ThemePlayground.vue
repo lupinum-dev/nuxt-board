@@ -26,41 +26,39 @@ const boardStyle = computed(() => ({
 }))
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'theme-1',
-            type: 'text',
-            x: 70,
-            y: 70,
-            width: 240,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'theme-2',
-            type: 'text',
-            x: 370,
-            y: 190,
-            width: 240,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
+  engine.importDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'theme-1',
+          type: 'text',
+          x: 70,
+          y: 70,
+          width: 240,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'theme-2',
+          type: 'text',
+          x: 370,
+          y: 190,
+          width: 240,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
     'replace',
   )
 }

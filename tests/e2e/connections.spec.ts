@@ -18,7 +18,10 @@ async function seedConnectionScene(page: Page) {
       window as unknown as {
         __boardPlayground: {
           engine: {
-            importJSON: (document: string, mode: 'replace' | 'merge') => void
+            importDocument: (
+              document: unknown,
+              mode: 'replace' | 'merge',
+            ) => void
             zoomTo: (level: number, animated?: boolean) => Promise<void>
             plugins: {
               connections: {
@@ -32,8 +35,8 @@ async function seedConnectionScene(page: Page) {
       }
     ).__boardPlayground
 
-    api.engine.importJSON(
-      JSON.stringify({
+    api.engine.importDocument(
+      {
         nodes: [
           {
             id: 'input',
@@ -84,7 +87,7 @@ async function seedConnectionScene(page: Page) {
             output: { zIndex: 4, locked: false, visible: true },
           },
         },
-      }),
+      },
       'replace',
     )
 

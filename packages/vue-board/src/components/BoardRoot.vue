@@ -131,13 +131,14 @@ const visibleNodes = useLodCulling({
 })
 
 const state = computed<BoardState>(() => {
-  void $camera.value
-  void $grid.value
-  void $nodes.value
-  void $selection.value
-  void $interaction.value
-  void $snapGuides.value
-  return engine.getState()
+  return {
+    camera: $camera.value,
+    grid: $grid.value,
+    nodes: $nodes.value,
+    selection: $selection.value,
+    interaction: $interaction.value,
+    snapGuides: $snapGuides.value,
+  }
 })
 
 const debugState = computed(() => ({

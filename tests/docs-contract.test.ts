@@ -206,7 +206,7 @@ describe('docs demo contracts', () => {
     )
   })
 
-  it('does not pass runtime snapshots directly to importJSON in demos', () => {
+  it('does not pass runtime snapshots directly to importDocument in demos', () => {
     const files = readdirSync(resolve(root, 'apps/docs/app/components/demos'))
       .filter((file) => file.endsWith('.vue'))
       .map((file) => `apps/docs/app/components/demos/${file}`)
@@ -214,13 +214,13 @@ describe('docs demo contracts', () => {
     for (const file of files) {
       const source = read(file)
 
-      expect(source, file).not.toMatch(/importJSON\(\s*JSON\.stringify\(\s*\{/s)
+      expect(source, file).not.toMatch(/importDocument\(\s*JSON\.stringify\(\s*\{/s)
       expect(source, file).not.toMatch(/\bsnapGuides:\s*\[/)
       expect(source, file).not.toMatch(/\binteraction:\s*\{\s*mode:/)
     }
 
     expect(read('packages/nuxt-board/playground/lib/demo.ts')).not.toMatch(
-      /importJSON\(\s*JSON\.stringify\(\s*\{/s,
+      /importDocument\(\s*JSON\.stringify\(\s*\{/s,
     )
   })
 
@@ -260,10 +260,10 @@ describe('docs demo contracts', () => {
     })
     const engine = createBoardEngine()
 
-    engine.importJSON(JSON.stringify(document), 'replace')
+    engine.importDocument(document, 'replace')
 
     expect(engine.getNode(asNodeId('child')).parentId).toBe(asNodeId('group'))
-    expect(JSON.parse(engine.exportJSON())).toMatchObject({
+    expect(engine.exportDocument()).toMatchObject({
       nodes: expect.any(Array),
       'x-vue-board': {
         selection: [asNodeId('child')],

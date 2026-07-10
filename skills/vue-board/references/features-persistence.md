@@ -117,22 +117,22 @@ Minimap has no engine plugin. `BoardMinimap` derives from `BoardRoot` context un
 
 ## Persistence
 
-Persist only `engine.exportJSON()` output. Import with `engine.importJSON(json, 'replace')` or `'merge'`.
+Persist only `engine.exportDocument()` output. Import with `engine.importDocument(json, 'replace')` or `'merge'`.
 
 Do not persist:
 
 - Vue refs
 - DOM state
 - `getState()`
-- `getSnapshot()`
+- `getState()`
 - active pointer/editing interaction state
 - runtime snap guides
 
-`exportJSON()` persists JSON Canvas nodes, camera, grid, selection, z-order, lock state, visibility, hierarchy, and installed feature metadata.
+`exportDocument()` persists JSON Canvas nodes, camera, grid, selection, z-order, lock state, visibility, hierarchy, and installed feature metadata.
 
 Install the same first-party features before importing documents that use them. Documents with edges require the connections extension. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
 
-`importJSON()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
+`importDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
 
 ## Read-only and Command Guards
 

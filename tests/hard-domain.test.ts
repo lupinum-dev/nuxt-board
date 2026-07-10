@@ -88,11 +88,11 @@ describe('hard board domain regressions', () => {
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
     engine.plugins.history.undo()
-    const exported = engine.exportJSON()
+    const exported = engine.exportDocument()
     const restored = createBoardEngine({
       plugins: [connectionsPlugin()],
     })
-    restored.importJSON(exported, 'replace')
+    restored.importDocument(exported, 'replace')
 
     expect(restored.getNode(asNodeId('inner')).parentId).toBe(asNodeId('group'))
     expect(restored.plugins.connections.getEdges()).toEqual([
@@ -153,7 +153,7 @@ describe('hard board domain regressions', () => {
       data: {},
     })
     engine.plugins.history.clear()
-    const before = engine.getSnapshot()
+    const before = engine.getState()
     const edgeEvents: string[] = []
     const historyEvents: string[] = []
     engine.on('edge:created', (edge) => edgeEvents.push(`created:${edge.id}`))
@@ -161,8 +161,8 @@ describe('hard board domain regressions', () => {
     engine.on('history:push', (entry) => historyEvents.push(entry.label))
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
+      engine.importDocument(
+        {
           nodes: [
             {
               id: asNodeId('next-a'),
@@ -190,12 +190,12 @@ describe('hard board domain regressions', () => {
               toNode: asNodeId('next-b'),
             },
           ],
-        }),
+        },
         'replace',
       ),
     ).toThrow(/feature import failed/)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(engine.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({ id: asEdgeId('keep-edge') }),
     ])

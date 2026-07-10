@@ -18,49 +18,47 @@ const SOURCE_ID = asNodeId('source')
 const TARGET_ID = asNodeId('target')
 
 function exportDocument() {
-  const raw = engine.exportJSON()
+  const raw = engine.exportDocument()
   if (formatMode.value === 'compact') {
-    return JSON.stringify(JSON.parse(raw))
+    return JSON.stringify(raw)
   }
-  return JSON.stringify(JSON.parse(raw), null, 2)
+  return JSON.stringify(raw, null, 2)
 }
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        selection: [],
-        nextZIndex: 3,
-        nodes: [
-          {
-            id: SOURCE_ID,
-            type: 'text',
-            x: 80,
-            y: 110,
-            width: 220,
-            height: 100,
-            text: 'Export me\nto JSON Canvas',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: TARGET_ID,
-            type: 'text',
-            x: 420,
-            y: 110,
-            width: 220,
-            height: 100,
-            text: 'Edit the JSON\nthen import back',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-      }),
-    ),
+  engine.importDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      selection: [],
+      nextZIndex: 3,
+      nodes: [
+        {
+          id: SOURCE_ID,
+          type: 'text',
+          x: 80,
+          y: 110,
+          width: 220,
+          height: 100,
+          text: 'Export me\nto JSON Canvas',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: TARGET_ID,
+          type: 'text',
+          x: 420,
+          y: 110,
+          width: 220,
+          height: 100,
+          text: 'Edit the JSON\nthen import back',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+    }),
     'replace',
   )
   for (const edge of engine.plugins.connections.getEdges()) {
@@ -86,7 +84,7 @@ function setFormatMode(nextMode: 'pretty' | 'compact') {
 
 function importBoard() {
   if (!payload.value.trim()) return
-  engine.importJSON(payload.value, 'replace')
+  engine.importDocument(JSON.parse(payload.value), 'replace')
 }
 
 onMounted(async () => {

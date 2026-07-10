@@ -19,7 +19,7 @@ where behavior actually lives, not how many layers the repository can name.
 ## Core state model
 
 The engine keeps one mutable internal board state and exposes immutable public
-views through `getState()`, `getSnapshot()`, and subscribables.
+views through `getState()` and granular subscribables.
 
 - Persisted document state: nodes, camera, selection, grid settings,
   `nextZIndex`, and internal feature persistence.

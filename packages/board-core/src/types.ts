@@ -90,7 +90,7 @@ export type BoardColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
 export type CanvasColor = BoardColorPreset | `#${string}`
 
 interface JsonCanvasNodeBase<TType extends JsonCanvasNodeType> {
-  readonly id: NodeId
+  readonly id: string
   readonly type: TType
   readonly x: number
   readonly y: number
@@ -127,11 +127,11 @@ export type JsonCanvasNode =
 
 /** JSON Canvas 1.0 edge record. */
 export interface JsonCanvasEdge {
-  readonly id: EdgeId
-  readonly fromNode: NodeId
+  readonly id: string
+  readonly fromNode: string
   readonly fromSide?: JsonCanvasSide
   readonly fromEnd?: JsonCanvasEdgeEnd
-  readonly toNode: NodeId
+  readonly toNode: string
   readonly toSide?: JsonCanvasSide
   readonly toEnd?: JsonCanvasEdgeEnd
   readonly color?: CanvasColor
@@ -142,7 +142,7 @@ export interface VueBoardNodeMetadata {
   readonly zIndex?: number
   readonly locked?: boolean
   readonly visible?: boolean
-  readonly parentId?: NodeId
+  readonly parentId?: string
 }
 
 export interface VueBoardEdgeMetadata {
@@ -154,7 +154,7 @@ export interface VueBoardEdgeMetadata {
 export interface VueBoardDocumentMetadata {
   readonly camera?: Camera
   readonly grid?: GridSettings
-  readonly selection?: readonly NodeId[]
+  readonly selection?: readonly string[]
   readonly nextZIndex?: number
   readonly nodes?: Readonly<Record<string, VueBoardNodeMetadata>>
   readonly edges?: Readonly<Record<string, VueBoardEdgeMetadata>>
@@ -308,7 +308,7 @@ export type InteractionState =
   | BoxSelectInteractionState
   | EditingInteractionState
 
-/** Internal immutable engine state exposed through `getState()`. */
+/** Immutable effective runtime state exposed through `getState()`. */
 export interface BoardState {
   readonly camera: Camera
   readonly grid: GridSettings
@@ -316,7 +316,6 @@ export interface BoardState {
   readonly selection: ReadonlySet<NodeId>
   readonly interaction: InteractionState
   readonly snapGuides: readonly SnapGuide[]
-  readonly nextZIndex: number
 }
 
 /** Runtime board snapshot used by selectors, renderers, and tests. */
@@ -467,7 +466,6 @@ export interface BoardEngine<
   destroy(): void
   batch(fn: () => void): void
   getState(): BoardState
-  getSnapshot(): BoardSnapshot
   getGridSettings(): GridSettings
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
@@ -548,8 +546,8 @@ export interface BoardEngine<
   endInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
-  exportJSON(): string
-  importJSON(json: string, mode?: 'replace' | 'merge'): void
+  exportDocument(): JsonCanvasDocument
+  importDocument(document: unknown, mode?: 'replace' | 'merge'): void
 }
 
 /**

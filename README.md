@@ -63,7 +63,7 @@ export default defineNuxtConfig({
 
 ## How It Works
 
-`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `importJSON`.
+`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `importDocument`.
 
 `BoardRoot` subscribes to the engine and renders the viewport, grid, nodes, resize handles, selection toolbar, snap guides, and pointer interaction. Custom renderers replace node content; they do not replace the interaction model.
 
@@ -77,7 +77,7 @@ export default defineNuxtConfig({
 </template>
 ```
 
-Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `importJSON`.
+Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `importDocument`.
 
 ## Packages
 
@@ -90,7 +90,7 @@ Install only the pieces you need.
 | `nuxt-board`                 | Nuxt module with board component/composable auto-imports.                    |
 | `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
 | `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
-| `@lupinum/vue-board/minimap`     | Minimap composable and renderer.                                             |
+| `@lupinum/vue-board/minimap` | Minimap composable and renderer.                                             |
 
 ## What You Get
 

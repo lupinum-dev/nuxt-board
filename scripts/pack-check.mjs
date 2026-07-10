@@ -219,7 +219,7 @@ const engine = createBoardEngine({ plugins: [historyPlugin(), connectionsPlugin(
 const node = engine.createNode({ type: 'text', text: 'packed' })
 engine.select(node.id)
 getSelectionBounds(engine)
-engine.exportJSON()
+engine.exportDocument()
 void BoardRoot
 void BoardMinimap
 `,

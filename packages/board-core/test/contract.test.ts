@@ -20,7 +20,7 @@ describe('board-core public document API', () => {
     })
     engine.select(node.id)
 
-    const document = JSON.parse(engine.exportJSON()) as JsonCanvasDocument
+    const document = engine.exportDocument() as JsonCanvasDocument
 
     expect(document.nodes).toEqual([
       {
@@ -66,7 +66,7 @@ describe('board-core public document API', () => {
     }
     const engine = createBoardEngine()
 
-    engine.importJSON(JSON.stringify(document), 'replace')
+    engine.importDocument(document, 'replace')
     const node: BoardNode = engine.getNode(asNodeId('node-a'))
 
     expect(node).toMatchObject({
@@ -77,16 +77,16 @@ describe('board-core public document API', () => {
       locked: true,
       visible: true,
     })
-    expect(engine.getSnapshot().nextZIndex).toBe(7)
+    expect(engine.exportDocument()['x-vue-board']?.nextZIndex).toBe(7)
   })
 
   it('does not accept runtime snapshots as persisted documents', () => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'text', text: 'runtime' })
 
-    expect(() =>
-      engine.importJSON(JSON.stringify(engine.getSnapshot()), 'replace'),
-    ).toThrow(/runtime field "camera"/)
+    expect(() => engine.importDocument(engine.getState(), 'replace')).toThrow(
+      /missing nodes array/,
+    )
   })
 
   it.each([
@@ -277,75 +277,69 @@ describe('board-core public document API', () => {
   ])('rejects invalid persisted documents: %s', (_label, document, error) => {
     const engine = createBoardEngine()
     engine.createNode({ type: 'text', text: 'keep' })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
 
-    expect(() =>
-      engine.importJSON(JSON.stringify(document), 'replace'),
-    ).toThrow(error)
+    expect(() => engine.importDocument(document, 'replace')).toThrow(error)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
   })
 
   it('rejects invalid JSON Canvas documents before mutating state', () => {
     const engine = createBoardEngine()
     const existing = engine.createNode({ type: 'text', text: 'keep' })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
-          nodes: [
-            {
-              id: 'bad',
-              type: 'text',
-              x: 0,
-              y: 0,
-              width: 120,
-              height: 80,
-            },
-          ],
-        }),
-      ),
+      engine.importDocument({
+        nodes: [
+          {
+            id: 'bad',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+          },
+        ],
+      }),
     ).toThrow(/missing required text/)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(engine.getNode(existing.id).text).toBe('keep')
   })
 
   it('rejects edge documents without the connections plugin before mutating state', () => {
     const engine = createBoardEngine()
     const existing = engine.createNode({ type: 'text', text: 'keep' })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
-          nodes: [
-            {
-              id: 'source',
-              type: 'text',
-              x: 0,
-              y: 0,
-              width: 120,
-              height: 80,
-              text: 'Source',
-            },
-            {
-              id: 'target',
-              type: 'text',
-              x: 180,
-              y: 0,
-              width: 120,
-              height: 80,
-              text: 'Target',
-            },
-          ],
-          edges: [{ id: 'edge', fromNode: 'source', toNode: 'target' }],
-        }),
-      ),
+      engine.importDocument({
+        nodes: [
+          {
+            id: 'source',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'Source',
+          },
+          {
+            id: 'target',
+            type: 'text',
+            x: 180,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'Target',
+          },
+        ],
+        edges: [{ id: 'edge', fromNode: 'source', toNode: 'target' }],
+      }),
     ).toThrow(/edges require the connections plugin/)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(engine.getNode(existing.id).text).toBe('keep')
   })
 
@@ -378,11 +372,11 @@ describe('board-core public document API', () => {
     })
     engine.select(existing.id)
     engine.panBy(12, 8)
-    const before = engine.getSnapshot()
+    const before = engine.getState()
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
+      engine.importDocument(
+        {
           nodes: [
             {
               id: 'replacement',
@@ -398,12 +392,12 @@ describe('board-core public document API', () => {
             selection: ['replacement'],
             nextZIndex: 10,
           },
-        }),
+        },
         'replace',
       ),
     ).toThrow(/extension import failed/)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(extensionState()).toEqual({ imports: 0 })
   })
 })

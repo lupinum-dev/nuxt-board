@@ -52,6 +52,5 @@ export function buildPublicState(
     selection: new Set(state.selection),
     interaction: cloneInteraction(state.interaction),
     snapGuides: state.snapGuides.map((guide) => freezeClone({ ...guide })),
-    nextZIndex: state.nextZIndex,
   }
 }

@@ -321,11 +321,6 @@ export function createBoardEngine<
     return materializeNodePure(node)
   }
 
-  function getSnapshot(): BoardSnapshot {
-    assertAlive()
-    return buildSnapshot(state, grid, getPublicNodeMap())
-  }
-
   function getState(): BoardState {
     assertAlive()
     return buildPublicState(state, grid, getPublicNodeMap())
@@ -1180,7 +1175,6 @@ export function createBoardEngine<
       }
     },
     getState,
-    getSnapshot,
     getGridSettings,
     getViewportSize,
     updateGridSettings(patch) {
@@ -2204,30 +2198,28 @@ export function createBoardEngine<
         restackGroupDescendantsAbove(groupId)
       })
     },
-    exportJSON() {
+    exportDocument() {
       assertAlive()
       const pluginDocuments = Array.from(
         pluginPersistence.values(),
         (entry) => entry.hooks.exportDocument?.(entry.context) ?? {},
       )
-      return JSON.stringify(
-        toPersistedDocument(
-          buildSnapshot(state, grid, buildPublicNodeMap(state)),
-          pluginDocuments,
-        ),
+      return toPersistedDocument(
+        buildSnapshot(state, grid, buildPublicNodeMap(state)),
+        pluginDocuments,
       )
     },
-    importJSON(json, mode = 'replace') {
+    importDocument(document, mode = 'replace') {
       runCommand(
-        'importJSON',
+        'importDocument',
         [mode],
         () => {
           nodeOverrides.clear()
-          const document = normalizeDocumentForImport(JSON.parse(json))
-          assertCanRestoreDocument(document)
-          const snapshot = documentToSnapshot(document)
+          const normalized = normalizeDocumentForImport(document)
+          assertCanRestoreDocument(normalized)
+          const snapshot = documentToSnapshot(normalized)
           const idMap = restoreSnapshot(snapshot, mode)
-          restorePluginDocuments(document, mode, idMap)
+          restorePluginDocuments(normalized, mode, idMap)
         },
         IGNORE_COMMAND,
       )

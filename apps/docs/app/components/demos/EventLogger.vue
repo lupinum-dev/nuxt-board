@@ -18,41 +18,39 @@ function push(message: string) {
 }
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'event-a',
-            type: 'text',
-            x: 70,
-            y: 80,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'event-b',
-            type: 'text',
-            x: 360,
-            y: 200,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
+  engine.importDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'event-a',
+          type: 'text',
+          x: 70,
+          y: 80,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'event-b',
+          type: 'text',
+          x: 360,
+          y: 200,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
     'replace',
   )
 }

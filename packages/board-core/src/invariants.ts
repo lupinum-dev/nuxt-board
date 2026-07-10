@@ -69,7 +69,10 @@ function createSnapshot(state: BoardState, grid: GridSettings): BoardSnapshot {
     selection: Array.from(state.selection.values()),
     interaction: cloneInteraction(state.interaction),
     snapGuides: [...state.snapGuides],
-    nextZIndex: state.nextZIndex,
+    nextZIndex: nodes.reduce(
+      (next, node) => Math.max(next, node.zIndex + 1),
+      1,
+    ),
   }
 }
 

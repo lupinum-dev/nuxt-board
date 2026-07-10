@@ -23,7 +23,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 
 ## Non-Negotiable Invariants
 
-- The engine is the board source of truth. Mutate through commands such as `createNode`, `updateNode`, `select`, `translateSelectedNodes`, `zoomToFit`, and `importJSON`.
+- The engine is the board source of truth. Mutate through commands such as `createNode`, `updateNode`, `select`, `translateSelectedNodes`, `zoomToFit`, and `importDocument`.
 - Package ownership matters: core owns nodes, camera, grid, selection, hierarchy, and JSON Canvas import/export; connections owns edges; history owns runtime undo/redo; minimap is derived UI; Nuxt wires styles, transpilation, and auto-imports.
 - Supported node types are JSON Canvas types only: `text`, `file`, `link`, and `group`. Custom renderers change presentation, not node schema.
 - Node content fields live directly on the node: `text`, `file`, `subpath`, `url`, `label`, `background`, `backgroundStyle`, and `color`. Do not document or invent `data.content`.
@@ -31,7 +31,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 - `createNode()` selects the new node by default. Pass `select: false` for support nodes such as group wrappers.
 - `BoardRoot` needs a real size. Use `style="height: 100vh"` or another explicit parent/container height in examples.
 - `BoardConnectionLayer` must render under `BoardRoot`. It owns its SVG layer transform and can be a direct/default child.
-- Persist with `engine.exportJSON()` and `engine.importJSON()`. Do not persist Vue refs, DOM state, `getState()`, or `getSnapshot()`.
+- Persist with `engine.exportDocument()` and `engine.importDocument()`. Do not persist Vue refs, DOM state, or `getState()`.
 - If richer product state exists, choose one canonical app model and derive board nodes from it. Do not store the same field in app state and node fields unless there is a rebuild story.
 
 ## Implementation Workflow

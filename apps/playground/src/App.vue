@@ -63,7 +63,7 @@ const gridOptions = computed(() => ({
 
 // ━━ Scene management ━━
 function clearBoard(): void {
-  const ids = engine.getSnapshot().nodes.map((n) => n.id)
+  const ids = Array.from(engine.getState().nodes.keys())
   if (ids.length > 0) {
     engine.select(ids)
     engine.deleteSelected()
@@ -143,13 +143,13 @@ async function runBenchmark(): Promise<void> {
 
 // ━━ JSON Canvas ━━
 function exportJsonCanvas(): string {
-  exportedJson.value = engine.exportJSON()
+  exportedJson.value = JSON.stringify(engine.exportDocument(), null, 2)
   return exportedJson.value
 }
 
 function importJsonCanvas(): void {
   if (!exportedJson.value) return
-  engine.importJSON(exportedJson.value, 'replace')
+  engine.importDocument(JSON.parse(exportedJson.value), 'replace')
 }
 
 const GROUP_PAD = 36
@@ -170,7 +170,7 @@ function worldCenterForViewportBox(
 
 function wrapSelectionInGroup(): void {
   const sel = engine.getSelection()
-  const snap = engine.getSnapshot()
+  const snap = engine.getState()
 
   if (sel.length === 0) {
     const { x, y } = worldCenterForViewportBox(DEFAULT_GROUP_W, DEFAULT_GROUP_H)

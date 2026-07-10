@@ -1,5 +1,6 @@
 import {
   asEdgeId,
+  asNodeId,
   BoardConflictError,
   BoardInputError,
   type BoardEventMap,
@@ -223,16 +224,18 @@ export function connectionsPlugin(
         }
 
         for (const edge of document.edges ?? []) {
-          const from = idMap.get(edge.fromNode) ?? edge.fromNode
-          const to = idMap.get(edge.toNode) ?? edge.toNode
+          const sourceId = asNodeId(edge.fromNode)
+          const targetId = asNodeId(edge.toNode)
+          const from = idMap.get(sourceId) ?? sourceId
+          const to = idMap.get(targetId) ?? targetId
           if (!engine.hasNode(from) || !engine.hasNode(to)) {
             continue
           }
           const metadata = document['x-vue-board']?.edges?.[edge.id]
           const id =
-            mode === 'merge' && api.getEdge(edge.id)
+            mode === 'merge' && api.getEdge(asEdgeId(edge.id))
               ? asEdgeId(crypto.randomUUID())
-              : edge.id
+              : asEdgeId(edge.id)
           api.createEdge({
             id,
             from,

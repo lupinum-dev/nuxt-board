@@ -618,7 +618,7 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
     expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       to: target.id,
       fromAnchor: { side: 'right', offset: 0.25 },
@@ -972,9 +972,9 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
     wrapper.unmount()
@@ -1054,7 +1054,7 @@ describe('BoardConnectionLayer', () => {
       pointerWorld: { x: 520, y: 220 },
       candidateAnchor: null,
     })
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getState().nodes.size).toBe(2)
     expect(engine.plugins.connections.getEdges()).toHaveLength(1)
     expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: source.id,

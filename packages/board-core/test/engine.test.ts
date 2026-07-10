@@ -142,7 +142,7 @@ describe('board engine', () => {
       height: 80,
       text: 'original',
     })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
     commits.length = 0
 
     const events: string[] = []
@@ -152,7 +152,7 @@ describe('board engine', () => {
       /Invalid node geometry/,
     )
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(commits).toEqual([])
     expect(events).toEqual([])
   })
@@ -169,7 +169,7 @@ describe('board engine', () => {
       grid: { snap: false },
       plugins: [actionProbe],
     })
-    const beforeCreate = engine.getSnapshot()
+    const beforeCreate = engine.getState()
     const events: string[] = []
     engine.on('node:created', () => events.push('node:created'))
 
@@ -181,7 +181,7 @@ describe('board engine', () => {
         text: '',
       }),
     ).toThrow(/Invalid node geometry/)
-    expect(engine.getSnapshot()).toEqual(beforeCreate)
+    expect(engine.getState()).toEqual(beforeCreate)
     expect(commits).toEqual([])
     expect(events).toEqual([])
 
@@ -191,11 +191,11 @@ describe('board engine', () => {
       y: 20,
       text: 'Node',
     })
-    const beforeImport = engine.getSnapshot()
+    const beforeImport = engine.getState()
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
+      engine.importDocument(
+        {
           nodes: [
             {
               id: existing.id,
@@ -207,11 +207,11 @@ describe('board engine', () => {
               text: existing.text ?? '',
             },
           ],
-        }),
+        },
         'replace',
       ),
     ).toThrow(/Invalid board document/)
-    expect(engine.getSnapshot()).toEqual(beforeImport)
+    expect(engine.getState()).toEqual(beforeImport)
     expect(commits).toEqual(['createNode'])
     expect(events).toEqual(['node:created'])
   })
@@ -232,7 +232,7 @@ describe('board engine', () => {
     await expect(engine.zoomToFit()).rejects.toBeInstanceOf(CommandBlockedError)
 
     expect(blocked).toEqual(['panTo', 'zoomToFit'])
-    expect(engine.getSnapshot().camera).toEqual({ x: 0, y: 0, z: 1 })
+    expect(engine.getState().camera).toEqual({ x: 0, y: 0, z: 1 })
   })
 
   it('moves all selected nodes during a drag', () => {
@@ -255,12 +255,12 @@ describe('board engine', () => {
     engine.updatePointer(1, { x: 50, y: 20 })
     engine.endInteraction(1)
 
-    const snapshot = engine.getSnapshot()
-    expect(snapshot.nodes.find((node) => node.id === first.id)).toMatchObject({
+    const snapshot = engine.getState()
+    expect(snapshot.nodes.get(first.id)).toMatchObject({
       x: 50,
       y: 20,
     })
-    expect(snapshot.nodes.find((node) => node.id === second.id)).toMatchObject({
+    expect(snapshot.nodes.get(second.id)).toMatchObject({
       x: 150,
       y: 70,
     })
@@ -341,9 +341,7 @@ describe('board engine', () => {
     engine.updatePointer(1, { x: 48, y: 14 }, { shift: true })
     engine.endInteraction(1)
 
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({
       x: 48,
       y: 0,
     })
@@ -357,8 +355,8 @@ describe('board engine', () => {
     engine.updatePointer(1, { x: 80, y: 30 })
 
     expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 80, y: 30 })
-    const document = JSON.parse(engine.exportJSON()) as {
-      nodes: Array<{ id: string; x: number; y: number }>
+    const document = engine.exportDocument() as unknown as {
+      nodes: ReadonlyArray<{ id: string; x: number; y: number }>
     }
     expect(document.nodes.find((entry) => entry.id === node.id)).toMatchObject({
       x: 0,
@@ -382,13 +380,11 @@ describe('board engine', () => {
     engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
     engine.endInteraction(1)
 
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({
       x: 17,
       y: 9,
     })
-    expect(engine.getSnapshot().snapGuides).toEqual([])
+    expect(engine.getState().snapGuides).toEqual([])
   })
 
   it('bypasses grid snapping while resizing when space is held', () => {
@@ -406,13 +402,11 @@ describe('board engine', () => {
     engine.updatePointer(1, { x: 17, y: 9 }, { space: true })
     engine.endInteraction(1)
 
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({
       width: 217,
       height: 109,
     })
-    expect(engine.getSnapshot().snapGuides).toEqual([])
+    expect(engine.getState().snapGuides).toEqual([])
   })
 
   it('supports box selection in screen space', () => {
@@ -462,7 +456,7 @@ describe('board engine', () => {
 
     engine.beginBoxSelect(1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 200, y: 160 })
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'window',
     })
@@ -472,7 +466,7 @@ describe('board engine', () => {
 
     engine.beginBoxSelect(2, { x: 200, y: 160 })
     engine.updatePointer(2, { x: 0, y: 0 })
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'crossing',
     })
@@ -504,7 +498,7 @@ describe('board engine', () => {
 
     engine.beginBoxSelect(1, { x: 200, y: 160 })
     engine.updatePointer(1, { x: 0, y: 0 })
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'window',
     })
@@ -536,7 +530,7 @@ describe('board engine', () => {
 
     engine.beginBoxSelect(1, { x: 0, y: 0 })
     engine.updatePointer(1, { x: 200, y: 160 })
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'box-select',
       selectionMode: 'crossing',
     })
@@ -566,7 +560,7 @@ describe('board engine', () => {
     engine.select(locked.id)
     engine.deleteSelected()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
   })
 
   it('fires command hooks and rejects duplicate feature names', () => {
@@ -661,7 +655,7 @@ describe('board engine', () => {
     engine.beginNodeDrag(node.id, 1, { x: 0, y: 0 })
     engine.deleteNode(node.id)
 
-    const snapshot = engine.getSnapshot()
+    const snapshot = engine.getState()
     expect(snapshot.nodes).toHaveLength(0)
     expect(engine.getState().interaction.mode).toBe('idle')
   })
@@ -674,8 +668,8 @@ describe('board engine', () => {
       y: 20,
       text: 'Node',
     })
-    const snapshot = engine.getSnapshot()
-    const fromSnapshot = snapshot.nodes.find((entry) => entry.id === node.id)!
+    const snapshot = engine.getState()
+    const fromSnapshot = snapshot.nodes.get(node.id)!
 
     expect(() => {
       ;(fromSnapshot as unknown as { x: number }).x = 999
@@ -721,7 +715,7 @@ describe('board engine', () => {
       },
     })
     const engine = createBoardEngine({ plugins: [actionProbe] })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
     const events: string[] = []
     const notifications: Array<[number, number]> = []
     engine.on('node:created', () => events.push('node:created'))
@@ -736,7 +730,7 @@ describe('board engine', () => {
       }),
     ).toThrow(BoardConflictError)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(commits).toEqual([])
     expect(events).toEqual([])
     expect(notifications).toEqual([])
@@ -769,13 +763,11 @@ describe('board engine', () => {
       },
     }
 
-    engine.importJSON(JSON.stringify(importData), 'merge')
+    engine.importDocument(importData, 'merge')
 
-    const snapshot = engine.getSnapshot()
+    const snapshot = engine.getState()
     expect(snapshot.nodes).toHaveLength(2)
-    expect(snapshot.nodes.find((n) => n.id === existing.id)?.text).toBe(
-      'original',
-    )
+    expect(snapshot.nodes.get(existing.id)?.text).toBe('original')
   })
 
   it('selectAll skips hidden nodes', () => {
@@ -857,12 +849,12 @@ describe('board engine', () => {
       engine.beginNodeDrag(group.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: 30, y: 20 })
       engine.endInteraction(1)
-      const snap = engine.getSnapshot()
-      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({
+      const snap = engine.getState()
+      expect(snap.nodes.get(group.id)).toMatchObject({
         x: 30,
         y: 20,
       })
-      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({
+      expect(snap.nodes.get(child.id)).toMatchObject({
         x: 70,
         y: 70,
       })
@@ -890,17 +882,17 @@ describe('board engine', () => {
       })
       engine.syncGroupZOrder(group.id)
       engine.bringToFront(group.id)
-      const snap = engine.getSnapshot()
-      const gz = snap.nodes.find((node) => node.id === group.id)!.zIndex
-      const cz = snap.nodes.find((node) => node.id === child.id)!.zIndex
+      const snap = engine.getState()
+      const gz = snap.nodes.get(group.id)!.zIndex
+      const cz = snap.nodes.get(child.id)!.zIndex
       expect(cz).toBeGreaterThan(gz)
     })
 
     it('keeps imported descendants above their group after hierarchy changes', () => {
       const engine = createBoardEngine({ grid: { snap: false } })
 
-      engine.importJSON(
-        JSON.stringify({
+      engine.importDocument(
+        {
           nodes: [
             {
               id: 'group',
@@ -926,7 +918,7 @@ describe('board engine', () => {
               child: { zIndex: 4, visible: true, parentId: 'group' },
             },
           },
-        }),
+        },
         'replace',
       )
 
@@ -953,12 +945,12 @@ describe('board engine', () => {
         y: 0,
         text: 'Child',
       })
-      const before = engine.getSnapshot()
+      const before = engine.getState()
 
       expect(() =>
         engine.updateNode(child.id, { parentId: nonGroup.id }),
       ).toThrow(/must be a group/)
-      expect(engine.getSnapshot()).toEqual(before)
+      expect(engine.getState()).toEqual(before)
 
       const parentGroup = engine.createNode({
         type: 'group',
@@ -977,12 +969,12 @@ describe('board engine', () => {
         parentId: parentGroup.id,
         select: false,
       })
-      const beforeCycle = engine.getSnapshot()
+      const beforeCycle = engine.getState()
 
       expect(() =>
         engine.updateNode(parentGroup.id, { parentId: childGroup.id }),
       ).toThrow(/parent cycle/)
-      expect(engine.getSnapshot()).toEqual(beforeCycle)
+      expect(engine.getState()).toEqual(beforeCycle)
     })
 
     it('does not move the group when dragging a child alone', () => {
@@ -1010,12 +1002,12 @@ describe('board engine', () => {
       engine.beginNodeDrag(child.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: 10, y: 5 })
       engine.endInteraction(1)
-      const snap = engine.getSnapshot()
-      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({
+      const snap = engine.getState()
+      expect(snap.nodes.get(group.id)).toMatchObject({
         x: 100,
         y: 100,
       })
-      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({
+      expect(snap.nodes.get(child.id)).toMatchObject({
         x: 130,
         y: 135,
       })
@@ -1044,12 +1036,12 @@ describe('board engine', () => {
       engine.syncGroupZOrder(group.id)
       engine.select([group.id, child.id])
       engine.translateSelectedNodes(10, 0)
-      const snap = engine.getSnapshot()
-      expect(snap.nodes.find((n) => n.id === group.id)).toMatchObject({
+      const snap = engine.getState()
+      expect(snap.nodes.get(group.id)).toMatchObject({
         x: 10,
         y: 0,
       })
-      expect(snap.nodes.find((n) => n.id === child.id)).toMatchObject({
+      expect(snap.nodes.get(child.id)).toMatchObject({
         x: 30,
         y: 30,
       })
@@ -1079,16 +1071,12 @@ describe('board engine', () => {
       engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: -200, y: 0 })
       engine.endInteraction(1)
-      expect(
-        engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
-      ).toBe(group.id)
+      expect(engine.getState().nodes.get(loose.id)?.parentId).toBe(group.id)
 
       engine.beginNodeDrag(loose.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: 250, y: 0 })
       engine.endInteraction(1)
-      expect(
-        engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
-      ).toBeUndefined()
+      expect(engine.getState().nodes.get(loose.id)?.parentId).toBeUndefined()
     })
 
     it('does not reparent a dragged node that is only partially inside a group', () => {
@@ -1117,9 +1105,7 @@ describe('board engine', () => {
       engine.updatePointer(1, { x: -140, y: 0 })
       engine.endInteraction(1)
 
-      expect(
-        engine.getSnapshot().nodes.find((n) => n.id === loose.id)?.parentId,
-      ).toBeUndefined()
+      expect(engine.getState().nodes.get(loose.id)?.parentId).toBeUndefined()
     })
 
     it('captures stationary nodes when a group is dragged over them', () => {
@@ -1148,16 +1134,12 @@ describe('board engine', () => {
       engine.updatePointer(1, { x: 260, y: 0 })
       engine.endInteraction(1)
 
-      const snapshot = engine.getSnapshot()
-      expect(snapshot.nodes.find((node) => node.id === group.id)).toMatchObject(
-        {
-          x: 260,
-          y: 0,
-        },
-      )
-      expect(snapshot.nodes.find((node) => node.id === card.id)?.parentId).toBe(
-        group.id,
-      )
+      const snapshot = engine.getState()
+      expect(snapshot.nodes.get(group.id)).toMatchObject({
+        x: 260,
+        y: 0,
+      })
+      expect(snapshot.nodes.get(card.id)?.parentId).toBe(group.id)
     })
 
     it('captures every fully contained stationary node when a group is dragged over a set', () => {
@@ -1215,12 +1197,9 @@ describe('board engine', () => {
       engine.updatePointer(1, { x: 420, y: 0 })
       engine.endInteraction(1)
 
-      const snapshot = engine.getSnapshot()
+      const snapshot = engine.getState()
       expect(
-        cards.map(
-          (card) =>
-            snapshot.nodes.find((node) => node.id === card.id)?.parentId,
-        ),
+        cards.map((card) => snapshot.nodes.get(card.id)?.parentId),
       ).toEqual([group.id, group.id, group.id, group.id])
     })
 
@@ -1278,12 +1257,9 @@ describe('board engine', () => {
       engine.updatePointer(1, { x: 560, y: 280 })
       engine.endInteraction(1)
 
-      const snapshot = engine.getSnapshot()
+      const snapshot = engine.getState()
       expect(
-        cards.map(
-          (card) =>
-            snapshot.nodes.find((node) => node.id === card.id)?.parentId,
-        ),
+        cards.map((card) => snapshot.nodes.get(card.id)?.parentId),
       ).toEqual([group.id, group.id, group.id, group.id])
     })
 
@@ -1313,10 +1289,7 @@ describe('board engine', () => {
       engine.updatePointer(1, { x: 260, y: 0 })
       engine.endInteraction(1)
 
-      expect(
-        engine.getSnapshot().nodes.find((node) => node.id === card.id)
-          ?.parentId,
-      ).toBeUndefined()
+      expect(engine.getState().nodes.get(card.id)?.parentId).toBeUndefined()
     })
 
     it('picks the smallest containing group when nested', () => {
@@ -1352,9 +1325,7 @@ describe('board engine', () => {
       engine.beginNodeDrag(card.id, 1, { x: 0, y: 0 })
       engine.updatePointer(1, { x: 0, y: 0 })
       engine.endInteraction(1)
-      expect(
-        engine.getSnapshot().nodes.find((n) => n.id === card.id)?.parentId,
-      ).toBe(inner.id)
+      expect(engine.getState().nodes.get(card.id)?.parentId).toBe(inner.id)
     })
 
     it('deleteSelected removes a group and all descendants and emits node:deleted for each', () => {
@@ -1384,7 +1355,7 @@ describe('board engine', () => {
       engine.syncGroupZOrder(group.id)
       engine.select([group.id])
       engine.deleteSelected()
-      expect(engine.getSnapshot().nodes).toHaveLength(0)
+      expect(engine.getState().nodes.size).toBe(0)
       expect(deleted.sort()).toEqual([child.id, group.id].sort())
     })
 
@@ -1419,9 +1390,9 @@ describe('board engine', () => {
       })
       engine.syncGroupZOrder(group.id)
       engine.sendToBack(group.id)
-      const snap = engine.getSnapshot()
-      const gz = snap.nodes.find((node) => node.id === group.id)!.zIndex
-      const cz = snap.nodes.find((node) => node.id === child.id)!.zIndex
+      const snap = engine.getState()
+      const gz = snap.nodes.get(group.id)!.zIndex
+      const cz = snap.nodes.get(child.id)!.zIndex
       expect(cz).toBeGreaterThan(gz)
     })
 
@@ -1449,11 +1420,11 @@ describe('board engine', () => {
       engine.select([group.id])
       engine.copySelected()
       engine.pasteClipboard({ x: 300, y: 0 })
-      const snap = engine.getSnapshot()
-      const pastedChild = snap.nodes.find(
+      const snap = engine.getState()
+      const pastedChild = Array.from(snap.nodes.values()).find(
         (n) => n.id !== child.id && n.type === 'text' && n.text === 'p',
       )
-      const pastedGroup = snap.nodes.find(
+      const pastedGroup = Array.from(snap.nodes.values()).find(
         (n) =>
           n.id !== group.id &&
           n.type === 'group' &&

@@ -92,7 +92,7 @@ const gridOptions = computed(() => ({
 
 function reseedScene(): void {
   activeScene.value = loadDemoScene(engine, sceneId.value)
-  const grid = engine.getSnapshot().grid
+  const grid = engine.getState().grid
   gridSize.value = grid.size
   gridPattern.value = grid.pattern
   snapToGrid.value = grid.snap
@@ -128,7 +128,7 @@ function importDocument(): void {
   }
   try {
     importDemoDocument(engine, documentText.value)
-    const grid = engine.getSnapshot().grid
+    const grid = engine.getState().grid
     gridSize.value = grid.size
     gridPattern.value = grid.pattern
     snapToGrid.value = grid.snap

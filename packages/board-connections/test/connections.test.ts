@@ -170,7 +170,7 @@ describe('connections plugin', () => {
       zIndex: 4,
     })
 
-    const exported = JSON.parse(engine.exportJSON())
+    const exported = engine.exportDocument()
     expect(exported.edges).toEqual([
       {
         id: edgeId,
@@ -184,13 +184,13 @@ describe('connections plugin', () => {
         label: 'edge label',
       },
     ])
-    expect(exported['x-vue-board'].edges[edgeId]).toEqual({
+    expect(exported['x-vue-board']?.edges?.[edgeId]).toEqual({
       zIndex: 4,
       data: { weight: 2 },
     })
 
     const restored = createBoardEngine({ plugins: [connectionsPlugin()] })
-    restored.importJSON(JSON.stringify(exported), 'replace')
+    restored.importDocument(exported, 'replace')
 
     expect(restored.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({
@@ -209,34 +209,32 @@ describe('connections plugin', () => {
     const withoutPlugin = createBoardEngine()
 
     expect(() =>
-      withoutPlugin.importJSON(
-        JSON.stringify({
-          nodes: [
-            {
-              id: 'first',
-              type: 'text',
-              x: 0,
-              y: 0,
-              width: 120,
-              height: 80,
-              text: 'A',
-            },
-            {
-              id: 'second',
-              type: 'text',
-              x: 200,
-              y: 0,
-              width: 120,
-              height: 80,
-              text: 'B',
-            },
-          ],
-          edges: [{ id: 'edge-a', fromNode: 'first', toNode: 'second' }],
-        }),
-      ),
+      withoutPlugin.importDocument({
+        nodes: [
+          {
+            id: 'first',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'A',
+          },
+          {
+            id: 'second',
+            type: 'text',
+            x: 200,
+            y: 0,
+            width: 120,
+            height: 80,
+            text: 'B',
+          },
+        ],
+        edges: [{ id: 'edge-a', fromNode: 'first', toNode: 'second' }],
+      }),
     ).toThrow(/edges require the connections plugin/)
 
-    expect(withoutPlugin.getSnapshot().nodes).toHaveLength(0)
+    expect(withoutPlugin.getState().nodes.size).toBe(0)
   })
 
   it('removes edges when deleting a group that still has child nodes', () => {
@@ -282,7 +280,7 @@ describe('connections plugin', () => {
     engine.select([group.id])
     engine.deleteSelected()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
     expectEdgesReferenceExistingNodes(engine)
   })
@@ -309,18 +307,18 @@ describe('connections plugin', () => {
       data: {},
     })
 
-    engine.importJSON(
-      JSON.stringify({
+    engine.importDocument(
+      {
         nodes: [],
         'x-vue-board': {
           selection: [],
           nextZIndex: 1,
         },
-      }),
+      },
       'replace',
     )
 
-    expect(engine.getSnapshot().nodes).toHaveLength(0)
+    expect(engine.getState().nodes.size).toBe(0)
     expect(engine.plugins.connections.getEdges()).toHaveLength(0)
     expectEdgesReferenceExistingNodes(engine)
   })
@@ -389,8 +387,8 @@ describe('connections plugin', () => {
       text: 'Existing target',
     })
 
-    engine.importJSON(
-      JSON.stringify({
+    engine.importDocument(
+      {
         nodes: [
           {
             id: 'source',
@@ -419,7 +417,7 @@ describe('connections plugin', () => {
             label: 'merged',
           },
         ],
-      }),
+      },
       'merge',
     )
 
@@ -459,8 +457,8 @@ describe('connections plugin', () => {
       data: {},
     })
 
-    engine.importJSON(
-      JSON.stringify({
+    engine.importDocument(
+      {
         nodes: [
           {
             id: 'replacement-a',
@@ -488,7 +486,7 @@ describe('connections plugin', () => {
             toNode: 'replacement-b',
           },
         ],
-      }),
+      },
       'replace',
     )
 
@@ -498,8 +496,8 @@ describe('connections plugin', () => {
     ).toBeUndefined()
     expectEdgesReferenceExistingNodes(engine)
 
-    engine.importJSON(
-      JSON.stringify({
+    engine.importDocument(
+      {
         nodes: [
           {
             id: 'replacement-a',
@@ -527,7 +525,7 @@ describe('connections plugin', () => {
             toNode: 'replacement-b',
           },
         ],
-      }),
+      },
       'merge',
     )
 
@@ -568,11 +566,11 @@ describe('connections plugin', () => {
       to: keepB.id,
       data: {},
     })
-    const before = engine.getSnapshot()
+    const before = engine.getState()
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
+      engine.importDocument(
+        {
           nodes: [
             {
               id: 'new-a',
@@ -594,12 +592,12 @@ describe('connections plugin', () => {
             },
           ],
           edges: [{ id: 'new-edge', fromNode: 'new-a', toNode: 'new-b' }],
-        }),
+        },
         'replace',
       ),
     ).toThrow(/feature import failed/)
 
-    expect(engine.getSnapshot()).toEqual(before)
+    expect(engine.getState()).toEqual(before)
     expect(engine.plugins.connections.getEdges()).toEqual([keepEdge])
     expectEdgesReferenceExistingNodes(engine)
   })

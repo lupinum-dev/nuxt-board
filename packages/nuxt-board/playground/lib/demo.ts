@@ -614,7 +614,7 @@ export function loadDemoScene(
   sceneId: DemoSceneId,
 ): DemoSceneOption {
   const scene = getScene(sceneId)
-  engine.importJSON(JSON.stringify(demoSceneToDocument(scene)), 'replace')
+  engine.importDocument(demoSceneToDocument(scene), 'replace')
   engine.clearSelection()
   engine.endInteraction()
   engine.plugins.history.clear()
@@ -626,11 +626,11 @@ export function loadDemoScene(
 }
 
 export function exportDemoDocument(engine: BoardEngine): string {
-  return engine.exportJSON()
+  return JSON.stringify(engine.exportDocument(), null, 2)
 }
 
 export function importDemoDocument(engine: BoardEngine, json: string): void {
-  engine.importJSON(json, 'replace')
+  engine.importDocument(JSON.parse(json), 'replace')
   engine.clearSelection()
   engine.endInteraction()
   engine.plugins.history.clear()
@@ -642,7 +642,7 @@ export function getDemoCounts(engine: BoardEngine): {
   selection: number
   history: number
 } {
-  const snapshot = engine.getSnapshot()
+  const snapshot = engine.getState()
   return {
     nodes: snapshot.nodes.length,
     edges: engine.plugins.connections.getEdges().length,
@@ -655,7 +655,7 @@ export function wrapSelectionInGroup(
   engine: BoardEngine,
 ): 'created' | 'grouped' {
   const selection = engine.getSelection()
-  const snapshot = engine.getSnapshot()
+  const snapshot = engine.getState()
   const groupPadding = 32
   const groupId = `group-${snapshot.nextZIndex}`
 

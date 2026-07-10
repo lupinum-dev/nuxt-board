@@ -70,13 +70,13 @@ beforeEach(() => {
 describe('BoardRoot', () => {
   it('uses granular subscriptions without rebuilding full snapshots', async () => {
     const engine = createBoardEngine()
-    const getSnapshot = vi.spyOn(engine, 'getSnapshot')
+    const getState = vi.spyOn(engine, 'getState')
     mount(BoardRoot, {
       props: { engine },
       attachTo: document.body,
     })
 
-    expect(getSnapshot).not.toHaveBeenCalled()
+    expect(getState).not.toHaveBeenCalled()
 
     engine.createNode({
       type: 'text',
@@ -86,7 +86,7 @@ describe('BoardRoot', () => {
     })
     await flushBoardRootSnapshot()
 
-    expect(getSnapshot).not.toHaveBeenCalled()
+    expect(getState).not.toHaveBeenCalled()
   })
 
   it('starts drag and resize only after the pointer clears the movement threshold', async () => {
@@ -113,7 +113,7 @@ describe('BoardRoot', () => {
       },
     )
     expect(engine.getSelection()).toEqual([node.id])
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -126,7 +126,7 @@ describe('BoardRoot', () => {
         clientY: 52,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -139,7 +139,7 @@ describe('BoardRoot', () => {
         clientY: 58,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'dragging-nodes',
     })
     dispatchPointerEvent(wrapper.element, 'pointerup', {
@@ -176,7 +176,7 @@ describe('BoardRoot', () => {
         clientY: 110,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -189,7 +189,7 @@ describe('BoardRoot', () => {
         clientY: 122,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'resizing-node',
       nodeId: node.id,
       handle: 'se',
@@ -343,10 +343,10 @@ describe('BoardRoot', () => {
 
     await wrapper.trigger('keydown', { key: 'a', ctrlKey: true })
     await wrapper.trigger('keydown', { key: 'd', ctrlKey: true })
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getState().nodes.size).toBe(2)
 
     await wrapper.trigger('keydown', { key: 'Delete' })
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
   })
 
   it('duplicates the current selection when alt-dragging past the threshold', async () => {
@@ -378,8 +378,8 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().nodes.size).toBe(2)
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'dragging-nodes',
     })
     expect(engine.getSelection()).toHaveLength(1)
@@ -430,10 +430,8 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({ x: 40, y: 40 })
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 40, y: 40 })
 
     dispatchPointerEvent(element, 'pointerdown', {
       button: 0,
@@ -455,14 +453,14 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
 
     await wrapper.trigger('dblclick', {
       clientX: 320,
       clientY: 240,
     })
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
     expect(blocked).toEqual(['beginNodeDrag', 'duplicateNodes', 'createNode'])
   })
 
@@ -484,7 +482,7 @@ describe('BoardRoot', () => {
 
     await wrapper.vm.$nextTick()
 
-    expect(engine.getSnapshot().grid).toMatchObject({
+    expect(engine.getState().grid).toMatchObject({
       pattern: 'dot',
       size: 24,
       majorEvery: 4,
@@ -551,6 +549,6 @@ describe('BoardRoot', () => {
       clientY: 120,
     })
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
   })
 })

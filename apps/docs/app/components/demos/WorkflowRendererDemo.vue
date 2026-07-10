@@ -69,53 +69,51 @@ const unsubscribeHistory = [
 function seed() {
   workflowSteps.value = createWorkflowSteps()
 
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: -40, y: -30, z: 1 },
-        grid: engine.getGridSettings(),
-        selection: [],
-        nextZIndex: 4,
-        nodes: [
-          {
-            id: CAPTURE_ID,
-            type: 'text',
-            x: 40,
-            y: 110,
-            width: 220,
-            height: 130,
-            text: '',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: QUALIFY_ID,
-            type: 'text',
-            x: 340,
-            y: 110,
-            width: 220,
-            height: 130,
-            text: '',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: HANDOFF_ID,
-            type: 'text',
-            x: 640,
-            y: 110,
-            width: 220,
-            height: 130,
-            text: '',
-            zIndex: 3,
-            locked: false,
-            visible: true,
-          },
-        ],
-      }),
-    ),
+  engine.importDocument(
+    createDemoDocument({
+      camera: { x: -40, y: -30, z: 1 },
+      grid: engine.getGridSettings(),
+      selection: [],
+      nextZIndex: 4,
+      nodes: [
+        {
+          id: CAPTURE_ID,
+          type: 'text',
+          x: 40,
+          y: 110,
+          width: 220,
+          height: 130,
+          text: '',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: QUALIFY_ID,
+          type: 'text',
+          x: 340,
+          y: 110,
+          width: 220,
+          height: 130,
+          text: '',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: HANDOFF_ID,
+          type: 'text',
+          x: 640,
+          y: 110,
+          width: 220,
+          height: 130,
+          text: '',
+          zIndex: 3,
+          locked: false,
+          visible: true,
+        },
+      ],
+    }),
     'replace',
   )
 

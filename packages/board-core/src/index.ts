@@ -38,7 +38,6 @@ export type {
   BoxSelectMode,
   BoxSelectSettings,
   BoardColorPreset,
-  BoardSnapshot,
   BoardState,
   Bounds,
   Camera,

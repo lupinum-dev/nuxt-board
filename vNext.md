@@ -918,7 +918,7 @@ apps/
 | engine `ready` event                    | removed                                  |
 | `validation: 'strict'                   | 'warn'                                   | 'off'` | always-valid commits |
 | history `debounceMs`                    | explicit gesture/batch boundaries        |
-| `@lupinum/vue-board/minimap`                | `@lupinum/vue-board/minimap`             |
+| `@lupinum/board-minimap`                | `@lupinum/vue-board/minimap`             |
 | `@lupinum/board-connections` Vue export | `@lupinum/board-connections/vue`         |
 
 No alias packages, forwarding functions, compatibility overloads, feature flags, or migration runtime are added. Documentation and examples change in the same cutover.

@@ -6,7 +6,6 @@ import type {
   BoardNode,
   BoardSnapshot,
   CanvasColor,
-  EdgeId,
   GridSettings,
   JsonCanvasDocument,
   JsonCanvasEdge,
@@ -51,7 +50,7 @@ export function normalizeNodeType(value: unknown): JsonCanvasNodeType {
 
 export function withNodeFields<T extends { type: JsonCanvasNodeType }>(
   base: T,
-  input: Omit<Partial<BoardNode>, 'type'> & {
+  input: {
     type?: string
     text?: string
     file?: string
@@ -132,14 +131,14 @@ function jsonNodeToBoardNode(
         zIndex?: number
         locked?: boolean
         visible?: boolean
-        parentId?: NodeId
+        parentId?: string
       }
     | undefined,
   index: number,
 ): BoardNode {
   validateJsonCanvasNodeFields(node)
   const base = {
-    id: node.id,
+    id: node.id as NodeId,
     type: node.type,
     x: node.x,
     y: node.y,
@@ -149,7 +148,9 @@ function jsonNodeToBoardNode(
     zIndex: Number.isFinite(meta?.zIndex) ? meta!.zIndex! : index + 1,
     locked: Boolean(meta?.locked),
     visible: meta?.visible !== false,
-    ...(typeof meta?.parentId === 'string' ? { parentId: meta.parentId } : {}),
+    ...(typeof meta?.parentId === 'string'
+      ? { parentId: meta.parentId as NodeId }
+      : {}),
   }
   return withNodeFields(base, node) as BoardNode
 }
@@ -425,7 +426,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   }
   validateDocumentMetadata(getDocumentMetadata(parsed))
 
-  const seenNodes = new Set<NodeId>()
+  const seenNodes = new Set<string>()
   const nodes = parsed.nodes.map((node) => {
     if (!isRecord(node)) {
       throw new Error('Invalid board document: node entries must be objects.')
@@ -461,7 +462,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
         `Invalid board document: node "${String(node.id)}" has unsupported backgroundStyle "${String(node.backgroundStyle)}".`,
       )
     }
-    const normalized = { ...node, id: node.id as NodeId } as JsonCanvasNode
+    const normalized = { ...node } as unknown as JsonCanvasNode
     validateJsonCanvasNodeFields(normalized)
     if (seenNodes.has(normalized.id)) {
       throw new Error(
@@ -477,7 +478,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
     if (!Array.isArray(parsed.edges)) {
       throw new Error('Invalid board document: edges must be an array.')
     }
-    const seenEdges = new Set<EdgeId>()
+    const seenEdges = new Set<string>()
     edges = parsed.edges.map((edge) => {
       if (!isRecord(edge)) {
         throw new Error('Invalid board document: edge entries must be objects.')
@@ -491,9 +492,9 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
           `Invalid board document: edge "${String(edge.id ?? '?')}" has invalid endpoints.`,
         )
       }
-      const id = edge.id as EdgeId
-      const fromNode = edge.fromNode as NodeId
-      const toNode = edge.toNode as NodeId
+      const id = edge.id
+      const fromNode = edge.fromNode
+      const toNode = edge.toNode
       if (seenEdges.has(id)) {
         throw new Error(`Invalid board document: duplicate edge id "${id}".`)
       }
@@ -571,10 +572,12 @@ export function documentToSnapshot(
     ...(metadata?.grid ?? {}),
   }
   const selection = Array.isArray(metadata?.selection)
-    ? metadata.selection.filter(
-        (id): id is NodeId =>
-          typeof id === 'string' && nodes.some((node) => node.id === id),
-      )
+    ? metadata.selection
+        .filter(
+          (id): id is string =>
+            typeof id === 'string' && nodes.some((node) => node.id === id),
+        )
+        .map((id) => id as NodeId)
     : []
   const nextZIndex =
     metadata?.nextZIndex ??
@@ -599,10 +602,9 @@ export function documentToSnapshot(
       selection: new Set(selection),
       interaction: { mode: 'idle' },
       snapGuides: [],
-      nextZIndex,
     },
     gridSettings,
-    'importJSON',
+    'importDocument',
   )
   if (failures.length > 0) {
     throw new Error(
