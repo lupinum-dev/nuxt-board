@@ -39,13 +39,6 @@ import type {
 import {
   CONNECTION_DRAG_THRESHOLD,
   EDGE_ARROW_MARKER_SIZE,
-  EDGE_LABEL_ACTIVE_FONT_SIZE,
-  EDGE_LABEL_ACTIVE_HEIGHT,
-  EDGE_LABEL_HORIZONTAL_PADDING,
-  EDGE_LABEL_IDLE_HEIGHT,
-  EDGE_LABEL_MAX_SCREEN_WIDTH,
-  EDGE_LABEL_MIN_ZOOM,
-  EDGE_LABEL_SCREEN_FONT_SIZE,
   EDGE_STROKE_LOD_FADE_START,
   EDGE_STROKE_LOD_SOFTEN_AT,
   floatingNodeAt,
@@ -70,6 +63,7 @@ import {
   type ReconnectDragState,
 } from './controller.js'
 import { renderConnectionPreview, renderDefaultEdgePath } from './renderer.js'
+import { ConnectionLabel } from './connection-label.js'
 
 type EdgeRenderEntry = ReturnType<typeof resolveEdgeRenderState> & {
   edge: BoardEdge
@@ -1072,165 +1066,27 @@ export const BoardConnectionLayer = defineComponent({
 
     function renderEdgeLabel(
       entry: EdgeRenderEntry,
-      state: {
-        isSelected: boolean
-        isHovered: boolean
-      },
+      state: { isSelected: boolean; isHovered: boolean },
     ) {
       const edgeId = String(entry.edge.id)
-      const isEditing = editingEdgeId.value === edgeId
-      const label = entry.edge.label ?? ''
-      if (!isEditing && !label) {
-        return null
-      }
-
-      const active = isEditing || state.isSelected || state.isHovered
-      const labelZoom = Math.max(injected.$camera.value.z, EDGE_LABEL_MIN_ZOOM)
-      const stroke = entry.edge.color ?? 'var(--board-edge-color)'
-      const size = 1 / labelZoom
-      const approxWidth = Math.max(
-        active ? 40 : 24,
-        Math.min(
-          EDGE_LABEL_MAX_SCREEN_WIDTH,
-          ((isEditing ? labelDraft.value : label).length || 1) * 8 +
-            EDGE_LABEL_HORIZONTAL_PADDING,
-        ),
-      )
-      const approxHeight = active
-        ? EDGE_LABEL_ACTIVE_HEIGHT
-        : EDGE_LABEL_IDLE_HEIGHT
-      const width = approxWidth * size
-      const height = approxHeight * size
-      const x = entry.route.labelPoint.x - width / 2
-      const y = entry.route.labelPoint.y - height / 2
-
-      const contents = isEditing
-        ? h('input', {
-            'data-connection-label-input': edgeId,
-            'data-board-interactive': 'true',
-            'data-connection-edge-id': edgeId,
-            type: 'text',
-            value: labelDraft.value,
-            onInput: (event: Event) => {
-              labelDraft.value = (event.target as HTMLInputElement).value
-            },
-            onKeydown: (event: KeyboardEvent) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                commitLabelEdit()
-              } else if (event.key === 'Escape') {
-                event.preventDefault()
-                cancelLabelEdit()
-              }
-              event.stopPropagation()
-            },
-            onBlur: () => commitLabelEdit(),
-            onPointerdown: (event: PointerEvent) => event.stopPropagation(),
-            style: {
-              width: '100%',
-              height: '100%',
-              boxSizing: 'border-box',
-              padding: '2px 8px',
-              borderRadius: '999px',
-              border: '1px solid currentColor',
-              background: 'var(--board-node-bg, #fff)',
-              color: 'inherit',
-              font: 'inherit',
-              fontSize: `${EDGE_LABEL_ACTIVE_FONT_SIZE}px`,
-              lineHeight: '1',
-              outline: 'none',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-            },
-          })
-        : h(
-            'div',
-            {
-              'data-connection-label': edgeId,
-              'data-board-interactive': 'true',
-              'data-connection-edge-id': edgeId,
-              title: label,
-              onPointerdown: (event: PointerEvent) =>
-                onEdgePointerDown(edgeId, event),
-              onDblclick: (event: MouseEvent) => {
-                event.preventDefault()
-                event.stopPropagation()
-                beginLabelEdit(edgeId)
-              },
-              style: {
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: active ? '2px 8px' : '0 3px',
-                maxWidth: `${EDGE_LABEL_MAX_SCREEN_WIDTH}px`,
-                borderRadius: '999px',
-                border: active
-                  ? '1px solid currentColor'
-                  : '1px solid transparent',
-                background: active
-                  ? 'var(--board-node-bg, #fff)'
-                  : 'transparent',
-                fontSize: `${active ? EDGE_LABEL_ACTIVE_FONT_SIZE : EDGE_LABEL_SCREEN_FONT_SIZE}px`,
-                lineHeight: active ? '1' : '1.2',
-                fontWeight: active ? '500' : '600',
-                color: 'inherit',
-                cursor: 'text',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                textShadow: active
-                  ? 'none'
-                  : '0 1px 0 var(--board-node-bg, #fff), 0 -1px 0 var(--board-node-bg, #fff), 1px 0 0 var(--board-node-bg, #fff), -1px 0 0 var(--board-node-bg, #fff)',
-                boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-              },
-            },
-            label || '\u00A0',
-          )
-
-      return h(
-        'foreignObject',
-        {
-          x,
-          y,
-          width,
-          height,
-          color: stroke,
-          style: {
-            overflow: 'visible',
-            pointerEvents: 'auto',
-          },
+      return h(ConnectionLabel, {
+        edgeId,
+        point: entry.route.labelPoint,
+        label: entry.edge.label ?? '',
+        color: entry.edge.color ?? 'var(--board-edge-color)',
+        zoom: injected.$camera.value.z,
+        selected: state.isSelected,
+        hovered: state.isHovered,
+        editing: editingEdgeId.value === edgeId,
+        draft: labelDraft.value,
+        onEdgePointerDown: onEdgePointerDown,
+        onBeginEdit: beginLabelEdit,
+        onUpdateDraft: (value: string) => {
+          labelDraft.value = value
         },
-        [
-          h(
-            'div',
-            {
-              xmlns: 'http://www.w3.org/1999/xhtml',
-              style: {
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: '1',
-              },
-            },
-            [
-              h(
-                'div',
-                {
-                  style: {
-                    width: `${approxWidth}px`,
-                    height: `${approxHeight}px`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  },
-                },
-                [contents],
-              ),
-            ],
-          ),
-        ],
-      )
+        onCommitEdit: commitLabelEdit,
+        onCancelEdit: cancelLabelEdit,
+      })
     }
 
     function renderEdge(entry: EdgeRenderEntry) {
