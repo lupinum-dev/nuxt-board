@@ -30,6 +30,49 @@ function expectEdgesReferenceExistingNodes(
 }
 
 describe('connections plugin', () => {
+  it('keeps connection projection current when a later commit effect fails', () => {
+    const failures: string[] = []
+    const finalized: string[] = []
+    const failing = defineInternalBoardPlugin({
+      name: 'failing-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => {
+          throw new Error('effect failed')
+        })
+      },
+    })
+    const tail = defineInternalBoardPlugin({
+      name: 'tail-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => finalized.push('tail'))
+      },
+    })
+    const engine = createBoardEngine({
+      plugins: [connectionsPlugin(), failing, tail],
+      onUnhandledError(_error, context) {
+        if (context.source === 'commit-effect') failures.push(context.commit)
+      },
+    })
+    const source = engine.createNode({ text: 'Source' })
+    const target = engine.createNode({ text: 'Target' })
+    const events: string[] = []
+    engine.on('edge:created', () => events.push('created'))
+    engine.on('edge:updated', () => events.push('updated'))
+
+    const edge = engine.plugins.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      data: {},
+    })
+    engine.plugins.connections.updateEdge(edge.id, { label: 'Updated' })
+
+    expect(events).toEqual(['created', 'updated'])
+    expect(engine.plugins.connections.getEdge(edge.id)?.label).toBe('Updated')
+    expect(failures).toContain('edge:create')
+    expect(failures).toContain('edge:update')
+    expect(finalized.length).toBeGreaterThan(0)
+  })
+
   it('rejects duplicate edge ids and invalid edge boundaries', () => {
     const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
     const source = engine.createNode({ type: 'text', text: 'Source' })
@@ -71,7 +114,7 @@ describe('connections plugin', () => {
     ).toThrow(BoardInputError)
   })
 
-  it('exposes resolved connection defaults through the public extension', () => {
+  it('exposes resolved connection defaults through the public plugin API', () => {
     const engine = createBoardEngine({
       plugins: [
         connectionsPlugin({

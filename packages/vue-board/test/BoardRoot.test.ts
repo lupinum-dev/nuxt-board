@@ -69,6 +69,53 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
+  it('cancels pending pointer projection before unmount completes', async () => {
+    let pendingFrame: FrameRequestCallback | null = null
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        pendingFrame = callback
+        return 42
+      })
+    const cancelFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined)
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const element = wrapper.find(`[data-node-id="${node.id}"]`).element
+
+    dispatchPointerEvent(element, 'pointerdown', {
+      button: 0,
+      pointerId: 31,
+      clientX: 60,
+      clientY: 60,
+    })
+    dispatchPointerEvent(element, 'pointermove', {
+      pointerId: 31,
+      clientX: 100,
+      clientY: 80,
+    })
+    expect(pendingFrame).not.toBeNull()
+
+    wrapper.unmount()
+    expect(cancelFrame).toHaveBeenCalledWith(42)
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+    ;(pendingFrame as FrameRequestCallback | null)?.(performance.now())
+    expect(engine.getNode(node.id)).toMatchObject({ x: 40, y: 40 })
+
+    requestFrame.mockRestore()
+    cancelFrame.mockRestore()
+  })
+
   it('allows bundled presentation chrome to be disabled directly', () => {
     const wrapper = mount(BoardRoot, {
       props: {

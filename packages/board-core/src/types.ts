@@ -450,6 +450,12 @@ export type InstalledPluginEvents<TPlugins extends readonly BoardPlugin[]> =
     ? InstalledPluginEventsForTuple<TPlugins>
     : never
 
+/** Context for failures reported after the engine can no longer roll back work. */
+export type BoardUnhandledErrorContext =
+  | { readonly source: 'event-listener'; readonly event: string }
+  | { readonly source: 'subscriber'; readonly channel: string }
+  | { readonly source: 'commit-effect'; readonly commit: string }
+
 /** Engine factory options shared by commands, internal plugins, and renderers. */
 export interface BoardEngineOptions<
   TPlugins extends readonly BoardPlugin[] = readonly [],
@@ -463,7 +469,7 @@ export interface BoardEngineOptions<
   diagnostics?: boolean | { traceLimit?: number }
   onUnhandledError?: (
     error: unknown,
-    context: { readonly source: 'event-listener'; readonly event: string },
+    context: BoardUnhandledErrorContext,
   ) => void
   initialNodes?: ReadonlyArray<BoardNode>
   initialDocument?: JsonCanvasDocument
@@ -479,9 +485,9 @@ export interface ValidationFailure {
 
 /** Trace row recorded when diagnostics are enabled. */
 export interface TraceEntry {
-  event: string
-  timestamp: number
-  args: unknown[]
+  readonly event: string
+  readonly timestamp: number
+  readonly args: readonly unknown[]
 }
 
 /** History capture policy attached to command lifecycle events. */
@@ -492,7 +498,7 @@ export interface CommandMetadata {
   history: CommandHistoryPolicy
 }
 
-/** Event contract emitted by the board engine. Internal features extend this interface via module augmentation. */
+/** Base event contract emitted by every board engine. Installed plugin tuples add their own event maps. */
 export interface BoardEventMap {
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
@@ -681,8 +687,8 @@ export interface InternalPluginContext<
     value: TPluginApis[K],
   ): void
   /**
-   * Execute a named mutation through guarded command handling:
-   * command guards → command:before → fn() → validation → command:after.
+   * Execute a named mutation through guarded command handling. Successful
+   * lifecycle events publish after validation; guards are the pre-execution hook.
    * Use this in internal plugins so edge/connection operations appear in traces,
    * are interceptable by command guards, and are captured by the history plugin.
    */
@@ -696,7 +702,7 @@ export interface InternalPluginContext<
   getPluginState<S>(): S
   /** Replace the current plugin's persistent slice inside the active command. */
   updatePluginState<S>(update: (current: S) => S): S
-  /** Prepare a no-throw effect for a validated outer commit. */
+  /** Prepare final bookkeeping/event publication for a validated outer commit. The effect cannot mutate or destroy the board. */
   projectCommit(
     projector: (
       commit: import('./state/types.js').InternalBoardCommit,

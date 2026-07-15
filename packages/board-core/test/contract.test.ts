@@ -356,23 +356,23 @@ describe('board-core public document API', () => {
     expect(engine.getNode(existing.id).text).toBe('keep')
   })
 
-  it('rolls back core and extension state when an extension import hook fails', () => {
-    let extensionState!: () => { imports: number }
+  it('rolls back core and plugin state when a plugin import hook fails', () => {
+    let pluginState!: () => { imports: number }
     const failingFeature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
       },
       persistence: {
-        loadDocument(extensionEngine) {
-          extensionEngine.updatePluginState<{ imports: number }>((state) => ({
+        loadDocument(pluginEngine) {
+          pluginEngine.updatePluginState<{ imports: number }>((state) => ({
             imports: state.imports + 1,
           }))
-          throw new Error('extension import failed')
+          throw new Error('plugin import failed')
         },
       },
-      install(extensionEngine) {
-        extensionState = () => extensionEngine.getPluginState()
+      install(pluginEngine) {
+        pluginState = () => pluginEngine.getPluginState()
       },
     })
     const engine = createBoardEngine({
@@ -408,9 +408,9 @@ describe('board-core public document API', () => {
         },
         { mode: 'replace' },
       ),
-    ).toThrow(/extension import failed/)
+    ).toThrow(/plugin import failed/)
 
     expect(engine.getState()).toEqual(before)
-    expect(extensionState()).toEqual({ imports: 0 })
+    expect(pluginState()).toEqual({ imports: 0 })
   })
 })

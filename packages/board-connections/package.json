@@ -25,12 +25,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum/nuxt-board.git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
     "directory": "packages/board-connections"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum/nuxt-board/issues"
+    "url": "https://github.com/Mat4m0/canvas/issues"
   },
   "keywords": [
     "board",

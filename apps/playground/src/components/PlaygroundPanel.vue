@@ -140,8 +140,7 @@ const pselect =
         <pre
           v-if="exportedJson"
           class="p-2.5 bg-[var(--board-bg-subtle)] border border-[var(--board-border)] rounded-lg font-mono text-[11px] leading-snug text-[var(--board-muted-fg)] whitespace-pre-wrap break-all max-h-[140px] overflow-y-auto"
-          >{{ exportedJson.slice(0, 300) }}</pre
-        >
+          >{{ exportedJson.slice(0, 300) }}</pre>
       </section>
 
       <!-- Shortcuts -->

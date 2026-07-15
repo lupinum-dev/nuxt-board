@@ -8,7 +8,7 @@ export type {
   InternalPluginPersistence,
 } from './types.js'
 
-/** Resolve the sealed pointer/session surface used by framework adapters. */
+/** Resolve the unsupported first-party pointer/session surface used by framework adapters. */
 export function getBoardInteractionAdapter(
   engine: import('./types.js').BoardEngine,
 ): InternalInteractionAdapter {

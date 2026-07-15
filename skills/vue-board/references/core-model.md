@@ -94,4 +94,4 @@ Top-level `@lupinum/board-core` exports:
 - selection helpers: `getSelectionNodes`, `getSelectionBounds`, `toggleIds`
 - math helpers: `boundsIntersect`, `clamp`, `getBoundsFromPoints`, `getVisibleBounds`
 
-`@lupinum/board-core/internal` is first-party feature ABI for workspace packages, not an app plugin API.
+`@lupinum/board-core/internal` is an exported but unsupported first-party feature ABI, not an app plugin API. Pointer methods are absent from normal engine objects and root declarations but remain callable through that first-party subpath.

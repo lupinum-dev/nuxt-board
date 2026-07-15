@@ -42,8 +42,7 @@ interface ConnectionActionsDeps {
   getRootElement(): HTMLElement | null
   getEndpointMode(): ConnectionEndpointMode
   createNodeForConnection():
-    | ((context: CreateNodeForConnectionContext) => BoardNode | null)
-    | null
+    ((context: CreateNodeForConnectionContext) => BoardNode | null) | null
   state: ConnectionActionsState
 }
 

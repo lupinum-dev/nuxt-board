@@ -1,10 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import { CommandBlockedError, createBoardEngine } from '@lupinum/board-core'
-import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
+import {
+  defineInternalBoardPlugin,
+  getBoardInteractionAdapter,
+} from '@lupinum/board-core/internal'
 import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '../src'
 
 describe('history plugin', () => {
+  it('keeps the committed history frame when a later commit effect fails', () => {
+    const failures: string[] = []
+    const failing = defineInternalBoardPlugin({
+      name: 'failing-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => {
+          throw new Error('effect failed')
+        })
+      },
+    })
+    const engine = createBoardEngine({
+      plugins: [historyPlugin(), failing],
+      onUnhandledError(_error, context) {
+        if (context.source === 'commit-effect') failures.push(context.commit)
+      },
+    })
+
+    engine.createNode({ text: 'Committed' })
+
+    expect(engine.getState().nodes.size).toBe(1)
+    expect(engine.plugins.history.getState()).toMatchObject({
+      undoDepth: 1,
+      current: 'createNode',
+    })
+    expect(failures).toEqual(['createNode'])
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(0)
+  })
+
   it('does not let camera animation absorb concurrent document history', async () => {
     const engine = createBoardEngine({ plugins: [historyPlugin()] })
     const animation = engine.zoomTo(2, true)
@@ -70,6 +102,32 @@ describe('history plugin', () => {
     const engine = createBoardEngine({ plugins: [historyPlugin()] })
     engine.on('node:created', (node) => {
       if (node.text === 'first') {
+        engine.createNode({ type: 'text', text: 'second' })
+      }
+    })
+
+    engine.createNode({ type: 'text', text: 'first' })
+    expect(engine.plugins.history.getState().undoDepth).toBe(2)
+
+    engine.plugins.history.undo()
+    expect(
+      [...engine.getState().nodes.values()].map((node) => node.text),
+    ).toEqual(['first'])
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(0)
+  })
+
+  it('finalizes history before reentrant subscribers run commands', () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+    let createdSecond = false
+    engine.$nodes.subscribe((nodes) => {
+      if (
+        !createdSecond &&
+        [...nodes.values()].some(
+          (node) => node.type === 'text' && node.text === 'first',
+        )
+      ) {
+        createdSecond = true
         engine.createNode({ type: 'text', text: 'second' })
       }
     })

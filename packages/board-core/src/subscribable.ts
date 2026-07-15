@@ -22,6 +22,7 @@ export function createBatchController(): BatchController {
 export function createSubscribable<T>(
   initial: T,
   batch: BatchController,
+  reportError: (error: unknown) => void,
 ): Subscribable<T> & {
   set(value: T): void
   notify(): void
@@ -57,7 +58,11 @@ export function createSubscribable<T>(
     transactionPrev = undefined
     hasTransactionPrev = false
     for (const fn of listeners) {
-      fn(snapshot, prevSnapshot)
+      try {
+        fn(snapshot, prevSnapshot)
+      } catch (error) {
+        reportError(error)
+      }
     }
   }
 

@@ -38,38 +38,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Production audit
-        run: pnpm audit --prod --audit-level high
+      - name: Verify release
+        run: pnpm release:verify
 
-      - name: Format
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Unit tests
-        run: pnpm test:unit
-
-      - name: Build packages
-        run: pnpm build:packages
-
-      - name: Docs checks
-        run: pnpm test:docs
-
-      - name: Pack smoke tests
-        run: pnpm pack:check
-
-      - name: End-to-end tests
-        run: pnpm test:e2e
-
-      - name: Version or publish
+      - name: Prepare version pull request
         uses: changesets/action@v1
-        with:
-          publish: pnpm changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true

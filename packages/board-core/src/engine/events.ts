@@ -1,4 +1,8 @@
-import type { BoardEventMap, TraceEntry } from '../types.js'
+import type {
+  BoardEventMap,
+  BoardUnhandledErrorContext,
+  TraceEntry,
+} from '../types.js'
 import type { ListenerMap } from '../state/types.js'
 
 interface EventBusOptions {
@@ -6,7 +10,7 @@ interface EventBusOptions {
   traceLimit: number
   onUnhandledError?: (
     error: unknown,
-    context: { source: 'event-listener'; event: string },
+    context: BoardUnhandledErrorContext,
   ) => void
 }
 
@@ -32,17 +36,49 @@ interface EventBus {
   beginTransaction(): void
   commitTransaction(): void
   rollbackTransaction(): void
+  reportUnhandledError(
+    error: unknown,
+    context: BoardUnhandledErrorContext,
+  ): void
   clear(): void
 }
 
 export function createEventBus(opts: EventBusOptions): EventBus {
   const listeners: ListenerMap = new Map()
-  const trace: TraceEntry[] = []
+  const trace: Array<{
+    event: string
+    timestamp: number
+    args: unknown[]
+  }> = []
   const queuedEvents: Array<{
     event: keyof BoardEventMap
     args: unknown[]
   }> = []
   let transactionDepth = 0
+
+  function reportUnhandledError(
+    error: unknown,
+    context: BoardUnhandledErrorContext,
+  ): void {
+    if (opts.onUnhandledError) {
+      try {
+        opts.onUnhandledError(error, context)
+      } catch (reportingError) {
+        console.error(
+          `[board] onUnhandledError failed while reporting ${context.source}:`,
+          reportingError,
+        )
+      }
+      return
+    }
+    const subject =
+      context.source === 'event-listener'
+        ? `handler for "${context.event}"`
+        : context.source === 'subscriber'
+          ? `subscriber for "${context.channel}"`
+          : `commit effect for "${context.commit}"`
+    console.error(`[board] ${subject} threw:`, error)
+  }
 
   function emit<K extends keyof BoardEventMap>(
     event: K,
@@ -71,21 +107,10 @@ export function createEventBus(opts: EventBusOptions): EventBus {
           ...args,
         )
       } catch (error) {
-        if (opts.onUnhandledError) {
-          try {
-            opts.onUnhandledError(error, {
-              source: 'event-listener',
-              event: String(event),
-            })
-          } catch (reportingError) {
-            console.error(
-              `[board] onUnhandledError failed while reporting "${String(event)}":`,
-              reportingError,
-            )
-          }
-        } else {
-          console.error(`[board] handler for "${String(event)}" threw:`, error)
-        }
+        reportUnhandledError(error, {
+          source: 'event-listener',
+          event: String(event),
+        })
       }
     }
   }
@@ -126,7 +151,12 @@ export function createEventBus(opts: EventBusOptions): EventBus {
   }
 
   function exportTrace(): TraceEntry[] {
-    return trace.slice()
+    return trace.map((entry) =>
+      Object.freeze({
+        ...entry,
+        args: Object.freeze([...entry.args]),
+      }),
+    )
   }
 
   function clear(): void {
@@ -178,6 +208,7 @@ export function createEventBus(opts: EventBusOptions): EventBus {
     beginTransaction,
     commitTransaction,
     rollbackTransaction,
+    reportUnhandledError,
     clear,
   }
 }

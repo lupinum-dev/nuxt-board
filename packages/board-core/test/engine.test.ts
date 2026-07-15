@@ -18,7 +18,9 @@ describe('board engine', () => {
     const failures: Array<{ error: unknown; event: string }> = []
     const engine = createBoardEngine({
       onUnhandledError(error, context) {
-        failures.push({ error, event: context.event })
+        if (context.source === 'event-listener') {
+          failures.push({ error, event: context.event })
+        }
       },
     })
     engine.on('node:created', () => {
@@ -31,6 +33,123 @@ describe('board engine', () => {
     expect(failures).toHaveLength(1)
     expect(failures[0]).toMatchObject({ event: 'node:created' })
     expect(failures[0]?.error).toBeInstanceOf(Error)
+  })
+
+  it('isolates subscriber failures without rolling back committed state', () => {
+    const failures: Array<{ error: unknown; channel: string }> = []
+    const observedSizes: number[] = []
+    const engine = createBoardEngine({
+      onUnhandledError(error, context) {
+        if (context.source === 'subscriber') {
+          failures.push({ error, channel: context.channel })
+        }
+      },
+    })
+    engine.$nodes.subscribe(() => {
+      throw new Error('subscriber failed')
+    })
+    engine.$nodes.subscribe((nodes) => observedSizes.push(nodes.size))
+
+    const node = engine.createNode({ text: 'Committed' })
+
+    expect(engine.hasNode(node.id)).toBe(true)
+    expect(observedSizes).toEqual([1])
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({ channel: '$nodes' })
+    expect(failures[0]?.error).toBeInstanceOf(Error)
+  })
+
+  it('isolates post-commit effect failures after committing state', () => {
+    const finalized: string[] = []
+    const failures: Array<{ error: unknown; commit: string }> = []
+    const first = defineInternalBoardPlugin({
+      name: 'first-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => finalized.push('first'))
+      },
+    })
+    const failing = defineInternalBoardPlugin({
+      name: 'failing-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => {
+          throw new Error('effect failed')
+        })
+      },
+    })
+    const last = defineInternalBoardPlugin({
+      name: 'last-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => finalized.push('last'))
+      },
+    })
+    const engine = createBoardEngine({
+      plugins: [first, failing, last],
+      onUnhandledError(error, context) {
+        if (context.source === 'commit-effect') {
+          failures.push({ error, commit: context.commit })
+        }
+      },
+    })
+
+    const node = engine.createNode({ text: 'Committed' })
+
+    expect(engine.hasNode(node.id)).toBe(true)
+    expect(finalized).toEqual(['first', 'last'])
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({ commit: 'createNode' })
+    expect(failures[0]?.error).toBeInstanceOf(Error)
+  })
+
+  it('rejects board mutation and destruction during commit finalization', () => {
+    const failures: unknown[] = []
+    const mutating = defineInternalBoardPlugin({
+      name: 'reentrant-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => {
+          engine.createNode({ text: 'Nested' })
+        })
+      },
+    })
+    const destroying = defineInternalBoardPlugin({
+      name: 'destroying-effect',
+      install(engine) {
+        return engine.projectCommit(() => () => engine.destroy())
+      },
+    })
+    const engine = createBoardEngine({
+      plugins: [mutating, destroying],
+      onUnhandledError(error, context) {
+        if (context.source === 'commit-effect') failures.push(error)
+      },
+    })
+
+    const node = engine.createNode({ text: 'Outer' })
+
+    expect(engine.getState().nodes.size).toBe(1)
+    expect(engine.hasNode(node.id)).toBe(true)
+    expect(failures).toHaveLength(2)
+    expect(failures.every((error) => error instanceof BoardConflictError)).toBe(
+      true,
+    )
+  })
+
+  it('rejects duplicate plugin names before installing either plugin', () => {
+    const firstInstall = vi.fn()
+    const secondInstall = vi.fn()
+    const first = defineInternalBoardPlugin({
+      name: 'duplicate-plugin',
+      install: firstInstall,
+    })
+    const second = defineInternalBoardPlugin({
+      name: 'duplicate-plugin',
+      install: secondInstall,
+    })
+
+    expect(() => createBoardEngine({ plugins: [first, second] })).toThrow(
+      BoardConflictError,
+    )
+    expect(firstInstall).not.toHaveBeenCalled()
+    expect(secondInstall).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -46,6 +165,40 @@ describe('board engine', () => {
     ['invalid diagnostics limit', { diagnostics: { traceLimit: -1 } }],
   ])('rejects invalid constructor configuration: %s', (_label, options) => {
     expect(() => createBoardEngine(options)).toThrow(BoardInputError)
+  })
+
+  it('rejects non-finite camera and viewport inputs without changing state', () => {
+    const engine = createBoardEngine()
+    const camera = engine.getState().camera
+    const viewport = engine.getViewportSize()
+    const cameraEvents = vi.fn()
+    const viewportEvents = vi.fn()
+    engine.on('camera:change', cameraEvents)
+    engine.on('viewport:change', viewportEvents)
+
+    expect(() => engine.panBy(Number.NaN, 0)).toThrow(BoardInputError)
+    expect(() =>
+      engine.zoomAt({ x: 0, y: 0 }, Number.POSITIVE_INFINITY),
+    ).toThrow(BoardInputError)
+    expect(() => engine.setViewportSize({ x: Number.NaN, y: 100 })).toThrow(
+      BoardInputError,
+    )
+    expect(() =>
+      engine.panTo({ x: Number.POSITIVE_INFINITY, y: 0 }, true),
+    ).toThrow(BoardInputError)
+    expect(() => engine.zoomTo(Number.NaN, true)).toThrow(BoardInputError)
+    expect(() => engine.zoomToFit(Number.POSITIVE_INFINITY, true)).toThrow(
+      BoardInputError,
+    )
+    expect(() =>
+      engine.zoomToNodes([], Number.NEGATIVE_INFINITY, true),
+    ).toThrow(BoardInputError)
+
+    expect(engine.getState().camera).toEqual(camera)
+    expect(engine.getViewportSize()).toEqual(viewport)
+    expect(engine.exportDocument()['x-vue-board']?.camera).toEqual(camera)
+    expect(cameraEvents).not.toHaveBeenCalled()
+    expect(viewportEvents).not.toHaveBeenCalled()
   })
 
   it('rejects duplicate initial and created node ids without overwriting state', () => {
@@ -95,6 +248,36 @@ describe('board engine', () => {
     expect(cleanup).toHaveBeenCalledTimes(1)
   })
 
+  it('finishes destruction when a plugin cleanup throws', () => {
+    const cleanups: string[] = []
+    const failing = defineInternalBoardPlugin({
+      name: 'failing-cleanup',
+      install() {
+        return () => {
+          cleanups.push('failing')
+          throw new Error('cleanup failed')
+        }
+      },
+    })
+    const succeeding = defineInternalBoardPlugin({
+      name: 'succeeding-cleanup',
+      install() {
+        return () => cleanups.push('succeeding')
+      },
+    })
+    const engine = createBoardEngine({ plugins: [failing, succeeding] })
+    const nodes = engine.$nodes
+    const listener = vi.fn()
+    nodes.subscribe(listener)
+
+    expect(() => engine.destroy()).toThrow(AggregateError)
+    expect(cleanups).toEqual(['failing', 'succeeding'])
+    expect(() => engine.getState()).toThrow(BoardDestroyedError)
+    expect(() => nodes.get()).toThrow(BoardDestroyedError)
+    expect(() => engine.destroy()).not.toThrow()
+    expect(listener).not.toHaveBeenCalled()
+  })
+
   it('makes destruction terminal and releases subscribable listeners', () => {
     const engine = createBoardEngine()
     const nodes = engine.$nodes
@@ -130,6 +313,21 @@ describe('board engine', () => {
     const diagnosticEngine = createBoardEngine({ diagnostics: true })
     diagnosticEngine.createNode({ type: 'text' })
     expect(diagnosticEngine.exportTrace().length).toBeGreaterThan(0)
+  })
+
+  it('returns detached diagnostic trace entries', () => {
+    const engine = createBoardEngine({ diagnostics: true })
+    engine.createNode({ type: 'text', text: 'Trace' })
+    const first = engine.exportTrace()
+
+    expect(() => (first[0]!.args as unknown[]).push('mutated')).toThrow()
+    ;(first as unknown[]).length = 0
+
+    const second = engine.exportTrace()
+    expect(second.length).toBeGreaterThan(0)
+    expect(second[0]?.args).not.toContain('mutated')
+    expect(second[0]).not.toBe(first[0])
+    expect(second[0]?.args).not.toBe(first[0]?.args)
   })
 
   it('rejects malformed plugin objects before install', () => {
@@ -737,7 +935,7 @@ describe('board engine', () => {
     })
 
     expect(() => createBoardEngine({ plugins: [feature, feature] })).toThrow(
-      BoardInputError,
+      BoardConflictError,
     )
 
     const engine = createBoardEngine({ plugins: [feature] })
@@ -1773,6 +1971,36 @@ describe('transaction isolation regressions', () => {
       }),
     ).toThrow(BoardConflictError)
 
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(engine.$nodes.get().size).toBe(0)
+    expect(events).toEqual([])
+    expect(notifications).toEqual([])
+  })
+
+  it('aborts an outer batch when a caught inner batch throws null', () => {
+    const engine = createBoardEngine()
+    const events: string[] = []
+    const notifications: number[] = []
+    engine.on('node:created', (node) => events.push(node.id))
+    engine.$nodes.subscribe((nodes) => notifications.push(nodes.size))
+
+    let failure: unknown = 'not thrown'
+    try {
+      engine.batch(() => {
+        engine.createNode({ id: asNodeId('candidate'), type: 'text' })
+        try {
+          engine.batch(() => {
+            throw null
+          })
+        } catch {
+          // The outer transaction remains poisoned even when this is caught.
+        }
+      })
+    } catch (error) {
+      failure = error
+    }
+
+    expect(failure).toBeNull()
     expect(engine.getState().nodes.size).toBe(0)
     expect(engine.$nodes.get().size).toBe(0)
     expect(events).toEqual([])

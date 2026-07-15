@@ -19,6 +19,7 @@ import type {
 } from '../types.js'
 import type { MutableBoardState } from '../state/types.js'
 import { buildPublicNodeMap } from '../state/selectors.js'
+import { validateCamera } from './options.js'
 
 interface ReactiveLayer {
   batchCtrl: BatchController
@@ -51,10 +52,12 @@ interface ReactiveLayerDeps {
     event: K,
     ...args: Parameters<BoardEventMap[K]>
   ) => void
+  reportSubscriberError: (channel: string, error: unknown) => void
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { getState, getGrid, emit, getEffectiveNodes } = deps
+  const { getState, getGrid, emit, getEffectiveNodes, reportSubscriberError } =
+    deps
   const initialState = getState()
   const initialGrid = getGrid()
 
@@ -62,26 +65,32 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   const $camera = createSubscribable<Camera>(
     freezeClone({ ...initialState.camera }),
     batchCtrl,
+    (error) => reportSubscriberError('$camera', error),
   )
   const $grid = createSubscribable<GridSettings>(
     freezeClone({ ...initialGrid }),
     batchCtrl,
+    (error) => reportSubscriberError('$grid', error),
   )
   const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
     readonlyMapView(new Map()),
     batchCtrl,
+    (error) => reportSubscriberError('$nodes', error),
   )
   const $selection = createSubscribable<ReadonlySet<NodeId>>(
     readonlySetView(new Set(initialState.selection)),
     batchCtrl,
+    (error) => reportSubscriberError('$selection', error),
   )
   const $interaction = createSubscribable<InteractionState>(
     cloneInteraction(initialState.interaction),
     batchCtrl,
+    (error) => reportSubscriberError('$interaction', error),
   )
   const $snapGuides = createSubscribable<readonly SnapGuide[]>(
     initialState.snapGuides.map((guide) => freezeClone({ ...guide })),
     batchCtrl,
+    (error) => reportSubscriberError('$snapGuides', error),
   )
 
   let cachedPublicNodeMap: ReadonlyMap<NodeId, BoardNode> | null = null
@@ -133,6 +142,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setCamera(next: Camera): void {
+    validateCamera(next)
     const state = getState()
     const prev = { ...state.camera }
     if (prev.x === next.x && prev.y === next.y && prev.z === next.z) return

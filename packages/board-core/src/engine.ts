@@ -143,6 +143,19 @@ const IGNORE_UNVALIDATED_COMMAND: RuntimeCommandMetadata = {
   validate: false,
 }
 
+function requireFiniteInput(name: string, ...values: number[]): void {
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new BoardInputError(`${name} must contain only finite numbers.`)
+  }
+}
+
+function requireNonNegativeInput(name: string, value: number): void {
+  requireFiniteInput(name, value)
+  if (value < 0) {
+    throw new BoardInputError(`${name} must be greater than or equal to 0.`)
+  }
+}
+
 /**
  * Create a headless board engine with commands, reactive state, and internal plugin hooks.
  *
@@ -181,13 +194,16 @@ export function createBoardEngine<
     diagnostics: options.diagnostics,
     boxSelectBehavior,
   })
+  for (const plugin of options.plugins ?? []) {
+    assertInternalBoardPlugin(plugin)
+  }
 
   const eventBus = createEventBus({
     diagnosticsEnabled,
     traceLimit,
     onUnhandledError: options.onUnhandledError,
   })
-  const { emit, emitImmediate, on, once, off } = eventBus
+  const { emit, emitImmediate, on, once, off, reportUnhandledError } = eventBus
   const commandGuards = createCommandGuardRegistry()
   const commitProjectors = new Set<
     (commit: InternalBoardCommit) => () => void
@@ -209,6 +225,7 @@ export function createBoardEngine<
   const plugins = {} as BoardPluginApis
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let destroyed = false
+  let finalizingCommitEffects = false
   let activeGestureHistoryRoot: InternalHistoryRoot | null = null
   let activeBoxSelectionBefore: ReadonlySet<NodeId> | null = null
   const nodeOverrides = new Map<NodeId, BoardNode>()
@@ -227,6 +244,19 @@ export function createBoardEngine<
     if (destroyed) {
       throw new BoardDestroyedError()
     }
+  }
+
+  function assertMutationAllowed(): void {
+    if (finalizingCommitEffects) {
+      throw new BoardConflictError(
+        'Board mutations are unavailable during commit-effect finalization.',
+      )
+    }
+  }
+
+  function assertCommandReady(): void {
+    assertAlive()
+    assertMutationAllowed()
   }
 
   let state: MutableBoardState = {
@@ -272,6 +302,8 @@ export function createBoardEngine<
     getState: () => state,
     getGrid: () => grid,
     emit,
+    reportSubscriberError: (channel, error) =>
+      reportUnhandledError(error, { source: 'subscriber', channel }),
     getEffectiveNodes: () => {
       if (nodeOverrides.size === 0) return state.nodes
       const effective = new Map<NodeId, BoardNode>(state.nodes)
@@ -434,13 +466,13 @@ export function createBoardEngine<
     return true
   }
 
-  function publishCommit(
+  function prepareCommit(
     label: string,
     metadata: CommandMetadata,
     before: InternalHistoryRoot,
-  ): void {
+  ): { label: string; finalize: () => readonly unknown[] } | null {
     const after = captureHistoryRoot()
-    if (sameHistoryRoot(before, after)) return
+    if (sameHistoryRoot(before, after)) return null
     const commit: InternalBoardCommit = Object.freeze({
       label,
       timestamp: Date.now(),
@@ -449,7 +481,25 @@ export function createBoardEngine<
       after,
     })
     const effects = Array.from(commitProjectors, (project) => project(commit))
-    for (const effect of effects) effect()
+    return {
+      label,
+      finalize() {
+        const errors: unknown[] = []
+        finalizingCommitEffects = true
+        try {
+          for (const effect of effects) {
+            try {
+              effect()
+            } catch (error) {
+              errors.push(error)
+            }
+          }
+        } finally {
+          finalizingCommitEffects = false
+        }
+        return errors
+      },
+    }
   }
 
   const validate = createValidator({
@@ -473,7 +523,7 @@ export function createBoardEngine<
   }
 
   const { runCommand, runAsyncCommand } = createTransactionExecutor({
-    assertAlive,
+    assertAlive: assertCommandReady,
     runGuard: (name, args, metadata) => commandGuards.run(name, args, metadata),
     emitBlocked: (name, args, metadata) =>
       emitImmediate('command:blocked', name, args, metadata),
@@ -518,7 +568,12 @@ export function createBoardEngine<
       }
       return null
     },
-    publishCommit,
+    prepareCommit,
+    reportCommitError: (label, error) =>
+      reportUnhandledError(error, {
+        source: 'commit-effect',
+        commit: label,
+      }),
     validate,
     isCancellation: (error) => error instanceof AnimationCancelled,
   })
@@ -595,14 +650,6 @@ export function createBoardEngine<
     return stored
   }
 
-  function replaceBoardNodeAndDispatch(
-    node: BoardNode,
-    next: BoardNode,
-  ): BoardNode {
-    const stored = replaceBoardNode(node, next)
-    return stored
-  }
-
   function emitNodeResize(before: BoardNode, after: BoardNode): void {
     const publicNode = materializeNode(after)
     emit('node:resized', publicNode, {
@@ -667,7 +714,7 @@ export function createBoardEngine<
     }
     let current = node
     if (parent && current.zIndex <= parent.zIndex) {
-      current = replaceBoardNodeAndDispatch(node, {
+      current = replaceBoardNode(node, {
         ...node,
         zIndex: state.nextZIndex++,
       })
@@ -704,7 +751,7 @@ export function createBoardEngine<
       if (nextParent === node.parentId) {
         continue
       }
-      const updated = replaceBoardNodeAndDispatch(node, {
+      const updated = replaceBoardNode(node, {
         ...node,
         parentId: nextParent,
       })
@@ -846,9 +893,6 @@ export function createBoardEngine<
   }
 
   function installPlugin(plugin: InternalBoardPlugin): void {
-    if (pluginCleanups.has(plugin.name)) {
-      return
-    }
     if (plugin.slice) {
       pluginStates.set(plugin.name, {
         state: plugin.slice.initial,
@@ -869,6 +913,7 @@ export function createBoardEngine<
         },
         updatePluginState: <S>(update: (current: S) => S): S => {
           assertAlive()
+          assertMutationAllowed()
           const entry = pluginStates.get(plugin.name)
           if (!entry) {
             throw new Error(
@@ -908,13 +953,19 @@ export function createBoardEngine<
       if (destroyed) {
         return
       }
+      assertMutationAllowed()
       destroyed = true
       cameraSession.cancelAnimations()
       nodeOverrides.clear()
       activeGestureHistoryRoot = null
       activeBoxSelectionBefore = null
+      const cleanupErrors: unknown[] = []
       for (const cleanup of pluginCleanups.values()) {
-        cleanup()
+        try {
+          cleanup()
+        } catch (error) {
+          cleanupErrors.push(error)
+        }
       }
       emit('destroy')
       pluginCleanups.clear()
@@ -925,12 +976,19 @@ export function createBoardEngine<
       commandGuards.clear()
       eventBus.clear()
       destroyReactiveLayer()
+      if (cleanupErrors.length > 0) {
+        throw new AggregateError(
+          cleanupErrors,
+          'One or more board plugin cleanups failed.',
+        )
+      }
     },
     extend(key, value) {
+      assertMutationAllowed()
       ;(plugins as unknown as Record<string, unknown>)[key] = value as unknown
     },
     batch(fn) {
-      assertAlive()
+      assertCommandReady()
       if (batches.isBatching()) {
         batches.batch(fn)
         return
@@ -939,6 +997,7 @@ export function createBoardEngine<
       const checkpoint = beginPersistentTransaction()
       eventBus.beginTransaction()
       let historyBefore = originalHistoryBefore
+      let commitErrors: readonly unknown[] = []
       try {
         batches.batch(
           () => {
@@ -954,9 +1013,22 @@ export function createBoardEngine<
             }
             fn()
           },
-          () => publishCommit('batch', RECORD_COMMAND, historyBefore),
+          () => {
+            commitErrors =
+              prepareCommit(
+                'batch',
+                RECORD_COMMAND,
+                historyBefore,
+              )?.finalize() ?? []
+          },
         )
         eventBus.commitTransaction()
+        for (const error of commitErrors) {
+          reportUnhandledError(error, {
+            source: 'commit-effect',
+            commit: 'batch',
+          })
+        }
       } catch (error) {
         rollbackPersistentTransaction(checkpoint)
         eventBus.rollbackTransaction()
@@ -977,6 +1049,12 @@ export function createBoardEngine<
     },
     setViewportSize(size) {
       assertAlive()
+      assertMutationAllowed()
+      if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) {
+        throw new BoardInputError(
+          'Viewport width and height must be finite numbers.',
+        )
+      }
       const next = {
         x: Math.max(1, size.x),
         y: Math.max(1, size.y),
@@ -1007,6 +1085,7 @@ export function createBoardEngine<
     },
     addCommandGuard(fn) {
       assertAlive()
+      assertMutationAllowed()
       return commandGuards.add(fn)
     },
     runCommand<T>(
@@ -1019,6 +1098,7 @@ export function createBoardEngine<
     },
     projectCommit(projector) {
       assertAlive()
+      assertMutationAllowed()
       commitProjectors.add(projector)
       return () => commitProjectors.delete(projector)
     },
@@ -1109,6 +1189,7 @@ export function createBoardEngine<
         .map((node) => materializeNode(node))
     },
     panBy(dx, dy) {
+      requireFiniteInput('panBy delta', dx, dy)
       runCommand(
         'panBy',
         [dx, dy],
@@ -1123,6 +1204,7 @@ export function createBoardEngine<
       )
     },
     panTo(worldPoint, animated = false) {
+      requireFiniteInput('panTo point', worldPoint.x, worldPoint.y)
       const target = { x: -worldPoint.x, y: -worldPoint.y, z: state.camera.z }
       return runAsyncCommand(
         'panTo',
@@ -1138,6 +1220,7 @@ export function createBoardEngine<
       )
     },
     zoomAt(screenPoint, delta) {
+      requireFiniteInput('zoomAt input', screenPoint.x, screenPoint.y, delta)
       runCommand(
         'zoomAt',
         [screenPoint, delta],
@@ -1156,6 +1239,7 @@ export function createBoardEngine<
       )
     },
     zoomTo(level, animated = false) {
+      requireFiniteInput('zoomTo level', level)
       const clamped = clamp(level, zoom.min, zoom.max)
       const viewportCenter = { x: viewportSize.x / 2, y: viewportSize.y / 2 }
       const centerWorld = screenToWorld(viewportCenter, state.camera)
@@ -1178,6 +1262,7 @@ export function createBoardEngine<
       )
     },
     zoomToFit(padding = 40, animated = false) {
+      requireNonNegativeInput('zoomToFit padding', padding)
       return runAsyncCommand(
         'zoomToFit',
         [padding, animated],
@@ -1196,6 +1281,7 @@ export function createBoardEngine<
       )
     },
     zoomToNodes(ids, padding = 40, animated = false) {
+      requireNonNegativeInput('zoomToNodes padding', padding)
       return runAsyncCommand(
         'zoomToNodes',
         [ids, padding, animated],
@@ -1230,7 +1316,7 @@ export function createBoardEngine<
       return runCommand('updateNode', [id, patch], () => {
         const current = assertBoardNode(id)
         const next = applyNodePatch(current, patch)
-        const stored = replaceBoardNodeAndDispatch(current, next)
+        const stored = replaceBoardNode(current, next)
         const publicNode = materializeNode(stored)
         emit('node:updated', publicNode, materializeNode(current))
         return publicNode
@@ -1267,7 +1353,6 @@ export function createBoardEngine<
           [id],
           state.nodes as Map<NodeId, BoardNode>,
         )
-        const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
           const current = assertBoardNode(targetId)
           const next = {
@@ -1281,18 +1366,13 @@ export function createBoardEngine<
           }
           const stored = replaceBoardNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
-          deltas.push({
-            id: targetId,
-            before: { x: current.x, y: current.y },
-            after: { x: stored.x, y: stored.y },
-          })
           emit('node:moved', publicNode, {
             x: publicNode.x - current.x,
             y: publicNode.y - current.y,
           })
           emit('node:updated', publicNode, materializeNode(current))
         }
-        if (deltas.length > 0) {
+        if (targets.length > 0) {
           notifyNodesChanged()
         }
         reparentAfterDrag(targets)
@@ -1313,7 +1393,6 @@ export function createBoardEngine<
           seeds,
           state.nodes as Map<NodeId, BoardNode>,
         )
-        const deltas: { id: NodeId; before: Point; after: Point }[] = []
         for (const targetId of targets) {
           const current = assertBoardNode(targetId)
           const next = {
@@ -1327,18 +1406,13 @@ export function createBoardEngine<
           }
           const stored = replaceBoardNodeWithoutNotify(current, next)
           const publicNode = materializeNode(stored)
-          deltas.push({
-            id: targetId,
-            before: { x: current.x, y: current.y },
-            after: { x: stored.x, y: stored.y },
-          })
           emit('node:moved', publicNode, {
             x: publicNode.x - current.x,
             y: publicNode.y - current.y,
           })
           emit('node:updated', publicNode, materializeNode(current))
         }
-        if (deltas.length > 0) {
+        if (targets.length > 0) {
           notifyNodesChanged()
         }
         reparentAfterDrag(targets)
@@ -1361,7 +1435,7 @@ export function createBoardEngine<
               minHeight: nodeConstraints.minHeight,
             })
           : raw
-        const stored = replaceBoardNodeAndDispatch(node, {
+        const stored = replaceBoardNode(node, {
           ...node,
           ...nextBounds,
         })
@@ -1379,7 +1453,7 @@ export function createBoardEngine<
     bringToFront(id) {
       runCommand('bringToFront', [id], () => {
         const node = assertBoardNode(id)
-        const stored = replaceBoardNodeAndDispatch(node, {
+        const stored = replaceBoardNode(node, {
           ...node,
           zIndex: state.nextZIndex++,
         })
@@ -1393,7 +1467,7 @@ export function createBoardEngine<
         const minZ = Math.min(
           ...Array.from(state.nodes.values(), (entry) => entry.zIndex),
         )
-        const stored = replaceBoardNodeAndDispatch(node, {
+        const stored = replaceBoardNode(node, {
           ...node,
           zIndex: minZ - 1,
         })
@@ -1404,7 +1478,7 @@ export function createBoardEngine<
     lockNode(id) {
       runCommand('lockNode', [id], () => {
         const node = assertBoardNode(id)
-        const stored = replaceBoardNodeAndDispatch(node, {
+        const stored = replaceBoardNode(node, {
           ...node,
           locked: true,
         })
@@ -1414,7 +1488,7 @@ export function createBoardEngine<
     unlockNode(id) {
       runCommand('unlockNode', [id], () => {
         const node = assertBoardNode(id)
-        const stored = replaceBoardNodeAndDispatch(node, {
+        const stored = replaceBoardNode(node, {
           ...node,
           locked: false,
         })
@@ -1681,7 +1755,7 @@ export function createBoardEngine<
         }
         let stored: BoardNode = node
         if (text !== undefined) {
-          stored = replaceBoardNodeAndDispatch(node, { ...node, text })
+          stored = replaceBoardNode(node, { ...node, text })
           emit('node:updated', materializeNode(stored), materializeNode(node))
         }
         setInteraction({ mode: 'idle' })

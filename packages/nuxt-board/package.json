@@ -4,12 +4,12 @@
   "description": "Nuxt module for @lupinum/vue-board with board component and composable auto-imports.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum/nuxt-board.git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
     "directory": "packages/nuxt-board"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum/nuxt-board/issues"
+    "url": "https://github.com/Mat4m0/canvas/issues"
   },
   "license": "MIT",
   "type": "module",
@@ -63,17 +63,17 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "^3.2.4",
-    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "20.19.0",
     "@vitejs/plugin-vue": "6.0.6",
-    "eslint": "^10.2.1",
+    "eslint": "^10.7.0",
     "nuxt": "^4.4.8",
     "typescript": "~5.9.3",
     "vite": "7.3.5",
-    "vitest": "^4.1.5",
-    "vue-tsc": "^3.2.7"
+    "vitest": "^4.1.10",
+    "vue-tsc": "^3.3.7"
   }
 }

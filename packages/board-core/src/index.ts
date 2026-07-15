@@ -44,6 +44,7 @@ export type {
   CanvasColor,
   BoardEngine,
   BoardEngineOptions,
+  BoardUnhandledErrorContext,
   BoardEventMap,
   BoardPlugin,
   BoardNode,

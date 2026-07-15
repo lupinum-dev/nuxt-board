@@ -66,16 +66,16 @@ interface ConnectionsState {
 
 type ConnectionsAction =
   | { type: 'EDGE_CREATED'; edge: BoardEdge }
-  | { type: 'EDGE_UPDATED'; id: EdgeId; before: BoardEdge; after: BoardEdge }
-  | { type: 'EDGE_DELETED'; id: EdgeId; edge: BoardEdge }
+  | { type: 'EDGE_UPDATED'; id: EdgeId; after: BoardEdge }
+  | { type: 'EDGE_DELETED'; id: EdgeId }
+
+interface ConnectionsPluginApis extends BoardPluginApis {
+  connections: ConnectionsApi
+}
 
 const initialConnectionsState: ConnectionsState = {
   edges: new Map(),
   nextZIndex: 1,
-}
-
-interface ConnectionsPluginApis extends BoardPluginApis {
-  connections: ConnectionsApi
 }
 
 function reduceConnectionsState(
@@ -366,7 +366,6 @@ export function connectionsPlugin(
               applyAction({
                 type: 'EDGE_UPDATED',
                 id,
-                before: current as BoardEdge,
                 after: next as BoardEdge,
               })
               return cloneEdge(next)
@@ -381,7 +380,7 @@ export function connectionsPlugin(
             'edge:delete',
             [id],
             () => {
-              applyAction({ type: 'EDGE_DELETED', id, edge: current })
+              applyAction({ type: 'EDGE_DELETED', id })
             },
             { history: 'record' },
           )

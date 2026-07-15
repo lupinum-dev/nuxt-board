@@ -3,9 +3,12 @@
 ## Local setup
 
 ```bash
+corepack enable
 pnpm install
-pnpm test:unit
 ```
+
+Use Node 20.19 or newer. Start the playground with `pnpm dev:playground` or the
+documentation site with `pnpm dev:docs`.
 
 ## Expectations
 
@@ -13,6 +16,30 @@ pnpm test:unit
 - Prefer deleting or simplifying code over adding compatibility layers.
 - Update docs when public APIs change.
 - Add or update tests for user-visible behavior changes.
+- Keep domain rules in the headless packages rather than Vue, Nuxt, or other
+  transport layers.
+
+Start with the narrowest relevant test while working. Before handoff, run:
+
+```bash
+pnpm verify
+```
+
+Run `pnpm test:e2e` for browser interaction or screenshot changes. Maintainers
+run `pnpm release:verify` against a release candidate; it is the final-SHA gate,
+not a loop to repeat during normal development.
+
+## Documentation
+
+Public documentation lives in `apps/docs/content/docs`, organized by reader
+intent: evaluation, setup, system concepts, feature guides, solutions,
+reference, and project policy. Write each page for one reader and one job. Keep
+claims about defaults and public behavior aligned with source and contract
+tests, and include imports and setup in copy-paste examples.
+
+Documentation and demos must meet WCAG AA contrast, preserve complete keyboard
+operation and visible focus, respect reduced motion, and provide textual
+equivalents for interactive content.
 
 ## Changesets
 
@@ -21,3 +48,16 @@ Create a changeset for any publishable package change:
 ```bash
 pnpm changeset
 ```
+
+## Maintainer release workflow
+
+Maintainers own compatibility decisions, Changeset review, and final release
+verification.
+
+1. Merge changes with the required changesets.
+2. Let Changesets prepare the version pull request.
+3. Run `pnpm release:verify` on the final release candidate SHA.
+4. Merge the version pull request.
+5. From that exact clean `main` commit, run the guarded maintainer publish script.
+6. Push the package tags and publish the corresponding GitHub release.
+7. Verify the npm packages, documentation deployment, and packed consumer checks.

@@ -42,6 +42,13 @@ function assertFile(path, message) {
   }
 }
 
+function assertNonEmptyFile(path, message) {
+  assertFile(path, message)
+  if (readFileSync(path).length === 0) {
+    throw new Error(message)
+  }
+}
+
 function collectExportTargets(exportsField) {
   const targets = []
   const visit = (value) => {
@@ -161,6 +168,19 @@ for (const tarball of tarballs) {
   assertNoLocalPaths(packageRoot)
 }
 
+const packedVueBoard = packedPackages.get('@lupinum/vue-board')
+if (!packedVueBoard) throw new Error('Packed Vue Board package is missing.')
+if (packedVueBoard.manifest.dependencies?.['@lupinum/board-core']) {
+  throw new Error('Vue Board must not install a second board-core dependency.')
+}
+if (!packedVueBoard.manifest.peerDependencies?.['@lupinum/board-core']) {
+  throw new Error('Vue Board must declare board-core as a peer dependency.')
+}
+assertNonEmptyFile(
+  join(packedVueBoard.packageRoot, 'dist/index.css'),
+  'Vue Board package is missing its non-empty stylesheet.',
+)
+
 mkdirSync(consumerDir, { recursive: true })
 const rootManifest = readJson(join(rootDir, 'package.json'))
 const nuxtManifest = readJson(join(rootDir, 'packages/nuxt-board/package.json'))
@@ -197,9 +217,28 @@ run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], {
 
 const importLines = Array.from(packedPackages.keys())
   .map((name) => `await import(${JSON.stringify(name)})`)
+  .concat([
+    `await import('@lupinum/board-connections/vue')`,
+    `await import('@lupinum/vue-board/minimap')`,
+  ])
   .join('\n')
 writeFileSync(join(consumerDir, 'import-smoke.mjs'), `${importLines}\n`)
 run('node', ['import-smoke.mjs'], { cwd: consumerDir })
+
+writeFileSync(
+  join(consumerDir, 'runtime-contract.mjs'),
+  `import { BoardConflictError, createBoardEngine } from '@lupinum/board-core'
+import { historyPlugin } from '@lupinum/board-history'
+
+try {
+  createBoardEngine({ plugins: [historyPlugin(), historyPlugin()] })
+  throw new Error('duplicate plugin names were accepted')
+} catch (error) {
+  if (!(error instanceof BoardConflictError)) throw error
+}
+`,
+)
+run('node', ['runtime-contract.mjs'], { cwd: consumerDir })
 
 writeFileSync(
   join(consumerDir, 'consumer-board.ts'),
@@ -212,6 +251,10 @@ import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
 const engine = createBoardEngine({ plugins: [historyPlugin(), connectionsPlugin()] })
+engine.plugins.history.canUndo()
+engine.plugins.connections.getEdges()
+engine.on('history:push', entry => entry.label)
+engine.on('edge:created', edge => edge.id)
 const node = engine.createNode({ type: 'text', text: 'packed' })
 engine.select(node.id)
 getSelectionBounds(engine)
@@ -219,6 +262,20 @@ engine.exportDocument()
 void BoardRoot
 void BoardConnectionLayer
 void BoardMinimap
+
+const bare = createBoardEngine()
+// @ts-expect-error History is absent without its plugin.
+bare.plugins.history.canUndo()
+// @ts-expect-error Connections are absent without their plugin.
+bare.plugins.connections.getEdges()
+// @ts-expect-error Pointer sessions are absent from the supported engine API.
+bare.beginNodeDrag('node', 1, { x: 0, y: 0 })
+
+declare const enabled: boolean
+const conditionalPlugins = enabled ? [historyPlugin()] as const : [] as const
+const conditional = createBoardEngine({ plugins: conditionalPlugins })
+// @ts-expect-error Conditional plugins are not guaranteed capabilities.
+conditional.plugins.history.canUndo()
 `,
 )
 writeFileSync(

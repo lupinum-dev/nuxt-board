@@ -1,11 +1,11 @@
 # nuxt-board
 
-Nuxt module for [Vue Board](https://vue-board.vercel.app/api/vue-board) that wires board component/composable auto-imports, helper imports, styles, and package transpilation.
+Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, styles, and package transpilation.
 
 ## What It Does
 
-- Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, and `BoardSnapGuides`
-- Auto-imports the core board composables from `@lupinum/vue-board`
+- Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, `BoardSnapGuides`, and `BoardMinimap`
+- Auto-imports the core board composables plus `useMinimap`
 - Auto-imports `createBoardEngine`
 - Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
 - Transpiles `@lupinum/vue-board` and `@lupinum/board-core` for Nuxt so workspace and linked installs behave consistently
@@ -54,7 +54,7 @@ engine.createNode({
 
 ## SSR Notes
 
-With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum/nuxt-board/tree/main/packages/nuxt-board/playground).
+With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/Mat4m0/canvas/tree/main/packages/nuxt-board/playground).
 
 ## Module Options
 

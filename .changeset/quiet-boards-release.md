@@ -6,4 +6,4 @@
 'nuxt-board': minor
 ---
 
-Ship the vNext hard cutover with atomic transactions, structural history, inferred plugin APIs, typed document persistence, sealed framework interaction, discriminated nodes, corrected package boundaries, and release-grade declarations and verification.
+Release atomic transactions, isolated post-commit error reporting, structural history, inferred plugin APIs, typed document persistence, the first-party interaction ABI, discriminated nodes, corrected package boundaries, and release-grade declarations and verification.

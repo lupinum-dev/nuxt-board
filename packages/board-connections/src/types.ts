@@ -18,11 +18,7 @@ export interface ConnectionsEventMap extends BoardEventMap {
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'
 /** Routing strategy used when rendering a connection edge. */
 export type ConnectionRouting =
-  | 'bezier'
-  | 'smooth-step'
-  | 'step'
-  | 'straight'
-  | 'arc'
+  'bezier' | 'smooth-step' | 'step' | 'straight' | 'arc'
 /** How UI-created and reconnected edge endpoints choose node anchors. */
 export type ConnectionEndpointMode = 'auto' | 'manual'
 /** Marker rendered at either end of an edge. */

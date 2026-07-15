@@ -15,11 +15,10 @@
     "@lupinum/board-history": "workspace:*",
     "@lupinum/ginko-docs": "file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz",
     "@lupinum/vue-board": "workspace:*",
-    "@vueuse/core": "^14.3.0",
     "nuxt": "^4.4.8",
     "nuxt-board": "workspace:*",
     "vue": "^3.5.39",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",

@@ -1,32 +1,24 @@
 import { BoardInputError } from '../errors.js'
 import type { BoardEngine, InternalInteractionAdapter } from '../types.js'
 
-const adapters = new WeakMap<BoardEngine, InternalInteractionAdapter>()
-const adapterKey = Symbol('board-interaction-adapter')
+const adapterKey = Symbol.for('@lupinum/board-core/interaction-adapter')
 
 export function registerBoardInteractionAdapter(
   engine: BoardEngine,
   adapter: InternalInteractionAdapter,
 ): void {
-  adapters.set(engine, adapter)
   Object.defineProperty(engine, adapterKey, {
     configurable: true,
-    enumerable: false,
     value: adapter,
-    writable: false,
+    enumerable: false,
   })
 }
 
 export function getRegisteredBoardInteractionAdapter(
   engine: BoardEngine,
 ): InternalInteractionAdapter {
-  const adapter =
-    adapters.get(engine) ??
-    (
-      engine as BoardEngine & {
-        readonly [adapterKey]?: InternalInteractionAdapter
-      }
-    )[adapterKey]
+  const adapter = Reflect.get(engine, adapterKey) as
+    InternalInteractionAdapter | undefined
   if (!adapter) {
     throw new BoardInputError(
       'The supplied engine was not created by createBoardEngine().',

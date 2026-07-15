@@ -110,7 +110,8 @@ export function createBatchCommandController(
   let depth = 0
   let startedAt = 0
   let validationPending = false
-  let failedWith: unknown | null = null
+  let hasFailed = false
+  let failure: unknown
 
   function flushBatchNotifications(): void {
     const pending = [...deps.batchCtrl.pending]
@@ -139,8 +140,8 @@ export function createBatchCommandController(
     depth -= 1
     if (depth !== 0) return
     try {
-      if (failedWith !== null) {
-        throw failedWith
+      if (hasFailed) {
+        throw failure
       }
       if (validationPending) {
         deps.validate('batch')
@@ -154,7 +155,8 @@ export function createBatchCommandController(
       throw error
     } finally {
       validationPending = false
-      failedWith = null
+      hasFailed = false
+      failure = undefined
     }
     deps.emitCommandAfter(
       'batch',
@@ -169,13 +171,17 @@ export function createBatchCommandController(
     try {
       fn()
     } catch (error) {
-      failedWith ??= error
+      if (!hasFailed) {
+        hasFailed = true
+        failure = error
+      }
       depth -= 1
       if (depth === 0) {
         validationPending = false
         deps.batchCtrl.depth -= 1
         rollbackBatchNotifications()
-        failedWith = null
+        hasFailed = false
+        failure = undefined
       }
       throw error
     }

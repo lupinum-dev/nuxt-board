@@ -91,9 +91,10 @@ subscriptions, plugin slices, and history unchanged.
 
 ## Plugins
 
-Plugins are sealed first-party infrastructure. They are installed only during
-engine construction and own one named API plus, when needed, one immutable
-slice. Applications should not import `@lupinum/board-core/internal`.
+Plugins are first-party infrastructure. They are installed only during engine
+construction and own one named API plus, when needed, one immutable slice.
+`@lupinum/board-core/internal` is an exported but unsupported first-party ABI;
+applications should use the root entrypoint instead.
 
 The plugin tuple controls public typing. A bare engine has neither
 `plugins.connections` nor connection event types; installing the connections
@@ -111,8 +112,11 @@ Persistent entity and successful command lifecycle events are queued until
 publication. `command:blocked` and `validation:failed` are explicit failure
 telemetry. Runtime interaction events use the session path. Internal commit
 projection and history finalize before public listeners run, so listener-created
-commands become independent commits. Listener exceptions cannot undo an already
-committed command; the event bus isolates and reports them.
+commands become independent commits. Listener, subscriber, and finalized
+commit-effect exceptions cannot undo an already committed command; the engine
+isolates and reports them through `onUnhandledError`. Commit effects may update
+their own bookkeeping and emit events, but cannot reenter board mutation or
+destroy the engine during finalization.
 
 Boundary and lifecycle failures use the small public error taxonomy:
 `BoardInputError`, `BoardNotFoundError`, `BoardConflictError`,
@@ -134,16 +138,9 @@ the Vue render shell. `BoardConnectionLayer` always uses its enclosing
 
 ## Verification
 
-Use the narrowest relevant check while developing, then run the release matrix:
-
-- `pnpm format:check`
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test:unit`
-- `pnpm build:packages`
-- `pnpm test:docs`
-- `pnpm pack:check`
-- `pnpm test:e2e` for rendering or interaction changes
+Use the narrowest relevant check while developing, then run `pnpm verify`.
+Run `pnpm test:e2e` for rendering or interaction changes. Maintainers use
+`pnpm release:verify` as the final-SHA release gate.
 
 Packed-consumer checks must resolve generated declarations rather than source
 aliases. Nuxt fixtures cover both default and prefixed auto-import names.

@@ -43,8 +43,7 @@ function findNodeId(target: EventTarget | null): string | undefined {
 function findHandle(target: EventTarget | null): ResizeHandle | undefined {
   return target instanceof HTMLElement
     ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as
-        | ResizeHandle
-        | undefined)
+        ResizeHandle | undefined)
     : undefined
 }
 

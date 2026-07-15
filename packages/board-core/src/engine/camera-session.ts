@@ -4,6 +4,7 @@ import {
   AnimationCancelled,
   getAnimationFrameDriver,
 } from '../helpers/animation.js'
+import { validateCamera } from './options.js'
 import type {
   BoardNode,
   Bounds,
@@ -29,6 +30,7 @@ export function createCameraSession(deps: CameraSessionDeps) {
   }
 
   async function animateTo(target: Camera): Promise<void> {
+    validateCamera(target)
     animationToken += 1
     const token = animationToken
     const start = { ...deps.getCamera() }

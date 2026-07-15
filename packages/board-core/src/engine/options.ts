@@ -1,4 +1,4 @@
-import { BoardInputError } from '../errors.js'
+import { BoardConflictError, BoardInputError } from '../errors.js'
 import type {
   BoardEngineOptions,
   BoardPlugin,
@@ -32,6 +32,13 @@ function requirePositive(name: string, value: number): void {
   }
 }
 
+/** Validate a camera before it becomes observable runtime state. */
+export function validateCamera(camera: Camera): void {
+  requireFinite('camera.x', camera.x)
+  requireFinite('camera.y', camera.y)
+  requirePositive('camera.z', camera.z)
+}
+
 /** Validate the complete runtime grid contract used by constructor and updates. */
 export function validateGridSettings(grid: GridSettings): void {
   requirePositive('grid.size', grid.size)
@@ -54,9 +61,7 @@ export function validateGridSettings(grid: GridSettings): void {
 export function validateBoardConfiguration(
   config: ResolvedBoardConfiguration,
 ): void {
-  requireFinite('camera.x', config.camera.x)
-  requireFinite('camera.y', config.camera.y)
-  requirePositive('camera.z', config.camera.z)
+  validateCamera(config.camera)
 
   requirePositive('zoom.min', config.zoom.min)
   requirePositive('zoom.max', config.zoom.max)
@@ -101,7 +106,7 @@ export function validateBoardConfiguration(
   const pluginNames = new Set<string>()
   for (const plugin of config.plugins) {
     if (pluginNames.has(plugin.name)) {
-      throw new BoardInputError(
+      throw new BoardConflictError(
         `Board plugin name "${plugin.name}" is registered more than once.`,
       )
     }

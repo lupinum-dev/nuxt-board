@@ -47,11 +47,12 @@ interface TransactionExecutorDeps<TRoot> {
     metadata: CommandMetadata,
     historyBefore: InternalHistoryRoot | null,
   ) => InternalHistoryRoot | null
-  publishCommit: (
+  prepareCommit: (
     label: string,
     metadata: CommandMetadata,
     before: InternalHistoryRoot,
-  ) => void
+  ) => PreparedCommit | null
+  reportCommitError: (label: string, error: unknown) => void
   validate: (context: string) => void
   isCancellation: (error: unknown) => boolean
 }
@@ -60,6 +61,11 @@ interface CommitOverride {
   before: InternalHistoryRoot
   label: string
   metadata: CommandMetadata
+}
+
+export interface PreparedCommit {
+  readonly label: string
+  readonly finalize: () => readonly unknown[]
 }
 
 /** Own guarded command staging, validation, publication, and rollback order. */
@@ -125,17 +131,21 @@ export function createTransactionExecutor<TRoot>(
         else deps.validate(name)
       }
       const commitBefore = commitOverride?.before ?? historyBefore
-      if (commitBefore) {
-        deps.publishCommit(
-          commitOverride?.label ?? name,
-          commitOverride?.metadata ?? metadata,
-          commitBefore,
-        )
-      }
+      const preparedCommit = commitBefore
+        ? deps.prepareCommit(
+            commitOverride?.label ?? name,
+            commitOverride?.metadata ?? metadata,
+            commitBefore,
+          )
+        : null
+      const commitErrors = preparedCommit?.finalize() ?? []
       if (!inBatch) {
         deps.emitAfter(name, args, performance.now() - started, metadata)
       }
       if (ownsEffects) deps.commitEffects()
+      for (const error of commitErrors) {
+        deps.reportCommitError(preparedCommit!.label, error)
+      }
       return result
     } catch (error) {
       if (checkpoint) deps.rollbackPersistentTransaction(checkpoint)

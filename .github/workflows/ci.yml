@@ -16,7 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20.19.0, 22]
+        include:
+          - node: 20.19.0
+            command: release:verify
+          - node: 22
+            command: verify
 
     steps:
       - name: Checkout
@@ -36,36 +40,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Production audit
-        run: pnpm audit --prod --audit-level high
-
-      - name: Format
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Unit tests
-        run: pnpm test:unit
-
-      - name: Build packages
-        run: pnpm build:packages
-
-      - name: Docs checks
-        run: pnpm test:docs
-
-      - name: Pack smoke tests
-        run: pnpm pack:check
-
-      - name: Changesets status
-        run: pnpm changeset status
-
-      - name: End-to-end tests
-        if: matrix.node == '20.19.0'
-        run: pnpm exec playwright test --ignore-snapshots
+      - name: Verify
+        run: pnpm ${{ matrix.command }}
 
   visual-regression:
     name: visual regression (macOS)
