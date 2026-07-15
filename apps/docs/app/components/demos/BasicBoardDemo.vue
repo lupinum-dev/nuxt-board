@@ -79,13 +79,14 @@ function seed() {
 }
 
 function addNode() {
+  const index = nodeCount.value - 4
   engine.createNode({
     type: 'text',
-    x: 180 + Math.round(Math.random() * 320),
-    y: 140 + Math.round(Math.random() * 160),
+    x: 180 + (index % 3) * 120,
+    y: 140 + (index % 2) * 100,
     width: 220,
     height: 100,
-    text: 'Node',
+    text: `Planning note ${index + 1}`,
   })
   syncNodeCount()
 }

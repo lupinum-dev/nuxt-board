@@ -108,8 +108,7 @@ describe('docs demo contracts', () => {
 
     for (const file of [
       'README.md',
-      'apps/docs/content/8.oss/1.contributing.md',
-      'apps/docs/content/8.oss/2.release-workflow.md',
+      'apps/docs/content/docs/7.project/1.contributing.md',
     ]) {
       const source = read(file)
       for (const check of checks) {
@@ -119,7 +118,9 @@ describe('docs demo contracts', () => {
   })
 
   it('documents only public board-core utility exports', () => {
-    const source = read('apps/docs/content/6.api/3.board-core-math.md')
+    const source = read('apps/docs/content/docs/6.reference/2.board-core.md').split(
+      '## Math Helpers',
+    )[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,
@@ -133,7 +134,7 @@ describe('docs demo contracts', () => {
 
   it('documents the board-core internal subpath as first-party ABI only', () => {
     for (const file of [
-      'apps/docs/content/6.api/1.board-core.md',
+      'apps/docs/content/docs/6.reference/2.board-core.md',
       'ARCHITECTURE.md',
       'packages/board-core/README.md',
     ]) {
@@ -145,7 +146,7 @@ describe('docs demo contracts', () => {
   })
 
   it('documents public board-connections utility exports', () => {
-    const source = read('apps/docs/content/6.api/7.board-connections.md')
+    const source = read('apps/docs/content/docs/6.reference/6.connections.md')
 
     for (const helper of [
       'resolveAnchorPoint',
@@ -178,32 +179,35 @@ describe('docs demo contracts', () => {
     }
   })
 
-  it('serves raw docs from source markdown', () => {
-    const source = read('apps/docs/server/routes/raw/[...slug].md.get.ts')
+  it('keeps docs frontmatter and public runtime exports discoverable', () => {
+    const files = filesIn('apps/docs/content/docs').filter(
+      (file) => file.endsWith('.md') && !file.endsWith('/index.md'),
+    )
+    const reference = filesIn('apps/docs/content/docs/6.reference')
+      .filter((file) => file.endsWith('.md'))
+      .map(read)
+      .join('\n')
 
-    expect(source).toContain("readFile(file, 'utf8')")
-    expect(source).not.toContain('minimark')
-    expect(source).not.toContain('queryCollection')
-  })
-
-  it('does not initialize client-side content search on page load', () => {
-    for (const file of [
-      'apps/docs/app/app.vue',
-      'apps/docs/app/error.vue',
-      'apps/docs/app/components/AppHeader.vue',
-    ]) {
+    for (const file of files) {
       const source = read(file)
+      expect(source, file).toMatch(/^---\n/)
+      expect(source, file).toMatch(/^audience:\s/m)
+      expect(source, file).toMatch(/^intent:\s/m)
+    }
 
-      expect(source, file).not.toContain('queryCollectionSearchSections')
-      expect(source, file).not.toContain('UContentSearch')
+    for (const name of [
+      ...Object.keys(boardCore),
+      ...Object.keys(boardConnections),
+    ]) {
+      expect(reference, `reference should mention ${name}`).toContain(name)
     }
   })
 
   it('keeps security reporting contact consistent', () => {
     expect(read('SECURITY.md')).toContain('security@lupinum.dev')
-    expect(read('apps/docs/content/8.oss/3.support-and-security.md')).toContain(
-      'security@lupinum.dev',
-    )
+    expect(
+      read('apps/docs/content/docs/7.project/2.support-and-security.md'),
+    ).toContain('security@lupinum.dev')
   })
 
   it('does not pass runtime snapshots directly to loadDocument in demos', () => {

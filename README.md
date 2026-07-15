@@ -125,11 +125,11 @@ pnpm audit --prod --audit-level high
 
 ## Docs
 
-- [Introduction](apps/docs/content/1.getting-started/1.introduction.md)
-- [Quick Start](apps/docs/content/1.getting-started/3.quick-start.md)
-- [Core Concepts](apps/docs/content/2.essentials/1.core-concepts.md)
-- [Performance](apps/docs/content/3.guides/9.performance.md)
-- [API Reference](apps/docs/content/6.api)
-- [Contributing](apps/docs/content/8.oss/1.contributing.md)
+- [Why Vue Board](apps/docs/content/1.evaluate/1.why-vue-board.md)
+- [Your First Board](apps/docs/content/2.start-building/2.your-first-board.md)
+- [How Vue Board Works](apps/docs/content/1.evaluate/2.how-vue-board-works.md)
+- [Performance](apps/docs/content/4.build-features/9.performance.md)
+- [API Reference](apps/docs/content/6.reference)
+- [Contributing](apps/docs/content/7.project/1.contributing.md)
 
-API reference pages are maintained with the docs content in `apps/docs/content/6.api`.
+API reference pages are maintained with the docs content in `apps/docs/content/6.reference`.

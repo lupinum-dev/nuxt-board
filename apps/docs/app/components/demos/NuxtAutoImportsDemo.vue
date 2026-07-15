@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { createBoardEngine, createDemoDocument } from '#imports'
 
-// Intentionally no imports from @lupinum/* here.
-// This component exercises the auto-imports provided by nuxt-board.
+// The generated #imports entry verifies the helpers are registered by nuxt-board.
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
 })

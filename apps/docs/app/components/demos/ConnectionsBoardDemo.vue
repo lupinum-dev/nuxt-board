@@ -21,6 +21,7 @@ const INPUT_ID = asNodeId('input')
 const PARSE_ID = asNodeId('parse')
 const SCORE_ID = asNodeId('score')
 const OUTPUT_ID = asNodeId('output')
+let shuffleStep = 0
 
 function seed() {
   engine.loadDocument(
@@ -35,7 +36,7 @@ function seed() {
           y: 150,
           width: 180,
           height: 96,
-          text: 'Node',
+          text: 'Collect input',
           zIndex: 1,
           locked: false,
           visible: true,
@@ -47,7 +48,7 @@ function seed() {
           y: 80,
           width: 200,
           height: 96,
-          text: 'Node',
+          text: 'Normalize data',
           zIndex: 2,
           locked: false,
           visible: true,
@@ -59,7 +60,7 @@ function seed() {
           y: 240,
           width: 200,
           height: 96,
-          text: 'Node',
+          text: 'Score result',
           zIndex: 3,
           locked: false,
           visible: true,
@@ -71,7 +72,7 @@ function seed() {
           y: 150,
           width: 180,
           height: 96,
-          text: 'Node',
+          text: 'Publish output',
           zIndex: 4,
           locked: false,
           visible: true,
@@ -113,17 +114,18 @@ function seed() {
 }
 
 function shuffle() {
+  shuffleStep = (shuffleStep + 1) % 3
   engine.updateNode(PARSE_ID, {
-    x: 320 + Math.round(Math.random() * 70),
-    y: 60 + Math.round(Math.random() * 60),
+    x: 320 + shuffleStep * 28,
+    y: 60 + shuffleStep * 22,
   })
   engine.updateNode(SCORE_ID, {
-    x: 320 + Math.round(Math.random() * 70),
-    y: 220 + Math.round(Math.random() * 60),
+    x: 360 - shuffleStep * 20,
+    y: 220 + shuffleStep * 18,
   })
   engine.updateNode(OUTPUT_ID, {
-    x: 620 + Math.round(Math.random() * 80),
-    y: 120 + Math.round(Math.random() * 80),
+    x: 620 + shuffleStep * 26,
+    y: 120 + shuffleStep * 24,
   })
 }
 

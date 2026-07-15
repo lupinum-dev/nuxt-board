@@ -1,29 +1,12 @@
-import { defineContentConfig, defineCollection, z } from '@nuxt/content'
+import { defineGinkoDocsConfig } from '@lupinum/ginko-docs/content'
 
-export default defineContentConfig({
-  collections: {
-    landing: defineCollection({
-      type: 'page',
-      source: 'index.md',
-    }),
-    docs: defineCollection({
-      type: 'page',
-      source: {
-        include: '**',
-        exclude: ['index.md', '4.api/**'],
-      },
-      schema: z.object({
-        links: z
-          .array(
-            z.object({
-              label: z.string(),
-              icon: z.string(),
-              to: z.string(),
-              target: z.string().optional(),
-            }),
-          )
-          .optional(),
-      }),
-    }),
+export default defineGinkoDocsConfig({
+  site: {
+    name: 'Vue Board',
+    description: 'A command-driven board engine and Vue renderer for products that need a real document model.',
+    url: 'https://vue-board.vercel.app'
   },
+  locales: ['en'],
+  defaultLocale: 'en',
+  blog: false
 })

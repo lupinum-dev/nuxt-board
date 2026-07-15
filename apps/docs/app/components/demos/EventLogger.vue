@@ -56,13 +56,14 @@ function seed() {
 }
 
 function addNode() {
+  const index = engine.getState().nodes.size - 2
   engine.createNode({
     type: 'text',
-    x: 120 + Math.round(Math.random() * 320),
-    y: 80 + Math.round(Math.random() * 180),
+    x: 120 + (index % 3) * 140,
+    y: 80 + (index % 2) * 120,
     width: 220,
     height: 110,
-    text: 'Node',
+    text: `Observed command ${index + 1}`,
   })
 }
 

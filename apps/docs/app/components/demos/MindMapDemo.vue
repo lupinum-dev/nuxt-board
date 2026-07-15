@@ -156,8 +156,8 @@ function addBranch() {
 
   const newNode = engine.createNode({
     type: 'text',
-    x: parentNode.x + 260 + Math.round(Math.random() * 40),
-    y: parentNode.y + Math.round(Math.random() * 120 - 60),
+    x: parentNode.x + 260 + (branchCount % 2) * 32,
+    y: parentNode.y + ((branchCount % 3) - 1) * 60,
     width: 200,
     height: 90,
     text: `New topic ${branchCount}`,

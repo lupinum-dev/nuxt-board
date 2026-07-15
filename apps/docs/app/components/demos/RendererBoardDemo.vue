@@ -14,6 +14,8 @@ const renderers: BoardRendererRegistry = {
   text: DocsInsightNode,
   group: DocsMetricNode,
 }
+let insightCount = 0
+let metricCount = 0
 
 function seed() {
   engine.loadDocument(
@@ -67,10 +69,11 @@ function seed() {
 }
 
 function addInsight() {
+  insightCount++
   engine.createNode({
     type: 'text',
-    x: 160 + Math.round(Math.random() * 260),
-    y: 80 + Math.round(Math.random() * 160),
+    x: 160 + (insightCount % 3) * 120,
+    y: 80 + (insightCount % 2) * 130,
     width: 250,
     height: 160,
     text: 'New insight\nUse a text node with a renderer registered for the JSON Canvas text type.',
@@ -78,10 +81,11 @@ function addInsight() {
 }
 
 function addMetric() {
+  metricCount++
   engine.createNode({
     type: 'group',
-    x: 180 + Math.round(Math.random() * 320),
-    y: 90 + Math.round(Math.random() * 140),
+    x: 180 + (metricCount % 3) * 140,
+    y: 90 + (metricCount % 2) * 120,
     width: 230,
     height: 160,
     label:
