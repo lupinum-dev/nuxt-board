@@ -5,8 +5,7 @@ export default {
       name: { en: 'Vue Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
       logo: { light: '/favicon.ico', dark: '/favicon.ico' },
-      localeSwitcher: 'dropdown',
-      docsSidebarSwitcher: 'list'
+      localeSwitcher: 'dropdown'
     },
     social: { github: 'https://github.com/lupinum-dev/nuxt-board' },
     repository: {
