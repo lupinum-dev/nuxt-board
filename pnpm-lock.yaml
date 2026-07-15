@@ -83,8 +83,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/board-history
       '@lupinum/ginko-docs':
-        specifier: file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz
-        version: file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz(00bd8b44d7f9edd32a66b7a42ecd7862)
+        specifier: file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz
+        version: file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz(00bd8b44d7f9edd32a66b7a42ecd7862)
       '@lupinum/vue-board':
         specifier: workspace:*
         version: link:../../packages/vue-board
@@ -1172,8 +1172,8 @@ packages:
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
-  '@lupinum/ginko-content@0.3.0-rc.1':
-    resolution: {integrity: sha512-Fwgd3AkUDYaV9LL3UpGS3txR/RuQGFIfVQ8/Vl/+eREWALbmQpjac2tjkYcvkBF1AUVSpUfuu4YoMQLLArthXg==}
+  '@lupinum/ginko-content@0.3.0-rc.2':
+    resolution: {integrity: sha512-1PIhLmBVfHD1DFUcTXsz1cTNrfSQb7OsRsuEQninbcGDuxVuOuHHtYxULriM5EFSaqEz/7B/BXbnwJA6TqDUhg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
     peerDependencies:
@@ -1187,9 +1187,9 @@ packages:
       vitest:
         optional: true
 
-  '@lupinum/ginko-docs@file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz':
-    resolution: {integrity: sha512-tqlQROCprbDuX2+PGxEkZPUO/EwicBmnBP0rUFk/CgB9UFhbLFMUdyTUehpFd9aie2lU3PgDWif6fWWtgI2UVg==, tarball: file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz}
-    version: 0.2.0
+  '@lupinum/ginko-docs@file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz':
+    resolution: {integrity: sha512-2rqDCBMJsXVoE24wutFQmcpN1fXp26iAiqTJSj8MojBojIr1rwauWsyCjJQuU0tlT7y04qbFYtQ25nVkKcPfbQ==, tarball: file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz}
+    version: 0.2.1
     peerDependencies:
       nuxt: ^4.4.6
       vue: ^3.5.35
@@ -8459,7 +8459,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@lupinum/ginko-content@0.3.0-rc.1(6a4d2c009cee70df82f06c1ffa152a02)':
+  '@lupinum/ginko-content@0.3.0-rc.2(6a4d2c009cee70df82f06c1ffa152a02)':
     dependencies:
       '@comark/vue': 0.4.0(shiki@4.3.1)(vue@3.5.39(typescript@5.9.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
@@ -8542,12 +8542,12 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-docs@file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz(00bd8b44d7f9edd32a66b7a42ecd7862)':
+  '@lupinum/ginko-docs@file:../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz(00bd8b44d7f9edd32a66b7a42ecd7862)':
     dependencies:
       '@iconify-json/circle-flags': 1.2.10
       '@iconify-json/logos': 1.2.11
       '@iconify-json/lucide': 1.2.117
-      '@lupinum/ginko-content': 0.3.0-rc.1(6a4d2c009cee70df82f06c1ffa152a02)
+      '@lupinum/ginko-content': 0.3.0-rc.2(6a4d2c009cee70df82f06c1ffa152a02)
       '@nuxt/fonts': 0.14.0(db0@0.3.4(better-sqlite3@12.9.0))(esbuild@0.28.1)(ioredis@5.11.1)(magicast@0.5.3)(rolldown@1.0.0-rc.16)(rollup@4.62.2)(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0))
       '@nuxt/icon': 2.3.1(magicast@0.5.3)(vite@7.3.6(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
       '@nuxt/image': 2.0.0(db0@0.3.4(better-sqlite3@12.9.0))(ioredis@5.11.1)(magicast@0.5.3)
