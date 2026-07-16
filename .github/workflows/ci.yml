@@ -43,6 +43,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Chromium
+        if: matrix.command == 'release:verify'
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Verify
         run: pnpm ${{ matrix.command }}
 
