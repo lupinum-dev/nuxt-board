@@ -11,85 +11,123 @@ permissions:
 
 jobs:
   deploy-preview:
-    if: ${{ github.event_name == 'pull_request' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
     steps:
+      - name: Check deployment configuration
+        id: config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [[ -n "$VERCEL_TOKEN" && -n "$VERCEL_ORG_ID" && -n "$VERCEL_PROJECT_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        if: steps.config.outputs.enabled == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.10.0
 
       - name: Setup Node
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
+        if: steps.config.outputs.enabled == 'true'
         run: pnpm build:packages
 
       - name: Pull Vercel preview settings
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         run: pnpm dlx vercel@56.2.0 pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build docs preview
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         env:
           NUXT_PUBLIC_SITE_URL: ${{ vars.DOCS_PREVIEW_URL || 'https://vue-board.vercel.app' }}
         run: pnpm dlx vercel@56.2.0 build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy docs preview
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         run: pnpm dlx vercel@56.2.0 deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
 
   deploy-production:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
     steps:
+      - name: Check deployment configuration
+        id: config
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [[ -n "$VERCEL_TOKEN" && -n "$VERCEL_ORG_ID" && -n "$VERCEL_PROJECT_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Setup pnpm
+        if: steps.config.outputs.enabled == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.10.0
 
       - name: Setup Node
+        if: steps.config.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
+        if: steps.config.outputs.enabled == 'true'
         run: pnpm build:packages
 
       - name: Pull Vercel production settings
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         run: pnpm dlx vercel@56.2.0 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build docs production bundle
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         env:
           NUXT_PUBLIC_SITE_URL: ${{ vars.DOCS_SITE_URL || 'https://vue-board.vercel.app' }}
         run: pnpm dlx vercel@56.2.0 build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy docs production bundle
+        if: steps.config.outputs.enabled == 'true'
         working-directory: apps/docs
         run: pnpm dlx vercel@56.2.0 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
