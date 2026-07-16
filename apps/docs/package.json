@@ -5,7 +5,7 @@
   "scripts": {
     "build": "nuxt build --preset vercel",
     "dev": "nuxt dev",
-    "lint": "eslint .",
+    "lint": "nuxt prepare && eslint .",
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck"
   },
