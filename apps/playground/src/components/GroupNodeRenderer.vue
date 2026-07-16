@@ -44,12 +44,12 @@ function commit(): void {
   engine.updateNode(props.node.id, {
     label: trimmed || 'Untitled group',
   })
-  engine.endInteraction()
+  engine.cancelTextEdit()
 }
 
 function cancel(): void {
   draft.value = title.value
-  engine.endInteraction()
+  engine.cancelTextEdit()
 }
 </script>
 

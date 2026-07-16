@@ -3,88 +3,87 @@ import { computed, onMounted, ref } from 'vue'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import { createDemoDocument } from '../../utils/demoDocument'
 import {
-  connectionPlugin,
-  BoardConnectionLayer,
+  connectionsPlugin,
   type ConnectionRouting,
 } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { historyPlugin } from '@lupinum/board-history'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardMinimap } from '@lupinum/vue-board/minimap'
 
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
-  extensions: [historyPlugin(), connectionPlugin()],
+  plugins: [historyPlugin(), connectionsPlugin()],
 })
 
-const historyState = computed(() => engine.ext.history.getState())
+const historyState = computed(() => engine.plugins.history.getState())
 const routing = ref<ConnectionRouting>('bezier')
 const INPUT_ID = asNodeId('input')
 const PARSE_ID = asNodeId('parse')
 const SCORE_ID = asNodeId('score')
 const OUTPUT_ID = asNodeId('output')
+let shuffleStep = 0
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: -80, y: -40, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'input',
-            type: 'text',
-            x: 80,
-            y: 150,
-            width: 180,
-            height: 96,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'parse',
-            type: 'text',
-            x: 340,
-            y: 80,
-            width: 200,
-            height: 96,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'score',
-            type: 'text',
-            x: 340,
-            y: 240,
-            width: 200,
-            height: 96,
-            text: 'Node',
-            zIndex: 3,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'output',
-            type: 'text',
-            x: 650,
-            y: 150,
-            width: 180,
-            height: 96,
-            text: 'Node',
-            zIndex: 4,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 5,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: -80, y: -40, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'input',
+          type: 'text',
+          x: 80,
+          y: 150,
+          width: 180,
+          height: 96,
+          text: 'Collect input',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'parse',
+          type: 'text',
+          x: 340,
+          y: 80,
+          width: 200,
+          height: 96,
+          text: 'Normalize data',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'score',
+          type: 'text',
+          x: 340,
+          y: 240,
+          width: 200,
+          height: 96,
+          text: 'Score result',
+          zIndex: 3,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'output',
+          type: 'text',
+          x: 650,
+          y: 150,
+          width: 180,
+          height: 96,
+          text: 'Publish output',
+          zIndex: 4,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 5,
+    }),
+    { mode: 'replace' },
   )
-  const connections = engine.ext.connections
+  const connections = engine.plugins.connections
   for (const edge of connections.getEdges()) {
     connections.deleteEdge(edge.id)
   }
@@ -115,17 +114,18 @@ function seed() {
 }
 
 function shuffle() {
+  shuffleStep = (shuffleStep + 1) % 3
   engine.updateNode(PARSE_ID, {
-    x: 320 + Math.round(Math.random() * 70),
-    y: 60 + Math.round(Math.random() * 60),
+    x: 320 + shuffleStep * 28,
+    y: 60 + shuffleStep * 22,
   })
   engine.updateNode(SCORE_ID, {
-    x: 320 + Math.round(Math.random() * 70),
-    y: 220 + Math.round(Math.random() * 60),
+    x: 360 - shuffleStep * 20,
+    y: 220 + shuffleStep * 18,
   })
   engine.updateNode(OUTPUT_ID, {
-    x: 620 + Math.round(Math.random() * 80),
-    y: 120 + Math.round(Math.random() * 80),
+    x: 620 + shuffleStep * 26,
+    y: 120 + shuffleStep * 24,
   })
 }
 
@@ -167,14 +167,14 @@ onMounted(async () => {
         </button>
       </span>
       <button
-        :disabled="!engine.ext.history.canUndo()"
-        @click="engine.ext.history.undo()"
+        :disabled="!engine.plugins.history.canUndo()"
+        @click="engine.plugins.history.undo()"
       >
         Undo
       </button>
       <button
-        :disabled="!engine.ext.history.canRedo()"
-        @click="engine.ext.history.redo()"
+        :disabled="!engine.plugins.history.canRedo()"
+        @click="engine.plugins.history.redo()"
       >
         Redo
       </button>

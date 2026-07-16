@@ -26,10 +26,10 @@ engine.createNode({
 </template>
 ```
 
-Keep the `engine` instance passed to `BoardRoot` stable after mount. To replace board contents, load them through engine commands such as `importJSON`.
+Keep the `engine` instance passed to `BoardRoot` stable after mount. To replace board contents, load them through engine commands such as `loadDocument`.
 
 Peer dependency: Vue 3.5 or newer.
 
-- Docs: https://vue-board.vercel.app/api/vue-board
-- Issues: https://github.com/lupinum/nuxt-board/issues
+- Docs: https://vue-board.vercel.app/docs/reference/vue-board
+- Issues: https://github.com/Mat4m0/canvas/issues
 - License: MIT

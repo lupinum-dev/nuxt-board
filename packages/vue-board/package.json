@@ -4,6 +4,9 @@
   "description": "Vue 3 board components and composables built on top of @lupinum/board-core.",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,16 +18,20 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./minimap": {
+      "types": "./dist/minimap.d.ts",
+      "import": "./dist/minimap.js"
+    },
     "./style.css": "./dist/index.css"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum/nuxt-board.git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
     "directory": "packages/vue-board"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum/nuxt-board/issues"
+    "url": "https://github.com/Mat4m0/canvas/issues"
   },
   "keywords": [
     "board",
@@ -37,12 +44,10 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && vue-tsc -p tsconfig.build.json"
-  },
-  "dependencies": {
-    "@lupinum/board-core": "workspace:*"
+    "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/normalize-vue-declarations.mjs dist"
   },
   "peerDependencies": {
+    "@lupinum/board-core": "workspace:>=0.1.0 <1.0.0",
     "vue": "^3.5.0"
   }
 }

@@ -17,7 +17,7 @@ Use this reference for first-party feature packages, JSON Canvas persistence, an
 - Connections engine plugin: `packages/board-connections/src/plugin.ts`
 - Connections Vue layer: `packages/board-connections/src/layer.ts`
 - History plugin: `packages/board-history/src/index.ts`
-- Minimap component/composable: `packages/board-minimap/src/index.ts`
+- Minimap component/composable: `packages/vue-board/minimap/src/index.ts`
 - Core persistence: `packages/board-core/src/engine/persistence.ts`
 - Engine import/export hooks: `packages/board-core/src/engine.ts`
 
@@ -34,13 +34,11 @@ pnpm add @lupinum/board-connections
 Both plugin and layer are required:
 
 ```ts
-import {
-  BoardConnectionLayer,
-  connectionPlugin,
-} from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 
 const engine = createBoardEngine({
-  extensions: [connectionPlugin({ routing: 'bezier' })],
+  plugins: [connectionsPlugin({ routing: 'bezier' })],
 })
 ```
 
@@ -60,7 +58,7 @@ Create edges after endpoint nodes exist:
 const source = engine.createNode({ type: 'text', text: 'Source' })
 const target = engine.createNode({ type: 'text', x: 420, text: 'Target' })
 
-engine.ext.connections.createEdge({
+engine.plugins.connections.createEdge({
   from: source.id,
   to: target.id,
   label: 'depends on',
@@ -73,7 +71,7 @@ Endpoint mode:
 - `auto`: UI-created edges store no anchors and resolve best sides as nodes move.
 - `manual`: UI-created edges store side offsets chosen by the user.
 
-`BoardConnectionLayer` can be rendered as a direct/default child of `BoardRoot`; it teleports and transforms its SVG layer itself. Its `engine` prop is optional, but the layer must still render under `BoardRoot` because it uses board DOM and camera context.
+`BoardConnectionLayer` renders as a child of `BoardRoot` and always uses that root's engine, DOM, and camera context. It intentionally has no separate `engine` prop.
 
 ## History
 
@@ -87,13 +85,13 @@ pnpm add @lupinum/board-history
 import { historyPlugin } from '@lupinum/board-history'
 
 const engine = createBoardEngine({
-  extensions: [historyPlugin({ maxSteps: 100, debounceMs: 500 })],
+  plugins: [historyPlugin({ maxSteps: 100 })],
 })
 ```
 
-Use `engine.ext.history.undo()` and `redo()`. Read methods such as `canUndo()`, `canRedo()`, and `getState()` do not flush pending entries. Call `flushPending()` when the UI needs to commit a debounced move/update before reading stack availability.
+Use `engine.plugins.history.undo()` and `redo()`. History is updated synchronously after each successful outer command, completed gesture, or batch.
 
-History defaults are `maxSteps: 200` and `debounceMs: 300`. It debounces coalescable move and node-update commands, not arbitrary command sequences. If connections are installed, node deletion undo restores connected edges.
+History defaults to `maxSteps: 200`. It stores committed structural roots without action replay or timers. If connections are installed, node deletion undo restores connected edges.
 
 History is runtime state. Do not persist undo/redo stacks in board documents.
 
@@ -102,7 +100,7 @@ History is runtime state. Do not persist undo/redo stacks in board documents.
 Install when overview navigation is needed:
 
 ```bash
-pnpm add @lupinum/board-minimap
+pnpm add @lupinum/vue-board
 ```
 
 Render under `BoardRoot`:
@@ -117,34 +115,33 @@ Minimap has no engine plugin. `BoardMinimap` derives from `BoardRoot` context un
 
 ## Persistence
 
-Persist only `engine.exportJSON()` output. Import with `engine.importJSON(json, 'replace')` or `'merge'`.
+Persist only `engine.exportDocument()` output. Load with `engine.loadDocument(json, { mode: 'replace' })` or `{ mode: 'merge' }`.
 
 Do not persist:
 
 - Vue refs
 - DOM state
 - `getState()`
-- `getSnapshot()`
+- `getState()`
 - active pointer/editing interaction state
 - runtime snap guides
 
-`exportJSON()` persists JSON Canvas nodes, camera, grid, selection, z-order, lock state, visibility, hierarchy, and installed feature metadata.
+`exportDocument()` persists JSON Canvas nodes, camera, grid, selection, z-order, lock state, visibility, hierarchy, and installed feature metadata.
 
-Install the same first-party features before importing documents that use them. Documents with edges require the connections extension. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
+Install the same first-party plugins before importing documents that use them. Documents with edges require the connections plugin. History stacks, minimap viewport UI state, active gestures, and DOM state are not persisted.
 
-`importJSON()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections extension fail instead of producing a partial board.
+`loadDocument()` validates documents. Invalid node fields, invalid node colors, missing edge endpoints, unsupported edge sides/ends, duplicate IDs, or edge documents without the connections plugin fail instead of producing a partial board.
 
 ## Read-only and Command Guards
 
 Use command guards for concrete host policy such as read-only mode:
 
 ```ts
-const removeGuard = engine.addCommandGuard((name, _args, next) => {
-  if (name === 'deleteSelected' || name === 'createNode') {
-    return
-  }
-  next()
-})
+const removeGuard = engine.addCommandGuard(({ name }) =>
+  name === 'deleteSelected' || name === 'createNode'
+    ? 'Board is read-only.'
+    : true,
+)
 ```
 
 Listen to `command:blocked` when UI should explain ignored actions. Remove guards with the returned unsubscribe.

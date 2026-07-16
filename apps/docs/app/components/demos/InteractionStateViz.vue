@@ -21,42 +21,40 @@ const statusTone = computed(() => {
 })
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'state-a',
-            type: 'text',
-            x: 70,
-            y: 80,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'state-b',
-            type: 'text',
-            x: 360,
-            y: 180,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'state-a',
+          type: 'text',
+          x: 70,
+          y: 80,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'state-b',
+          type: 'text',
+          x: 360,
+          y: 180,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
+    { mode: 'replace' },
   )
 }
 

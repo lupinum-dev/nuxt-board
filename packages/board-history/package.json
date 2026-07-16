@@ -4,6 +4,9 @@
   "description": "Undo and redo plugin for @lupinum/board-core.",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,12 +21,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum/nuxt-board.git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
     "directory": "packages/board-history"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum/nuxt-board/issues"
+    "url": "https://github.com/Mat4m0/canvas/issues"
   },
   "keywords": [
     "board",
@@ -38,6 +41,6 @@
     "build": "tsup src/index.ts --format esm --clean && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:^"
+    "@lupinum/board-core": "workspace:>=0.1.0 <1.0.0"
   }
 }

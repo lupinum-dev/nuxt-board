@@ -6,186 +6,128 @@ const pageConsoleErrors = new WeakMap<Page, string[]>()
 
 function collectConsoleErrors(page: Page): string[] {
   const existing = pageConsoleErrors.get(page)
-  if (existing) {
-    return existing
-  }
+  if (existing) return existing
 
-  const consoleErrors: string[] = []
-  pageConsoleErrors.set(page, consoleErrors)
+  const errors: string[] = []
+  pageConsoleErrors.set(page, errors)
   page.on('console', (message) => {
     const text = message.text()
     if (
       text.includes('wasm streaming compile failed') ||
       text.includes('falling back to ArrayBuffer instantiation')
-    ) {
+    )
       return
-    }
     if (
       message.type() === 'error' ||
       text.includes('[Icon] failed to load icon')
     ) {
-      consoleErrors.push(text)
+      errors.push(text)
     }
   })
-  page.on('pageerror', (error) => {
-    consoleErrors.push(error.message)
-  })
-
-  return consoleErrors
+  page.on('pageerror', (error) => errors.push(error.message))
+  return errors
 }
 
 async function openDocs(page: Page, path = '/') {
-  const consoleErrors = collectConsoleErrors(page)
+  const errors = collectConsoleErrors(page)
   await page.goto(`http://127.0.0.1:4174${path}`, { waitUntil: 'commit' })
   await page.waitForLoadState('networkidle')
   await expect(page.locator('body')).toBeVisible()
-  return consoleErrors
+  return errors
 }
 
-async function exerciseExample(
-  page: Page,
-  path: string,
-  heading: string,
-  control: string | RegExp,
-) {
-  const consoleErrors = await openDocs(page, path)
-
-  await expect(page.getByRole('heading', { name: heading })).toBeVisible()
-  await expect(page.locator('.board-root').first()).toBeVisible()
-  await page.getByRole('button', { name: control }).first().click()
-  await expect(page.locator('.board-root').first()).toBeVisible()
-  expect(consoleErrors).toEqual([])
-}
-
-test('renders the docs landing page and embedded board demo', async ({
+test('renders the documentation landing page and primary navigation', async ({
   page,
 }) => {
-  const consoleErrors = await openDocs(page)
-
+  const errors = await openDocs(page)
+  await expect(page).toHaveTitle(/Vue Board/i)
+  await expect(page.getByRole('link', { name: /first board/i })).toBeVisible()
   await expect(
-    page.getByRole('heading', { name: /build spatial tools with vue board/i }),
+    page.getByRole('link', { name: /understand the system/i }),
   ).toBeVisible()
-  await expect(
-    page.getByText(/the docs use the real workspace packages/i),
-  ).toBeVisible()
-  await expect(page.locator('.board-root').first()).toBeVisible()
-  expect(consoleErrors).toEqual([])
+  expect(errors).toEqual([])
 })
 
-test('navigates to examples and api reference pages', async ({ page }) => {
-  const consoleErrors = await openDocs(page, '/examples/basic-board')
-
-  await expect(page.getByRole('heading', { name: 'Basic Board' })).toBeVisible()
+test('navigates through solutions and reference', async ({ page }) => {
+  const errors = await openDocs(page, '/docs/solutions/planning-board')
+  await expect(
+    page.getByRole('heading', { name: 'Planning Board' }),
+  ).toBeVisible()
   await expect(page.locator('.board-root').first()).toBeVisible()
-  const demo = page.getByTestId('basic-board-demo')
-  await expect(demo).toHaveAttribute('data-node-count', '4')
-  await page.getByRole('button', { name: 'Add note' }).click()
-  await expect(demo).toHaveAttribute('data-node-count', '5')
 
-  await openDocs(page, '/api/board-core')
-
+  await openDocs(page, '/docs/reference/board-core')
   await expect(
     page.getByRole('heading', { name: '@lupinum/board-core' }),
   ).toBeVisible()
+  await expect(page.locator('#createboardengine')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('exposes command state and publication order', async ({ page }) => {
+  const errors = await openDocs(page, '/docs/evaluate/how-vue-board-works')
+  await page.getByRole('button', { name: 'Rename card' }).click()
+  await expect(page.getByText('command:after', { exact: true })).toBeVisible()
   await expect(
-    page.locator('#createboardengine').getByRole('link', {
-      name: 'createBoardEngine',
-    }),
+    page.getByRole('button', { name: 'Review onboarding · approved' }),
   ).toBeVisible()
-  expect(consoleErrors).toEqual([])
+  expect(errors).toEqual([])
 })
 
-test('exercises every examples demo without console errors', async ({
-  page,
-}) => {
-  await exerciseExample(
+test('shows atomic failure without changing the document', async ({ page }) => {
+  const errors = await openDocs(
     page,
-    '/examples/basic-board',
-    'Basic Board',
-    'Add note',
+    '/docs/understand-the-system/commands-and-transactions',
   )
-  await exerciseExample(
-    page,
-    '/examples/connections-and-minimap',
-    'Connections and Minimap',
-    'Shuffle',
-  )
-  await exerciseExample(
-    page,
-    '/examples/custom-renderers',
-    'Custom Renderers',
-    'Add insight',
-  )
-  await exerciseExample(
-    page,
-    '/examples/workflow-builder',
-    'Workflow Renderer Demo',
-    'Cycle selected step',
-  )
-  await exerciseExample(page, '/examples/mind-map', 'Mind Map', 'Add branch')
-  await exerciseExample(
-    page,
-    '/examples/read-only-viewer',
-    'Read-only Viewer',
-    'Switch to edit mode',
-  )
-  await exerciseExample(
-    page,
-    '/examples/nuxt-auto-imports',
-    'Nuxt Auto-imports',
-    'Add node',
-  )
+  await page.getByRole('button', { name: 'Run failing batch' }).click()
+  await expect(page.getByText(/BoardConflictError/)).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Committed document' }),
+  ).toBeVisible()
+  expect(errors).toEqual([])
 })
 
-test('links the docs introduction to the examples section', async ({
+test('switches renderers without changing the node record', async ({
   page,
 }) => {
-  const consoleErrors = await openDocs(page, '/getting-started/introduction')
-
-  const examplesLink = page
-    .getByRole('main')
-    .getByRole('link', { name: 'Examples', exact: true })
-  await expect(examplesLink).toBeVisible()
-  await expect(examplesLink).toHaveAttribute('href', '/examples/basic-board')
-  expect(consoleErrors).toEqual([])
+  const errors = await openDocs(
+    page,
+    '/docs/start-building/customize-your-first-node',
+  )
+  await page.getByRole('button', { name: 'Task card' }).click()
+  await expect(
+    page.getByLabel('Live inspector').getByText(/"type": "text"/),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: /Approve documentation structure/ }),
+  ).toBeVisible()
+  expect(errors).toEqual([])
 })
 
-test('keeps markdown action links aligned after client navigation', async ({
+test('reports invalid persistence input without an uncaught error', async ({
   page,
 }) => {
-  const consoleErrors = await openDocs(page, '/getting-started/introduction')
-  await page
-    .getByRole('main')
-    .getByRole('link', { name: 'Examples', exact: true })
-    .click()
-  await expect(page).toHaveURL(/\/examples\/basic-board$/)
-  await expect(page.getByRole('heading', { name: 'Basic Board' })).toBeVisible({
-    timeout: 15_000,
-  })
+  const errors = await openDocs(
+    page,
+    '/docs/understand-the-system/persistence-and-json-canvas',
+  )
+  await page.getByRole('button', { name: 'Load invalid JSON' }).click()
+  await page.getByRole('button', { name: 'Validate and import' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.locator('.board-root').first()).toBeVisible()
+  expect(errors).toEqual([])
+})
 
-  const menuButton = page.getByTestId('page-actions-menu')
-  await expect(async () => {
-    await menuButton.click()
-    await expect(
-      page.getByRole('menu', { name: 'Open copy actions menu' }),
-    ).toBeVisible({
-      timeout: 500,
-    })
-  }).toPass({ timeout: 10_000 })
-  const chatGptHref = await page
-    .getByRole('menuitem', { name: 'Open in ChatGPT' })
-    .getAttribute('href')
-  const claudeHref = await page
-    .getByRole('menuitem', { name: 'Open in Claude' })
-    .getAttribute('href')
-  const markdownHref = await page
-    .getByRole('menuitem', { name: 'View as Markdown' })
-    .getAttribute('href')
-  const expectedMarkdownUrl =
-    'http://127.0.0.1:4174/raw/examples/basic-board.md'
-
-  expect(markdownHref).toBe('/raw/examples/basic-board.md')
-  expect(decodeURIComponent(chatGptHref ?? '')).toContain(expectedMarkdownUrl)
-  expect(decodeURIComponent(claudeHref ?? '')).toContain(expectedMarkdownUrl)
-  expect(consoleErrors).toEqual([])
+test('stacks lab inspectors below the stage on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const errors = await openDocs(
+    page,
+    '/docs/understand-the-system/document-and-session-state',
+  )
+  const workspace = page.locator('.docs-lab__workspace')
+  const columns = await workspace.evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns.split(' '),
+  )
+  expect(columns).toHaveLength(1)
+  await expect(page.getByLabel('Live inspector')).toBeVisible()
+  expect(errors).toEqual([])
 })

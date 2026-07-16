@@ -55,42 +55,40 @@ function recordShortcut(event: KeyboardEvent) {
 }
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: -20, y: -10, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'kbd-1',
-            type: 'text',
-            x: 80,
-            y: 80,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'kbd-2',
-            type: 'text',
-            x: 380,
-            y: 170,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: -20, y: -10, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'kbd-1',
+          type: 'text',
+          x: 80,
+          y: 80,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'kbd-2',
+          type: 'text',
+          x: 380,
+          y: 170,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
+    { mode: 'replace' },
   )
 }
 

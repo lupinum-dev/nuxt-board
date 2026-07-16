@@ -1,8 +1,8 @@
-/** Install the connections plugin and its `engine.ext.connections` extension. */
-export { connectionPlugin } from './plugin.js'
-/** SVG layer that renders edges, labels, handles, and connection previews. */
-export { BoardConnectionLayer } from './layer.js'
-
+/** Install the connections plugin and its `engine.plugins.connections` API. */
+export { connectionsPlugin } from './plugin.js'
+/** Shared mapping from directionality choices to persisted endpoint markers. */
+export { edgeEndsForDirectionality } from './directionality.js'
+export type { ConnectionDirectionality } from './directionality.js'
 /** Geometry helpers for resolving anchors, routes, and render state. */
 export {
   buildConnectionRoute,
@@ -29,7 +29,7 @@ export {
 /** Types for custom edge colors and preset names. */
 export type { EdgeColorOption, EdgeColorPreset } from './colors.js'
 
-/** Core edge model types and the connections engine extension contract. */
+/** Core edge model types and the connections engine API contract. */
 export type {
   AnchorPosition,
   AnchorSide,
@@ -41,7 +41,8 @@ export type {
   ConnectionRoute,
   ConnectionRouteSegment,
   ConnectionRouting,
-  ConnectionsExtension,
+  ConnectionsApi,
+  ConnectionsEventMap,
   CreateNodeForConnectionContext,
   EdgeEnd,
   ResolvedConnectionEndpoint,

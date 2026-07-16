@@ -41,7 +41,7 @@ Check source before changing claims about:
 - group capture and z-order
 - LOD thresholds and culling margins
 - `BoardConnectionLayer` placement and routing styles
-- history debounce semantics
+- explicit history boundaries
 - JSON Canvas persistence and feature ownership
 - Nuxt auto-import aliases and prefix behavior
 

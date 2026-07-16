@@ -39,8 +39,8 @@ Examples may choose `grid.size: 20` for readability, but do not call that the de
 
 - `initialNodes` expects complete `BoardNode` records, including `zIndex`, `locked`, and `visible`. Use this for deterministic SSR/tests.
 - `createNode(input)` accepts partial `NodeInput` and fills defaults. Use it for imperative setup and interactive creation.
-- `initialDocument` accepts a normalized JSON Canvas document. Documents with edges require the connections extension to be installed.
-- `extensions` installs first-party feature plugins such as `connectionPlugin()` and `historyPlugin()`.
+- `initialDocument` accepts a normalized JSON Canvas document. Documents with edges require the connections plugin to be installed.
+- `plugins` installs first-party feature plugins such as `connectionsPlugin()` and `historyPlugin()`.
 
 ## Node Shape
 
@@ -69,10 +69,10 @@ Use commands as the mutation boundary:
 - Node commands: `createNode`, `updateNode`, `deleteNode`, `moveNode`, `translateSelectedNodes`, `resizeNode`, `bringToFront`, `sendToBack`, `lockNode`, `unlockNode`, `duplicateNodes`, `copySelected`, `pasteClipboard`
 - Selection commands: `select`, `selectAll`, `clearSelection`, `deleteSelected`
 - Camera commands: `panBy`, `panTo`, `zoomAt`, `zoomTo`, `zoomToFit`, `zoomToNodes`
-- Interaction commands: `beginPan`, `beginNodeDrag`, `beginResize`, `beginBoxSelect`, `beginTextEdit`, `commitTextEdit`, `updatePointer`, `endInteraction`
-- Grid/hierarchy/persistence: `updateGridSettings`, `getUniformTranslationTargets`, `syncGroupZOrder`, `exportJSON`, `importJSON`
+- Public editing commands: `beginTextEdit`, `commitTextEdit`, `cancelTextEdit`. Pointer sessions are available only to first-party framework adapters.
+- Grid/hierarchy/persistence: `updateGridSettings`, `exportDocument`, `loadDocument`
 
-Reads include `getState`, `getSnapshot`, `getGridSettings`, `getViewportSize`, `getNode`, `findNode`, `hasNode`, `getNodeAt`, `getNodesInBounds`, `getSelection`, `getVisibleBounds`, `screenToWorld`, `worldToScreen`, `exportTrace`, and subscribables such as `$nodes`.
+Reads include `getState`, `getGridSettings`, `getViewportSize`, `getNode`, `findNode`, `hasNode`, `getNodeAt`, `getNodesInBounds`, `getSelection`, `getVisibleBounds`, `screenToWorld`, `worldToScreen`, `exportTrace`, and subscribables such as `$nodes`.
 
 ## Selection and Hierarchy
 
@@ -82,7 +82,7 @@ Reads include `getState`, `getSnapshot`, `getGridSettings`, `getViewportSize`, `
 - Deleting a group deletes its descendants.
 - Group capture during drag checks final bounds. Visible, unlocked nodes fully contained by a moved group become children of that group.
 - If multiple groups contain a node, helpers choose the smallest visible group that fully contains the node bounds.
-- Call `syncGroupZOrder(groupId)` after manually changing hierarchy so descendants render above their group.
+- Hierarchy updates automatically keep descendants stacked above their group.
 
 ## Public Helpers
 
@@ -94,4 +94,4 @@ Top-level `@lupinum/board-core` exports:
 - selection helpers: `getSelectionNodes`, `getSelectionBounds`, `toggleIds`
 - math helpers: `boundsIntersect`, `clamp`, `getBoundsFromPoints`, `getVisibleBounds`
 
-`@lupinum/board-core/internal` is first-party feature ABI for workspace packages, not an app plugin API.
+`@lupinum/board-core/internal` is an exported but unsupported first-party feature ABI, not an app plugin API. Pointer methods are absent from normal engine objects and root declarations but remain callable through that first-party subpath.

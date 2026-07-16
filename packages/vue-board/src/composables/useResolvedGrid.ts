@@ -1,19 +1,16 @@
 import { computed, watch, type ComputedRef, type Ref } from 'vue'
-import type {
-  BoardEngine,
-  BoardSnapshot,
-  GridSettings,
-} from '@lupinum/board-core'
+import type { BoardEngine, GridSettings } from '@lupinum/board-core'
 import {
   DEFAULT_BOARD_GRID_OPTIONS,
   type BoardGridOptions,
   type ResolvedBoardGridOptions,
 } from '../grid.js'
+import { runBoardCommand } from './runBoardCommand.js'
 
 /** Inputs used to merge the `BoardRoot` grid prop with engine grid state. */
 interface UseResolvedGridOptions {
   engine: BoardEngine
-  snapshot: Ref<BoardSnapshot>
+  grid: Ref<GridSettings>
   gridProp: Ref<boolean | BoardGridOptions>
 }
 
@@ -61,10 +58,7 @@ export function useResolvedGrid(
   options: UseResolvedGridOptions,
 ): ComputedRef<ResolvedBoardGridOptions> {
   const resolvedGrid = computed(() =>
-    resolveGridOptions(
-      options.gridProp.value,
-      options.snapshot.value.grid ?? options.engine.getGridSettings(),
-    ),
+    resolveGridOptions(options.gridProp.value, options.grid.value),
   )
 
   watch(
@@ -80,7 +74,7 @@ export function useResolvedGrid(
           patch.edgeSnapThreshold = value.edgeSnapThreshold
         if (value.pattern !== undefined) patch.pattern = value.pattern
         if (Object.keys(patch).length > 0) {
-          options.engine.updateGridSettings(patch)
+          runBoardCommand(() => options.engine.updateGridSettings(patch))
         }
       }
     },

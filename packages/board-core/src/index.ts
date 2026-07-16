@@ -1,5 +1,13 @@
 /** Create a headless board engine with commands and events. */
 export { CommandBlockedError, createBoardEngine } from './engine.js'
+/** Stable error classes surfaced by public engine boundaries. */
+export {
+  BoardConflictError,
+  BoardDestroyedError,
+  BoardError,
+  BoardInputError,
+  BoardNotFoundError,
+} from './errors.js'
 /** Identifier branding helpers for nodes and edges. */
 export { asEdgeId, asNodeId } from './types.js'
 /** Shared Obsidian-compatible node color presets. */
@@ -30,24 +38,24 @@ export type {
   BoxSelectMode,
   BoxSelectSettings,
   BoardColorPreset,
-  BoardSnapshot,
   BoardState,
   Bounds,
   Camera,
   CanvasColor,
   BoardEngine,
   BoardEngineOptions,
+  BoardUnhandledErrorContext,
   BoardEventMap,
-  BoardExtension,
+  BoardPlugin,
   BoardNode,
   EdgeId,
+  DuplicateNodesResult,
   GridPattern,
   GridSettings,
   InteractionMode,
   InteractionState,
   ValidationFailure,
-  ValidationMode,
-  BoardFeatureExtensions,
+  BoardPluginApis,
   JsonCanvasBackgroundStyle,
   JsonCanvasDocument,
   JsonCanvasEdge,

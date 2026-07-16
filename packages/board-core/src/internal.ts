@@ -1,46 +1,52 @@
-export type {
-  Action as InternalBoardAction,
-  NodeMoveDelta as InternalNodeMoveDelta,
-} from './state/actions.js'
+export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
 
 export type {
-  InternalBoardFeature,
-  InternalBoardFeatureDefinition,
-  InternalFeatureContext,
-  InternalFeaturePersistence,
+  InternalBoardPlugin,
+  InternalBoardPluginDefinition,
+  InternalInteractionAdapter,
+  InternalPluginContext,
+  InternalPluginPersistence,
 } from './types.js'
+
+/** Resolve the unsupported first-party pointer/session surface used by framework adapters. */
+export function getBoardInteractionAdapter(
+  engine: import('./types.js').BoardEngine,
+): InternalInteractionAdapter {
+  return getRegisteredBoardInteractionAdapter(engine)
+}
+
+import { getRegisteredBoardInteractionAdapter } from './engine/interaction-adapter.js'
 
 import type {
   BoardEventMap,
-  BoardExtension,
-  BoardFeatureExtensions,
-  InternalBoardFeature,
-  InternalBoardFeatureDefinition,
+  BoardPlugin,
+  BoardPluginApis,
+  InternalBoardPlugin,
+  InternalBoardPluginDefinition,
+  InternalInteractionAdapter,
 } from './types.js'
 
-export function defineInternalBoardFeature<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export function defineInternalBoardPlugin<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 >(
-  feature: InternalBoardFeatureDefinition<TExtensions, TEvents>,
-): InternalBoardFeature<TExtensions, TEvents> {
-  return feature as InternalBoardFeature<TExtensions, TEvents>
+  plugin: InternalBoardPluginDefinition<TPluginApis, TEvents>,
+): InternalBoardPlugin<TPluginApis, TEvents> {
+  return plugin as InternalBoardPlugin<TPluginApis, TEvents>
 }
 
-export function assertInternalBoardFeature(
-  extension: BoardExtension,
-): asserts extension is InternalBoardFeature {
-  const maybeFeature = extension as Partial<InternalBoardFeature>
-  if (typeof maybeFeature.name !== 'string' || maybeFeature.name.length === 0) {
-    throw new Error(
-      'Invalid board extension: expected a named extension token.',
-    )
+export function assertInternalBoardPlugin(
+  plugin: BoardPlugin,
+): asserts plugin is InternalBoardPlugin {
+  const candidate = plugin as unknown as Partial<InternalBoardPlugin>
+  if (typeof candidate.name !== 'string' || candidate.name.length === 0) {
+    throw new Error('Invalid board plugin: expected a named plugin token.')
   }
-  if (typeof maybeFeature.install !== 'function') {
+  if (typeof candidate.install !== 'function') {
     throw new Error(
-      `Invalid board extension "${maybeFeature.name}": expected an internal feature token created by a first-party extension factory.`,
+      `Invalid board plugin "${candidate.name}": expected a token created by a first-party plugin factory.`,
     )
   }
 }

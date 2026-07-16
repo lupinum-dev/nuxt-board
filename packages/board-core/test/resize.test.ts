@@ -6,6 +6,7 @@ import {
   snapResizedBoundsLocked,
 } from '../src/resize'
 import { createBoardEngine } from '../src'
+import { getBoardInteractionAdapter } from '../src/internal'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -475,11 +476,18 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 60, y: 10 }, { shift: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 60, y: 10 },
+      { shift: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
-    const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+    const result = engine.getState().nodes.get(node.id)!
     expect(ratio(result)).toBeCloseTo(2, 5)
     expect(result.width).toBe(260)
     expect(result.height).toBe(130)
@@ -496,12 +504,19 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'nw', 1, { x: 100, y: 100 })
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'nw', 1, {
+      x: 100,
+      y: 100,
+    })
     // Move left and up: shrink both axes
-    engine.updatePointer(1, { x: 140, y: 115 }, { shift: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 140, y: 115 },
+      { shift: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
-    const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+    const result = engine.getState().nodes.get(node.id)!
     expect(ratio(result)).toBeCloseTo(2, 5)
   })
 
@@ -516,11 +531,18 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 40, y: 70 }, { shift: false })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 40, y: 70 },
+      { shift: false },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
-    const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+    const result = engine.getState().nodes.get(node.id)!
     // Free resize: width=240, height=170 — ratio broken
     expect(result.width).toBe(240)
     expect(result.height).toBe(170)
@@ -538,12 +560,23 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 50, y: 90 }, { shift: false }) // free resize
-    engine.updatePointer(1, { x: 50, y: 90 }, { shift: true }) // lock applied at last move
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 50, y: 90 },
+      { shift: false },
+    ) // free resize
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 50, y: 90 },
+      { shift: true },
+    ) // lock applied at last move
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
-    const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+    const result = engine.getState().nodes.get(node.id)!
     expect(ratio(result)).toBeCloseTo(2, 5)
   })
 
@@ -558,7 +591,10 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
 
     const interaction = engine.getState().interaction
     expect(interaction.mode).toBe('resizing-node')
@@ -578,11 +614,18 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       text: '',
     })
 
-    engine.beginResize(node.id, 'se', 1, { x: 0, y: 0 })
-    engine.updatePointer(1, { x: 55, y: 10 }, { shift: true })
-    engine.endInteraction(1)
+    getBoardInteractionAdapter(engine).beginResize(node.id, 'se', 1, {
+      x: 0,
+      y: 0,
+    })
+    getBoardInteractionAdapter(engine).updatePointer(
+      1,
+      { x: 55, y: 10 },
+      { shift: true },
+    )
+    getBoardInteractionAdapter(engine).endInteraction(1)
 
-    const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+    const result = engine.getState().nodes.get(node.id)!
     // Width should be on the 20-grid
     expect(result.width % 20).toBe(0)
     expect(ratio(result)).toBeCloseTo(2, 5)
@@ -613,11 +656,14 @@ describe('aspect-ratio resize via engine (Shift key)', () => {
       })
       const d = deltas[handle]!
 
-      engine.beginResize(node.id, handle, 1, { x: 0, y: 0 })
-      engine.updatePointer(1, d, { shift: true })
-      engine.endInteraction(1)
+      getBoardInteractionAdapter(engine).beginResize(node.id, handle, 1, {
+        x: 0,
+        y: 0,
+      })
+      getBoardInteractionAdapter(engine).updatePointer(1, d, { shift: true })
+      getBoardInteractionAdapter(engine).endInteraction(1)
 
-      const result = engine.getSnapshot().nodes.find((n) => n.id === node.id)!
+      const result = engine.getState().nodes.get(node.id)!
       expect(ratio(result)).toBeCloseTo(2, 4)
     }
   })

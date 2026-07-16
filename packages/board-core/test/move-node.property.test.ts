@@ -19,15 +19,16 @@ const buildEngineWithNodes = (count: number) => {
   return { engine, ids }
 }
 
-function expectNoParentCycles(nodes: readonly BoardNode[]): void {
-  const byId = new Map(nodes.map((node) => [node.id, node]))
-  for (const node of nodes) {
+function expectNoParentCycles(
+  nodes: ReadonlyMap<BoardNode['id'], BoardNode>,
+): void {
+  for (const node of nodes.values()) {
     const seen = new Set([node.id])
     let parentId = node.parentId
     while (parentId) {
       expect(seen.has(parentId)).toBe(false)
       seen.add(parentId)
-      parentId = byId.get(parentId)?.parentId
+      parentId = nodes.get(parentId)?.parentId
     }
   }
 }
@@ -39,9 +40,9 @@ describe('moveNode invariants', () => {
         fc.array(moveDelta, { minLength: 1, maxLength: 30 }),
         (deltas) => {
           const { engine, ids } = buildEngineWithNodes(3)
-          const before = engine.getSnapshot().nodes.length
+          const before = engine.getState().nodes.size
           for (const { dx, dy } of deltas) engine.moveNode(ids[0]!.id, dx, dy)
-          expect(engine.getSnapshot().nodes.length).toBe(before)
+          expect(engine.getState().nodes.size).toBe(before)
         },
       ),
       { numRuns: 50 },
@@ -139,10 +140,10 @@ describe('moveNode invariants', () => {
           for (const { dx, dy } of deltas) {
             engine.moveNode(group.id, dx, dy)
             engine.moveNode(child.id, -dx / 2, -dy / 2)
-            const nodes = engine.getSnapshot().nodes
+            const nodes = engine.getState().nodes
             expectNoParentCycles(nodes)
-            const latestGroup = nodes.find((node) => node.id === group.id)!
-            const latestChild = nodes.find((node) => node.id === child.id)!
+            const latestGroup = nodes.get(group.id)!
+            const latestChild = nodes.get(child.id)!
             if (latestChild.parentId === latestGroup.id) {
               expect(latestChild.zIndex).toBeGreaterThan(latestGroup.zIndex)
             }

@@ -4,6 +4,7 @@ import { defineComponent, h, markRaw, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { historyPlugin } from '@lupinum/board-history'
 import BoardRoot from '../src/components/BoardRoot.vue'
 
@@ -68,15 +69,79 @@ beforeEach(() => {
 })
 
 describe('BoardRoot', () => {
-  it('coalesces full snapshot refreshes after command notifications', async () => {
+  it('cancels pending pointer projection before unmount completes', async () => {
+    let pendingFrame: FrameRequestCallback | null = null
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        pendingFrame = callback
+        return 42
+      })
+    const cancelFrame = vi
+      .spyOn(window, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined)
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const element = wrapper.find(`[data-node-id="${node.id}"]`).element
+
+    dispatchPointerEvent(element, 'pointerdown', {
+      button: 0,
+      pointerId: 31,
+      clientX: 60,
+      clientY: 60,
+    })
+    dispatchPointerEvent(element, 'pointermove', {
+      pointerId: 31,
+      clientX: 100,
+      clientY: 80,
+    })
+    expect(pendingFrame).not.toBeNull()
+
+    wrapper.unmount()
+    expect(cancelFrame).toHaveBeenCalledWith(42)
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+    ;(pendingFrame as FrameRequestCallback | null)?.(performance.now())
+    expect(engine.getNode(node.id)).toMatchObject({ x: 40, y: 40 })
+
+    requestFrame.mockRestore()
+    cancelFrame.mockRestore()
+  })
+
+  it('allows bundled presentation chrome to be disabled directly', () => {
+    const wrapper = mount(BoardRoot, {
+      props: {
+        engine: createBoardEngine(),
+        grid: false,
+        selectionToolbar: false,
+        snapGuides: false,
+        boxSelect: false,
+      },
+    })
+
+    expect(wrapper.find('.board-grid').exists()).toBe(false)
+    expect(wrapper.find('.board-selection-toolbar').exists()).toBe(false)
+    expect(wrapper.find('.board-snap-guides').exists()).toBe(false)
+    expect(wrapper.find('.board-box-select').exists()).toBe(false)
+  })
+
+  it('uses granular subscriptions without rebuilding full snapshots', async () => {
     const engine = createBoardEngine()
-    const getSnapshot = vi.spyOn(engine, 'getSnapshot')
+    const getState = vi.spyOn(engine, 'getState')
     mount(BoardRoot, {
       props: { engine },
       attachTo: document.body,
     })
 
-    expect(getSnapshot).toHaveBeenCalledTimes(1)
+    expect(getState).not.toHaveBeenCalled()
 
     engine.createNode({
       type: 'text',
@@ -86,7 +151,7 @@ describe('BoardRoot', () => {
     })
     await flushBoardRootSnapshot()
 
-    expect(getSnapshot).toHaveBeenCalledTimes(2)
+    expect(getState).not.toHaveBeenCalled()
   })
 
   it('starts drag and resize only after the pointer clears the movement threshold', async () => {
@@ -113,7 +178,7 @@ describe('BoardRoot', () => {
       },
     )
     expect(engine.getSelection()).toEqual([node.id])
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -126,7 +191,7 @@ describe('BoardRoot', () => {
         clientY: 52,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -139,7 +204,7 @@ describe('BoardRoot', () => {
         clientY: 58,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'dragging-nodes',
     })
     dispatchPointerEvent(wrapper.element, 'pointerup', {
@@ -176,7 +241,7 @@ describe('BoardRoot', () => {
         clientY: 110,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
 
@@ -189,10 +254,38 @@ describe('BoardRoot', () => {
         clientY: 122,
       },
     )
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'resizing-node',
       nodeId: node.id,
       handle: 'se',
+    })
+  })
+
+  it('renders transient resize geometry before pointer release', async () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 100,
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const interaction = getBoardInteractionAdapter(engine)
+
+    interaction.beginResize(node.id, 'se', 1, { x: 240, y: 140 })
+    interaction.updatePointer(1, { x: 280, y: 170 })
+    await flushBoardRootSnapshot()
+
+    const rendered = wrapper.find(`[data-node-id="${node.id}"]`)
+    expect(rendered.attributes('style')).toContain('width: 240px')
+    expect(rendered.attributes('style')).toContain('height: 130px')
+    expect(engine.exportDocument().nodes[0]).toMatchObject({
+      width: 200,
+      height: 100,
     })
   })
 
@@ -313,8 +406,8 @@ describe('BoardRoot', () => {
 
   it('switches the default box-select overlay style by drag direction', async () => {
     const engine = createBoardEngine()
-    engine.beginBoxSelect(8, { x: 200, y: 160 })
-    engine.updatePointer(8, { x: 0, y: 0 })
+    getBoardInteractionAdapter(engine).beginBoxSelect(8, { x: 200, y: 160 })
+    getBoardInteractionAdapter(engine).updatePointer(8, { x: 0, y: 0 })
 
     const wrapper = mount(BoardRoot, {
       props: { engine },
@@ -343,10 +436,10 @@ describe('BoardRoot', () => {
 
     await wrapper.trigger('keydown', { key: 'a', ctrlKey: true })
     await wrapper.trigger('keydown', { key: 'd', ctrlKey: true })
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
+    expect(engine.getState().nodes.size).toBe(2)
 
     await wrapper.trigger('keydown', { key: 'Delete' })
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
   })
 
   it('duplicates the current selection when alt-dragging past the threshold', async () => {
@@ -378,8 +471,8 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().nodes.size).toBe(2)
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'dragging-nodes',
     })
     expect(engine.getSelection()).toHaveLength(1)
@@ -394,16 +487,16 @@ describe('BoardRoot', () => {
       text: 'Node',
     })
     const blocked: string[] = []
-    engine.addCommandGuard((name, _args, next) => {
+    engine.addCommandGuard(({ name }) => {
       if (
         name === 'beginNodeDrag' ||
         name === 'duplicateNodes' ||
         name === 'createNode'
       ) {
         blocked.push(name)
-        return
+        return 'Board is read-only.'
       }
-      next()
+      return true
     })
 
     const wrapper = mount(BoardRoot, {
@@ -430,10 +523,8 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
-    expect(
-      engine.getSnapshot().nodes.find((entry) => entry.id === node.id),
-    ).toMatchObject({ x: 40, y: 40 })
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getState().nodes.get(node.id)).toMatchObject({ x: 40, y: 40 })
 
     dispatchPointerEvent(element, 'pointerdown', {
       button: 0,
@@ -455,14 +546,14 @@ describe('BoardRoot', () => {
     })
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
 
     await wrapper.trigger('dblclick', {
       clientX: 320,
       clientY: 240,
     })
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
+    expect(engine.getState().nodes.size).toBe(1)
     expect(blocked).toEqual(['beginNodeDrag', 'duplicateNodes', 'createNode'])
   })
 
@@ -484,7 +575,7 @@ describe('BoardRoot', () => {
 
     await wrapper.vm.$nextTick()
 
-    expect(engine.getSnapshot().grid).toMatchObject({
+    expect(engine.getState().grid).toMatchObject({
       pattern: 'dot',
       size: 24,
       majorEvery: 4,
@@ -493,9 +584,9 @@ describe('BoardRoot', () => {
     expect(wrapper.find('.board-grid').exists()).toBe(true)
   })
 
-  it('keeps slot snapshot state in sync with undo and redo replays', async () => {
+  it('keeps slot state in sync with undo and redo replays', async () => {
     const engine = createBoardEngine({
-      extensions: [historyPlugin({ debounceMs: 0 })],
+      plugins: [historyPlugin()],
     })
     const node = engine.createNode({
       type: 'text',
@@ -503,31 +594,34 @@ describe('BoardRoot', () => {
       y: 20,
       text: 'Node',
     })
-    engine.ext.history.clear()
+    engine.plugins.history.clear()
 
     const wrapper = mount(BoardRoot, {
       props: { engine },
       slots: {
-        default: ({ snapshot }: { snapshot: { nodes: Array<unknown> } }) =>
-          h('div', { class: 'snapshot-count' }, String(snapshot.nodes.length)),
+        default: ({
+          state,
+        }: {
+          state: { nodes: ReadonlyMap<string, unknown> }
+        }) => h('div', { class: 'state-count' }, String(state.nodes.size)),
       },
       attachTo: document.body,
     })
 
     await nextTick()
-    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+    expect(wrapper.find('.state-count').text()).toBe('1')
 
     engine.deleteNode(node.id)
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('0')
+    expect(wrapper.find('.state-count').text()).toBe('0')
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('1')
+    expect(wrapper.find('.state-count').text()).toBe('1')
 
-    engine.ext.history.redo()
+    engine.plugins.history.redo()
     await flushBoardRootSnapshot()
-    expect(wrapper.find('.snapshot-count').text()).toBe('0')
+    expect(wrapper.find('.state-count').text()).toBe('0')
   })
 
   it('ignores connection-layer interactive targets for board interactions', () => {
@@ -548,6 +642,6 @@ describe('BoardRoot', () => {
       clientY: 120,
     })
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
   })
 })

@@ -19,42 +19,40 @@ function seedOne(
   pattern: 'line' | 'dot' | 'cross' | 'none',
   engine: ReturnType<typeof createBoardEngine>,
 ) {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: { ...engine.getGridSettings(), pattern },
-        nodes: [
-          {
-            id: 'alpha',
-            type: 'text',
-            x: 70,
-            y: 70,
-            width: 200,
-            height: 100,
-            text: `${pattern}\nDrag me`,
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'beta',
-            type: 'text',
-            x: 330,
-            y: 160,
-            width: 200,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: { ...engine.getGridSettings(), pattern },
+      nodes: [
+        {
+          id: 'alpha',
+          type: 'text',
+          x: 70,
+          y: 70,
+          width: 200,
+          height: 100,
+          text: `${pattern}\nDrag me`,
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'beta',
+          type: 'text',
+          x: 330,
+          y: 160,
+          width: 200,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
+    { mode: 'replace' },
   )
 }
 

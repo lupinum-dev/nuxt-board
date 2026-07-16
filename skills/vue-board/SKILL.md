@@ -1,6 +1,6 @@
 ---
 name: vue-board
-description: Build, modify, document, or debug apps and examples using Vue Board, Nuxt Board, @lupinum/board-core, @lupinum/vue-board, @lupinum/board-connections, @lupinum/board-history, or @lupinum/board-minimap. Use when working with node canvases, custom board renderers, JSON Canvas import/export, connection layers, history/undo, minimaps, Nuxt auto-imports, board docs, or tests for this library.
+description: Build, modify, document, or debug apps and examples using Vue Board, Nuxt Board, @lupinum/board-core, @lupinum/vue-board, @lupinum/board-connections, @lupinum/board-history, or @lupinum/vue-board/minimap. Use when working with node canvases, custom board renderers, JSON Canvas import/export, connection layers, history/undo, minimaps, Nuxt auto-imports, board docs, or tests for this library.
 ---
 
 # Vue Board
@@ -23,7 +23,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 
 ## Non-Negotiable Invariants
 
-- The engine is the board source of truth. Mutate through commands such as `createNode`, `updateNode`, `select`, `translateSelectedNodes`, `zoomToFit`, and `importJSON`.
+- The engine is the board source of truth. Mutate through commands such as `createNode`, `updateNode`, `select`, `translateSelectedNodes`, `zoomToFit`, and `loadDocument`.
 - Package ownership matters: core owns nodes, camera, grid, selection, hierarchy, and JSON Canvas import/export; connections owns edges; history owns runtime undo/redo; minimap is derived UI; Nuxt wires styles, transpilation, and auto-imports.
 - Supported node types are JSON Canvas types only: `text`, `file`, `link`, and `group`. Custom renderers change presentation, not node schema.
 - Node content fields live directly on the node: `text`, `file`, `subpath`, `url`, `label`, `background`, `backgroundStyle`, and `color`. Do not document or invent `data.content`.
@@ -31,7 +31,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 - `createNode()` selects the new node by default. Pass `select: false` for support nodes such as group wrappers.
 - `BoardRoot` needs a real size. Use `style="height: 100vh"` or another explicit parent/container height in examples.
 - `BoardConnectionLayer` must render under `BoardRoot`. It owns its SVG layer transform and can be a direct/default child.
-- Persist with `engine.exportJSON()` and `engine.importJSON()`. Do not persist Vue refs, DOM state, `getState()`, or `getSnapshot()`.
+- Persist with `engine.exportDocument()` and `engine.loadDocument()`. Do not persist Vue refs, DOM state, or `getState()`.
 - If richer product state exists, choose one canonical app model and derive board nodes from it. Do not store the same field in app state and node fields unless there is a rebuild story.
 
 ## Implementation Workflow
@@ -39,7 +39,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 1. Install the minimal packages:
    - Vue: `@lupinum/board-core` and `@lupinum/vue-board`
    - Nuxt: `nuxt-board`, `@lupinum/board-core`, and `@lupinum/vue-board`
-   - Add `@lupinum/board-connections`, `@lupinum/board-history`, or `@lupinum/board-minimap` only when needed.
+   - Add `@lupinum/board-connections`, `@lupinum/board-history`, or `@lupinum/vue-board/minimap` only when needed.
 2. Create one `BoardEngine` and keep it out of Vue deep reactivity. Use `shallowRef(engine)` only if it must live in Vue state.
 3. Seed deterministic scenes with complete `initialNodes` records and stable `asNodeId(...)` IDs, especially for SSR/tests. Use `createNode()` when partial `NodeInput` is better.
 4. Render with `BoardRoot`; add plugin UI layers under it.

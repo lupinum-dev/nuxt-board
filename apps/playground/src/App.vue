@@ -2,12 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
 import {
-  connectionPlugin,
-  BoardConnectionLayer,
+  connectionsPlugin,
   type ConnectionRouting,
 } from '@lupinum/board-connections'
+import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { historyPlugin } from '@lupinum/board-history'
-import { BoardMinimap } from '@lupinum/board-minimap'
+import { BoardMinimap } from '@lupinum/vue-board/minimap'
 import { BoardRoot, type BoardRendererRegistry } from '@lupinum/vue-board'
 import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
 import ImageNodeRenderer from './components/ImageNodeRenderer.vue'
@@ -30,11 +30,11 @@ type PlaygroundApi = {
 const engine = createBoardEngine({
   diagnostics: { traceLimit: 500 },
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
-  extensions: [historyPlugin(), connectionPlugin()],
+  plugins: [historyPlugin(), connectionsPlugin()],
 })
 
 // ━━ UI state ━━
-const selectedScene = ref<25 | 100 | 500>(25)
+const selectedScene = ref<25 | 100 | 500 | 2000>(25)
 const showGrid = ref(true)
 const snapToGrid = ref(true)
 const gridPattern = ref<'line' | 'dot' | 'cross' | 'none'>('line')
@@ -63,7 +63,7 @@ const gridOptions = computed(() => ({
 
 // ━━ Scene management ━━
 function clearBoard(): void {
-  const ids = engine.getSnapshot().nodes.map((n) => n.id)
+  const ids = Array.from(engine.getState().nodes.keys())
   if (ids.length > 0) {
     engine.select(ids)
     engine.deleteSelected()
@@ -71,50 +71,48 @@ function clearBoard(): void {
 }
 
 async function seedScene(count: number): Promise<void> {
-  clearBoard()
   const columns = Math.ceil(Math.sqrt(count))
   const created: BoardNode[] = []
 
-  for (let i = 0; i < count; i += 1) {
-    const col = i % columns
-    const row = Math.floor(i / columns)
-    created.push(
-      engine.createNode({
-        type: 'text',
-        x: col * 320,
-        y: row * 220,
-        width: 240,
-        height: 140,
-        text: `Node ${i + 1}\n${col}:${row}`,
-      }),
-    )
-  }
+  engine.batch(() => {
+    clearBoard()
+    for (let i = 0; i < count; i += 1) {
+      const col = i % columns
+      const row = Math.floor(i / columns)
+      created.push(
+        engine.createNode({
+          type: 'text',
+          x: col * 320,
+          y: row * 220,
+          width: 240,
+          height: 140,
+          text: `Node ${i + 1}\n${col}:${row}`,
+        }),
+      )
+    }
 
-  engine.createNode({
-    type: 'file',
-    x: -360,
-    y: 120,
-    width: 280,
-    height: 180,
-    file: 'Reference tile',
+    engine.createNode({
+      type: 'file',
+      x: -360,
+      y: 120,
+      width: 280,
+      height: 180,
+      file: 'Reference tile',
+    })
+
+    const edgeCount = count >= 500 ? Math.min(200, count - 1) : 2
+    for (let i = 0; i < edgeCount; i += 1) {
+      engine.plugins.connections.createEdge({
+        from: created[i]!.id,
+        to: created[i + 1]!.id,
+        ...(i < 2 ? { label: String.fromCharCode(65 + i) } : {}),
+        data: {},
+      })
+    }
+
+    engine.clearSelection()
   })
 
-  if (created.length >= 3) {
-    engine.ext.connections.createEdge({
-      from: created[0]!.id,
-      to: created[1]!.id,
-      label: 'A',
-      data: {},
-    })
-    engine.ext.connections.createEdge({
-      from: created[1]!.id,
-      to: created[2]!.id,
-      label: 'B',
-      data: {},
-    })
-  }
-
-  engine.clearSelection()
   await engine.zoomToFit(80, false)
 }
 
@@ -143,13 +141,13 @@ async function runBenchmark(): Promise<void> {
 
 // ━━ JSON Canvas ━━
 function exportJsonCanvas(): string {
-  exportedJson.value = engine.exportJSON()
+  exportedJson.value = JSON.stringify(engine.exportDocument(), null, 2)
   return exportedJson.value
 }
 
 function importJsonCanvas(): void {
   if (!exportedJson.value) return
-  engine.importJSON(exportedJson.value, 'replace')
+  engine.loadDocument(JSON.parse(exportedJson.value), { mode: 'replace' })
 }
 
 const GROUP_PAD = 36
@@ -170,7 +168,7 @@ function worldCenterForViewportBox(
 
 function wrapSelectionInGroup(): void {
   const sel = engine.getSelection()
-  const snap = engine.getSnapshot()
+  const snap = engine.getState()
 
   if (sel.length === 0) {
     const { x, y } = worldCenterForViewportBox(DEFAULT_GROUP_W, DEFAULT_GROUP_H)
@@ -216,7 +214,6 @@ function wrapSelectionInGroup(): void {
     }
     engine.updateNode(n.id, { parentId: group.id })
   }
-  engine.syncGroupZOrder(group.id)
   engine.select([group.id, ...sel.filter((id) => id !== group.id)])
 }
 
@@ -291,7 +288,7 @@ onMounted(async () => {
           <PlaygroundDiagnostics
             v-if="showDiagnostics"
             :camera="debugState.camera"
-            :node-count="debugState.snapshot.nodes.length"
+            :node-count="debugState.state.nodes.size"
             :selection-count="debugState.selection.length"
             :interaction-mode="debugState.interaction.mode"
             :visible-count="debugState.visibleNodeCount"

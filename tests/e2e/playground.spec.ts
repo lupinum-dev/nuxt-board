@@ -8,11 +8,11 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
       const api = (
         window as unknown as {
           __boardPlayground: {
-            engine: { getSnapshot: () => { nodes: unknown[] } }
+            engine: { getState: () => { nodes: Map<string, unknown> } }
           }
         }
       ).__boardPlayground
-      return api.engine.getSnapshot().nodes.length
+      return api.engine.getState().nodes.size
     })
 
   const created = await page.evaluate(() => {
@@ -22,7 +22,7 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
           engine: {
             createNode: (input: Record<string, unknown>) => { id: string }
             commitTextEdit: (id: string, text: string) => void
-            getSnapshot: () => { nodes: unknown[] }
+            getState: () => { nodes: Map<string, unknown> }
           }
         }
       }
@@ -34,7 +34,7 @@ test('creates, edits, duplicates, and deletes nodes', async ({ page }) => {
       text: 'Node',
     })
     api.engine.commitTextEdit(node.id, 'Bench note')
-    return { id: node.id, count: api.engine.getSnapshot().nodes.length }
+    return { id: node.id, count: api.engine.getState().nodes.size }
   })
 
   await expect.poll(totalNodes).toBe(created.count)
@@ -58,7 +58,7 @@ test('supports multiline text editing inside a node', async ({ page }) => {
         __boardPlayground: {
           engine: {
             createNode: (input: Record<string, unknown>) => { id: string }
-            getSnapshot: () => { nodes: unknown[] }
+            getState: () => { nodes: Map<string, unknown> }
           }
         }
       }
@@ -69,7 +69,7 @@ test('supports multiline text editing inside a node', async ({ page }) => {
       y: 220,
       text: 'Node',
     })
-    return { id: node.id, count: api.engine.getSnapshot().nodes.length }
+    return { id: node.id, count: api.engine.getState().nodes.size }
   })
 
   const createdNode = page.locator(`[data-node-id="${created.id}"]`)
@@ -100,11 +100,11 @@ test('supports alt-drag duplication and benchmark reporting', async ({
       const api = (
         window as unknown as {
           __boardPlayground: {
-            engine: { getSnapshot: () => { nodes: unknown[] } }
+            engine: { getState: () => { nodes: Map<string, unknown> } }
           }
         }
       ).__boardPlayground
-      return api.engine.getSnapshot().nodes.length
+      return api.engine.getState().nodes.size
     })
 
   const firstNode = page.locator('[data-node-id]').first()
@@ -213,21 +213,21 @@ test('colors selected cards and groups through the selection toolbar', async ({
       window as unknown as {
         __boardPlayground: {
           engine: {
-            getSnapshot: () => {
-              nodes: Array<{ id: string; color?: string }>
+            getState: () => {
+              nodes: Map<string, { id: string; color?: string }>
             }
           }
           exportJsonCanvas: () => string
         }
       }
     ).__boardPlayground
-    const snapshot = api.engine.getSnapshot()
+    const snapshot = api.engine.getState()
     const exported = JSON.parse(api.exportJsonCanvas()) as {
       nodes: Array<{ id: string; color?: string }>
     }
     return {
-      card: snapshot.nodes.find((node) => node.id === cardId),
-      group: snapshot.nodes.find((node) => node.id === groupId),
+      card: snapshot.nodes.get(cardId),
+      group: snapshot.nodes.get(groupId),
       exportedCard: exported.nodes.find((node) => node.id === cardId),
       exportedGroup: exported.nodes.find((node) => node.id === groupId),
     }
@@ -254,7 +254,6 @@ test('dragging a group over cards captures them as children', async ({
           engine: {
             createNode: (input: Record<string, unknown>) => { id: string }
             select: (ids: string[]) => void
-            syncGroupZOrder: (id: string) => void
           }
         }
       }
@@ -275,7 +274,6 @@ test('dragging a group over cards captures them as children', async ({
       height: 80,
       text: 'Node',
     })
-    api.engine.syncGroupZOrder(group.id)
     api.engine.select([group.id])
     return { groupId: group.id, cardId: card.id }
   })
@@ -308,15 +306,14 @@ test('dragging a group over cards captures them as children', async ({
             window as unknown as {
               __boardPlayground: {
                 engine: {
-                  getSnapshot: () => {
-                    nodes: Array<{ id: string; parentId?: string }>
+                  getState: () => {
+                    nodes: Map<string, { id: string; parentId?: string }>
                   }
                 }
               }
             }
           ).__boardPlayground
-          return api.engine.getSnapshot().nodes.find((node) => node.id === id)
-            ?.parentId
+          return api.engine.getState().nodes.get(id)?.parentId
         }, setup.cardId),
       { message: 'card should be parented to the moved group' },
     )

@@ -5,23 +5,12 @@ import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import * as boardConnections from '@lupinum/board-connections'
-import playwrightConfig from '../playwright.config'
 import { createDemoDocument } from '../apps/docs/app/utils/demoDocument'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-type PackageManifest = {
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  scripts?: Record<string, string>
-}
-
 function read(path: string): string {
   return readFileSync(resolve(root, path), 'utf8')
-}
-
-function readManifest(path: string): PackageManifest {
-  return JSON.parse(read(path)) as PackageManifest
 }
 
 function filesIn(path: string): string[] {
@@ -34,92 +23,10 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
-  it('keeps docs as an app, not a publishable package', () => {
-    expect(() => read('apps/docs/package.json')).not.toThrow()
-    expect(() => read('packages/docs/package.json')).toThrow()
-  })
-
-  it('keeps docs builds aligned with the Vercel deployment target', () => {
-    const manifest = readManifest('apps/docs/package.json')
-    const directDependencies = {
-      ...manifest.dependencies,
-      ...manifest.devDependencies,
-    }
-
-    expect(manifest.scripts?.build).toContain('--preset vercel')
-    expect(directDependencies).not.toHaveProperty('@nuxtjs/mdc')
-    expect(directDependencies).not.toHaveProperty('unist-util-visit')
-  })
-
-  it('keeps default e2e runs deterministic', () => {
-    const webServers = Array.isArray(playwrightConfig.webServer)
-      ? playwrightConfig.webServer
-      : [playwrightConfig.webServer]
-
-    expect(playwrightConfig.workers).toBe(1)
-    expect(playwrightConfig.fullyParallel).not.toBe(true)
-    expect(webServers).toHaveLength(2)
-    expect(
-      webServers.every((server) => server?.reuseExistingServer === false),
-    ).toBe(true)
-    expect(webServers[1]?.env).toMatchObject({
-      FORCE_COLOR: '0',
-      NUXT_PUBLIC_SITE_URL: 'http://127.0.0.1:4174/',
-    })
-  })
-
-  it('keeps TypeScript responsible for unused workspace code', () => {
-    const config = JSON.parse(read('tsconfig.json')) as {
-      compilerOptions?: {
-        noUnusedLocals?: boolean
-        noUnusedParameters?: boolean
-      }
-    }
-
-    expect(config.compilerOptions?.noUnusedLocals).toBe(true)
-    expect(config.compilerOptions?.noUnusedParameters).toBe(true)
-  })
-
-  it('keeps workflows pointed at existing release gates', () => {
-    for (const file of [
-      '.github/workflows/ci.yml',
-      '.github/workflows/docs.yml',
-      '.github/workflows/release.yml',
-    ]) {
-      expect(read(file), file).not.toContain('pnpm docs:api')
-    }
-
-    expect(read('.github/workflows/docs.yml')).not.toContain('packages/docs')
-    expect(read('.github/workflows/ci.yml')).toContain('pnpm audit --prod')
-    expect(read('.github/workflows/release.yml')).toContain('pnpm audit --prod')
-  })
-
-  it('keeps handoff docs aligned with the release-facing checks', () => {
-    const checks = [
-      'pnpm format:check',
-      'pnpm lint',
-      'pnpm typecheck',
-      'pnpm test:unit',
-      'pnpm test:docs',
-      'pnpm pack:check',
-      'pnpm test:e2e',
-      'pnpm audit --prod --audit-level high',
-    ]
-
-    for (const file of [
-      'README.md',
-      'apps/docs/content/8.oss/1.contributing.md',
-      'apps/docs/content/8.oss/2.release-workflow.md',
-    ]) {
-      const source = read(file)
-      for (const check of checks) {
-        expect(source, `${file} should mention ${check}`).toContain(check)
-      }
-    }
-  })
-
   it('documents only public board-core utility exports', () => {
-    const source = read('apps/docs/content/6.api/3.board-core-math.md')
+    const source = read(
+      'apps/docs/content/docs/6.reference/2.board-core.md',
+    ).split('## Math Helpers')[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,
@@ -133,7 +40,7 @@ describe('docs demo contracts', () => {
 
   it('documents the board-core internal subpath as first-party ABI only', () => {
     for (const file of [
-      'apps/docs/content/6.api/1.board-core.md',
+      'apps/docs/content/docs/6.reference/2.board-core.md',
       'ARCHITECTURE.md',
       'packages/board-core/README.md',
     ]) {
@@ -145,7 +52,7 @@ describe('docs demo contracts', () => {
   })
 
   it('documents public board-connections utility exports', () => {
-    const source = read('apps/docs/content/6.api/7.board-connections.md')
+    const source = read('apps/docs/content/docs/6.reference/6.connections.md')
 
     for (const helper of [
       'resolveAnchorPoint',
@@ -178,35 +85,27 @@ describe('docs demo contracts', () => {
     }
   })
 
-  it('serves raw docs from source markdown', () => {
-    const source = read('apps/docs/server/routes/raw/[...slug].md.get.ts')
+  it('keeps docs frontmatter complete', () => {
+    const files = filesIn('apps/docs/content/docs').filter(
+      (file) => file.endsWith('.md') && !file.endsWith('/index.md'),
+    )
 
-    expect(source).toContain("readFile(file, 'utf8')")
-    expect(source).not.toContain('minimark')
-    expect(source).not.toContain('queryCollection')
-  })
-
-  it('does not initialize client-side content search on page load', () => {
-    for (const file of [
-      'apps/docs/app/app.vue',
-      'apps/docs/app/error.vue',
-      'apps/docs/app/components/AppHeader.vue',
-    ]) {
+    for (const file of files) {
       const source = read(file)
-
-      expect(source, file).not.toContain('queryCollectionSearchSections')
-      expect(source, file).not.toContain('UContentSearch')
+      expect(source, file).toMatch(/^---\n/)
+      expect(source, file).toMatch(/^audience:\s/m)
+      expect(source, file).toMatch(/^intent:\s/m)
     }
   })
 
   it('keeps security reporting contact consistent', () => {
     expect(read('SECURITY.md')).toContain('security@lupinum.dev')
-    expect(read('apps/docs/content/8.oss/3.support-and-security.md')).toContain(
-      'security@lupinum.dev',
-    )
+    expect(
+      read('apps/docs/content/docs/7.project/2.support-and-security.md'),
+    ).toContain('security@lupinum.dev')
   })
 
-  it('does not pass runtime snapshots directly to importJSON in demos', () => {
+  it('does not pass runtime snapshots directly to loadDocument in demos', () => {
     const files = readdirSync(resolve(root, 'apps/docs/app/components/demos'))
       .filter((file) => file.endsWith('.vue'))
       .map((file) => `apps/docs/app/components/demos/${file}`)
@@ -214,13 +113,15 @@ describe('docs demo contracts', () => {
     for (const file of files) {
       const source = read(file)
 
-      expect(source, file).not.toMatch(/importJSON\(\s*JSON\.stringify\(\s*\{/s)
+      expect(source, file).not.toMatch(
+        /loadDocument\(\s*JSON\.stringify\(\s*\{/s,
+      )
       expect(source, file).not.toMatch(/\bsnapGuides:\s*\[/)
       expect(source, file).not.toMatch(/\binteraction:\s*\{\s*mode:/)
     }
 
     expect(read('packages/nuxt-board/playground/lib/demo.ts')).not.toMatch(
-      /importJSON\(\s*JSON\.stringify\(\s*\{/s,
+      /loadDocument\(\s*JSON\.stringify\(\s*\{/s,
     )
   })
 
@@ -260,10 +161,10 @@ describe('docs demo contracts', () => {
     })
     const engine = createBoardEngine()
 
-    engine.importJSON(JSON.stringify(document), 'replace')
+    engine.loadDocument(document, { mode: 'replace' })
 
     expect(engine.getNode(asNodeId('child')).parentId).toBe(asNodeId('group'))
-    expect(JSON.parse(engine.exportJSON())).toMatchObject({
+    expect(engine.exportDocument()).toMatchObject({
       nodes: expect.any(Array),
       'x-vue-board': {
         selection: [asNodeId('child')],

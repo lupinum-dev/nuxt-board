@@ -4,6 +4,9 @@
   "description": "Connection and edge rendering plugin for Vue Board.",
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,16 +17,20 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js"
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum/nuxt-board.git",
+    "url": "git+https://github.com/Mat4m0/canvas.git",
     "directory": "packages/board-connections"
   },
   "homepage": "https://vue-board.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum/nuxt-board/issues"
+    "url": "https://github.com/Mat4m0/canvas/issues"
   },
   "keywords": [
     "board",
@@ -36,11 +43,19 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && vue-tsc -p tsconfig.build.json"
+    "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/normalize-vue-declarations.mjs dist"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:^",
-    "@lupinum/vue-board": "workspace:^",
+    "@lupinum/board-core": "workspace:>=0.1.0 <1.0.0",
+    "@lupinum/vue-board": "workspace:>=0.1.0 <1.0.0",
     "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@lupinum/vue-board": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   }
 }

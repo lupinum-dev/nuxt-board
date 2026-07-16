@@ -14,9 +14,10 @@ import {
   type PropType,
 } from 'vue'
 import {
-  type BoardSnapshot,
+  type BoardState,
   type Camera,
   type BoardEngine,
+  type GridSettings,
   type BoardNode as BoardNodeState,
   type InteractionState,
   type NodeId,
@@ -52,6 +53,18 @@ const props = defineProps({
     type: [Boolean, Object] as PropType<boolean | BoardGridOptions>,
     default: true,
   },
+  selectionToolbar: {
+    type: Boolean,
+    default: true,
+  },
+  snapGuides: {
+    type: Boolean,
+    default: true,
+  },
+  boxSelect: {
+    type: Boolean,
+    default: true,
+  },
   renderers: {
     type: Object as PropType<BoardRendererRegistry>,
     default: () => ({}),
@@ -69,10 +82,10 @@ const emit = defineEmits<{
 const rootElement = ref<HTMLElement | null>(null)
 const engine = props.engine ?? createBoardEngine()
 const ownsEngine = props.engine === undefined
-const snapshot = shallowRef<BoardSnapshot>(engine.getSnapshot())
 const renderersRef = shallowRef<BoardRendererRegistry>(props.renderers)
 
 const $camera = shallowRef<Camera>(engine.$camera.get())
+const $grid = shallowRef<GridSettings>(engine.$grid.get())
 const $nodes = shallowRef<ReadonlyMap<NodeId, BoardNodeState>>(
   engine.$nodes.get(),
 )
@@ -86,19 +99,19 @@ const { viewportSize } = useViewportSize({ rootElement, engine })
 
 const resolvedGrid = useResolvedGrid({
   engine,
-  snapshot,
+  grid: $grid,
   gridProp: toRef(props, 'grid'),
 })
 
 provide(boardEngineKey, {
   engine,
-  snapshot,
   rootElement,
   viewportSize,
   renderers: renderersRef,
   resolvedGrid,
   toLocalPoint,
   $camera,
+  $grid,
   $nodes,
   $selection,
   $interaction,
@@ -129,52 +142,45 @@ const visibleNodes = useLodCulling({
   cullMargin: toRef(props, 'cullMargin'),
 })
 
+const state = computed<BoardState>(() => {
+  return {
+    camera: $camera.value,
+    grid: $grid.value,
+    nodes: $nodes.value,
+    selection: $selection.value,
+    interaction: $interaction.value,
+    snapGuides: $snapGuides.value,
+  }
+})
+
 const debugState = computed(() => ({
-  snapshot: snapshot.value,
+  state: state.value,
   camera: $camera.value,
-  grid: snapshot.value.grid,
+  grid: $grid.value,
   selection: Array.from($selection.value),
   interaction: $interaction.value,
   visibleNodeCount: visibleNodes.value.length,
   trace: engine.exportTrace().slice(-20),
 }))
 
-let snapshotDirty = false
-function refreshSnapshot(): void {
-  snapshot.value = engine.getSnapshot()
-}
-
-function scheduleSnapshotRefresh(): void {
-  if (!snapshotDirty) {
-    snapshotDirty = true
-    queueMicrotask(() => {
-      refreshSnapshot()
-      snapshotDirty = false
-    })
-  }
-}
-
 const unsubscribes = [
-  engine.on('command:after', scheduleSnapshotRefresh),
   engine.$camera.subscribe((v) => {
     $camera.value = v
-    scheduleSnapshotRefresh()
+  }),
+  engine.$grid.subscribe((v) => {
+    $grid.value = v
   }),
   engine.$nodes.subscribe((v) => {
     $nodes.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$selection.subscribe((v) => {
     $selection.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$interaction.subscribe((v) => {
     $interaction.value = v
-    scheduleSnapshotRefresh()
   }),
   engine.$snapGuides.subscribe((v) => {
     $snapGuides.value = v
-    scheduleSnapshotRefresh()
   }),
 ]
 
@@ -199,17 +205,23 @@ function toLocalPoint(clientX: number, clientY: number): Point {
   }
 }
 
-const { onPointerDown, onPointerMove, onPointerUp, onWheel, onDoubleClick } =
-  usePointerInteraction({
-    engine,
-    rootElement,
-    spacePressed,
-    toLocalPoint,
-  })
+const {
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onWheel,
+  onDoubleClick,
+} = usePointerInteraction({
+  engine,
+  rootElement,
+  spacePressed,
+  toLocalPoint,
+})
 
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
   engine,
-  snapshot,
+  grid: $grid,
   spacePressed,
 })
 
@@ -249,15 +261,15 @@ onBeforeUnmount(() => {
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
-    @pointercancel="onPointerUp"
+    @pointercancel="onPointerCancel"
     @wheel="onWheel"
     @dblclick="onDoubleClick"
     @keydown="onKeyDown"
     @keyup="onKeyUp"
   >
-    <BoardGrid />
+    <BoardGrid v-if="grid !== false" />
     <BoardViewport>
-      <slot name="viewport" :engine="engine" :snapshot="snapshot" />
+      <slot name="viewport" :engine="engine" :state="state" />
       <template v-for="node in visibleNodes" :key="node.id">
         <BoardNode
           v-if="node.lod === 'full'"
@@ -324,14 +336,14 @@ onBeforeUnmount(() => {
         />
       </template>
     </BoardViewport>
-    <BoardSelectionToolbar />
-    <BoardSnapGuides />
-    <BoardBoxSelect>
+    <BoardSelectionToolbar v-if="selectionToolbar" />
+    <BoardSnapGuides v-if="snapGuides" />
+    <BoardBoxSelect v-if="boxSelect">
       <template #default="slotProps">
         <slot name="box-select" v-bind="slotProps" />
       </template>
     </BoardBoxSelect>
-    <slot :engine="engine" :snapshot="snapshot" :debug-state="debugState" />
+    <slot :engine="engine" :state="state" :debug-state="debugState" />
   </div>
 </template>
 

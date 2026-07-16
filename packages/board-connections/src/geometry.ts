@@ -11,6 +11,7 @@ import type {
   BoardEdge,
   ConnectionRoute,
   ConnectionRouting,
+  ConnectionsApi,
   ResolvedConnectionEndpoint,
 } from './types.js'
 import { buildArcRoute } from './routing/arc.js'
@@ -704,12 +705,12 @@ export function resolveEdgeRenderState(
 }
 
 export function getVisibleEdges(
-  engine: BoardEngine,
+  engine: BoardEngine<{ connections: ConnectionsApi }>,
   bounds: Bounds,
   routing?: ConnectionRouting,
 ): BoardEdge[] {
   const nodes = engine.$nodes.get()
-  return engine.ext.connections.getEdges().filter((edge) => {
+  return engine.plugins.connections.getEdges().filter((edge) => {
     const sourceNode = nodes.get(edge.from)
     const targetNode = nodes.get(edge.to)
     if (!sourceNode || !targetNode) {

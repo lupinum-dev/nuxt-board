@@ -13,81 +13,80 @@ function syncNodeCount() {
 }
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: -80, y: -20, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'group-1',
-            type: 'group',
-            x: 32,
-            y: 32,
-            width: 896,
-            height: 306,
-            text: 'Node',
-            zIndex: 0,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'research',
-            type: 'text',
-            x: 60,
-            y: 60,
-            width: 240,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-            parentId: 'group-1',
-          },
-          {
-            id: 'prototype',
-            type: 'text',
-            x: 370,
-            y: 200,
-            width: 260,
-            height: 110,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-            parentId: 'group-1',
-          },
-          {
-            id: 'review',
-            type: 'text',
-            x: 680,
-            y: 80,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 3,
-            locked: false,
-            visible: true,
-            parentId: 'group-1',
-          },
-        ],
-        selection: [],
-        nextZIndex: 4,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: -80, y: -20, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'group-1',
+          type: 'group',
+          x: 32,
+          y: 32,
+          width: 896,
+          height: 306,
+          text: 'Node',
+          zIndex: 0,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'research',
+          type: 'text',
+          x: 60,
+          y: 60,
+          width: 240,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+        {
+          id: 'prototype',
+          type: 'text',
+          x: 370,
+          y: 200,
+          width: 260,
+          height: 110,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+        {
+          id: 'review',
+          type: 'text',
+          x: 680,
+          y: 80,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 3,
+          locked: false,
+          visible: true,
+          parentId: 'group-1',
+        },
+      ],
+      selection: [],
+      nextZIndex: 4,
+    }),
+    { mode: 'replace' },
   )
   syncNodeCount()
 }
 
 function addNode() {
+  const index = nodeCount.value - 4
   engine.createNode({
     type: 'text',
-    x: 180 + Math.round(Math.random() * 320),
-    y: 140 + Math.round(Math.random() * 160),
+    x: 180 + (index % 3) * 120,
+    y: 140 + (index % 2) * 100,
     width: 220,
     height: 100,
-    text: 'Node',
+    text: `Planning note ${index + 1}`,
   })
   syncNodeCount()
 }
@@ -97,9 +96,9 @@ function wrapSelectionInGroup() {
   if (selected.length === 0) {
     return
   }
-  const nodes = engine
-    .getSnapshot()
-    .nodes.filter((node) => selected.includes(node.id))
+  const nodes = Array.from(engine.getState().nodes.values()).filter((node) =>
+    selected.includes(node.id),
+  )
   if (nodes.length === 0) {
     return
   }
@@ -120,7 +119,6 @@ function wrapSelectionInGroup() {
   for (const node of nodes) {
     engine.updateNode(node.id, { parentId: group.id })
   }
-  engine.syncGroupZOrder(group.id)
   engine.select(group.id)
 }
 

@@ -1,11 +1,17 @@
 import { cloneInteraction } from '../invariants.js'
-import { sameArray, freezeClone } from '../helpers/clone.js'
+import {
+  sameArray,
+  freezeClone,
+  readonlyMapView,
+  readonlySetView,
+} from '../helpers/clone.js'
 import { createBatchController, createSubscribable } from '../subscribable.js'
 import type { BatchController } from '../subscribable.js'
 import type {
   BoardEventMap,
   BoardNode,
   Camera,
+  GridSettings,
   InteractionState,
   NodeId,
   SnapGuide,
@@ -13,11 +19,12 @@ import type {
 } from '../types.js'
 import type { MutableBoardState } from '../state/types.js'
 import { buildPublicNodeMap } from '../state/selectors.js'
-import type { Action } from '../state/actions.js'
+import { validateCamera } from './options.js'
 
 interface ReactiveLayer {
   batchCtrl: BatchController
   $camera: Subscribable<Camera>
+  $grid: Subscribable<GridSettings>
   $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   $selection: Subscribable<ReadonlySet<NodeId>>
   $interaction: Subscribable<InteractionState>
@@ -26,6 +33,7 @@ interface ReactiveLayer {
   invalidateNodeCache: () => void
   notifyNodesChanged: () => void
   notifyCameraChanged: () => void
+  notifyGridChanged: () => void
   notifySelectionChanged: () => void
   notifyInteractionChanged: () => void
   notifySnapGuidesChanged: () => void
@@ -33,47 +41,63 @@ interface ReactiveLayer {
   setSelection: (next: Iterable<NodeId>) => void
   setInteraction: (next: InteractionState) => void
   setSnapGuides: (next: SnapGuide[]) => void
+  destroy: () => void
 }
 
 interface ReactiveLayerDeps {
-  state: MutableBoardState
+  getState: () => MutableBoardState
+  getGrid: () => GridSettings
+  getEffectiveNodes: () => Map<NodeId, BoardNode>
   emit: <K extends keyof BoardEventMap>(
     event: K,
     ...args: Parameters<BoardEventMap[K]>
   ) => void
-  dispatch: (action: Action) => void
+  reportSubscriberError: (channel: string, error: unknown) => void
 }
 
 export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
-  const { state, emit, dispatch } = deps
+  const { getState, getGrid, emit, getEffectiveNodes, reportSubscriberError } =
+    deps
+  const initialState = getState()
+  const initialGrid = getGrid()
 
   const batchCtrl = createBatchController()
   const $camera = createSubscribable<Camera>(
-    freezeClone({ ...state.camera }),
+    freezeClone({ ...initialState.camera }),
     batchCtrl,
+    (error) => reportSubscriberError('$camera', error),
+  )
+  const $grid = createSubscribable<GridSettings>(
+    freezeClone({ ...initialGrid }),
+    batchCtrl,
+    (error) => reportSubscriberError('$grid', error),
   )
   const $nodes = createSubscribable<ReadonlyMap<NodeId, BoardNode>>(
-    new Map(),
+    readonlyMapView(new Map()),
     batchCtrl,
+    (error) => reportSubscriberError('$nodes', error),
   )
   const $selection = createSubscribable<ReadonlySet<NodeId>>(
-    new Set(state.selection),
+    readonlySetView(new Set(initialState.selection)),
     batchCtrl,
+    (error) => reportSubscriberError('$selection', error),
   )
   const $interaction = createSubscribable<InteractionState>(
-    cloneInteraction(state.interaction),
+    cloneInteraction(initialState.interaction),
     batchCtrl,
+    (error) => reportSubscriberError('$interaction', error),
   )
   const $snapGuides = createSubscribable<readonly SnapGuide[]>(
-    state.snapGuides.map((guide) => freezeClone({ ...guide })),
+    initialState.snapGuides.map((guide) => freezeClone({ ...guide })),
     batchCtrl,
+    (error) => reportSubscriberError('$snapGuides', error),
   )
 
   let cachedPublicNodeMap: ReadonlyMap<NodeId, BoardNode> | null = null
 
   function getPublicNodeMap(): ReadonlyMap<NodeId, BoardNode> {
     if (!cachedPublicNodeMap) {
-      cachedPublicNodeMap = buildPublicNodeMap(state)
+      cachedPublicNodeMap = buildPublicNodeMap({ nodes: getEffectiveNodes() })
     }
     return cachedPublicNodeMap
   }
@@ -84,26 +108,42 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
 
   function notifyNodesChanged(): void {
     cachedPublicNodeMap = null
-    $nodes.set(new Map(getPublicNodeMap()))
+    if (batchCtrl.depth > 0) {
+      batchCtrl.pending.add(publishNodes)
+      return
+    }
+    publishNodes()
+  }
+
+  function publishNodes(): void {
+    $nodes.set(readonlyMapView(getPublicNodeMap()))
   }
 
   function notifyCameraChanged(): void {
-    $camera.set(freezeClone({ ...state.camera }))
+    $camera.set(freezeClone({ ...getState().camera }))
+  }
+
+  function notifyGridChanged(): void {
+    $grid.set(freezeClone({ ...getGrid() }))
   }
 
   function notifySelectionChanged(): void {
-    $selection.set(new Set(state.selection))
+    $selection.set(readonlySetView(new Set(getState().selection)))
   }
 
   function notifyInteractionChanged(): void {
-    $interaction.set(cloneInteraction(state.interaction))
+    $interaction.set(cloneInteraction(getState().interaction))
   }
 
   function notifySnapGuidesChanged(): void {
-    $snapGuides.set(state.snapGuides.map((guide) => freezeClone({ ...guide })))
+    $snapGuides.set(
+      getState().snapGuides.map((guide) => freezeClone({ ...guide })),
+    )
   }
 
   function setCamera(next: Camera): void {
+    validateCamera(next)
+    const state = getState()
     const prev = { ...state.camera }
     if (prev.x === next.x && prev.y === next.y && prev.z === next.z) return
     state.camera = next
@@ -112,16 +152,17 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setSelection(nextSelection: Iterable<NodeId>): void {
+    const state = getState()
     const prev = Array.from(state.selection.values())
     const next = Array.from(nextSelection)
     if (sameArray(prev, next)) return
     state.selection = new Set(next)
     notifySelectionChanged()
-    dispatch({ type: 'SELECTION_SET', before: prev, after: next })
     emit('selection:change', next, prev)
   }
 
   function setInteraction(next: InteractionState): void {
+    const state = getState()
     const prev = state.interaction
     state.interaction = next
     notifyInteractionChanged()
@@ -139,13 +180,26 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
   }
 
   function setSnapGuides(next: SnapGuide[]): void {
+    const state = getState()
     state.snapGuides = next
     notifySnapGuidesChanged()
+  }
+
+  function destroy(): void {
+    $camera.destroy()
+    $grid.destroy()
+    $nodes.destroy()
+    $selection.destroy()
+    $interaction.destroy()
+    $snapGuides.destroy()
+    batchCtrl.pending.clear()
+    batchCtrl.rollbacks.clear()
   }
 
   return {
     batchCtrl,
     $camera,
+    $grid,
     $nodes,
     $selection,
     $interaction,
@@ -154,6 +208,7 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     invalidateNodeCache,
     notifyNodesChanged,
     notifyCameraChanged,
+    notifyGridChanged,
     notifySelectionChanged,
     notifyInteractionChanged,
     notifySnapGuidesChanged,
@@ -161,5 +216,6 @@ export function createReactiveLayer(deps: ReactiveLayerDeps): ReactiveLayer {
     setSelection,
     setInteraction,
     setSnapGuides,
+    destroy,
   }
 }

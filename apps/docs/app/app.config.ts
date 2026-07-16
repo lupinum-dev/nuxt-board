@@ -1,72 +1,56 @@
-export default defineAppConfig({
-  ui: {
-    colors: {
-      primary: 'primary',
-      neutral: 'slate',
+export default {
+  ginkoDocs: {
+    site: {
+      url: 'https://vue-board.vercel.app',
+      name: { en: 'Vue Board' },
+      description: { en: 'A real board model for Vue and Nuxt products.' },
+      logo: { light: '/favicon.ico', dark: '/favicon.ico' },
+      localeSwitcher: 'dropdown',
+      docsSidebarSwitcher: 'tabs',
     },
-    footer: {
-      slots: {
-        root: 'border-t border-default',
-        left: 'text-sm text-muted',
-      },
+    social: { github: 'https://github.com/Mat4m0/canvas' },
+    repository: {
+      url: 'https://github.com/Mat4m0/canvas',
+      branch: 'main',
+      contentDirectory: 'apps/docs/content',
     },
-  },
-  seo: {
-    siteName: 'Vue Board',
-  },
-  header: {
-    title: 'Vue Board',
-    to: '/',
-    logo: {
-      alt: 'Vue Board',
-      light: '',
-      dark: '',
-    },
-    colorMode: true,
-    links: [
-      {
-        icon: 'i-tabler-brand-github',
-        to: 'https://github.com/lupinum/nuxt-board',
-        target: '_blank',
-        'aria-label': 'GitHub',
+    landing: {
+      eyebrow: { en: 'Headless engine. Focused Vue renderer.' },
+      title: { en: 'Build the board your product actually needs.' },
+      description: {
+        en: 'Predictable commands, custom node rendering, JSON Canvas persistence, and focused packages for connections and history.',
       },
-      {
-        icon: 'i-tabler-player-play',
-        to: '/examples/basic-board',
-        'aria-label': 'Examples',
+      primary: {
+        label: { en: 'Build your first board' },
+        to: { en: '/docs/start-building/your-first-board' },
       },
-    ],
-  },
-  footer: {
-    credits: `Vue Board • © ${new Date().getFullYear()}`,
-    colorMode: false,
-    links: [
-      {
-        icon: 'i-tabler-brand-github',
-        to: 'https://github.com/lupinum/nuxt-board',
-        target: '_blank',
-        'aria-label': 'Vue Board on GitHub',
+      secondary: {
+        label: { en: 'Understand the system' },
+        to: { en: '/docs/evaluate/how-vue-board-works' },
       },
-    ],
-  },
-  toc: {
-    title: 'Table of Contents',
-    bottom: {
-      title: 'Project',
-      edit: 'https://github.com/lupinum/nuxt-board/edit/main/apps/docs/content',
-      links: [
+      features: [
         {
-          icon: 'i-tabler-star',
-          label: 'Star on GitHub',
-          to: 'https://github.com/lupinum/nuxt-board',
-          target: '_blank',
+          title: { en: 'Command-driven core' },
+          description: {
+            en: 'Transactions, guards, events, and history operate on one explicit document model.',
+          },
+          icon: 'lucide:terminal-square',
         },
         {
-          icon: 'i-tabler-player-play',
-          label: 'Open examples',
-          to: '/examples/basic-board',
+          title: { en: 'Rendering stays yours' },
+          description: {
+            en: 'Use the built-in renderer or provide custom node visuals without forking the engine.',
+          },
+          icon: 'lucide:panel-top',
+        },
+        {
+          title: { en: 'Composable features' },
+          description: {
+            en: 'Connections, minimap, history, persistence, and Nuxt integration remain focused packages.',
+          },
+          icon: 'lucide:network',
         },
       ],
     },
   },
-})
+}

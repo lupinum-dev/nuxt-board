@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
-import { BoardConnectionLayer } from '../../board-connections/src/index'
-import { BoardMinimap } from '../../board-minimap/src/index'
+import { BoardConnectionLayer } from '../../board-connections/src/vue'
+import { BoardMinimap } from '../../vue-board/src/minimap'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import DemoDiagnostics from '~/components/DemoDiagnostics.vue'
 import DemoGroupNodeRenderer from '~/components/DemoGroupNodeRenderer.vue'
@@ -92,7 +92,7 @@ const gridOptions = computed(() => ({
 
 function reseedScene(): void {
   activeScene.value = loadDemoScene(engine, sceneId.value)
-  const grid = engine.getSnapshot().grid
+  const grid = engine.getState().grid
   gridSize.value = grid.size
   gridPattern.value = grid.pattern
   snapToGrid.value = grid.snap
@@ -121,14 +121,14 @@ function exportDocument(): void {
   status.value = 'Exported current board as JSON Canvas.'
 }
 
-function importDocument(): void {
+function loadDocument(): void {
   if (!documentText.value.trim()) {
     status.value = 'Nothing to import yet.'
     return
   }
   try {
     importDemoDocument(engine, documentText.value)
-    const grid = engine.getSnapshot().grid
+    const grid = engine.getState().grid
     gridSize.value = grid.size
     gridPattern.value = grid.pattern
     snapToGrid.value = grid.snap
@@ -276,7 +276,7 @@ function groupSelection(): void {
           :scene-summary="activeScene.summary"
           :benchmark-result="benchmarkResult"
           :status="status"
-          @import="importDocument"
+          @import="loadDocument"
         />
       </div>
     </section>

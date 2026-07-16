@@ -1,6 +1,6 @@
 # Code of Conduct
 
-This project follows the Contributor Covenant.
+Contributors and maintainers are expected to follow these community rules:
 
 - Be respectful and direct.
 - Assume good intent, but keep technical discussion rigorous.

@@ -18,9 +18,12 @@ async function seedConnectionScene(page: Page) {
       window as unknown as {
         __boardPlayground: {
           engine: {
-            importJSON: (document: string, mode: 'replace' | 'merge') => void
+            loadDocument: (
+              document: unknown,
+              options?: { mode?: 'replace' | 'merge' },
+            ) => void
             zoomTo: (level: number, animated?: boolean) => Promise<void>
-            ext: {
+            plugins: {
               connections: {
                 getEdges: () => Array<{ id: string }>
                 deleteEdge: (id: string) => void
@@ -32,8 +35,8 @@ async function seedConnectionScene(page: Page) {
       }
     ).__boardPlayground
 
-    api.engine.importJSON(
-      JSON.stringify({
+    api.engine.loadDocument(
+      {
         nodes: [
           {
             id: 'input',
@@ -84,11 +87,11 @@ async function seedConnectionScene(page: Page) {
             output: { zIndex: 4, locked: false, visible: true },
           },
         },
-      }),
-      'replace',
+      },
+      { mode: 'replace' },
     )
 
-    const connections = api.engine.ext.connections
+    const connections = api.engine.plugins.connections
     for (const edge of connections.getEdges()) {
       connections.deleteEdge(edge.id)
     }
@@ -244,6 +247,9 @@ test('keeps connections attached through drag resize and zoom interactions', asy
     resizeHandleBox.y + resizeHandleBox.height / 2 + 35,
     { steps: 10 },
   )
+  await expect
+    .poll(async () => (await output.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(outputBox.width + 20)
   await page.mouse.up()
 
   await board.evaluate((element) => {
@@ -276,7 +282,7 @@ test('creates a new connection from a card edge and previews the route cleanly',
         window as unknown as {
           __boardPlayground: {
             engine: {
-              ext: {
+              plugins: {
                 connections: {
                   getEdges: () => Array<{ id: string }>
                 }
@@ -285,7 +291,7 @@ test('creates a new connection from a card edge and previews the route cleanly',
           }
         }
       ).__boardPlayground
-      return api.engine.ext.connections.getEdges().length
+      return api.engine.plugins.connections.getEdges().length
     })
 
   const before = await countEdges()

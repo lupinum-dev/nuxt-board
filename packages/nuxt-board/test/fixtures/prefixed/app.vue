@@ -3,6 +3,7 @@
     <p class="prefixed-module-ok">prefixed-module-ok</p>
     <AcmeBoardRoot :engine="engine" style="width: 400px; height: 300px">
       <PrefixedBoardProbe />
+      <AcmeBoardMinimap :width="120" :height="80" />
     </AcmeBoardRoot>
   </div>
 </template>

@@ -90,7 +90,7 @@ export type BoardColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
 export type CanvasColor = BoardColorPreset | `#${string}`
 
 interface JsonCanvasNodeBase<TType extends JsonCanvasNodeType> {
-  readonly id: NodeId
+  readonly id: string
   readonly type: TType
   readonly x: number
   readonly y: number
@@ -127,11 +127,11 @@ export type JsonCanvasNode =
 
 /** JSON Canvas 1.0 edge record. */
 export interface JsonCanvasEdge {
-  readonly id: EdgeId
-  readonly fromNode: NodeId
+  readonly id: string
+  readonly fromNode: string
   readonly fromSide?: JsonCanvasSide
   readonly fromEnd?: JsonCanvasEdgeEnd
-  readonly toNode: NodeId
+  readonly toNode: string
   readonly toSide?: JsonCanvasSide
   readonly toEnd?: JsonCanvasEdgeEnd
   readonly color?: CanvasColor
@@ -142,7 +142,7 @@ export interface VueBoardNodeMetadata {
   readonly zIndex?: number
   readonly locked?: boolean
   readonly visible?: boolean
-  readonly parentId?: NodeId
+  readonly parentId?: string
 }
 
 export interface VueBoardEdgeMetadata {
@@ -154,7 +154,7 @@ export interface VueBoardEdgeMetadata {
 export interface VueBoardDocumentMetadata {
   readonly camera?: Camera
   readonly grid?: GridSettings
-  readonly selection?: readonly NodeId[]
+  readonly selection?: readonly string[]
   readonly nextZIndex?: number
   readonly nodes?: Readonly<Record<string, VueBoardNodeMetadata>>
   readonly edges?: Readonly<Record<string, VueBoardEdgeMetadata>>
@@ -167,32 +167,120 @@ export interface JsonCanvasDocument {
   readonly 'x-vue-board'?: VueBoardDocumentMetadata
 }
 
-/** Public immutable node shape returned by snapshots, selectors, and commands. */
-export interface BoardNode {
+interface BoardNodeBase {
   readonly id: NodeId
-  readonly type: JsonCanvasNodeType
   readonly x: number
   readonly y: number
   readonly width: number
   readonly height: number
   readonly color?: CanvasColor
-  readonly text?: string
-  readonly file?: string
-  readonly subpath?: string
-  readonly url?: string
-  readonly label?: string
-  readonly background?: string
-  readonly backgroundStyle?: JsonCanvasBackgroundStyle
   readonly zIndex: number
   readonly locked: boolean
   readonly visible: boolean
   readonly parentId?: NodeId
 }
 
-/** Input accepted by `createNode`, with sensible defaults for omitted fields. */
-export interface NodeInput {
+/** Canonical immutable node shape returned by state, selectors, and commands. */
+export type BoardNode =
+  | (BoardNodeBase & {
+      readonly type: 'text'
+      readonly text: string
+      readonly file?: never
+      readonly subpath?: never
+      readonly url?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'file'
+      readonly file: string
+      readonly subpath?: string
+      readonly text?: never
+      readonly url?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'link'
+      readonly url: string
+      readonly text?: never
+      readonly file?: never
+      readonly subpath?: never
+      readonly label?: never
+      readonly background?: never
+      readonly backgroundStyle?: never
+    })
+  | (BoardNodeBase & {
+      readonly type: 'group'
+      readonly label?: string
+      readonly background?: string
+      readonly backgroundStyle?: JsonCanvasBackgroundStyle
+      readonly text?: never
+      readonly file?: never
+      readonly subpath?: never
+      readonly url?: never
+    })
+
+interface NodeInputBase {
   id?: NodeId
-  type?: JsonCanvasNodeType
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  color?: CanvasColor
+  locked?: boolean
+  visible?: boolean
+  parentId?: NodeId
+  select?: boolean
+}
+
+/** Input accepted by `createNode`, with text defaults and explicit file/link values. */
+export type NodeInput =
+  | (NodeInputBase & {
+      type?: 'text'
+      text?: string
+      file?: never
+      subpath?: never
+      url?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'file'
+      file: string
+      subpath?: string
+      text?: never
+      url?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'link'
+      url: string
+      text?: never
+      file?: never
+      subpath?: never
+      label?: never
+      background?: never
+      backgroundStyle?: never
+    })
+  | (NodeInputBase & {
+      type: 'group'
+      label?: string
+      background?: string
+      backgroundStyle?: JsonCanvasBackgroundStyle
+      text?: never
+      file?: never
+      subpath?: never
+      url?: never
+    })
+
+/** Partial update payload accepted by `updateNode`. */
+export interface NodePatch {
   x?: number
   y?: number
   width?: number
@@ -208,30 +296,18 @@ export interface NodeInput {
   locked?: boolean
   visible?: boolean
   parentId?: NodeId
-  select?: boolean
 }
 
-/** Partial update payload accepted by `updateNode`. */
-export type NodePatch = Partial<
-  Pick<
-    BoardNode,
-    | 'x'
-    | 'y'
-    | 'width'
-    | 'height'
-    | 'text'
-    | 'file'
-    | 'subpath'
-    | 'url'
-    | 'label'
-    | 'background'
-    | 'backgroundStyle'
-    | 'color'
-    | 'locked'
-    | 'visible'
-    | 'parentId'
-  >
->
+/** Nodes created by duplication plus the canonical source-to-copy identity map. */
+export interface DuplicateNodesResult {
+  readonly nodes: readonly BoardNode[]
+  readonly idMap: ReadonlyMap<NodeId, NodeId>
+}
+
+/** Options controlling how a validated document enters the current board. */
+export interface DocumentLoadOptions {
+  mode?: 'replace' | 'merge'
+}
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw'
 export type SelectionMode = 'replace' | 'append' | 'toggle'
@@ -302,18 +378,18 @@ export type InteractionState =
   | BoxSelectInteractionState
   | EditingInteractionState
 
-/** Internal immutable engine state exposed through `getState()`. */
+/** Immutable effective runtime state exposed through `getState()`. */
 export interface BoardState {
   readonly camera: Camera
+  readonly grid: GridSettings
   readonly nodes: ReadonlyMap<NodeId, BoardNode>
   readonly selection: ReadonlySet<NodeId>
   readonly interaction: InteractionState
   readonly snapGuides: readonly SnapGuide[]
-  readonly nextZIndex: number
 }
 
-/** Runtime board snapshot used by selectors, renderers, and tests. */
-export interface BoardSnapshot {
+/** Internal array form used for document normalization, validation, and encoding. */
+export interface InternalBoardSnapshot {
   readonly camera: Camera
   readonly grid: GridSettings
   readonly nodes: readonly BoardNode[]
@@ -323,27 +399,78 @@ export interface BoardSnapshot {
   readonly nextZIndex: number
 }
 
-/** Validation handling strategy for development and tests. */
-export type ValidationMode = 'strict' | 'warn' | 'off'
+export interface BoardPluginApis {}
 
-export interface BoardFeatureExtensions {}
-
-/** Opaque install token produced by internal extension packages. */
-export interface BoardExtension {
+/** Opaque install token carrying the API and events installed by a plugin factory. */
+export interface BoardPlugin<
+  TApis extends BoardPluginApis = BoardPluginApis,
+  TEvents = {},
+> {
   readonly name: string
-  readonly __boardExtensionBrand: never
+  readonly __boardPluginBrand: never
+  readonly __boardPluginApis: TApis
+  readonly __boardPluginEvents: TEvents
 }
 
-/** Engine factory options shared by commands, internal features, and renderers. */
-export interface BoardEngineOptions {
+type UnionToIntersection<T> = (
+  T extends unknown ? (value: T) => void : never
+) extends (value: infer TIntersection) => void
+  ? TIntersection
+  : never
+
+type PluginApi<TPlugin> =
+  TPlugin extends BoardPlugin<infer TApis, infer _TEvents> ? TApis : never
+
+type PluginEvents<TPlugin> =
+  TPlugin extends BoardPlugin<infer _TApis, infer TEvents> ? TEvents : never
+
+type InstalledPluginApisForTuple<TPlugins extends readonly BoardPlugin[]> = [
+  TPlugins[number],
+] extends [never]
+  ? BoardPluginApis
+  : BoardPluginApis & UnionToIntersection<PluginApi<TPlugins[number]>>
+
+type InstalledPluginEventsForTuple<TPlugins extends readonly BoardPlugin[]> = [
+  TPlugins[number],
+] extends [never]
+  ? {}
+  : UnionToIntersection<PluginEvents<TPlugins[number]>>
+
+/**
+ * Distribute over conditional plugin tuples so only APIs present in every
+ * possible runtime branch can be accessed without narrowing.
+ */
+export type InstalledPluginApis<TPlugins extends readonly BoardPlugin[]> =
+  TPlugins extends readonly BoardPlugin[]
+    ? InstalledPluginApisForTuple<TPlugins>
+    : never
+
+export type InstalledPluginEvents<TPlugins extends readonly BoardPlugin[]> =
+  TPlugins extends readonly BoardPlugin[]
+    ? InstalledPluginEventsForTuple<TPlugins>
+    : never
+
+/** Context for failures reported after the engine can no longer roll back work. */
+export type BoardUnhandledErrorContext =
+  | { readonly source: 'event-listener'; readonly event: string }
+  | { readonly source: 'subscriber'; readonly channel: string }
+  | { readonly source: 'commit-effect'; readonly commit: string }
+
+/** Engine factory options shared by commands, internal plugins, and renderers. */
+export interface BoardEngineOptions<
+  TPlugins extends readonly BoardPlugin[] = readonly [],
+> {
   camera?: Partial<Camera>
   zoom?: Partial<ZoomSettings>
   grid?: Partial<GridSettings>
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
-  extensions?: BoardExtension[]
+  plugins?: TPlugins
   diagnostics?: boolean | { traceLimit?: number }
-  validation?: ValidationMode
+  onUnhandledError?: (
+    error: unknown,
+    context: BoardUnhandledErrorContext,
+  ) => void
   initialNodes?: ReadonlyArray<BoardNode>
   initialDocument?: JsonCanvasDocument
 }
@@ -352,29 +479,27 @@ export interface BoardEngineOptions {
 export interface ValidationFailure {
   name: string
   message: string
-  snapshot: BoardSnapshot
+  state: BoardState
   context: string
 }
 
 /** Trace row recorded when diagnostics are enabled. */
 export interface TraceEntry {
-  event: string
-  timestamp: number
-  args: unknown[]
+  readonly event: string
+  readonly timestamp: number
+  readonly args: readonly unknown[]
 }
 
 /** History capture policy attached to command lifecycle events. */
 export type CommandHistoryPolicy = 'record' | 'ignore'
 
-/** Explicit command lifecycle metadata consumed by internal features. */
+/** Explicit command lifecycle metadata consumed by internal plugins. */
 export interface CommandMetadata {
   history: CommandHistoryPolicy
-  validate?: boolean
 }
 
-/** Event contract emitted by the board engine. Internal features extend this interface via module augmentation. */
+/** Base event contract emitted by every board engine. Installed plugin tuples add their own event maps. */
 export interface BoardEventMap {
-  ready: () => void
   destroy: () => void
   'camera:change': (camera: Camera, prev: Camera) => void
   'viewport:change': (size: Point, prev: Point) => void
@@ -409,19 +534,18 @@ export interface BoardEventMap {
   'validation:failed': (failure: ValidationFailure) => void
 }
 
-export type FeatureCleanup = () => void
+export type PluginCleanup = () => void
 export type Unsubscribe = () => void
 
-/**
- * A synchronous command gate for host-level policy such as read-only mode.
- * Call `next()` to allow the command to proceed; omit it to block before state,
- * events, history, or feature reducers are touched.
- */
-export type CommandGuard = (
-  name: string,
-  args: unknown[],
-  next: () => void,
-) => void
+/** Immutable command description evaluated by host policy guards. */
+export interface CommandContext {
+  readonly name: string
+  readonly args: readonly unknown[]
+  readonly metadata: CommandMetadata
+}
+
+/** Allow a command with `true`, or block it with an actionable reason. */
+export type CommandGuard = (command: Readonly<CommandContext>) => true | string
 
 /** Minimal observable contract used by the engine and framework adapters. */
 export interface Subscribable<T> {
@@ -435,9 +559,13 @@ export interface Subscribable<T> {
  * Commands mutate persistent board state, subscribables expose reactive state,
  * and events let host applications observe lifecycle changes.
  */
-export interface BoardEngine {
-  readonly ext: BoardFeatureExtensions
+export interface BoardEngine<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
+  TPluginEvents = {},
+> {
+  readonly plugins: TPluginApis
   readonly $camera: Subscribable<Camera>
+  readonly $grid: Subscribable<GridSettings>
   readonly $nodes: Subscribable<ReadonlyMap<NodeId, BoardNode>>
   readonly $selection: Subscribable<ReadonlySet<NodeId>>
   readonly $interaction: Subscribable<InteractionState>
@@ -445,20 +573,22 @@ export interface BoardEngine {
   destroy(): void
   batch(fn: () => void): void
   getState(): BoardState
-  getSnapshot(): BoardSnapshot
   getGridSettings(): GridSettings
   getViewportSize(): Point
   updateGridSettings(patch: Partial<GridSettings>): GridSettings
   setViewportSize(size: Point): void
-  on<K extends keyof BoardEventMap>(
+  on<K extends keyof (BoardEventMap & TPluginEvents)>(
     event: K,
-    handler: BoardEventMap[K],
+    handler: (BoardEventMap & TPluginEvents)[K],
   ): Unsubscribe
-  once<K extends keyof BoardEventMap>(
+  once<K extends keyof (BoardEventMap & TPluginEvents)>(
     event: K,
-    handler: BoardEventMap[K],
+    handler: (BoardEventMap & TPluginEvents)[K],
   ): Unsubscribe
-  off<K extends keyof BoardEventMap>(event: K, handler: BoardEventMap[K]): void
+  off<K extends keyof (BoardEventMap & TPluginEvents)>(
+    event: K,
+    handler: (BoardEventMap & TPluginEvents)[K],
+  ): void
   exportTrace(): TraceEntry[]
   /**
    * Register a synchronous command gate. Intended for concrete host policy such
@@ -499,7 +629,7 @@ export interface BoardEngine {
   sendToBack(id: NodeId): void
   lockNode(id: NodeId): void
   unlockNode(id: NodeId): void
-  duplicateNodes(ids: NodeId[], offset?: Point): BoardNode[]
+  duplicateNodes(ids: NodeId[], offset?: Point): DuplicateNodesResult
   copySelected(): BoardNode[]
   pasteClipboard(offset?: Point): BoardNode[]
   select(ids: NodeId | NodeId[], mode?: SelectionMode): void
@@ -507,6 +637,15 @@ export interface BoardEngine {
   clearSelection(): void
   deleteSelected(): void
   getSelection(): NodeId[]
+  beginTextEdit(id: NodeId): void
+  commitTextEdit(id: NodeId, text?: string): BoardNode
+  cancelTextEdit(): void
+  exportDocument(): JsonCanvasDocument
+  loadDocument(document: unknown, options?: DocumentLoadOptions): void
+}
+
+/** Sealed pointer/session adapter consumed by framework integrations. */
+export interface InternalInteractionAdapter {
   beginPan(pointerId: number, screenPoint: Point): void
   beginNodeDrag(id: NodeId, pointerId: number, screenPoint: Point): void
   beginResize(
@@ -516,41 +655,42 @@ export interface BoardEngine {
     screenPoint: Point,
   ): void
   beginBoxSelect(pointerId: number, screenPoint: Point): void
-  beginTextEdit(id: NodeId): void
-  commitTextEdit(id: NodeId, text?: string): BoardNode
   updatePointer(
     pointerId: number,
     screenPoint: Point,
     modifiers?: { shift?: boolean; space?: boolean },
   ): void
   endInteraction(pointerId?: number): void
+  cancelInteraction(pointerId?: number): void
   getUniformTranslationTargets(seedIds: NodeId[]): NodeId[]
   syncGroupZOrder(groupId: NodeId): void
-  exportJSON(): string
-  importJSON(json: string, mode?: 'replace' | 'merge'): void
 }
 
 /**
- * Internal feature surface used by workspace packages such as history and
+ * Internal plugin surface used by workspace packages such as history and
  * connections. This is internal infrastructure, not a general plugin surface.
  */
-export interface InternalFeatureContext<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export interface InternalPluginContext<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends Omit<BoardEngine, 'ext'> {
-  readonly ext: TExtensions
+> extends Omit<BoardEngine, 'plugins'> {
+  readonly plugins: TPluginApis
+  /** Assert that the owning engine has not been destroyed. */
+  assertActive(): void
+  /** Whether the current command has joined an explicit outer batch. */
+  isBatching(): boolean
   emit<K extends keyof TEvents>(event: K, ...args: Parameters<TEvents[K]>): void
-  extend<K extends keyof TExtensions & string>(
+  extend<K extends keyof TPluginApis & string>(
     key: K,
-    value: TExtensions[K],
+    value: TPluginApis[K],
   ): void
   /**
-   * Execute a named mutation through guarded command handling:
-   * command guards → command:before → fn() → validation → command:after.
-   * Use this in internal features so edge/connection operations appear in traces,
-   * are interceptable by command guards, and are captured by the history feature.
+   * Execute a named mutation through guarded command handling. Successful
+   * lifecycle events publish after validation; guards are the pre-execution hook.
+   * Use this in internal plugins so edge/connection operations appear in traces,
+   * are interceptable by command guards, and are captured by the history plugin.
    */
   runCommand<T>(
     name: string,
@@ -558,92 +698,68 @@ export interface InternalFeatureContext<
     fn: () => T,
     metadata: CommandMetadata,
   ): T
-  /**
-   * Dispatch an action. Called by command implementations to record state mutations
-   * and notify subscribers (history, feature reducers).
-   */
-  dispatch(action: import('./state/actions.js').Action): void
-  /**
-   * Read the current slice state for this feature, as last produced by its reducer.
-   */
-  getFeatureState<S>(): S
-  /**
-   * Subscribe to actions dispatched by commands.
-   * Used by internal features to react to state mutations without polling individual events.
-   */
-  onAction(
-    listener: (action: import('./state/actions.js').Action) => void,
+  /** Read the immutable persistent slice owned by the current plugin. */
+  getPluginState<S>(): S
+  /** Replace the current plugin's persistent slice inside the active command. */
+  updatePluginState<S>(update: (current: S) => S): S
+  /** Prepare final bookkeeping/event publication for a validated outer commit. The effect cannot mutate or destroy the board. */
+  projectCommit(
+    projector: (
+      commit: import('./state/types.js').InternalBoardCommit,
+    ) => () => void,
   ): Unsubscribe
-  /**
-   * Apply an action directly to engine state without running command guards or
-   * command lifecycle events. Used by the history feature to replay inverse
-   * actions during undo/redo.
-   */
-  applyRecordedAction(action: import('./state/actions.js').Action): void
-  /**
-   * Compute the inverse of an action. Used by the history feature.
-   * Feature-tunneled actions are inverted via the registering feature's
-   * `slice.invert` if present; otherwise an error is thrown.
-   */
-  invertAction(
-    action: import('./state/actions.js').Action,
-  ): import('./state/actions.js').Action
+  /** Atomically restore a persistent root without recording another history frame. */
+  restoreHistoryRoot(root: import('./state/types.js').InternalHistoryRoot): void
 }
 
-/** Reducer-backed persistent state owned by a internal feature. */
-interface InternalFeatureSlice {
+/** Persistent state owned by an internal plugin. */
+interface InternalPluginSlice {
   initial: unknown
-  reducer: (
-    state: never,
-    action: import('./state/actions.js').Action,
-  ) => unknown
-  /**
-   * Optionally invert a feature-tunneled action so that history can replay its inverse.
-   * Receives the inner action body (i.e. `(action as { type: 'FEATURE_ACTION' }).action`).
-   * Must return an inner action shape suitable for re-dispatching as a FEATURE_ACTION action.
-   */
-  invert?: (innerAction: never) => unknown
 }
 
 /** Optional internal hook for persisted JSON Canvas document data. */
-export interface InternalFeaturePersistence<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export interface InternalPluginPersistence<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
 > {
   exportDocument?(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
   ): Partial<JsonCanvasDocument> | void
-  importDocument?(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+  loadDocument?(
+    engine: InternalPluginContext<TPluginApis, TEvents>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
   ): void
 }
 
-/** Internal feature contract for state, commands, and side effects. */
-export interface InternalBoardFeature<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+/** Internal plugin contract for state, commands, and side effects. */
+export interface InternalBoardPlugin<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> extends BoardExtension {
+> extends BoardPlugin<TPluginApis, TEvents> {
   name: string
-  slice?: InternalFeatureSlice
-  persistence?: InternalFeaturePersistence<TExtensions, TEvents>
+  slice?: InternalPluginSlice
+  persistence?: InternalPluginPersistence<TPluginApis, TEvents>
+  nodeDeleted?(
+    engine: InternalPluginContext<TPluginApis, TEvents>,
+    nodeId: NodeId,
+  ): void
   install(
-    engine: InternalFeatureContext<TExtensions, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents>,
     options?: Record<string, unknown>,
-  ): void | FeatureCleanup
+  ): void | PluginCleanup
 }
 
-export type InternalBoardFeatureDefinition<
-  TExtensions extends BoardFeatureExtensions = BoardFeatureExtensions,
+export type InternalBoardPluginDefinition<
+  TPluginApis extends BoardPluginApis = BoardPluginApis,
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> = Omit<InternalBoardFeature<TExtensions, TEvents>, keyof BoardExtension> & {
+> = Omit<InternalBoardPlugin<TPluginApis, TEvents>, keyof BoardPlugin> & {
   readonly name: string
 }

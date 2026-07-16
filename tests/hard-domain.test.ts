@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { asEdgeId, asNodeId, createBoardEngine } from '@lupinum/board-core'
 import {
-  defineInternalBoardFeature,
-  type InternalBoardFeature,
+  defineInternalBoardPlugin,
+  type InternalBoardPlugin,
 } from '@lupinum/board-core/internal'
-import { connectionPlugin } from '@lupinum/board-connections'
+import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '@lupinum/board-history'
 
 describe('hard board domain regressions', () => {
   it('preserves grouped edges through delete, undo, redo, export, and import', () => {
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [historyPlugin({ debounceMs: 0 }), connectionPlugin()],
+      plugins: [historyPlugin(), connectionsPlugin()],
       initialDocument: {
         nodes: [
           {
@@ -57,7 +57,7 @@ describe('hard board domain regressions', () => {
         },
       },
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       id: asEdgeId('edge'),
       from: asNodeId('inner'),
       to: asNodeId('outer'),
@@ -69,12 +69,12 @@ describe('hard board domain regressions', () => {
     engine.deleteSelected()
     expect(engine.hasNode(asNodeId('group'))).toBe(false)
     expect(engine.hasNode(asNodeId('inner'))).toBe(false)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
-    engine.ext.history.undo()
+    engine.plugins.history.undo()
     expect(engine.hasNode(asNodeId('group'))).toBe(true)
     expect(engine.getNode(asNodeId('inner')).parentId).toBe(asNodeId('group'))
-    expect(engine.ext.connections.getEdges()).toEqual([
+    expect(engine.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({
         id: asEdgeId('edge'),
         from: asNodeId('inner'),
@@ -84,18 +84,18 @@ describe('hard board domain regressions', () => {
       }),
     ])
 
-    engine.ext.history.redo()
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
+    engine.plugins.history.redo()
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
 
-    engine.ext.history.undo()
-    const exported = engine.exportJSON()
+    engine.plugins.history.undo()
+    const exported = engine.exportDocument()
     const restored = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
-    restored.importJSON(exported, 'replace')
+    restored.loadDocument(exported, { mode: 'replace' })
 
     expect(restored.getNode(asNodeId('inner')).parentId).toBe(asNodeId('group'))
-    expect(restored.ext.connections.getEdges()).toEqual([
+    expect(restored.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({
         id: asEdgeId('edge'),
         from: asNodeId('inner'),
@@ -107,38 +107,26 @@ describe('hard board domain regressions', () => {
 
   it('rolls back failed feature imports without durable edge state, history, or public edge events', () => {
     let failingFeatureState!: () => { imports: number }
-    const failingFeature: InternalBoardFeature = defineInternalBoardFeature({
+    const failingFeature: InternalBoardPlugin = defineInternalBoardPlugin({
       name: 'failing-import',
       slice: {
         initial: { imports: 0 },
-        reducer(state: { imports: number }, action) {
-          return action.type === 'FEATURE_ACTION' &&
-            action.feature === 'failing-import'
-            ? { imports: state.imports + 1 }
-            : state
-        },
       },
       persistence: {
-        importDocument(engine) {
-          engine.dispatch({
-            type: 'FEATURE_ACTION',
-            feature: 'failing-import',
-            action: { type: 'IMPORT_STARTED' },
-          })
+        loadDocument(engine) {
+          engine.updatePluginState<{ imports: number }>((state) => ({
+            imports: state.imports + 1,
+          }))
           throw new Error('feature import failed')
         },
       },
       install(engine) {
-        failingFeatureState = () => engine.getFeatureState()
+        failingFeatureState = () => engine.getPluginState()
       },
     })
     const engine = createBoardEngine({
       grid: { snap: false },
-      extensions: [
-        historyPlugin({ debounceMs: 0 }),
-        connectionPlugin(),
-        failingFeature,
-      ],
+      plugins: [historyPlugin(), connectionsPlugin(), failingFeature],
     })
     engine.createNode({
       id: asNodeId('keep-a'),
@@ -158,14 +146,14 @@ describe('hard board domain regressions', () => {
       height: 80,
       text: 'Keep B',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       id: asEdgeId('keep-edge'),
       from: asNodeId('keep-a'),
       to: asNodeId('keep-b'),
       data: {},
     })
-    engine.ext.history.clear()
-    const before = engine.getSnapshot()
+    engine.plugins.history.clear()
+    const before = engine.getState()
     const edgeEvents: string[] = []
     const historyEvents: string[] = []
     engine.on('edge:created', (edge) => edgeEvents.push(`created:${edge.id}`))
@@ -173,8 +161,8 @@ describe('hard board domain regressions', () => {
     engine.on('history:push', (entry) => historyEvents.push(entry.label))
 
     expect(() =>
-      engine.importJSON(
-        JSON.stringify({
+      engine.loadDocument(
+        {
           nodes: [
             {
               id: asNodeId('next-a'),
@@ -202,16 +190,16 @@ describe('hard board domain regressions', () => {
               toNode: asNodeId('next-b'),
             },
           ],
-        }),
-        'replace',
+        },
+        { mode: 'replace' },
       ),
     ).toThrow(/feature import failed/)
 
-    expect(engine.getSnapshot()).toEqual(before)
-    expect(engine.ext.connections.getEdges()).toEqual([
+    expect(engine.getState()).toEqual(before)
+    expect(engine.plugins.connections.getEdges()).toEqual([
       expect.objectContaining({ id: asEdgeId('keep-edge') }),
     ])
-    expect(engine.ext.history.getState()).toMatchObject({
+    expect(engine.plugins.history.getState()).toMatchObject({
       undoDepth: 0,
       redoDepth: 0,
       current: null,

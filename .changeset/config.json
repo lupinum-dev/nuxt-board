@@ -7,9 +7,8 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "docs",
-    "@lupinum/board-playground",
-    "@lupinum/nuxt-board-playground"
-  ]
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  },
+  "ignore": ["docs", "@lupinum/board-playground"]
 }

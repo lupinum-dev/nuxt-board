@@ -1,10 +1,7 @@
-import type { Component } from 'vue'
 import { BoardRoot, useBoardEngine } from '../src'
 
-const root: Component = BoardRoot
-
 useBoardEngine
-root
+BoardRoot
 
 // @ts-expect-error Root viewport syncing is internal to BoardRoot.
 import { useViewportSize } from '../src'

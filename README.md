@@ -63,7 +63,7 @@ export default defineNuxtConfig({
 
 ## How It Works
 
-`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `beginNodeDrag`, `zoomToFit`, and `importJSON`.
+`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `zoomToFit`, and `loadDocument`. Pointer sessions are owned by `BoardRoot` through a framework-only adapter.
 
 `BoardRoot` subscribes to the engine and renders the viewport, grid, nodes, resize handles, selection toolbar, snap guides, and pointer interaction. Custom renderers replace node content; they do not replace the interaction model.
 
@@ -77,7 +77,7 @@ export default defineNuxtConfig({
 </template>
 ```
 
-Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `importJSON`.
+Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `loadDocument`.
 
 ## Packages
 
@@ -90,7 +90,7 @@ Install only the pieces you need.
 | `nuxt-board`                 | Nuxt module with board component/composable auto-imports.                    |
 | `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
 | `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
-| `@lupinum/board-minimap`     | Minimap composable and renderer.                                             |
+| `@lupinum/vue-board/minimap` | Minimap composable and renderer.                                             |
 
 ## What You Get
 
@@ -105,31 +105,41 @@ Install only the pieces you need.
 ## Development
 
 ```bash
+corepack enable
 pnpm install
 pnpm dev:playground
 pnpm dev:docs
 ```
 
-Run the checks before handing off a change:
+Use Node 20.19 or newer. The packages support Vue 3.5 or newer, and
+`nuxt-board` supports Nuxt 3 and 4.
+
+Run the repository gate before handing off a change:
 
 ```bash
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm test:unit
-pnpm test:docs
-pnpm pack:check
-pnpm test:e2e
-pnpm audit --prod --audit-level high
+pnpm verify
 ```
+
+Maintainers use `pnpm release:verify` on a release candidate. Run
+`pnpm test:e2e` when interaction or screenshot behavior changes.
 
 ## Docs
 
-- [Introduction](apps/docs/content/1.getting-started/1.introduction.md)
-- [Quick Start](apps/docs/content/1.getting-started/3.quick-start.md)
-- [Core Concepts](apps/docs/content/2.essentials/1.core-concepts.md)
-- [Performance](apps/docs/content/3.guides/9.performance.md)
-- [API Reference](apps/docs/content/6.api)
-- [Contributing](apps/docs/content/8.oss/1.contributing.md)
+- [Why Vue Board](apps/docs/content/docs/1.evaluate/1.why-vue-board.md)
+- [Your First Board](apps/docs/content/docs/2.start-building/2.your-first-board.md)
+- [How Vue Board Works](apps/docs/content/docs/1.evaluate/2.how-vue-board-works.md)
+- [Performance](apps/docs/content/docs/4.build-features/9.performance.md)
+- [API Reference](apps/docs/content/docs/6.reference)
+- [Contributing](CONTRIBUTING.md)
 
-API reference pages are maintained with the docs content in `apps/docs/content/6.api`.
+API reference pages are maintained in `apps/docs/content/docs/6.reference`.
+
+## Project policy
+
+Report bugs through [GitHub Issues](https://github.com/Mat4m0/canvas/issues)
+and security issues through [the private reporting process](SECURITY.md). See
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+Every publishable change carries a Changeset. Before 1.0, breaking public API
+changes are released as a minor version; patch releases preserve documented
+behavior. All packages are available under the [MIT License](LICENSE).

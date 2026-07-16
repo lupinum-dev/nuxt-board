@@ -18,53 +18,52 @@ function push(message: string) {
 }
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'event-a',
-            type: 'text',
-            x: 70,
-            y: 80,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'event-b',
-            type: 'text',
-            x: 360,
-            y: 200,
-            width: 220,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'event-a',
+          type: 'text',
+          x: 70,
+          y: 80,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'event-b',
+          type: 'text',
+          x: 360,
+          y: 200,
+          width: 220,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
+    { mode: 'replace' },
   )
 }
 
 function addNode() {
+  const index = engine.getState().nodes.size - 2
   engine.createNode({
     type: 'text',
-    x: 120 + Math.round(Math.random() * 320),
-    y: 80 + Math.round(Math.random() * 180),
+    x: 120 + (index % 3) * 140,
+    y: 80 + (index % 2) * 120,
     width: 220,
     height: 110,
-    text: 'Node',
+    text: `Observed command ${index + 1}`,
   })
 }
 

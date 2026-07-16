@@ -14,7 +14,7 @@ import IconDiagnostics from '~icons/tabler/activity'
 import IconMinimap from '~icons/tabler/map-2'
 import IconPanel from '~icons/tabler/adjustments-horizontal'
 
-const selectedScene = defineModel<25 | 100 | 500>('selectedScene', {
+const selectedScene = defineModel<25 | 100 | 500 | 2000>('selectedScene', {
   required: true,
 })
 const showGrid = defineModel<boolean>('showGrid', { required: true })
@@ -61,6 +61,7 @@ defineEmits<{
         <option :value="25">25 nodes</option>
         <option :value="100">100 nodes</option>
         <option :value="500">500 nodes</option>
+        <option :value="2000">2,000 nodes</option>
       </select>
       <ToolbarButton
         size="icon-text"

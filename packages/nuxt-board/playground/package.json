@@ -8,15 +8,14 @@
     "generate": "nuxt generate"
   },
   "devDependencies": {
-    "vite": "7.3.2"
+    "vite": "7.3.5"
   },
   "dependencies": {
     "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
-    "@lupinum/board-minimap": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
-    "nuxt": "^4.4.6",
+    "nuxt": "^4.4.8",
     "nuxt-board": "workspace:*"
   }
 }

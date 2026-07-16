@@ -1,11 +1,16 @@
 <script setup lang="ts">
 const camera = useAcmeCamera()
 const nodes = useAcmeNodes()
+const minimap = useAcmeMinimap(useAcmeBoardEngine().engine, {
+  width: 120,
+  height: 80,
+})
 </script>
 
 <template>
   <output
     class="prefixed-board-probe"
+    :data-minimap-nodes="minimap.minimapNodes.value.length"
     :data-nodes="nodes.size"
     :data-zoom="camera.z"
   >

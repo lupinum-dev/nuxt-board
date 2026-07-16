@@ -1,32 +1,22 @@
 import { validateState } from '../invariants.js'
+import { BoardInputError } from '../errors.js'
 import type { BatchController } from '../subscribable.js'
-import type { Action } from '../state/actions.js'
 import type {
   BoardState,
   CommandGuard,
   CommandMetadata,
   GridSettings,
   ValidationFailure,
-  ValidationMode,
 } from '../types.js'
 
 const BATCH_COMMAND_METADATA: CommandMetadata = {
   history: 'record',
 }
 
-type ActionListener = (action: Action) => void
-
-interface Dispatcher {
-  dispatch(action: Action): void
-  onAction(listener: ActionListener): () => void
-  beginActionTransaction(): void
-  commitActionTransaction(): void
-  rollbackActionTransaction(): void
-}
-
 interface CommandGuardRegistry {
   add(fn: CommandGuard): () => void
-  run(name: string, args: unknown[]): boolean
+  run(name: string, args: unknown[], metadata: CommandMetadata): string | null
+  clear(): void
 }
 
 interface BatchDeps {
@@ -49,13 +39,13 @@ interface BatchCommandController {
   isBatching(): boolean
   markValidationPending(): void
   begin(): void
-  end(): void
-  batch(fn: () => void): void
+  end(beforePublish?: () => void): void
+  batch(fn: () => void, beforePublish?: () => void): void
   flushBatchNotifications(): void
+  rollbackBatchNotifications(): void
 }
 
 interface ValidationDeps {
-  validationMode: ValidationMode
   getState: () => BoardState
   getGrid: () => GridSettings
   emitFailure: (failure: ValidationFailure) => void
@@ -72,88 +62,42 @@ export function createCommandGuardRegistry(): CommandGuardRegistry {
     }
   }
 
-  function run(name: string, args: unknown[]): boolean {
-    if (guards.length === 0) return true
-    let proceeded = false
-    let i = 0
-    function step(): void {
-      const guard = guards[i++]
-      if (guard) {
-        guard(name, args, step)
-      } else {
-        proceeded = true
+  function run(
+    name: string,
+    args: unknown[],
+    metadata: CommandMetadata,
+  ): string | null {
+    const command = Object.freeze({
+      name,
+      args: Object.freeze([...args]),
+      metadata: Object.freeze({ ...metadata }),
+    })
+    for (const guard of guards) {
+      const result = guard(command)
+      if (result !== true) {
+        return result
       }
     }
-    step()
-    return proceeded
-  }
-
-  return { add, run }
-}
-
-export function createDispatcher(): Dispatcher {
-  const listeners = new Set<ActionListener>()
-  let transactionDepth = 0
-  const queuedActions: Action[] = []
-
-  function dispatch(action: Action): void {
-    if (transactionDepth > 0) {
-      queuedActions.push(action)
-      return
-    }
-    notify(action)
-  }
-
-  function notify(action: Action): void {
-    for (const listener of listeners) {
-      try {
-        listener(action)
-      } catch (error) {
-        console.error('[board] action listener threw:', error)
-      }
-    }
-  }
-
-  function onAction(listener: ActionListener): () => void {
-    listeners.add(listener)
-    return () => listeners.delete(listener)
-  }
-
-  function beginActionTransaction(): void {
-    transactionDepth += 1
-  }
-
-  function commitActionTransaction(): void {
-    transactionDepth -= 1
-    if (transactionDepth !== 0) return
-    const actions = queuedActions.splice(0)
-    for (const action of actions) notify(action)
-  }
-
-  function rollbackActionTransaction(): void {
-    transactionDepth -= 1
-    if (transactionDepth !== 0) return
-    queuedActions.length = 0
+    return null
   }
 
   return {
-    dispatch,
-    onAction,
-    beginActionTransaction,
-    commitActionTransaction,
-    rollbackActionTransaction,
+    add,
+    run,
+    clear: () => {
+      guards.length = 0
+    },
   }
 }
 
 export function createValidator(deps: ValidationDeps) {
   return function validate(context: string): void {
-    if (deps.validationMode === 'off') return
     const failures = validateState(deps.getState(), deps.getGrid(), context)
     for (const failure of failures) {
       deps.emitFailure(failure)
     }
-    if (failures.length > 0 && deps.validationMode === 'strict') {
-      throw new Error(
+    if (failures.length > 0) {
+      throw new BoardInputError(
         `Board validation failed in ${context}: ${failures[0]?.message}`,
       )
     }
@@ -166,11 +110,21 @@ export function createBatchCommandController(
   let depth = 0
   let startedAt = 0
   let validationPending = false
+  let hasFailed = false
+  let failure: unknown
 
   function flushBatchNotifications(): void {
     const pending = [...deps.batchCtrl.pending]
     deps.batchCtrl.pending.clear()
+    deps.batchCtrl.rollbacks.clear()
     for (const flush of pending) flush()
+  }
+
+  function rollbackBatchNotifications(): void {
+    const rollbacks = [...deps.batchCtrl.rollbacks]
+    deps.batchCtrl.pending.clear()
+    deps.batchCtrl.rollbacks.clear()
+    for (const rollback of rollbacks) rollback()
   }
 
   function begin(): void {
@@ -182,17 +136,27 @@ export function createBatchCommandController(
     depth += 1
   }
 
-  function end(): void {
+  function end(beforePublish?: () => void): void {
     depth -= 1
     if (depth !== 0) return
     try {
+      if (hasFailed) {
+        throw failure
+      }
       if (validationPending) {
         deps.validate('batch')
       }
-    } finally {
-      validationPending = false
+      beforePublish?.()
       deps.batchCtrl.depth -= 1
       flushBatchNotifications()
+    } catch (error) {
+      deps.batchCtrl.depth -= 1
+      rollbackBatchNotifications()
+      throw error
+    } finally {
+      validationPending = false
+      hasFailed = false
+      failure = undefined
     }
     deps.emitCommandAfter(
       'batch',
@@ -202,13 +166,26 @@ export function createBatchCommandController(
     )
   }
 
-  function batch(fn: () => void): void {
+  function batch(fn: () => void, beforePublish?: () => void): void {
     begin()
     try {
       fn()
-    } finally {
-      end()
+    } catch (error) {
+      if (!hasFailed) {
+        hasFailed = true
+        failure = error
+      }
+      depth -= 1
+      if (depth === 0) {
+        validationPending = false
+        deps.batchCtrl.depth -= 1
+        rollbackBatchNotifications()
+        hasFailed = false
+        failure = undefined
+      }
+      throw error
     }
+    end(beforePublish)
   }
 
   return {
@@ -220,5 +197,6 @@ export function createBatchCommandController(
     end,
     batch,
     flushBatchNotifications,
+    rollbackBatchNotifications,
   }
 }

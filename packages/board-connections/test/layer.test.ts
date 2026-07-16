@@ -3,9 +3,11 @@
 import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createBoardEngine } from '@lupinum/board-core'
+import { asEdgeId, createBoardEngine } from '@lupinum/board-core'
+import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { BoardRoot } from '@lupinum/vue-board'
-import { BoardConnectionLayer, connectionPlugin } from '../src'
+import { connectionsPlugin } from '../src'
+import { BoardConnectionLayer } from '../src/vue'
 
 function dispatchPointerEvent(
   target: EventTarget,
@@ -75,9 +77,64 @@ beforeEach(() => {
 })
 
 describe('BoardConnectionLayer', () => {
+  it('does not create DOM paths for 10,000 offscreen edges', async () => {
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+    const visibleA = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      select: false,
+    })
+    const visibleB = engine.createNode({
+      type: 'text',
+      x: 300,
+      y: 0,
+      select: false,
+    })
+    const offscreenA = engine.createNode({
+      type: 'text',
+      x: 100_000,
+      y: 100_000,
+      select: false,
+    })
+    const offscreenB = engine.createNode({
+      type: 'text',
+      x: 100_300,
+      y: 100_000,
+      select: false,
+    })
+    engine.batch(() => {
+      engine.plugins.connections.createEdge({
+        id: asEdgeId('visible'),
+        from: visibleA.id,
+        to: visibleB.id,
+        data: {},
+      })
+      for (let index = 0; index < 10_000; index += 1) {
+        engine.plugins.connections.createEdge({
+          id: asEdgeId(`offscreen-${index}`),
+          from: offscreenA.id,
+          to: offscreenB.id,
+          data: {},
+        })
+      }
+    })
+
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { viewport: () => h(BoardConnectionLayer) },
+      attachTo: document.body,
+    })
+    await nextTick()
+    await nextTick()
+
+    expect(queryAll('[data-connection-edge-id]').length).toBeLessThan(10)
+    wrapper.unmount()
+  }, 15_000)
+
   it('rerenders path geometry when nodes move', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -95,7 +152,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       label: 'sync',
@@ -125,9 +182,66 @@ describe('BoardConnectionLayer', () => {
     wrapper.unmount()
   })
 
+  it('renders transient endpoint geometry and restores it on cancellation', async () => {
+    const engine = createBoardEngine({
+      grid: { snap: false },
+      plugins: [connectionsPlugin()],
+    })
+    const source = engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+    })
+    const target = engine.createNode({
+      type: 'text',
+      x: 280,
+      y: 120,
+      width: 120,
+      height: 80,
+    })
+    engine.plugins.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      data: {},
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { viewport: () => h(BoardConnectionLayer) },
+      attachTo: document.body,
+    })
+    await nextTick()
+
+    const path = () =>
+      query(
+        '.board-connection-layer > g > path:not([data-connection-hit])',
+      ).getAttribute('d')
+    const before = path()
+    const interaction = getBoardInteractionAdapter(engine)
+    interaction.beginResize(target.id, 'se', 1, { x: 400, y: 200 })
+    interaction.updatePointer(1, { x: 480, y: 250 })
+    await nextTick()
+    await nextTick()
+
+    expect(path()).not.toBe(before)
+    expect(
+      engine.exportDocument().nodes.find((node) => node.id === target.id),
+    ).toMatchObject({
+      width: 120,
+      height: 80,
+    })
+
+    interaction.cancelInteraction(1)
+    await nextTick()
+    await nextTick()
+    expect(path()).toBe(before)
+    wrapper.unmount()
+  })
+
   it('reduces idle edge chrome at low zoom', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -145,7 +259,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       label: 'sync',
@@ -187,7 +301,7 @@ describe('BoardConnectionLayer', () => {
 
   it('removes a selected edge label without deleting the edge', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -205,7 +319,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       label: 'sync',
@@ -232,18 +346,18 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       id: edge.id,
       label: undefined,
     })
     expect(document.body.querySelector('[data-connection-label]')).toBeNull()
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
     wrapper.unmount()
   })
 
   it('sets edge direction through the direction menu', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -261,7 +375,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       fromEnd: 'none',
@@ -295,7 +409,7 @@ describe('BoardConnectionLayer', () => {
     ).click()
     await nextTick()
 
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       fromEnd: 'arrow',
       toEnd: 'arrow',
     })
@@ -307,7 +421,7 @@ describe('BoardConnectionLayer', () => {
 
   it('scales arrowhead markers with the zoom level', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -325,7 +439,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       toEnd: 'arrow',
@@ -371,7 +485,7 @@ describe('BoardConnectionLayer', () => {
 
   it('exposes resolved endpoints and route metadata to the edge slot', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -389,7 +503,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       toEnd: 'arrow',
@@ -429,7 +543,7 @@ describe('BoardConnectionLayer', () => {
 
   it('reveals endpoint handles on hover and selects edges on pointerdown', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -447,7 +561,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       data: {},
@@ -487,7 +601,7 @@ describe('BoardConnectionLayer', () => {
 
   it('renders auto endpoint handles at the side midpoint', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -505,7 +619,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    engine.ext.connections.createEdge({
+    engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       data: {},
@@ -541,7 +655,7 @@ describe('BoardConnectionLayer', () => {
 
   it('reconnects a dragged handle to another node and stays idle in the board engine', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -567,7 +681,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: source.id,
       to: mid.id,
       fromAnchor: { side: 'right', offset: 0.25 },
@@ -618,8 +732,8 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.getSnapshot().interaction).toMatchObject({ mode: 'idle' })
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       to: target.id,
       fromAnchor: { side: 'right', offset: 0.25 },
       toAnchor: { side: 'left', offset: 0.25 },
@@ -629,7 +743,7 @@ describe('BoardConnectionLayer', () => {
 
   it('cancels reconnect when the dragged endpoint is dropped off-node', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -647,7 +761,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       data: {},
@@ -693,7 +807,7 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.ext.connections.getEdge(edge.id)).toMatchObject({
+    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
       from: source.id,
       to: target.id,
     })
@@ -702,7 +816,7 @@ describe('BoardConnectionLayer', () => {
 
   it('reveals a node-side create handle and creates a new edge to another node', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -765,19 +879,19 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: source.id,
       to: target.id,
     })
-    expect(engine.ext.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
-    expect(engine.ext.connections.getEdges()[0]?.toAnchor).toBeUndefined()
+    expect(engine.plugins.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
+    expect(engine.plugins.connections.getEdges()[0]?.toAnchor).toBeUndefined()
     wrapper.unmount()
   })
 
   it('can lock UI-created edges to manual endpoint anchors', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -838,8 +952,8 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: source.id,
       to: target.id,
       fromAnchor: { side: 'right', offset: 0.5 },
@@ -850,7 +964,7 @@ describe('BoardConnectionLayer', () => {
 
   it('resets manual endpoint anchors back to auto from the edge toolbar', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -868,7 +982,7 @@ describe('BoardConnectionLayer', () => {
       height: 80,
       text: 'Node',
     })
-    const edge = engine.ext.connections.createEdge({
+    const edge = engine.plugins.connections.createEdge({
       from: source.id,
       to: target.id,
       fromAnchor: { side: 'right', offset: 0.25 },
@@ -897,8 +1011,10 @@ describe('BoardConnectionLayer', () => {
     const resetSource = query('[data-connection-reset-source-anchor]')
     resetSource.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await nextTick()
-    expect(engine.ext.connections.getEdge(edge.id)?.fromAnchor).toBeUndefined()
-    expect(engine.ext.connections.getEdge(edge.id)?.toAnchor).toEqual({
+    expect(
+      engine.plugins.connections.getEdge(edge.id)?.fromAnchor,
+    ).toBeUndefined()
+    expect(engine.plugins.connections.getEdge(edge.id)?.toAnchor).toEqual({
       side: 'left',
       offset: 0.75,
     })
@@ -906,14 +1022,18 @@ describe('BoardConnectionLayer', () => {
     const resetAll = query('[data-connection-reset-target-anchor]')
     resetAll.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await nextTick()
-    expect(engine.ext.connections.getEdge(edge.id)?.fromAnchor).toBeUndefined()
-    expect(engine.ext.connections.getEdge(edge.id)?.toAnchor).toBeUndefined()
+    expect(
+      engine.plugins.connections.getEdge(edge.id)?.fromAnchor,
+    ).toBeUndefined()
+    expect(
+      engine.plugins.connections.getEdge(edge.id)?.toAnchor,
+    ).toBeUndefined()
     wrapper.unmount()
   })
 
   it('does not create a node when a create drag is dropped on empty space by default', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -966,9 +1086,9 @@ describe('BoardConnectionLayer', () => {
     await nextTick()
     await nextTick()
 
-    expect(engine.getSnapshot().nodes).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()).toHaveLength(0)
-    expect(engine.getSnapshot().interaction).toMatchObject({
+    expect(engine.getState().nodes.size).toBe(1)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
+    expect(engine.getState().interaction).toMatchObject({
       mode: 'idle',
     })
     wrapper.unmount()
@@ -976,7 +1096,7 @@ describe('BoardConnectionLayer', () => {
 
   it('uses the opt-in empty-drop callback to create and connect a node', async () => {
     const engine = createBoardEngine({
-      extensions: [connectionPlugin()],
+      plugins: [connectionsPlugin()],
     })
     const source = engine.createNode({
       type: 'text',
@@ -1048,13 +1168,13 @@ describe('BoardConnectionLayer', () => {
       pointerWorld: { x: 520, y: 220 },
       candidateAnchor: null,
     })
-    expect(engine.getSnapshot().nodes).toHaveLength(2)
-    expect(engine.ext.connections.getEdges()).toHaveLength(1)
-    expect(engine.ext.connections.getEdges()[0]).toMatchObject({
+    expect(engine.getState().nodes.size).toBe(2)
+    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
+    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
       from: source.id,
     })
-    expect(engine.ext.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
-    expect(engine.ext.connections.getEdges()[0]?.toAnchor).toBeUndefined()
+    expect(engine.plugins.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
+    expect(engine.plugins.connections.getEdges()[0]?.toAnchor).toBeUndefined()
     wrapper.unmount()
   })
 })

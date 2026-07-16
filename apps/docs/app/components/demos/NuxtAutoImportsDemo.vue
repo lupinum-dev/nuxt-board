@@ -1,49 +1,47 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { createBoardEngine, createDemoDocument } from '#imports'
 
-// Intentionally no imports from @lupinum/* here.
-// This component exercises the auto-imports provided by nuxt-board.
+// The generated #imports entry verifies the helpers are registered by nuxt-board.
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
 })
 
 function seed() {
-  engine.importJSON(
-    JSON.stringify(
-      createDemoDocument({
-        camera: { x: 0, y: 0, z: 1 },
-        grid: engine.getGridSettings(),
-        nodes: [
-          {
-            id: 'nuxt',
-            type: 'text',
-            x: 100,
-            y: 100,
-            width: 240,
-            height: 100,
-            text: 'Node',
-            zIndex: 1,
-            locked: false,
-            visible: true,
-          },
-          {
-            id: 'board',
-            type: 'text',
-            x: 420,
-            y: 180,
-            width: 240,
-            height: 100,
-            text: 'Node',
-            zIndex: 2,
-            locked: false,
-            visible: true,
-          },
-        ],
-        selection: [],
-        nextZIndex: 3,
-      }),
-    ),
-    'replace',
+  engine.loadDocument(
+    createDemoDocument({
+      camera: { x: 0, y: 0, z: 1 },
+      grid: engine.getGridSettings(),
+      nodes: [
+        {
+          id: 'nuxt',
+          type: 'text',
+          x: 100,
+          y: 100,
+          width: 240,
+          height: 100,
+          text: 'Node',
+          zIndex: 1,
+          locked: false,
+          visible: true,
+        },
+        {
+          id: 'board',
+          type: 'text',
+          x: 420,
+          y: 180,
+          width: 240,
+          height: 100,
+          text: 'Node',
+          zIndex: 2,
+          locked: false,
+          visible: true,
+        },
+      ],
+      selection: [],
+      nextZIndex: 3,
+    }),
+    { mode: 'replace' },
   )
 }
 

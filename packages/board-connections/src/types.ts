@@ -1,20 +1,24 @@
 import type {
   Bounds,
+  BoardEventMap,
   BoardNode,
   EdgeId,
   NodeId,
   Point,
 } from '@lupinum/board-core'
 
+/** Public events installed with the connections plugin. */
+export interface ConnectionsEventMap extends BoardEventMap {
+  'edge:created': (edge: BoardEdge) => void
+  'edge:updated': (edge: BoardEdge, prev: BoardEdge) => void
+  'edge:deleted': (edgeId: EdgeId) => void
+}
+
 /** Side of a rectangular node used for connection anchors. */
 export type AnchorSide = 'top' | 'right' | 'bottom' | 'left'
 /** Routing strategy used when rendering a connection edge. */
 export type ConnectionRouting =
-  | 'bezier'
-  | 'smooth-step'
-  | 'step'
-  | 'straight'
-  | 'arc'
+  'bezier' | 'smooth-step' | 'step' | 'straight' | 'arc'
 /** How UI-created and reconnected edge endpoints choose node anchors. */
 export type ConnectionEndpointMode = 'auto' | 'manual'
 /** Marker rendered at either end of an edge. */
@@ -71,15 +75,15 @@ export interface CreateNodeForConnectionContext {
   candidateAnchor: AnchorPosition | null
 }
 
-/** Resolved connection defaults installed with the engine extension. */
+/** Resolved connection defaults installed with the engine plugin. */
 export interface ConnectionConfig {
   routing: ConnectionRouting
   endpointMode: ConnectionEndpointMode
   defaultArrow: NonNullable<ConnectionPluginOptions['defaultArrow']>
 }
 
-/** Engine extension installed by the connections plugin. */
-export interface ConnectionsExtension {
+/** Engine API installed by the connections plugin. */
+export interface ConnectionsApi {
   createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
     input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
       id?: EdgeId

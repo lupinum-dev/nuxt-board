@@ -5,12 +5,6 @@ export interface EdgeRenderLayerContext {
   toLocalPoint(clientX: number, clientY: number): Point
 }
 
-export type HoveredNodeHandle = {
-  nodeId: NodeId
-  side: AnchorSide
-  offset: number
-}
-
 export const CONNECTION_DRAG_THRESHOLD = 6
 export const EDGE_STROKE_LOD_FADE_START = 0.95
 export const EDGE_STROKE_LOD_SOFTEN_AT = 0.45
@@ -52,39 +46,6 @@ export function resolveArrowScreenSize(zoom: number): number {
       EDGE_ARROW_SCREEN_SIZE * Math.sqrt(zoom),
     ),
   )
-}
-
-export function edgeIdFromTarget(target: EventTarget | null): string | null {
-  return target instanceof Element
-    ? (target.closest<HTMLElement>('[data-connection-edge-id]')?.dataset
-        .connectionEdgeId ?? null)
-    : null
-}
-
-export function nodeHandleFromTarget(
-  target: EventTarget | null,
-): HoveredNodeHandle | null {
-  if (!(target instanceof Element)) {
-    return null
-  }
-  const element = target.closest<HTMLElement>(
-    '[data-connection-node-id][data-connection-side]',
-  )
-  if (!element?.dataset.connectionNodeId || !element.dataset.connectionSide) {
-    return null
-  }
-  return {
-    nodeId: element.dataset.connectionNodeId as NodeId,
-    side: element.dataset.connectionSide as AnchorSide,
-    offset: clamp01(Number(element.dataset.connectionOffset ?? 0.5)),
-  }
-}
-
-export function sameEdgeTarget(
-  target: EventTarget | null,
-  edgeId: string,
-): boolean {
-  return edgeIdFromTarget(target) === edgeId
 }
 
 export function worldPointFromClient(

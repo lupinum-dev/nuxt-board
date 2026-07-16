@@ -45,6 +45,9 @@ const BOARD_COMPOSABLES = [
 
 const BOARD_HELPERS = ['createBoardEngine'] as const
 
+const MINIMAP_COMPONENTS = ['BoardMinimap'] as const
+const MINIMAP_COMPOSABLES = ['useMinimap'] as const
+
 function normalizePrefix(prefix: string | undefined): string {
   const value = prefix?.trim() ?? ''
   const normalized = value ? `${value[0]!.toUpperCase()}${value.slice(1)}` : ''
@@ -76,7 +79,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: 'nuxt-board',
     configKey: 'board',
     compatibility: {
-      nuxt: '>=3.0.0',
+      nuxt: '>=3.0.0 <5.0.0',
     },
   },
   defaults: {
@@ -91,7 +94,11 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.css.push('@lupinum/vue-board/style.css')
     }
 
-    for (const dependency of ['@lupinum/vue-board', '@lupinum/board-core']) {
+    for (const dependency of [
+      '@lupinum/vue-board',
+      '@lupinum/vue-board/minimap',
+      '@lupinum/board-core',
+    ]) {
       if (!nuxt.options.build.transpile.includes(dependency)) {
         nuxt.options.build.transpile.push(dependency)
       }
@@ -105,6 +112,14 @@ export default defineNuxtModule<ModuleOptions>({
           filePath: '@lupinum/vue-board',
         })
       }
+
+      for (const name of MINIMAP_COMPONENTS) {
+        addComponent({
+          name: getComponentAlias(name, prefix),
+          export: name,
+          filePath: '@lupinum/vue-board/minimap',
+        })
+      }
     }
 
     if (options.autoImportComposables !== false) {
@@ -113,6 +128,14 @@ export default defineNuxtModule<ModuleOptions>({
           name,
           as: getComposableAlias(name, prefix),
           from: '@lupinum/vue-board',
+        })),
+      )
+
+      addImports(
+        MINIMAP_COMPOSABLES.map((name) => ({
+          name,
+          as: getComposableAlias(name, prefix),
+          from: '@lupinum/vue-board/minimap',
         })),
       )
 
