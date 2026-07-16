@@ -68,5 +68,8 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install chromium
 
+      - name: Build workspace packages
+        run: pnpm build:packages
+
       - name: Playwright interactions and screenshots
         run: pnpm test:e2e
