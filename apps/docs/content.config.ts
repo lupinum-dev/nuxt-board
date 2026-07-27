@@ -8,6 +8,5 @@ export default defineGinkoDocsConfig({
     url: 'https://vue-board.vercel.app',
   },
   locales: ['en'],
-  defaultLocale: 'en',
   blog: false,
 })
