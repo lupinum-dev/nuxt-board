@@ -50,21 +50,21 @@ const version = ref(0)
 
 const snapToGrid = computed({
   get: () => {
-    version.value
+    void version.value
     return engine.getGridSettings().snap
   },
   set: (snap: boolean) => engine.updateGridSettings({ snap }),
 })
 const gridSize = computed({
   get: () => {
-    version.value
+    void version.value
     return engine.getGridSettings().size
   },
   set: (size: number) => engine.updateGridSettings({ size }),
 })
 const gridPattern = computed({
   get: () => {
-    version.value
+    void version.value
     return engine.getGridSettings().pattern
   },
   set: (pattern: GridPattern) => engine.updateGridSettings({ pattern }),
