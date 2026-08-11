@@ -54,14 +54,16 @@
     "test:types": "pnpm run dev:prepare && vue-tsc --noEmit && pnpm exec nuxi typecheck playground && pnpm exec nuxi typecheck test/fixtures/basic && pnpm exec nuxi typecheck test/fixtures/prefixed"
   },
   "dependencies": {
-    "@lupinum/board-core": "workspace:*",
-    "@lupinum/vue-board": "workspace:*",
     "@nuxt/kit": "^4.4.8"
   },
   "peerDependencies": {
+    "@lupinum/board-core": "workspace:^",
+    "@lupinum/vue-board": "workspace:^",
     "nuxt": ">=3.0.0 <5.0.0"
   },
   "devDependencies": {
+    "@lupinum/board-core": "workspace:*",
+    "@lupinum/vue-board": "workspace:*",
     "@nuxt/devtools": "^3.2.4",
     "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.2",

@@ -1,4 +1,4 @@
-import { readdirSync, renameSync } from 'node:fs'
+import { readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.argv[2]
@@ -16,3 +16,13 @@ function normalize(directory) {
 }
 
 normalize(root)
+
+const entryDeclaration = join(root, 'index.d.ts')
+const declaration = readFileSync(entryDeclaration, 'utf8')
+const normalizedDeclaration = declaration.replace(
+  /^import ['"]\.\/styles\/(?:theme|motion)\.css['"]\s*;?\r?\n/gm,
+  '',
+)
+if (normalizedDeclaration !== declaration) {
+  writeFileSync(entryDeclaration, normalizedDeclaration)
+}

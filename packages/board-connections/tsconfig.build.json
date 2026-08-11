@@ -14,5 +14,5 @@
       "@lupinum/vue-board": ["../vue-board/dist/index.d.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "../../vue-board-shim.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue"]
 }

@@ -15,6 +15,7 @@ const outputDir = join(rootDir, '.pack-check')
 const tarballDir = join(outputDir, 'tarballs')
 const unpackDir = join(outputDir, 'unpacked')
 const consumerDir = join(outputDir, 'consumer')
+const headlessConsumerDir = join(outputDir, 'headless-consumer')
 const packageDirs = [
   'packages/board-core',
   'packages/vue-board',
@@ -181,6 +182,61 @@ assertNonEmptyFile(
   'Vue Board package is missing its non-empty stylesheet.',
 )
 
+const expectedFirstPartyPeers = [
+  ['@lupinum/vue-board', '@lupinum/board-core'],
+  ['@lupinum/board-history', '@lupinum/board-core'],
+  ['@lupinum/board-connections', '@lupinum/board-core'],
+  ['@lupinum/board-connections', '@lupinum/vue-board'],
+  ['nuxt-board', '@lupinum/board-core'],
+  ['nuxt-board', '@lupinum/vue-board'],
+]
+for (const [packageName, peerName] of expectedFirstPartyPeers) {
+  const range =
+    packedPackages.get(packageName)?.manifest.peerDependencies?.[peerName]
+  if (range !== '^0.1.0') {
+    throw new Error(
+      `${packageName} must publish ${peerName} as the compatible pre-1 peer ^0.1.0; received ${String(range)}.`,
+    )
+  }
+}
+
+const packedCore = packedPackages.get('@lupinum/board-core')
+const packedConnections = packedPackages.get('@lupinum/board-connections')
+if (!packedCore || !packedConnections) {
+  throw new Error('Packed headless packages are missing.')
+}
+mkdirSync(headlessConsumerDir, { recursive: true })
+writeFileSync(
+  join(headlessConsumerDir, 'package.json'),
+  JSON.stringify(
+    {
+      private: true,
+      type: 'module',
+      dependencies: {
+        '@lupinum/board-core': `file:${packedCore.tarball}`,
+        '@lupinum/board-connections': `file:${packedConnections.tarball}`,
+      },
+    },
+    null,
+    2,
+  ),
+)
+run(
+  'pnpm',
+  [
+    'install',
+    '--ignore-workspace',
+    '--no-frozen-lockfile',
+    '--config.auto-install-peers=false',
+  ],
+  { cwd: headlessConsumerDir },
+)
+writeFileSync(
+  join(headlessConsumerDir, 'import-smoke.mjs'),
+  `await import('@lupinum/board-connections')\n`,
+)
+run('node', ['import-smoke.mjs'], { cwd: headlessConsumerDir })
+
 mkdirSync(consumerDir, { recursive: true })
 const rootManifest = readJson(join(rootDir, 'package.json'))
 const nuxtManifest = readJson(join(rootDir, 'packages/nuxt-board/package.json'))
@@ -288,6 +344,7 @@ writeFileSync(
         moduleResolution: 'NodeNext',
         strict: true,
         skipLibCheck: false,
+        noUncheckedSideEffectImports: true,
       },
       include: ['consumer-board.ts'],
     },

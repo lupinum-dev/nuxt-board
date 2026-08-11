@@ -145,10 +145,10 @@ importers:
   packages/board-connections:
     dependencies:
       '@lupinum/board-core':
-        specifier: workspace:>=0.1.0 <1.0.0
+        specifier: workspace:*
         version: link:../board-core
       '@lupinum/vue-board':
-        specifier: workspace:>=0.1.0 <1.0.0
+        specifier: workspace:*
         version: link:../vue-board
       vue:
         specifier: ^3.5.0
@@ -159,21 +159,21 @@ importers:
   packages/board-history:
     dependencies:
       '@lupinum/board-core':
-        specifier: workspace:>=0.1.0 <1.0.0
+        specifier: workspace:*
         version: link:../board-core
 
   packages/nuxt-board:
     dependencies:
+      '@nuxt/kit':
+        specifier: ^4.4.8
+        version: 4.4.8(magicast@0.5.3)
+    devDependencies:
       '@lupinum/board-core':
         specifier: workspace:*
         version: link:../board-core
       '@lupinum/vue-board':
         specifier: workspace:*
         version: link:../vue-board
-      '@nuxt/kit':
-        specifier: ^4.4.8
-        version: 4.4.8(magicast@0.5.3)
-    devDependencies:
       '@nuxt/devtools':
         specifier: ^3.2.4
         version: 3.2.4(vite@7.3.5(@types/node@20.19.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
@@ -242,7 +242,7 @@ importers:
   packages/vue-board:
     dependencies:
       '@lupinum/board-core':
-        specifier: workspace:>=0.1.0 <1.0.0
+        specifier: workspace:*
         version: link:../board-core
       vue:
         specifier: ^3.5.0

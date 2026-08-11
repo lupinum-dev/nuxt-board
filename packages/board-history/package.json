@@ -41,6 +41,6 @@
     "build": "tsup src/index.ts --format esm --clean && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:>=0.1.0 <1.0.0"
+    "@lupinum/board-core": "workspace:^"
   }
 }

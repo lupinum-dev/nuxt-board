@@ -1,6 +1,6 @@
 # nuxt-board
 
-Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, styles, and package transpilation.
+Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
 
 ## What It Does
 
@@ -8,7 +8,6 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-boar
 - Auto-imports the core board composables plus `useBoardMinimap`
 - Auto-imports `createBoardEngine`
 - Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
-- Transpiles `@lupinum/vue-board` and `@lupinum/board-core` for Nuxt so workspace and linked installs behave consistently
 - Lets deterministic board shells render in Nuxt SSR without client-only stubs
 
 ## Install

@@ -94,16 +94,6 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.css.push('@lupinum/vue-board/style.css')
     }
 
-    for (const dependency of [
-      '@lupinum/vue-board',
-      '@lupinum/vue-board/minimap',
-      '@lupinum/board-core',
-    ]) {
-      if (!nuxt.options.build.transpile.includes(dependency)) {
-        nuxt.options.build.transpile.push(dependency)
-      }
-    }
-
     if (options.autoImportComponents !== false) {
       for (const name of BOARD_COMPONENTS) {
         addComponent({
