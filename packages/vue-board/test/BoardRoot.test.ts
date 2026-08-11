@@ -315,6 +315,61 @@ describe('BoardRoot', () => {
     expect(wrapper.find('.file-renderer').text()).toContain('Poster')
   })
 
+  it('renders content and state updates that do not change node geometry', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 200,
+      height: 100,
+      text: 'Before',
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+
+    const rendered = () => wrapper.find(`[data-node-id="${node.id}"]`)
+    expect(rendered().text()).toContain('Before')
+    expect(rendered().classes()).not.toContain('is-locked')
+
+    engine.updateNode(node.id, { text: 'After', locked: true })
+    await flushBoardRootSnapshot()
+
+    expect(rendered().text()).toContain('After')
+    expect(rendered().classes()).toContain('is-locked')
+  })
+
+  it('renders replacement registry components without node geometry changes', async () => {
+    const engine = createBoardEngine()
+    engine.createNode({ type: 'file', x: 40, y: 40, file: 'Poster' })
+    const FirstRenderer = markRaw(
+      defineComponent({
+        setup: () => () => h('div', { class: 'first-renderer' }, 'First'),
+      }),
+    )
+    const SecondRenderer = markRaw(
+      defineComponent({
+        setup: () => () => h('div', { class: 'second-renderer' }, 'Second'),
+      }),
+    )
+    const wrapper = mount(BoardRoot, {
+      props: {
+        engine,
+        renderers: { file: FirstRenderer },
+      },
+      attachTo: document.body,
+    })
+
+    expect(wrapper.find('.first-renderer').exists()).toBe(true)
+
+    await wrapper.setProps({ renderers: { file: SecondRenderer } })
+
+    expect(wrapper.find('.first-renderer').exists()).toBe(false)
+    expect(wrapper.find('.second-renderer').exists()).toBe(true)
+  })
+
   it('renders colored nodes with color variables and applies toolbar color to selection', async () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const first = engine.createNode({

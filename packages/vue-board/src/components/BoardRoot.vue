@@ -273,18 +273,6 @@ onBeforeUnmount(() => {
       <template v-for="node in visibleNodes" :key="node.id">
         <BoardNode
           v-if="node.lod === 'full'"
-          v-memo="[
-            node.x,
-            node.y,
-            node.width,
-            node.height,
-            node.zIndex,
-            node.color,
-            node.lod,
-            selectionSet.has(node.id),
-            $interaction.mode === 'editing-text' &&
-              $interaction.nodeId === node.id,
-          ]"
           :node="node"
           :selected="selectionSet.has(node.id)"
           :editing="
@@ -310,15 +298,6 @@ onBeforeUnmount(() => {
         </BoardNode>
         <div
           v-else
-          v-memo="[
-            node.x,
-            node.y,
-            node.width,
-            node.height,
-            node.zIndex,
-            node.color,
-            node.lod,
-          ]"
           class="board-node-simple"
           :class="{
             'is-colored': Boolean(node.color),
