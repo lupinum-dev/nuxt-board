@@ -46,8 +46,8 @@
     "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/normalize-vue-declarations.mjs dist"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:^",
-    "@lupinum/vue-board": "workspace:^",
+    "@lupinum/board-core": "workspace:*",
+    "@lupinum/vue-board": "workspace:*",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {

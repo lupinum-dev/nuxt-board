@@ -57,8 +57,8 @@
     "@nuxt/kit": "^4.4.8"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:^",
-    "@lupinum/vue-board": "workspace:^",
+    "@lupinum/board-core": "workspace:*",
+    "@lupinum/vue-board": "workspace:*",
     "nuxt": "^3.19.0 || ^4.0.0"
   },
   "devDependencies": {

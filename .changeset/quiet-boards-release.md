@@ -1,9 +1,9 @@
 ---
-'@lupinum/board-core': minor
-'@lupinum/vue-board': minor
-'@lupinum/board-history': minor
-'@lupinum/board-connections': minor
-'nuxt-board': minor
+'@lupinum/board-core': major
+'@lupinum/vue-board': major
+'@lupinum/board-history': major
+'@lupinum/board-connections': major
+'nuxt-board': major
 ---
 
-Release atomic transactions, isolated post-commit error reporting, structural history, inferred plugin APIs, typed document persistence, the first-party interaction ABI, discriminated nodes, corrected package boundaries, and release-grade declarations and verification.
+Release atomic transactions, isolated post-commit error reporting, structural history, inferred plugin APIs, typed document persistence, the first-party interaction ABI, discriminated nodes, Vue/Nuxt-aligned composable names and reactive inputs, SSR-safe subscriptions, accessible board controls, corrected package ownership, and packed Nuxt 3/4 verification.

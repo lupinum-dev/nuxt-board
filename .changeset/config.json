@@ -2,7 +2,15 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.4/schema.json",
   "changelog": false,
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@lupinum/board-core",
+      "@lupinum/vue-board",
+      "@lupinum/board-history",
+      "@lupinum/board-connections",
+      "nuxt-board"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

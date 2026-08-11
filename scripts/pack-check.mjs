@@ -258,9 +258,9 @@ const expectedFirstPartyPeers = [
 for (const [packageName, peerName] of expectedFirstPartyPeers) {
   const range =
     packedPackages.get(packageName)?.manifest.peerDependencies?.[peerName]
-  if (range !== '^0.1.0') {
+  if (range !== '0.1.0') {
     throw new Error(
-      `${packageName} must publish ${peerName} as the compatible pre-1 peer ^0.1.0; received ${String(range)}.`,
+      `${packageName} must publish ${peerName} at the same first-party release version; received ${String(range)}.`,
     )
   }
 }

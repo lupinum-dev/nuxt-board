@@ -27,6 +27,8 @@ Use this package directly for framework-agnostic state and with
 The exported `@lupinum/board-core/internal` subpath is an unsupported ABI for
 separately published first-party packages. It is not capability-private, but
 applications should use the top-level API and supported `plugins` instead.
+The first-party packages release in lockstep so this internal boundary always
+resolves to the matching implementation version.
 
 - Docs: https://vue-board.vercel.app/docs/reference/board-core
 - Issues: https://github.com/Mat4m0/canvas/issues
