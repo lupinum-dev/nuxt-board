@@ -1,4 +1,4 @@
-import { computed, inject } from 'vue'
+import { computed, inject, toValue, type MaybeRefOrGetter } from 'vue'
 import {
   getBoundsFromPoints,
   getVisibleBounds,
@@ -127,24 +127,27 @@ export function useGridStyle() {
  *
  * The returned helpers intentionally stay thin over the engine command API.
  */
-export function useNode(id: NodeId) {
+export function useNode(id: MaybeRefOrGetter<NodeId>) {
   const { engine, $nodes, $selection, $interaction, toLocalPoint } =
     useBoardEngine()
   const interaction = getBoardInteractionAdapter(engine)
+  const nodeId = computed(() => toValue(id))
 
   const node = computed(() => {
-    const current = $nodes.value.get(id)
+    const current = $nodes.value.get(nodeId.value)
     if (!current) {
-      throw new Error(`Node "${id}" is not present in the current snapshot.`)
+      throw new Error(
+        `Node "${nodeId.value}" is not present in the current snapshot.`,
+      )
     }
     return current
   })
 
-  const selected = computed(() => $selection.value.has(id))
+  const selected = computed(() => $selection.value.has(nodeId.value))
   const editing = computed(
     () =>
       $interaction.value.mode === 'editing-text' &&
-      $interaction.value.nodeId === id,
+      $interaction.value.nodeId === nodeId.value,
   )
   const locked = computed(() => node.value.locked)
 
@@ -163,20 +166,20 @@ export function useNode(id: NodeId) {
     locked,
     style,
     beginEdit: () => {
-      if (node.value.type === 'text') engine.beginTextEdit(id)
+      if (node.value.type === 'text') engine.beginTextEdit(nodeId.value)
     },
     commitText: (text: string) => {
-      if (node.value.type === 'text') engine.commitTextEdit(id, text)
+      if (node.value.type === 'text') engine.commitTextEdit(nodeId.value, text)
     },
     startDrag: (event: PointerEvent) =>
       interaction.beginNodeDrag(
-        id,
+        nodeId.value,
         event.pointerId,
         toLocalPoint(event.clientX, event.clientY),
       ),
     startResize: (handle: ResizeHandle, event: PointerEvent) =>
       interaction.beginResize(
-        id,
+        nodeId.value,
         handle,
         event.pointerId,
         toLocalPoint(event.clientX, event.clientY),

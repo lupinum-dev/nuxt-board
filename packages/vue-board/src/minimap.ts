@@ -6,7 +6,9 @@ import {
   onMounted,
   onScopeDispose,
   shallowRef,
+  toValue,
   type ComputedRef,
+  type MaybeRefOrGetter,
   type PropType,
 } from 'vue'
 import {
@@ -20,9 +22,9 @@ import { useBoardEngine } from './useBoardEngine.js'
 
 /** Sizing options for the minimap composable and component. */
 export interface MinimapOptions {
-  width?: number
-  height?: number
-  padding?: number
+  width?: MaybeRefOrGetter<number>
+  height?: MaybeRefOrGetter<number>
+  padding?: MaybeRefOrGetter<number>
 }
 
 /**
@@ -86,9 +88,9 @@ export function useMinimap(
     }
   })
 
-  const width = options.width ?? 200
-  const height = options.height ?? 140
-  const padding = options.padding ?? 24
+  const width = computed(() => toValue(options.width ?? 200))
+  const height = computed(() => toValue(options.height ?? 140))
+  const padding = computed(() => toValue(options.padding ?? 24))
 
   const bounds = computed(() => {
     let hasNodes = false
@@ -110,18 +112,18 @@ export function useMinimap(
     }
 
     return {
-      minX: minX - padding,
-      minY: minY - padding,
-      maxX: maxX + padding,
-      maxY: maxY + padding,
+      minX: minX - padding.value,
+      minY: minY - padding.value,
+      maxX: maxX + padding.value,
+      maxY: maxY + padding.value,
     }
   })
 
   const scale = computed(() => {
     const value = bounds.value
     return Math.min(
-      width / Math.max(1, value.maxX - value.minX),
-      height / Math.max(1, value.maxY - value.minY),
+      width.value / Math.max(1, value.maxX - value.minX),
+      height.value / Math.max(1, value.maxY - value.minY),
     )
   })
 
@@ -130,8 +132,8 @@ export function useMinimap(
     const contentWidth = (value.maxX - value.minX) * scale.value
     const contentHeight = (value.maxY - value.minY) * scale.value
     return {
-      x: (width - contentWidth) / 2,
-      y: (height - contentHeight) / 2,
+      x: (width.value - contentWidth) / 2,
+      y: (height.value - contentHeight) / 2,
     }
   })
 
@@ -207,8 +209,8 @@ export const BoardMinimap = defineComponent({
   setup(props, { slots }) {
     const engine = props.engine ?? useBoardEngine().engine
     const minimap = useMinimap(engine, {
-      width: props.width,
-      height: props.height,
+      width: () => props.width,
+      height: () => props.height,
     })
 
     let activePointerId: number | null = null

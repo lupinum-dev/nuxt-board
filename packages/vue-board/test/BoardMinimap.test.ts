@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import { h } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
@@ -128,5 +129,45 @@ describe('BoardMinimap', () => {
     expect(worldAtViewportCenter.x).toBeGreaterThan(350)
     expect(worldAtViewportCenter.y).toBeCloseTo(240, 0)
     wrapper.unmount()
+  })
+
+  it('reprojects nodes when component dimensions change', async () => {
+    const engine = createBoardEngine()
+    engine.createNode({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 80,
+      text: 'Node',
+    })
+    engine.createNode({
+      type: 'text',
+      x: 600,
+      y: 400,
+      width: 100,
+      height: 80,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardMinimap, {
+      props: { engine, width: 200, height: 120 },
+      slots: {
+        default: ({ nodes }) =>
+          h('output', {
+            class: 'projected-node',
+            'data-width': nodes[0]?.width,
+          }),
+      },
+    })
+    const before = Number(
+      wrapper.find('.projected-node').attributes('data-width'),
+    )
+
+    await wrapper.setProps({ width: 400, height: 240 })
+
+    const after = Number(
+      wrapper.find('.projected-node').attributes('data-width'),
+    )
+    expect(after).toBeGreaterThan(before)
   })
 })
