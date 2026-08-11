@@ -48,7 +48,10 @@ const showToolbar = computed(
     $interaction.value.mode !== 'editing-text',
 )
 
-const canEdit = computed(() => selectedNodes.value.length === 1)
+const canEdit = computed(
+  () =>
+    selectedNodes.value.length === 1 && selectedNodes.value[0]?.type === 'text',
+)
 
 watch(
   () => Array.from($selection.value).join('\0'),
@@ -95,7 +98,7 @@ function zoomToSelection(event: MouseEvent): void {
 function editSelected(event: MouseEvent): void {
   stop(event)
   const node = selectedNodes.value[0]
-  if (node) {
+  if (node?.type === 'text') {
     runBoardCommand(() => engine.beginTextEdit(node.id))
   }
 }

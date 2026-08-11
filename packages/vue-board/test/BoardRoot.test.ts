@@ -498,6 +498,78 @@ describe('BoardRoot', () => {
     expect(engine.getState().nodes.size).toBe(1)
   })
 
+  it.each([
+    ['file', { type: 'file' as const, file: 'poster.png' }],
+    ['link', { type: 'link' as const, url: 'https://example.com' }],
+    ['group', { type: 'group' as const }],
+  ])('does not expose text editing for %s nodes', async (_type, input) => {
+    const errors: unknown[] = []
+    const engine = createBoardEngine()
+    const node = engine.createNode({ ...input, x: 40, y: 40 })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      global: {
+        config: {
+          errorHandler: (error) => errors.push(error),
+        },
+      },
+      attachTo: document.body,
+    })
+    const rendered = wrapper.find(`[data-node-id="${node.id}"]`)
+
+    await rendered.trigger('dblclick', { clientX: 60, clientY: 60 })
+    await rendered.trigger('keydown', { key: 'Enter' })
+    await wrapper.trigger('keydown', { key: 'Enter' })
+
+    const editButton = wrapper.find('[aria-label="Edit"]')
+    expect(editButton.attributes('disabled')).toBeDefined()
+    await editButton.trigger('click')
+
+    expect(errors).toEqual([])
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+  })
+
+  it('keeps every built-in text editing entry path working', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const rendered = wrapper.find(`[data-node-id="${node.id}"]`)
+
+    await rendered.trigger('dblclick', { clientX: 60, clientY: 60 })
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'editing-text',
+    })
+    engine.cancelTextEdit()
+    await flushBoardRootSnapshot()
+
+    await rendered.trigger('keydown', { key: 'Enter' })
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'editing-text',
+    })
+    engine.cancelTextEdit()
+    await flushBoardRootSnapshot()
+
+    await wrapper.trigger('keydown', { key: 'Enter' })
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'editing-text',
+    })
+    engine.cancelTextEdit()
+    await flushBoardRootSnapshot()
+
+    await wrapper.find('[aria-label="Edit"]').trigger('click')
+    expect(engine.getState().interaction).toMatchObject({
+      mode: 'editing-text',
+    })
+  })
+
   it('leaves keyboard events from embedded controls to the control', async () => {
     const engine = createBoardEngine()
     const node = engine.createNode({

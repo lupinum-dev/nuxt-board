@@ -72,7 +72,10 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       return
     }
     if (event.key === 'Enter' && selection.length === 1) {
-      engine.beginTextEdit(selection[0]!)
+      const node = engine.getNode(selection[0]!)
+      if (node.type === 'text') {
+        engine.beginTextEdit(node.id)
+      }
       return
     }
     if (mod && event.key.toLowerCase() === 'a') {

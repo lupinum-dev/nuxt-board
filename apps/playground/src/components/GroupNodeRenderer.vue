@@ -6,7 +6,6 @@ import { useBoardEngine } from '@lupinum/vue-board'
 const props = defineProps<{
   node: BoardNode
   selected: boolean
-  editing: boolean
 }>()
 
 const { engine } = useBoardEngine()
@@ -19,37 +18,35 @@ const title = computed(() =>
 
 const draft = ref(title.value)
 const inputRef = ref<HTMLInputElement | null>(null)
-
-watch(
-  () => props.editing,
-  (editing) => {
-    if (editing) {
-      draft.value = title.value
-      nextTick(() => {
-        inputRef.value?.focus()
-        inputRef.value?.select()
-      })
-    }
-  },
-)
+const editing = ref(false)
 
 watch(title, (v) => {
-  if (!props.editing) {
+  if (!editing.value) {
     draft.value = v
   }
 })
+
+function begin(): void {
+  engine.select(props.node.id)
+  draft.value = title.value
+  editing.value = true
+  nextTick(() => {
+    inputRef.value?.focus()
+    inputRef.value?.select()
+  })
+}
 
 function commit(): void {
   const trimmed = draft.value.trim()
   engine.updateNode(props.node.id, {
     label: trimmed || 'Untitled group',
   })
-  engine.cancelTextEdit()
+  editing.value = false
 }
 
 function cancel(): void {
   draft.value = title.value
-  engine.cancelTextEdit()
+  editing.value = false
 }
 </script>
 
@@ -67,7 +64,16 @@ function cancel(): void {
         @keydown.enter.prevent="commit"
         @keydown.esc.prevent="cancel"
       />
-      <span v-else class="group-node__title">{{ title }}</span>
+      <button
+        v-else
+        type="button"
+        class="group-node__title"
+        data-board-interactive="true"
+        aria-label="Edit group label"
+        @click.stop="begin"
+      >
+        {{ title }}
+      </button>
     </div>
   </div>
 </template>
@@ -122,6 +128,7 @@ function cancel(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
+  border: 0;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
 }
 

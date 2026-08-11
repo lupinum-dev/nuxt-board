@@ -29,12 +29,22 @@ const style = computed(() => ({
   ...resolveNodeColorStyle(props.node.color),
 }))
 
+function beginTextEdit(): void {
+  if (props.node.type !== 'text') return
+  runBoardCommand(() => engine.beginTextEdit(props.node.id))
+}
+
+function commitTextEdit(text: string): void {
+  if (props.node.type !== 'text') return
+  runBoardCommand(() => engine.commitTextEdit(props.node.id, text))
+}
+
 const slotProps = computed(() => ({
   node: props.node,
   selected: props.selected,
   editing: props.editing,
-  beginEdit: () => engine.beginTextEdit(props.node.id),
-  commitText: (text: string) => engine.commitTextEdit(props.node.id, text),
+  beginEdit: beginTextEdit,
+  commitText: commitTextEdit,
 }))
 
 // Use the explicit prop when provided (e.g. from BoardRoot); fall back to slot detection
@@ -108,8 +118,9 @@ function beginKeyboardEdit(event: KeyboardEvent): void {
   if (isEditingTarget(event.target)) {
     return
   }
+  if (props.node.type !== 'text') return
   event.preventDefault()
-  runBoardCommand(() => engine.beginTextEdit(props.node.id))
+  beginTextEdit()
 }
 
 function selectOnFocus(): void {

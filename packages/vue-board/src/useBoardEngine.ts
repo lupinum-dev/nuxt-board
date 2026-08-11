@@ -162,8 +162,12 @@ export function useNode(id: NodeId) {
     editing,
     locked,
     style,
-    beginEdit: () => engine.beginTextEdit(id),
-    commitText: (text: string) => engine.commitTextEdit(id, text),
+    beginEdit: () => {
+      if (node.value.type === 'text') engine.beginTextEdit(id)
+    },
+    commitText: (text: string) => {
+      if (node.value.type === 'text') engine.commitTextEdit(id, text)
+    },
     startDrag: (event: PointerEvent) =>
       interaction.beginNodeDrag(
         id,

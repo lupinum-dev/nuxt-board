@@ -431,7 +431,10 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     const screenPoint = toLocalPoint(event.clientX, event.clientY)
     const nodeId = findNodeId(event.target) ?? findNodeIdAtPoint(screenPoint)
     if (nodeId) {
-      runBoardCommand(() => engine.beginTextEdit(asNodeId(nodeId)))
+      const id = asNodeId(nodeId)
+      if (engine.getNode(id).type === 'text') {
+        runBoardCommand(() => engine.beginTextEdit(id))
+      }
       return
     }
     const world = engine.screenToWorld(screenPoint)

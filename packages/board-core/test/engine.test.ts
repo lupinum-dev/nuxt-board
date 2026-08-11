@@ -230,6 +230,25 @@ describe('board engine', () => {
     expect(engine.getNode(id).text).toBe('First')
   })
 
+  it.each([
+    ['file', { type: 'file' as const, file: 'poster.png' }],
+    ['link', { type: 'link' as const, url: 'https://example.com' }],
+    ['group', { type: 'group' as const }],
+  ])(
+    'rejects text editing for %s nodes without changing state',
+    (_type, input) => {
+      const engine = createBoardEngine()
+      const node = engine.createNode(input)
+      const before = engine.getState()
+
+      expect(() => engine.beginTextEdit(node.id)).toThrow(BoardInputError)
+      expect(() => engine.commitTextEdit(node.id, 'After')).toThrow(
+        BoardInputError,
+      )
+      expect(engine.getState()).toEqual(before)
+    },
+  )
+
   it('runs feature cleanups once when destroyed', () => {
     const cleanup = vi.fn()
     const feature: InternalBoardPlugin = defineInternalBoardPlugin({
