@@ -1,7 +1,9 @@
 import {
   computed,
   defineComponent,
+  getCurrentInstance,
   h,
+  onMounted,
   onScopeDispose,
   shallowRef,
   type ComputedRef,
@@ -54,17 +56,30 @@ export function useMinimap(
   const camera = shallowRef(engine.$camera.get())
   const nodes = shallowRef(engine.$nodes.get())
   const viewportSize = shallowRef(engine.getViewportSize())
-  const unsubscribes = [
-    engine.$camera.subscribe((value) => {
-      camera.value = value
-    }),
-    engine.$nodes.subscribe((value) => {
-      nodes.value = value
-    }),
-    engine.on('viewport:change', (value) => {
-      viewportSize.value = value
-    }),
-  ]
+  const unsubscribes: Array<() => void> = []
+
+  function subscribeToEngine(): void {
+    unsubscribes.push(
+      engine.$camera.subscribe((value) => {
+        camera.value = value
+      }),
+      engine.$nodes.subscribe((value) => {
+        nodes.value = value
+      }),
+      engine.on('viewport:change', (value) => {
+        viewportSize.value = value
+      }),
+    )
+    camera.value = engine.$camera.get()
+    nodes.value = engine.$nodes.get()
+    viewportSize.value = engine.getViewportSize()
+  }
+
+  if (getCurrentInstance()) {
+    onMounted(subscribeToEngine)
+  } else {
+    subscribeToEngine()
+  }
   onScopeDispose(() => {
     for (const unsubscribe of unsubscribes) {
       unsubscribe()

@@ -162,26 +162,40 @@ const debugState = computed(() => ({
   trace: engine.exportTrace().slice(-20),
 }))
 
-const unsubscribes = [
-  engine.$camera.subscribe((v) => {
-    $camera.value = v
-  }),
-  engine.$grid.subscribe((v) => {
-    $grid.value = v
-  }),
-  engine.$nodes.subscribe((v) => {
-    $nodes.value = v
-  }),
-  engine.$selection.subscribe((v) => {
-    $selection.value = v
-  }),
-  engine.$interaction.subscribe((v) => {
-    $interaction.value = v
-  }),
-  engine.$snapGuides.subscribe((v) => {
-    $snapGuides.value = v
-  }),
-]
+let unsubscribes: Array<() => void> = []
+
+function syncEngineSnapshots(): void {
+  $camera.value = engine.$camera.get()
+  $grid.value = engine.$grid.get()
+  $nodes.value = engine.$nodes.get()
+  $selection.value = engine.$selection.get()
+  $interaction.value = engine.$interaction.get()
+  $snapGuides.value = engine.$snapGuides.get()
+}
+
+function subscribeToEngine(): void {
+  unsubscribes = [
+    engine.$camera.subscribe((v) => {
+      $camera.value = v
+    }),
+    engine.$grid.subscribe((v) => {
+      $grid.value = v
+    }),
+    engine.$nodes.subscribe((v) => {
+      $nodes.value = v
+    }),
+    engine.$selection.subscribe((v) => {
+      $selection.value = v
+    }),
+    engine.$interaction.subscribe((v) => {
+      $interaction.value = v
+    }),
+    engine.$snapGuides.subscribe((v) => {
+      $snapGuides.value = v
+    }),
+  ]
+  syncEngineSnapshots()
+}
 
 watch(
   () => props.renderers,
@@ -238,6 +252,7 @@ function hasCustomContentForNode(node: BoardNodeState): boolean {
 }
 
 onMounted(() => {
+  subscribeToEngine()
   emit('ready', engine)
 })
 
