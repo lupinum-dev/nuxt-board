@@ -22,7 +22,7 @@ export interface ResolvedBoardGridOptions {
 }
 
 export type BoardRendererRegistry = Partial<
-  Record<JsonCanvasNodeType, Component>
+  Readonly<Record<JsonCanvasNodeType, Component>>
 >
 
 export const DEFAULT_BOARD_GRID_OPTIONS: Pick<

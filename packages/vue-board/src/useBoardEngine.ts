@@ -2,6 +2,7 @@ import { computed, inject, toValue, type MaybeRefOrGetter } from 'vue'
 import {
   getBoundsFromPoints,
   getVisibleBounds,
+  type BoardNode,
   type NodeId,
   type ResizeHandle,
 } from '@lupinum/board-core'
@@ -32,7 +33,7 @@ export function useNodes() {
 /** Reactive selection ids as an ordered array. */
 export function useSelection() {
   const { $selection } = useBoardEngine()
-  return computed(() => [...$selection.value])
+  return computed<readonly NodeId[]>(() => [...$selection.value])
 }
 
 /** Reactive interaction state for the current board gesture. */
@@ -52,7 +53,7 @@ export function useVisibleBounds() {
 /** Filter visible nodes to the viewport with an optional culling margin. */
 export function useVisibleNodes(margin = 200) {
   const { $nodes, viewportSize, $camera } = useBoardEngine()
-  return computed(() => {
+  return computed<readonly BoardNode[]>(() => {
     const canCull = viewportSize.value.x > 0 && viewportSize.value.y > 0
     const bounds = canCull
       ? getVisibleBounds(

@@ -49,11 +49,11 @@ const slotProps = computed(() => ({
 
 // Use the explicit prop when provided (e.g. from BoardRoot); fall back to slot detection
 // for direct/standalone usage of BoardNode.
-const hasCustomRenderer = computed(() =>
-  props.customRenderer !== undefined
+function hasCustomRenderer(): boolean {
+  return props.customRenderer !== undefined
     ? props.customRenderer
-    : Boolean(slots.default),
-)
+    : Boolean(slots.default)
+}
 
 const accessibleLabel = computed(() => {
   if (props.node.type === 'text') {
@@ -163,7 +163,7 @@ function getTextContent(node: BoardNode): string {
     @keydown.enter.stop="beginKeyboardEdit"
   >
     <!-- Custom renderer / user-provided slot -->
-    <slot v-if="hasCustomRenderer" v-bind="slotProps" />
+    <slot v-if="hasCustomRenderer()" v-bind="slotProps" />
 
     <!-- Built-in text display / editing (no custom renderer) -->
     <template v-else>

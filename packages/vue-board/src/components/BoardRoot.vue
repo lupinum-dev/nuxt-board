@@ -6,6 +6,7 @@ import {
   onMounted,
   provide,
   ref,
+  shallowReadonly,
   shallowRef,
   toRef,
   useSlots,
@@ -82,7 +83,7 @@ const emit = defineEmits<{
 const rootElement = ref<HTMLElement | null>(null)
 const engine = props.engine ?? createBoardEngine()
 const ownsEngine = props.engine === undefined
-const renderersRef = shallowRef<BoardRendererRegistry>(props.renderers)
+const renderersRef = shallowRef<Readonly<BoardRendererRegistry>>({})
 
 const $camera = shallowRef<Camera>(engine.$camera.get())
 const $grid = shallowRef<GridSettings>(engine.$grid.get())
@@ -104,17 +105,17 @@ const resolvedGrid = useResolvedGrid({
 
 provide(boardEngineKey, {
   engine,
-  rootElement,
-  viewportSize,
-  renderers: renderersRef,
+  rootElement: shallowReadonly(rootElement),
+  viewportSize: shallowReadonly(viewportSize),
+  renderers: shallowReadonly(renderersRef),
   resolvedGrid,
   toLocalPoint,
-  $camera,
-  $grid,
-  $nodes,
-  $selection,
-  $interaction,
-  $snapGuides,
+  $camera: shallowReadonly($camera),
+  $grid: shallowReadonly($grid),
+  $nodes: shallowReadonly($nodes),
+  $selection: shallowReadonly($selection),
+  $interaction: shallowReadonly($interaction),
+  $snapGuides: shallowReadonly($snapGuides),
 })
 
 let prevSelectionIds: NodeId[] = []
@@ -207,7 +208,7 @@ watch(
       ]),
     )
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
 function toLocalPoint(clientX: number, clientY: number): Point {
