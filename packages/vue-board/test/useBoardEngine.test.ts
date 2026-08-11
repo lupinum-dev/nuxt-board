@@ -15,7 +15,7 @@ describe('Vue board composables', () => {
     const Reader = defineComponent({
       props: {
         nodeId: {
-          type: String as PropType<NodeId>,
+          type: String as unknown as PropType<NodeId>,
           required: true,
         },
       },
@@ -27,7 +27,7 @@ describe('Vue board composables', () => {
     const Shell = defineComponent({
       props: {
         nodeId: {
-          type: String as PropType<NodeId>,
+          type: String as unknown as PropType<NodeId>,
           required: true,
         },
       },

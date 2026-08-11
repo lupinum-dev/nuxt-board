@@ -28,5 +28,13 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
     },
+    {
+      command:
+        'pnpm --filter nuxt-board-playground dev --host 127.0.0.1 --port 4175',
+      env: webServerEnv,
+      port: 4175,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
   ],
 })

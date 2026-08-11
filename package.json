@@ -19,7 +19,7 @@
     "test:docs": "pnpm --filter docs typecheck && pnpm --filter docs build",
     "test:e2e": "playwright test",
     "test:e2e:functional": "playwright test --ignore-snapshots",
-    "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts && pnpm --filter nuxt-board test",
+    "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts --exclude packages/nuxt-board/test/prefixed.test.ts && pnpm --filter nuxt-board test",
     "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter nuxt-board test:types",
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
     "verify:library": "pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter nuxt-board test:types && pnpm test:unit && pnpm pack:check",
