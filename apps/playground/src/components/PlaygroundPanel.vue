@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ConnectionRouting } from '@lupinum/board-connections'
 
-const gridSize = defineModel<10 | 20 | 40>('gridSize', { required: true })
+const gridSize = defineModel<number>('gridSize', { required: true })
 const gridPattern = defineModel<'line' | 'dot' | 'cross' | 'none'>(
   'gridPattern',
   { required: true },

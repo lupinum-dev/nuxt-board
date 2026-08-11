@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { createBoardEngine, type BoardNode } from '@lupinum/board-core'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import {
+  createBoardEngine,
+  type BoardNode,
+  type GridPattern,
+} from '@lupinum/board-core'
 import {
   connectionsPlugin,
   type ConnectionRouting,
@@ -36,9 +40,6 @@ const engine = createBoardEngine({
 // ━━ UI state ━━
 const selectedScene = ref<25 | 100 | 500 | 2000>(25)
 const showGrid = ref(true)
-const snapToGrid = ref(true)
-const gridPattern = ref<'line' | 'dot' | 'cross' | 'none'>('line')
-const gridSize = ref<10 | 20 | 40>(20)
 const benchmarkResult = ref('idle')
 const exportedJson = ref('')
 const connectionRouting = ref<ConnectionRouting>('bezier')
@@ -53,13 +54,25 @@ const renderers: BoardRendererRegistry = {
   group: GroupNodeRenderer,
 }
 
-const gridOptions = computed(() => ({
-  visible: showGrid.value,
-  snap: snapToGrid.value,
-  size: gridSize.value,
-  majorEvery: 5,
-  pattern: gridPattern.value,
-}))
+const engineGrid = shallowRef(engine.getGridSettings())
+const unsubscribeGrid = engine.$grid.subscribe((grid) => {
+  engineGrid.value = grid
+})
+onBeforeUnmount(unsubscribeGrid)
+
+const snapToGrid = computed({
+  get: () => engineGrid.value.snap,
+  set: (snap: boolean) => engine.updateGridSettings({ snap }),
+})
+const gridPattern = computed({
+  get: () => engineGrid.value.pattern,
+  set: (pattern: GridPattern) => engine.updateGridSettings({ pattern }),
+})
+const gridSize = computed({
+  get: () => engineGrid.value.size,
+  set: (size: number) => engine.updateGridSettings({ size }),
+})
+const gridOptions = computed(() => ({ visible: showGrid.value }))
 
 // ━━ Scene management ━━
 function clearBoard(): void {

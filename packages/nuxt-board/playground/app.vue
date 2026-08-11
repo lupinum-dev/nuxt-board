@@ -40,16 +40,35 @@ const engine = seeded.engine
 const sceneId = ref<DemoSceneId>(defaultSceneId)
 const activeScene = ref<DemoSceneOption>(seeded.scene)
 const showGrid = ref(true)
-const snapToGrid = ref(true)
 const showMinimap = ref(true)
 const showDiagnostics = ref(true)
 const showPanel = ref(true)
-const gridSize = ref(24)
-const gridPattern = ref<GridPattern>('line')
 const benchmarkResult = ref('idle')
 const documentText = ref('')
 const status = ref('Scene seeded from deterministic data for SSR hydration.')
 const version = ref(0)
+
+const snapToGrid = computed({
+  get: () => {
+    version.value
+    return engine.getGridSettings().snap
+  },
+  set: (snap: boolean) => engine.updateGridSettings({ snap }),
+})
+const gridSize = computed({
+  get: () => {
+    version.value
+    return engine.getGridSettings().size
+  },
+  set: (size: number) => engine.updateGridSettings({ size }),
+})
+const gridPattern = computed({
+  get: () => {
+    version.value
+    return engine.getGridSettings().pattern
+  },
+  set: (pattern: GridPattern) => engine.updateGridSettings({ pattern }),
+})
 
 const renderers: BoardRendererRegistry = {
   file: DemoImageNodeRenderer,
@@ -84,18 +103,10 @@ const stats = ref(getDemoCounts(engine))
 
 const gridOptions = computed(() => ({
   visible: showGrid.value,
-  snap: snapToGrid.value,
-  size: gridSize.value,
-  majorEvery: 4,
-  pattern: gridPattern.value,
 }))
 
 function reseedScene(): void {
   activeScene.value = loadDemoScene(engine, sceneId.value)
-  const grid = engine.getState().grid
-  gridSize.value = grid.size
-  gridPattern.value = grid.pattern
-  snapToGrid.value = grid.snap
   documentText.value = ''
   benchmarkResult.value = 'idle'
   status.value = `${activeScene.value.label} restored from deterministic scene data.`
@@ -128,10 +139,6 @@ function loadDocument(): void {
   }
   try {
     importDemoDocument(engine, documentText.value)
-    const grid = engine.getState().grid
-    gridSize.value = grid.size
-    gridPattern.value = grid.pattern
-    snapToGrid.value = grid.snap
     status.value = 'Imported JSON Canvas into the live engine.'
     version.value += 1
   } catch (error) {

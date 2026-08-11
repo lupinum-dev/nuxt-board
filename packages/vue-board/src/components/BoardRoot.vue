@@ -98,7 +98,6 @@ const spacePressed = ref(false)
 const { viewportSize } = useViewportSize({ rootElement, engine })
 
 const resolvedGrid = useResolvedGrid({
-  engine,
   grid: $grid,
   gridProp: toRef(props, 'grid'),
 })

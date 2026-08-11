@@ -789,31 +789,45 @@ describe('BoardRoot', () => {
     expect(blocked).toEqual(['beginNodeDrag', 'duplicateNodes', 'createNode'])
   })
 
-  it('applies grid visibility and pattern overrides', async () => {
-    const engine = createBoardEngine()
+  it('renders the canonical engine grid with presentation-only overrides', async () => {
+    const engine = createBoardEngine({
+      grid: { size: 20, majorEvery: 5, snap: true, pattern: 'line' },
+    })
     const wrapper = mount(BoardRoot, {
       props: {
         engine,
         grid: {
           visible: true,
-          pattern: 'dot',
-          size: 24,
-          majorEvery: 4,
-          snap: false,
+          minorOpacity: 0.2,
+          fadeEdges: false,
         },
       },
       attachTo: document.body,
     })
 
-    await wrapper.vm.$nextTick()
+    await flushBoardRootSnapshot()
 
     expect(engine.getState().grid).toMatchObject({
+      pattern: 'line',
+      size: 20,
+      majorEvery: 5,
+      snap: true,
+    })
+    expect(wrapper.find('.board-grid').attributes('style')).toContain(
+      '--grid-minor-size: 20px',
+    )
+
+    engine.updateGridSettings({ size: 10, snap: false, pattern: 'dot' })
+    await flushBoardRootSnapshot()
+
+    const style = wrapper.find('.board-grid').attributes('style')
+    expect(style).toContain('--grid-minor-size: 10px')
+    expect(style).toContain('radial-gradient')
+    expect(engine.getState().grid).toMatchObject({
       pattern: 'dot',
-      size: 24,
-      majorEvery: 4,
+      size: 10,
       snap: false,
     })
-    expect(wrapper.find('.board-grid').exists()).toBe(true)
   })
 
   it('keeps slot state in sync with undo and redo replays', async () => {
