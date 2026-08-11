@@ -170,4 +170,22 @@ describe('BoardMinimap', () => {
     )
     expect(after).toBeGreaterThan(before)
   })
+
+  it('supports keyboard camera navigation without bubbling to the board', async () => {
+    const engine = createBoardEngine()
+    const wrapper = mount(BoardMinimap, { props: { engine } })
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true,
+    })
+
+    wrapper.element.dispatchEvent(event)
+    await wrapper.vm.$nextTick()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(engine.$camera.get().x).toBe(-24)
+    expect(wrapper.attributes('tabindex')).toBe('0')
+    expect(wrapper.attributes('role')).toBe('region')
+  })
 })

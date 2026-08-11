@@ -56,10 +56,13 @@ function hasCustomRenderer(): boolean {
 }
 
 const accessibleLabel = computed(() => {
+  let label: string
   if (props.node.type === 'text') {
-    return getTextContent(props.node) || 'Empty text node'
+    label = getTextContent(props.node) || 'Empty text node'
+  } else {
+    label = `${props.node.type} node`
   }
-  return `${props.node.type} node`
+  return props.selected ? `${label}, selected` : label
 })
 
 const editorHelp = computed(() =>
@@ -156,9 +159,9 @@ function getTextContent(node: BoardNode): string {
     :style="style"
     :data-node-id="node.id"
     tabindex="0"
-    role="button"
+    role="group"
+    aria-roledescription="board node"
     :aria-label="accessibleLabel"
-    :aria-selected="selected"
     @focus="selectOnFocus"
     @keydown.enter.stop="beginKeyboardEdit"
   >
@@ -202,7 +205,7 @@ function getTextContent(node: BoardNode): string {
         :node="node"
         :handle="handle"
       >
-        <BoardNodeHandle :handle="handle" />
+        <BoardNodeHandle :handle="handle" :node-id="node.id" />
       </slot>
     </template>
   </article>

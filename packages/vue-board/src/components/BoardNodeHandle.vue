@@ -1,16 +1,63 @@
 <script setup lang="ts">
-import type { ResizeHandle } from '@lupinum/board-core'
+import type { NodeId, ResizeHandle } from '@lupinum/board-core'
+import { useBoardEngine } from '../useBoardEngine.js'
+import { runBoardCommand } from '../composables/runBoardCommand.js'
 
-defineProps<{
+const props = defineProps<{
   handle: ResizeHandle
+  nodeId?: NodeId
 }>()
+
+const { engine, $grid } = useBoardEngine()
+const handleLabels: Record<ResizeHandle, string> = {
+  n: 'Resize from top',
+  ne: 'Resize from top right',
+  e: 'Resize from right',
+  se: 'Resize from bottom right',
+  s: 'Resize from bottom',
+  sw: 'Resize from bottom left',
+  w: 'Resize from left',
+  nw: 'Resize from top left',
+}
+
+function onKeydown(event: KeyboardEvent): void {
+  if (!props.nodeId || !event.key.startsWith('Arrow')) return
+
+  const horizontal = props.handle.includes('e') || props.handle.includes('w')
+  const vertical = props.handle.includes('n') || props.handle.includes('s')
+  const step = event.shiftKey
+    ? $grid.value.size * $grid.value.majorEvery
+    : $grid.value.size
+  const dx = horizontal
+    ? event.key === 'ArrowLeft'
+      ? -step
+      : event.key === 'ArrowRight'
+        ? step
+        : 0
+    : 0
+  const dy = vertical
+    ? event.key === 'ArrowUp'
+      ? -step
+      : event.key === 'ArrowDown'
+        ? step
+        : 0
+    : 0
+
+  if (dx === 0 && dy === 0) return
+  event.preventDefault()
+  event.stopPropagation()
+  runBoardCommand(() => engine.resizeNode(props.nodeId!, props.handle, dx, dy))
+}
 </script>
 
 <template>
-  <div
+  <button
+    type="button"
     class="board-node-handle"
     :class="`is-${handle}`"
     :data-resize="handle"
+    :aria-label="handleLabels[handle]"
+    @keydown="onKeydown"
   />
 </template>
 

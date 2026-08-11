@@ -400,14 +400,64 @@ describe('BoardRoot', () => {
     const firstNode = wrapper.find(`[data-node-id="${first.id}"]`)
     expect(firstNode.classes()).toContain('is-colored')
     expect(firstNode.attributes('style')).toContain('--board-node-color')
+    expect(firstNode.attributes('role')).toBe('group')
+    expect(firstNode.attributes('aria-label')).toContain('selected')
 
-    await wrapper.find('[data-node-color-menu-button="true"]').trigger('click')
+    const paletteButton = wrapper.find<HTMLButtonElement>(
+      '[data-node-color-menu-button="true"]',
+    )
+    await paletteButton.trigger('click')
     await nextTick()
+    expect(paletteButton.attributes('aria-expanded')).toBe('true')
+    expect(
+      wrapper.find('[data-node-color-menu="true"]').attributes('role'),
+    ).toBe('menu')
+    expect(document.activeElement?.getAttribute('role')).toBe('menuitemradio')
     await wrapper.find('[data-node-color-option="6"]').trigger('click')
     await nextTick()
 
     expect(engine.getNode(first.id).color).toBe('6')
     expect(engine.getNode(second.id).color).toBe('6')
+  })
+
+  it('resizes selected nodes from keyboard-operable handles', async () => {
+    const engine = createBoardEngine({ grid: { snap: false, size: 20 } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      width: 120,
+      height: 80,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+    await nextTick()
+
+    const handle = wrapper.find<HTMLButtonElement>('[data-resize="se"]')
+    expect(handle.attributes('aria-label')).toBe('Resize from bottom right')
+    await handle.trigger('keydown', { key: 'ArrowRight' })
+    await handle.trigger('keydown', { key: 'ArrowDown' })
+
+    expect(engine.getNode(node.id)).toMatchObject({ width: 140, height: 100 })
+  })
+
+  it('closes the colour menu with Escape and restores trigger focus', async () => {
+    const engine = createBoardEngine()
+    engine.createNode({ type: 'text', x: 0, y: 0, text: 'Node' })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      attachTo: document.body,
+    })
+    const button = wrapper.find<HTMLButtonElement>(
+      '[data-node-color-menu-button="true"]',
+    )
+    await button.trigger('click')
+    const menu = wrapper.find('[data-node-color-menu="true"]')
+
+    await menu.trigger('keydown', { key: 'Escape' })
+
+    expect(wrapper.find('[data-node-color-menu="true"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(button.element)
   })
 
   it('draws a box select and updates selection from background drag', async () => {

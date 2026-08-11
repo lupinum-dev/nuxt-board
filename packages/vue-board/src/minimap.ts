@@ -10,6 +10,8 @@ import {
   type ComputedRef,
   type MaybeRefOrGetter,
   type PropType,
+  type SlotsType,
+  type VNode,
 } from 'vue'
 import {
   getVisibleBounds,
@@ -25,6 +27,17 @@ export interface MinimapOptions {
   width?: MaybeRefOrGetter<number>
   height?: MaybeRefOrGetter<number>
   padding?: MaybeRefOrGetter<number>
+}
+
+export interface MinimapSlotProps {
+  nodes: Array<{
+    node: BoardNode
+    x: number
+    y: number
+    width: number
+    height: number
+  }>
+  viewport: { x: number; y: number; width: number; height: number }
 }
 
 /**
@@ -192,6 +205,9 @@ export function useMinimap(
 /** Render a clickable, draggable minimap for the current board engine. */
 export const BoardMinimap = defineComponent({
   name: 'BoardMinimap',
+  slots: Object as SlotsType<{
+    default?: (props: MinimapSlotProps) => VNode[]
+  }>,
   props: {
     engine: {
       type: Object as PropType<BoardEngine | null>,
@@ -262,12 +278,33 @@ export const BoardMinimap = defineComponent({
       }
     }
 
+    function onKeyDown(event: KeyboardEvent): void {
+      const step = event.shiftKey ? 100 : 24
+      const delta =
+        event.key === 'ArrowLeft'
+          ? { x: -step, y: 0 }
+          : event.key === 'ArrowRight'
+            ? { x: step, y: 0 }
+            : event.key === 'ArrowUp'
+              ? { x: 0, y: -step }
+              : event.key === 'ArrowDown'
+                ? { x: 0, y: step }
+                : null
+      if (!delta) return
+      event.preventDefault()
+      event.stopPropagation()
+      engine.panBy(delta.x, delta.y)
+    }
+
     return () =>
       h(
         'div',
         {
           class: 'board-minimap',
           'data-board-interactive': 'true',
+          tabindex: 0,
+          role: 'region',
+          'aria-label': 'Board minimap. Use arrow keys to pan.',
           style: {
             position: 'relative',
             width: `${props.width}px`,
@@ -275,6 +312,7 @@ export const BoardMinimap = defineComponent({
             overflow: 'hidden',
           },
           onPointerdown: onPointerDown,
+          onKeydown: onKeyDown,
         },
         [
           slots.default

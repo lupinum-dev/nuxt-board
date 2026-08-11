@@ -68,7 +68,7 @@ test('exposes command state and publication order', async ({ page }) => {
   await page.getByRole('button', { name: 'Rename card' }).click()
   await expect(page.getByText('command:after', { exact: true })).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Review onboarding · approved' }),
+    page.getByRole('group', { name: 'Review onboarding · approved, selected' }),
   ).toBeVisible()
   expect(errors).toEqual([])
 })
@@ -81,7 +81,7 @@ test('shows atomic failure without changing the document', async ({ page }) => {
   await page.getByRole('button', { name: 'Run failing batch' }).click()
   await expect(page.getByText(/BoardConflictError/)).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Committed document' }),
+    page.getByRole('group', { name: 'Committed document, selected' }),
   ).toBeVisible()
   expect(errors).toEqual([])
 })
@@ -98,7 +98,9 @@ test('switches renderers without changing the node record', async ({
     page.getByLabel('Live inspector').getByText(/"type": "text"/),
   ).toBeVisible()
   await expect(
-    page.getByRole('button', { name: /Approve documentation structure/ }),
+    page.getByRole('group', {
+      name: /Approve documentation structure, selected/,
+    }),
   ).toBeVisible()
   expect(errors).toEqual([])
 })

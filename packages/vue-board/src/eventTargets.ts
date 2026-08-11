@@ -29,5 +29,7 @@ export function isEventOwnedByBoardRoot(
 export function isBoardInteractiveEventTarget(
   target: EventTarget | null,
 ): boolean {
-  return Boolean(asElement(target)?.closest(BOARD_INTERACTIVE_SELECTOR))
+  const element = asElement(target)
+  if (element?.closest('[data-resize]')) return false
+  return Boolean(element?.closest(BOARD_INTERACTIVE_SELECTOR))
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import type { BoardColorPreset, BoardNode, NodeId } from '@lupinum/board-core'
 import { BOARD_COLOR_PRESETS } from '../nodeColors.js'
 import { useBoardEngine } from '../useBoardEngine.js'
@@ -7,6 +7,9 @@ import { runBoardCommand } from '../composables/runBoardCommand.js'
 
 const { engine, $camera, $nodes, $selection, $interaction } = useBoardEngine()
 const paletteOpen = ref(false)
+const paletteButton = ref<HTMLButtonElement | null>(null)
+const palette = ref<HTMLElement | null>(null)
+const paletteId = `board-colour-menu-${useId()}`
 
 const selectedNodes = computed(() =>
   Array.from($selection.value)
@@ -84,6 +87,25 @@ function removeSelected(event: MouseEvent): void {
 function togglePalette(event: MouseEvent): void {
   stop(event)
   paletteOpen.value = !paletteOpen.value
+  if (paletteOpen.value) {
+    void nextTick(() => {
+      const active = palette.value?.querySelector<HTMLElement>(
+        '[aria-checked="true"]',
+      )
+      const first = palette.value?.querySelector<HTMLElement>(
+        '[role="menuitemradio"]',
+      )
+      ;(active ?? first)?.focus()
+    })
+  }
+}
+
+function onPaletteKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopPropagation()
+  paletteOpen.value = false
+  paletteButton.value?.focus()
 }
 
 function zoomToSelection(event: MouseEvent): void {
@@ -138,11 +160,15 @@ const currentColor = computed(() => {
 
     <div class="board-selection-toolbar__popover-anchor">
       <button
+        ref="paletteButton"
         type="button"
         class="board-selection-toolbar__button"
         aria-label="Set colour"
         title="Set colour"
         data-node-color-menu-button="true"
+        aria-haspopup="menu"
+        :aria-expanded="paletteOpen"
+        :aria-controls="paletteId"
         @click="togglePalette"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -159,8 +185,13 @@ const currentColor = computed(() => {
 
       <div
         v-if="paletteOpen"
+        :id="paletteId"
+        ref="palette"
         class="board-selection-toolbar__palette"
         data-node-color-menu="true"
+        role="menu"
+        aria-label="Node colour"
+        @keydown="onPaletteKeydown"
       >
         <button
           type="button"
@@ -169,6 +200,8 @@ const currentColor = computed(() => {
           aria-label="Default colour"
           title="Default colour"
           data-node-color-option="default"
+          role="menuitemradio"
+          :aria-checked="currentColor === null"
           @click.stop.prevent="applyColor(undefined)"
         />
         <button
@@ -183,6 +216,8 @@ const currentColor = computed(() => {
           :aria-label="option.label"
           :title="option.label"
           :data-node-color-option="option.preset"
+          role="menuitemradio"
+          :aria-checked="currentColor === option.preset"
           @click.stop.prevent="applyColor(option.preset)"
         />
       </div>
