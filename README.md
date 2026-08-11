@@ -112,7 +112,7 @@ pnpm dev:docs
 ```
 
 Use Node 20.19 or newer. The packages support Vue 3.5 or newer, and
-`nuxt-board` supports Nuxt 3 and 4.
+`nuxt-board` supports Nuxt 3.19+ and Nuxt 4.
 
 Run the repository gate before handing off a change:
 

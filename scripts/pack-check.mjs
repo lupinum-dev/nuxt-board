@@ -6,8 +6,10 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { createServer } from 'node:net'
 import { join, resolve } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -31,6 +33,69 @@ function run(command, args, options = {}) {
     env: process.env,
     ...options,
   })
+}
+
+async function getAvailablePort() {
+  return await new Promise((resolvePort, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address()
+      if (!address || typeof address === 'string') {
+        reject(new Error('Could not reserve a local port.'))
+        return
+      }
+      server.close((error) => {
+        if (error) reject(error)
+        else resolvePort(address.port)
+      })
+    })
+  })
+}
+
+async function assertNuxtSsr(consumerRoot, expectedText) {
+  const port = await getAvailablePort()
+  const server = spawn(process.execPath, ['.output/server/index.mjs'], {
+    cwd: consumerRoot,
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+    },
+    stdio: 'pipe',
+  })
+  let output = ''
+  const collect = (chunk) => {
+    output = `${output}${chunk}`.slice(-8000)
+  }
+  server.stdout.on('data', collect)
+  server.stderr.on('data', collect)
+
+  try {
+    let lastError
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/`)
+        const html = await response.text()
+        if (!response.ok) {
+          throw new Error(`SSR returned HTTP ${response.status}.`)
+        }
+        if (!html.includes(expectedText)) {
+          throw new Error(`SSR output did not contain ${expectedText}.`)
+        }
+        return
+      } catch (error) {
+        lastError = error
+        if (server.exitCode !== null) break
+        await delay(100)
+      }
+    }
+    throw new Error(`Packed Nuxt SSR smoke failed.\n${output}`, {
+      cause: lastError,
+    })
+  } finally {
+    if (server.exitCode === null) server.kill('SIGTERM')
+  }
 }
 
 function readJson(path) {
@@ -379,5 +444,71 @@ writeFileSync(
   ),
 )
 run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-nuxt.json')])
+
+const packedNuxtBoard = packedPackages.get('nuxt-board')
+if (!packedNuxtBoard) throw new Error('Packed Nuxt Board package is missing.')
+
+async function verifyNuxtVersion(label, nuxtVersion) {
+  const nuxtConsumerDir = join(outputDir, `nuxt-${label}`)
+  const localPackages = {
+    '@lupinum/board-core': `file:${packedCore.tarball}`,
+    '@lupinum/vue-board': `file:${packedVueBoard.tarball}`,
+    'nuxt-board': `file:${packedNuxtBoard.tarball}`,
+  }
+  mkdirSync(nuxtConsumerDir, { recursive: true })
+  writeFileSync(
+    join(nuxtConsumerDir, 'package.json'),
+    JSON.stringify(
+      {
+        private: true,
+        type: 'module',
+        dependencies: {
+          ...localPackages,
+          nuxt: nuxtVersion,
+        },
+        devDependencies: {
+          typescript: rootManifest.devDependencies.typescript,
+          'vue-tsc': rootManifest.devDependencies['vue-tsc'],
+        },
+        pnpm: { overrides: localPackages },
+      },
+      null,
+      2,
+    ),
+  )
+  writeFileSync(
+    join(nuxtConsumerDir, 'nuxt.config.ts'),
+    `export default defineNuxtConfig({ modules: ['nuxt-board'] })\n`,
+  )
+  writeFileSync(
+    join(nuxtConsumerDir, 'tsconfig.json'),
+    `${JSON.stringify({ extends: './.nuxt/tsconfig.json' }, null, 2)}\n`,
+  )
+  writeFileSync(
+    join(nuxtConsumerDir, 'app.vue'),
+    `<script setup lang="ts">
+import { asNodeId } from '@lupinum/board-core'
+const engine = createBoardEngine({
+  initialNodes: [{
+    id: asNodeId('packed-${label}'),
+    type: 'text', x: 24, y: 24, width: 160, height: 80,
+    text: 'packed-nuxt-${label}', zIndex: 1, locked: false, visible: true,
+  }],
+})
+</script>
+<template><BoardRoot :engine="engine" style="height: 320px" /></template>
+`,
+  )
+  run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], {
+    cwd: nuxtConsumerDir,
+  })
+  run('pnpm', ['exec', 'nuxt', 'prepare'], { cwd: nuxtConsumerDir })
+  run('pnpm', ['exec', 'nuxi', 'typecheck'], { cwd: nuxtConsumerDir })
+  run('pnpm', ['exec', 'nuxt', 'build'], { cwd: nuxtConsumerDir })
+  await assertNuxtSsr(nuxtConsumerDir, `packed-nuxt-${label}`)
+}
+
+await verifyNuxtVersion('3-19', '3.19.0')
+await verifyNuxtVersion('4-0', '4.0.0')
 
 rmSync(outputDir, { recursive: true, force: true })

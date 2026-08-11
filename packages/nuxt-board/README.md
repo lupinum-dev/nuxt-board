@@ -12,6 +12,8 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-boar
 
 ## Install
 
+Requires Nuxt 3.19 or newer, or Nuxt 4.
+
 ```bash
 pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
