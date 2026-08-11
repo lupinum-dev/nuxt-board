@@ -7,6 +7,10 @@ import {
 } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { runBoardCommand, tryBoardCommand } from './runBoardCommand.js'
+import {
+  isBoardInteractiveEventTarget,
+  isEventOwnedByBoardRoot,
+} from '../eventTargets.js'
 
 const POINTER_DRAG_THRESHOLD = 6
 
@@ -45,20 +49,6 @@ function findHandle(target: EventTarget | null): ResizeHandle | undefined {
     ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as
         ResizeHandle | undefined)
     : undefined
-}
-
-function isEditorTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest('[data-editor="true"]'))
-  )
-}
-
-function isBoardInteractiveTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest('[data-board-interactive="true"]'))
-  )
 }
 
 /**
@@ -277,6 +267,9 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onPointerDown(event: PointerEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+    if (isBoardInteractiveEventTarget(event.target)) return
+
     const localPoint = toLocalPoint(event.clientX, event.clientY)
     activePointers.set(event.pointerId, {
       point: localPoint,
@@ -293,8 +286,6 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       return
     }
 
-    if (isEditorTarget(event.target)) return
-    if (isBoardInteractiveTarget(event.target)) return
     if (event.button === 1 || spacePressed.value) {
       event.preventDefault()
       rootElement.value?.setPointerCapture(event.pointerId)
@@ -309,6 +300,8 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onPointerMove(event: PointerEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+
     const localPoint = toLocalPoint(event.clientX, event.clientY)
     const activePointer = activePointers.get(event.pointerId)
 
@@ -369,6 +362,8 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onPointerUp(event: PointerEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+
     activePointers.delete(event.pointerId)
 
     if (rootElement.value?.hasPointerCapture(event.pointerId)) {
@@ -395,6 +390,8 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onPointerCancel(event: PointerEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+
     activePointers.delete(event.pointerId)
     clearPendingInteraction(event.pointerId)
     pendingPointer = null
@@ -407,6 +404,9 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onWheel(event: WheelEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+    if (isBoardInteractiveEventTarget(event.target)) return
+
     event.preventDefault()
     const point = toLocalPoint(event.clientX, event.clientY)
     if (event.ctrlKey || event.metaKey || spacePressed.value) {
@@ -421,10 +421,10 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
   }
 
   function onDoubleClick(event: MouseEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
     if (
-      isEditorTarget(event.target) ||
-      findHandle(event.target) ||
-      isBoardInteractiveTarget(event.target)
+      isBoardInteractiveEventTarget(event.target) ||
+      findHandle(event.target)
     ) {
       return
     }

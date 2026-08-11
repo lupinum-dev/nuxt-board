@@ -7,6 +7,7 @@ import { createBoardEngine } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { historyPlugin } from '@lupinum/board-history'
 import BoardRoot from '../src/components/BoardRoot.vue'
+import { BoardMinimap } from '../src/minimap'
 
 function dispatchPointerEvent(
   element: Element,
@@ -495,6 +496,110 @@ describe('BoardRoot', () => {
 
     await wrapper.trigger('keydown', { key: 'Delete' })
     expect(engine.getState().nodes.size).toBe(1)
+  })
+
+  it('leaves keyboard events from embedded controls to the control', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Node',
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        default: () =>
+          h('input', {
+            class: 'embedded-input',
+            'data-editor': 'true',
+          }),
+      },
+      attachTo: document.body,
+    })
+
+    await wrapper.find('.embedded-input').trigger('keydown', {
+      key: 'Backspace',
+    })
+
+    expect(engine.getNode(node.id)).toBeDefined()
+    expect(engine.getSelection()).toEqual([node.id])
+  })
+
+  it('does not treat semantic overlay controls as board pointer input', () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text', x: 40, y: 40, text: 'Node' })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: {
+        default: () => h('button', { class: 'overlay-button' }, 'Action'),
+      },
+      attachTo: document.body,
+    })
+
+    dispatchPointerEvent(
+      wrapper.find('.overlay-button').element,
+      'pointerdown',
+      {
+        button: 0,
+        pointerId: 41,
+        clientX: 300,
+        clientY: 200,
+      },
+    )
+
+    expect(engine.getSelection()).toEqual([node.id])
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+  })
+
+  it('keeps minimap pointer input out of the enclosing board', () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text', x: 40, y: 40, text: 'Node' })
+    const Shell = defineComponent({
+      setup: () => () =>
+        h(BoardRoot, { engine }, { default: () => h(BoardMinimap) }),
+    })
+    const wrapper = mount(Shell, { attachTo: document.body })
+
+    dispatchPointerEvent(
+      wrapper.find('.board-minimap').element,
+      'pointerdown',
+      {
+        button: 0,
+        pointerId: 42,
+        clientX: 100,
+        clientY: 60,
+      },
+    )
+
+    expect(engine.getSelection()).toEqual([node.id])
+  })
+
+  it('dispatches nested-board events only to the nearest board root', () => {
+    const outerEngine = createBoardEngine()
+    const innerEngine = createBoardEngine()
+    const Shell = defineComponent({
+      setup: () => () =>
+        h(
+          BoardRoot,
+          { engine: outerEngine },
+          { default: () => h(BoardRoot, { engine: innerEngine }) },
+        ),
+    })
+    const wrapper = mount(Shell, { attachTo: document.body })
+    const roots = wrapper.findAll('[data-board-root="true"]')
+
+    roots[1]!.element.dispatchEvent(
+      new MouseEvent('dblclick', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 320,
+        clientY: 240,
+      }),
+    )
+
+    expect(innerEngine.getState().nodes.size).toBe(1)
+    expect(outerEngine.getState().nodes.size).toBe(0)
   })
 
   it('duplicates the current selection when alt-dragging past the threshold', async () => {

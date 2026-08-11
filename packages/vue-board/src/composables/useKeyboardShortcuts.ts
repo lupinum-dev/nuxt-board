@@ -2,20 +2,17 @@ import { onBeforeUnmount, onMounted, type Ref } from 'vue'
 import type { BoardEngine, GridSettings } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { runBoardCommand } from './runBoardCommand.js'
+import {
+  isBoardInteractiveEventTarget,
+  isEventOwnedByBoardRoot,
+} from '../eventTargets.js'
 
 /** Options for wiring keyboard shortcuts to a board engine instance. */
 interface UseKeyboardShortcutsOptions {
   engine: BoardEngine
   grid: Ref<GridSettings>
+  rootElement: Ref<HTMLElement | null>
   spacePressed: Ref<boolean>
-}
-
-function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
-  const target = event.target
-  return (
-    target instanceof HTMLTextAreaElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  )
 }
 
 /**
@@ -25,7 +22,7 @@ function shouldIgnoreHotkeys(event: KeyboardEvent): boolean {
  * keyboard nudging while intentionally ignoring editable targets.
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
-  const { engine, grid, spacePressed } = options
+  const { engine, grid, rootElement, spacePressed } = options
   const interaction = getBoardInteractionAdapter(engine)
 
   function clearTransientKeys(): void {
@@ -47,11 +44,13 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   }
 
   function handleKeyDown(event: KeyboardEvent): void {
-    if (event.code === 'Space' && !shouldIgnoreHotkeys(event)) {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+    if (isBoardInteractiveEventTarget(event.target)) return
+
+    if (event.code === 'Space') {
       event.preventDefault()
       spacePressed.value = true
     }
-    if (shouldIgnoreHotkeys(event)) return
 
     const mod = event.metaKey || event.ctrlKey
     const selection = engine.getSelection()
@@ -138,6 +137,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
   }
 
   function onKeyUp(event: KeyboardEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
     if (event.code === 'Space') {
       clearTransientKeys()
     }

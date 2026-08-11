@@ -212,6 +212,7 @@ export const BoardMinimap = defineComponent({
     }
 
     function onPointerDown(event: PointerEvent): void {
+      event.stopPropagation()
       const element = event.currentTarget as HTMLElement
       element.setPointerCapture?.(event.pointerId)
       activePointerId = event.pointerId
@@ -249,6 +250,7 @@ export const BoardMinimap = defineComponent({
         'div',
         {
           class: 'board-minimap',
+          'data-board-interactive': 'true',
           style: {
             position: 'relative',
             width: `${props.width}px`,

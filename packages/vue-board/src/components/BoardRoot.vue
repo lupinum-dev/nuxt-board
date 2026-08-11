@@ -222,6 +222,7 @@ const {
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
   engine,
   grid: $grid,
+  rootElement,
   spacePressed,
 })
 
@@ -255,6 +256,7 @@ onBeforeUnmount(() => {
   <div
     ref="rootElement"
     class="board-root"
+    data-board-root="true"
     tabindex="0"
     role="application"
     aria-label="Board canvas"
