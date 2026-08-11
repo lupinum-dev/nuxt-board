@@ -45,8 +45,9 @@ function seed() {
   )
 }
 
+seed()
+
 onMounted(async () => {
-  seed()
   await engine.zoomToFit(84, false)
 })
 </script>
