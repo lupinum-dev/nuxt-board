@@ -111,7 +111,7 @@ Render under `BoardRoot`:
 </BoardRoot>
 ```
 
-Minimap has no engine plugin. `BoardMinimap` derives from `BoardRoot` context unless an `engine` prop is passed; `useMinimap(engine)` is the explicit-engine composable.
+Minimap has no engine plugin. `BoardMinimap` derives from `BoardRoot` context unless an `engine` prop is passed; `useBoardMinimap(engine)` is the explicit-engine composable.
 
 ## Persistence
 

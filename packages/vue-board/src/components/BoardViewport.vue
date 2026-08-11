@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useCamera } from '../useBoardEngine.js'
+import { useBoardCamera } from '../useBoardEngine.js'
 
-const camera = useCamera()
+const camera = useBoardCamera()
 
 const style = computed(() => ({
   transform: `scale(${camera.value.z}) translate(${camera.value.x}px, ${camera.value.y}px)`,

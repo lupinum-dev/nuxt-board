@@ -19,31 +19,31 @@ export function useBoardEngine() {
 }
 
 /** Reactive camera state for the current board. */
-export function useCamera() {
+export function useBoardCamera() {
   const { $camera } = useBoardEngine()
   return computed(() => $camera.value)
 }
 
 /** Reactive node map for the current board. */
-export function useNodes() {
+export function useBoardNodes() {
   const { $nodes } = useBoardEngine()
   return computed(() => $nodes.value)
 }
 
 /** Reactive selection ids as an ordered array. */
-export function useSelection() {
+export function useBoardSelection() {
   const { $selection } = useBoardEngine()
   return computed<readonly NodeId[]>(() => [...$selection.value])
 }
 
 /** Reactive interaction state for the current board gesture. */
-export function useInteraction() {
+export function useBoardInteraction() {
   const { $interaction } = useBoardEngine()
   return computed(() => $interaction.value)
 }
 
 /** Compute the currently visible world bounds from camera and viewport size. */
-export function useVisibleBounds() {
+export function useBoardVisibleBounds() {
   const { $camera, viewportSize } = useBoardEngine()
   return computed(() =>
     getVisibleBounds(viewportSize.value.x, viewportSize.value.y, $camera.value),
@@ -51,7 +51,7 @@ export function useVisibleBounds() {
 }
 
 /** Filter visible nodes to the viewport with an optional culling margin. */
-export function useVisibleNodes(margin = 200) {
+export function useBoardVisibleNodes(margin = 200) {
   const { $nodes, viewportSize, $camera } = useBoardEngine()
   return computed<readonly BoardNode[]>(() => {
     const canCull = viewportSize.value.x > 0 && viewportSize.value.y > 0
@@ -80,7 +80,7 @@ export function useVisibleNodes(margin = 200) {
 }
 
 /** CSS custom properties used by `BoardGrid` to render the active grid pattern. */
-export function useGridStyle() {
+export function useBoardGridStyle() {
   const { $camera, resolvedGrid } = useBoardEngine()
 
   function modulo(value: number, divisor: number): number {
@@ -128,7 +128,7 @@ export function useGridStyle() {
  *
  * The returned helpers intentionally stay thin over the engine command API.
  */
-export function useNode(id: MaybeRefOrGetter<NodeId>) {
+export function useBoardNode(id: MaybeRefOrGetter<NodeId>) {
   const { engine, $nodes, $selection, $interaction, toLocalPoint } =
     useBoardEngine()
   const interaction = getBoardInteractionAdapter(engine)
@@ -189,7 +189,7 @@ export function useNode(id: MaybeRefOrGetter<NodeId>) {
 }
 
 /** Screen-space rectangle for the active box-selection gesture, or `null` when idle. */
-export function useBoxSelectBounds() {
+export function useBoardBoxSelectBounds() {
   const { $interaction } = useBoardEngine()
   return computed(() => {
     const interaction = $interaction.value

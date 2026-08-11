@@ -24,7 +24,7 @@
   --board-border-strong: #c9cbdb;
   --board-divider: rgba(20, 22, 31, 0.08);
 
-  /* Grid — RGB tuples consumed by useGridStyle() via `rgba(var(...) / alpha)` */
+  /* Grid — RGB tuples consumed by useBoardGridStyle() via `rgba(var(...) / alpha)` */
   --board-grid-minor-rgb: 131 134 160;
   --board-grid-major-rgb: 91 96 117;
   --board-grid-dot: rgba(131, 134, 160, 0.32);

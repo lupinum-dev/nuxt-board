@@ -1,7 +1,7 @@
 <script setup lang="ts">
-const camera = useAcmeCamera()
-const nodes = useAcmeNodes()
-const minimap = useAcmeMinimap(useAcmeBoardEngine().engine, {
+const camera = useAcmeBoardCamera()
+const nodes = useAcmeBoardNodes()
+const minimap = useAcmeBoardMinimap(useAcmeBoardEngine().engine, {
   width: 120,
   height: 80,
 })

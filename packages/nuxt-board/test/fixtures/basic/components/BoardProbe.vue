@@ -1,7 +1,10 @@
 <script setup lang="ts">
-const camera = useCamera()
-const nodes = useNodes()
-const minimap = useMinimap(useBoardEngine().engine, { width: 120, height: 80 })
+const camera = useBoardCamera()
+const nodes = useBoardNodes()
+const minimap = useBoardMinimap(useBoardEngine().engine, {
+  width: 120,
+  height: 80,
+})
 </script>
 
 <template>

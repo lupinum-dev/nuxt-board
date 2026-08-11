@@ -46,7 +46,7 @@ export interface MinimapSlotProps {
  * Returns derived node rectangles, the current viewport rectangle, and a
  * helper that pans the main board camera from minimap pointer input.
  */
-export function useMinimap(
+export function useBoardMinimap(
   engine: BoardEngine,
   options: MinimapOptions = {},
 ): {
@@ -224,7 +224,7 @@ export const BoardMinimap = defineComponent({
   },
   setup(props, { slots }) {
     const engine = props.engine ?? useBoardEngine().engine
-    const minimap = useMinimap(engine, {
+    const minimap = useBoardMinimap(engine, {
       width: () => props.width,
       height: () => props.height,
     })

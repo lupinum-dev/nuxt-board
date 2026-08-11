@@ -143,21 +143,21 @@ Use `#node:text`, `#node:file`, `#node:link`, or `#node:group`, not app-specific
 - `simple`: screen size `6–96px`
 - `hidden`: screen size `< 6px`
 
-Viewport culling uses `cull-margin`, default `200` world units. `useVisibleNodes(300)` uses a world-unit margin.
+Viewport culling uses `cull-margin`, default `200` world units. `useBoardVisibleNodes(300)` uses a world-unit margin.
 
 ## Composables
 
-Call `@lupinum/vue-board` composables from components rendered under `BoardRoot`; they inject the `BoardRoot` context and throw outside it. Feature packages may expose separate APIs that accept an engine explicitly, such as `useMinimap(engine)`. Common Vue Board composables:
+Call `@lupinum/vue-board` composables from components rendered under `BoardRoot`; they inject the `BoardRoot` context and throw outside it. Feature packages may expose separate APIs that accept an engine explicitly, such as `useBoardMinimap(engine)`. Common Vue Board composables:
 
 - `useBoardEngine`
-- `useCamera`
-- `useNodes`
-- `useSelection`
-- `useInteraction`
-- `useVisibleBounds`
-- `useVisibleNodes`
-- `useGridStyle`
-- `useNode`
-- `useBoxSelectBounds`
+- `useBoardCamera`
+- `useBoardNodes`
+- `useBoardSelection`
+- `useBoardInteraction`
+- `useBoardVisibleBounds`
+- `useBoardVisibleNodes`
+- `useBoardGridStyle`
+- `useBoardNode`
+- `useBoardBoxSelectBounds`
 
 Prefer granular refs over deprecated full snapshot refs.

@@ -5,7 +5,7 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-boar
 ## What It Does
 
 - Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, `BoardSnapGuides`, and `BoardMinimap`
-- Auto-imports the core board composables plus `useMinimap`
+- Auto-imports the core board composables plus `useBoardMinimap`
 - Auto-imports `createBoardEngine`
 - Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
 - Transpiles `@lupinum/vue-board` and `@lupinum/board-core` for Nuxt so workspace and linked installs behave consistently
@@ -72,7 +72,7 @@ export default defineNuxtConfig({
 When `prefix` is set, the module aliases the full auto-import surface consistently:
 
 - Components: `<MyBoardRoot>`, `<MyBoardNode>`, ...
-- Composables: `useMyBoardEngine()`, `useMyCamera()`, ...
+- Composables: `useMyBoardEngine()`, `useMyBoardCamera()`, ...
 - Helpers: `createMyBoardEngine()`
 
 ## Local Development

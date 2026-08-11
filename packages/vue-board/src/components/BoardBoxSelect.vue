@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoxSelectBounds, useInteraction } from '../useBoardEngine.js'
+import {
+  useBoardBoxSelectBounds,
+  useBoardInteraction,
+} from '../useBoardEngine.js'
 
-const bounds = useBoxSelectBounds()
-const interaction = useInteraction()
+const bounds = useBoardBoxSelectBounds()
+const interaction = useBoardInteraction()
 
 const selectionMode = computed(() => {
   if (interaction.value.mode !== 'box-select') {

@@ -1,7 +1,7 @@
 import { effectScope } from 'vue'
 import { describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
-import { useMinimap } from '../src/minimap'
+import { useBoardMinimap } from '../src/minimap'
 
 describe('minimap', () => {
   it('projects nodes and viewport into minimap space', () => {
@@ -26,7 +26,7 @@ describe('minimap', () => {
 
     const scope = effectScope()
     const minimap = scope.run(() =>
-      useMinimap(engine, { width: 200, height: 120 }),
+      useBoardMinimap(engine, { width: 200, height: 120 }),
     )
     if (!minimap) {
       throw new Error('Minimap scope did not initialize.')
@@ -59,7 +59,7 @@ describe('minimap', () => {
 
     const scope = effectScope()
     const minimap = scope.run(() =>
-      useMinimap(engine, { width: 200, height: 120 }),
+      useBoardMinimap(engine, { width: 200, height: 120 }),
     )
     if (!minimap) {
       throw new Error('Minimap scope did not initialize.')
@@ -100,7 +100,7 @@ describe('minimap', () => {
 
     const scope = effectScope()
     const minimap = scope.run(() =>
-      useMinimap(engine, { width: 200, height: 120 }),
+      useBoardMinimap(engine, { width: 200, height: 120 }),
     )
     if (!minimap) {
       throw new Error('Minimap scope did not initialize.')
@@ -136,7 +136,7 @@ describe('minimap', () => {
 
     const scope = effectScope()
     const minimap = scope.run(() =>
-      useMinimap(engine, { width: 200, height: 120 }),
+      useBoardMinimap(engine, { width: 200, height: 120 }),
     )
     if (!minimap) {
       throw new Error('Minimap scope did not initialize.')

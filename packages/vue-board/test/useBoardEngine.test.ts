@@ -5,7 +5,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { createBoardEngine, type NodeId } from '@lupinum/board-core'
 import BoardRoot from '../src/components/BoardRoot.vue'
-import { useNode } from '../src/useBoardEngine'
+import { useBoardNode } from '../src/useBoardEngine'
 
 describe('Vue board composables', () => {
   it('tracks node ids supplied through a reactive prop getter', async () => {
@@ -20,7 +20,7 @@ describe('Vue board composables', () => {
         },
       },
       setup(props) {
-        const { node } = useNode(() => props.nodeId)
+        const { node } = useBoardNode(() => props.nodeId)
         return () => h('output', { class: 'active-node' }, node.value.text)
       },
     })

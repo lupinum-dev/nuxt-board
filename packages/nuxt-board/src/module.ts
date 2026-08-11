@@ -4,7 +4,7 @@ import { defineNuxtModule, addComponent, addImports } from '@nuxt/kit'
 export interface ModuleOptions {
   /**
    * Optional prefix for all auto-imported board exports.
-   * Default: '' (no prefix). Example: 'My' → <MyBoardRoot>, useMyCamera(), createMyBoardEngine()
+   * Default: '' (no prefix). Example: 'My' → <MyBoardRoot>, useMyBoardCamera(), createMyBoardEngine()
    */
   prefix?: string
   /**
@@ -13,7 +13,7 @@ export interface ModuleOptions {
    */
   autoImportComponents?: boolean
   /**
-   * Whether to auto-import board composables (useBoardEngine, useCamera, etc.).
+   * Whether to auto-import board composables (useBoardEngine, useBoardCamera, etc.).
    * Default: true
    */
   autoImportComposables?: boolean
@@ -32,21 +32,21 @@ const BOARD_COMPONENTS = [
 
 const BOARD_COMPOSABLES = [
   'useBoardEngine',
-  'useCamera',
-  'useNodes',
-  'useSelection',
-  'useInteraction',
-  'useVisibleBounds',
-  'useVisibleNodes',
-  'useGridStyle',
-  'useNode',
-  'useBoxSelectBounds',
+  'useBoardCamera',
+  'useBoardNodes',
+  'useBoardSelection',
+  'useBoardInteraction',
+  'useBoardVisibleBounds',
+  'useBoardVisibleNodes',
+  'useBoardGridStyle',
+  'useBoardNode',
+  'useBoardBoxSelectBounds',
 ] as const
 
 const BOARD_HELPERS = ['createBoardEngine'] as const
 
 const MINIMAP_COMPONENTS = ['BoardMinimap'] as const
-const MINIMAP_COMPOSABLES = ['useMinimap'] as const
+const MINIMAP_COMPOSABLES = ['useBoardMinimap'] as const
 
 function normalizePrefix(prefix: string | undefined): string {
   const value = prefix?.trim() ?? ''

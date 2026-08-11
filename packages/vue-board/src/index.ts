@@ -38,13 +38,13 @@ export type { BoardEngineContext } from './context.js'
 /** Core board context composables for camera, nodes, selection, and node actions. */
 export {
   useBoardEngine,
-  useCamera,
-  useNodes,
-  useSelection,
-  useInteraction,
-  useVisibleBounds,
-  useVisibleNodes,
-  useGridStyle,
-  useNode,
-  useBoxSelectBounds,
+  useBoardCamera,
+  useBoardNodes,
+  useBoardSelection,
+  useBoardInteraction,
+  useBoardVisibleBounds,
+  useBoardVisibleNodes,
+  useBoardGridStyle,
+  useBoardNode,
+  useBoardBoxSelectBounds,
 } from './useBoardEngine.js'

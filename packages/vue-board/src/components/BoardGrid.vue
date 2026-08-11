@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBoardEngine, useGridStyle } from '../useBoardEngine.js'
+import { useBoardEngine, useBoardGridStyle } from '../useBoardEngine.js'
 
 const { resolvedGrid } = useBoardEngine()
-const style = useGridStyle()
+const style = useBoardGridStyle()
 
 const backgroundImage = computed(() => {
   switch (resolvedGrid.value.pattern) {
