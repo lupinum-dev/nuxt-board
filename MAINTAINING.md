@@ -44,7 +44,9 @@ workstation after trusted publishing is configured.
 
 ## Review dependency changes
 
-Dependency automation can open pull requests. It must not merge them.
+Renovate opens grouped dependency pull requests on Monday. It must not merge
+them. Disable Dependabot version updates in the repository settings. Keep
+Dependabot security alerts enabled.
 
 For each update:
 
