@@ -1,7 +1,13 @@
 import { fileURLToPath } from 'node:url'
+import { useNuxt } from 'nuxt/kit'
+import type { NuxtConfig } from 'nuxt/schema'
 
 const siteUrl =
-  process.env.NUXT_PUBLIC_SITE_URL || 'https://vue-board.vercel.app'
+  process.env.NUXT_PUBLIC_SITE_URL || 'https://nuxt-board.lupinum.com'
+const systemFonts = {
+  families: [],
+  provider: 'local',
+} satisfies NonNullable<NuxtConfig['fonts']>
 const workspacePackage = (path: string) =>
   fileURLToPath(new URL(`../../packages/${path}`, import.meta.url))
 const nuxtBoardModule = workspacePackage('nuxt-board/src/module.ts')
@@ -43,6 +49,12 @@ const customPolicy = Object.fromEntries(
 export default defineNuxtConfig({
   extends: ['@lupinum/ginko-docs'],
   modules: ['@nuxt/eslint', nuxtBoardModule],
+  hooks: {
+    'modules:before': () => {
+      useNuxt().options.fonts = systemFonts
+    },
+  },
+  fonts: systemFonts,
   site: { url: siteUrl },
   components: [
     { path: '~/components/demos', pathPrefix: false, global: true },
@@ -86,7 +98,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       siteUrl,
-      githubUrl: 'https://github.com/Mat4m0/canvas',
+      githubUrl: 'https://github.com/lupinum-dev/nuxt-board',
     },
   },
   alias: {
