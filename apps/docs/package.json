@@ -13,10 +13,10 @@
     "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
-    "@lupinum/ginko-content": "0.3.2",
-    "@lupinum/ginko-docs": "0.2.3",
+    "@lupinum/ginko-content": "0.4.0-rc.1",
+    "@lupinum/ginko-docs": "0.3.0-rc.3",
     "@lupinum/vue-board": "workspace:*",
-    "nuxt": "^4.4.8",
+    "nuxt": "4.5.2",
     "nuxt-board": "workspace:*",
     "vue": "^3.5.39",
     "vue-router": "^5.2.0"
