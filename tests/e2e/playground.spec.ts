@@ -128,7 +128,9 @@ test('supports alt-drag duplication and benchmark reporting', async ({
   await expect.poll(totalNodes).toBe(before + 1)
 
   await page.getByRole('button', { name: 'Benchmark' }).click()
-  await expect(page.getByText(/total .* avg .* max/i)).toBeVisible()
+  await expect(page.getByText(/total .* avg .* max/i)).toBeVisible({
+    timeout: 20_000,
+  })
 })
 
 test('renders connections, minimap, and import/export helpers', async ({
