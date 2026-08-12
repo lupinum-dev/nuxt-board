@@ -5,7 +5,8 @@
 
 @theme static {
   --container-8xl: 90rem;
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
   /* Brand accent palette derived from --board-preset-6 (Violet) */
