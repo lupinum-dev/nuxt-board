@@ -1,16 +1,19 @@
 export default {
   ginkoDocs: {
     site: {
-      url: 'https://vue-board.vercel.app',
+      url: 'https://nuxt-board.lupinum.com',
       name: { en: 'Vue Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
       logo: { light: '/favicon.ico', dark: '/favicon.ico' },
       localeSwitcher: 'dropdown',
       docsSidebarSwitcher: 'tabs',
     },
-    social: { github: 'https://github.com/Mat4m0/canvas' },
+    social: {
+      github: 'https://github.com/lupinum-dev/nuxt-board',
+      discord: 'https://discord.gg/RPH6SeA36N',
+    },
     repository: {
-      url: 'https://github.com/Mat4m0/canvas',
+      url: 'https://github.com/lupinum-dev/nuxt-board',
       branch: 'main',
       contentDirectory: 'apps/docs/content',
     },

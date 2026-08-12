@@ -30,6 +30,6 @@ applications should use the top-level API and supported `plugins` instead.
 The first-party packages release in lockstep so this internal boundary always
 resolves to the matching implementation version.
 
-- Docs: https://vue-board.vercel.app/docs/reference/board-core
-- Issues: https://github.com/Mat4m0/canvas/issues
+- Docs: https://nuxt-board.lupinum.com/docs/reference/board-core
+- Issues: https://github.com/lupinum-dev/nuxt-board/issues
 - License: MIT

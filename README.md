@@ -136,10 +136,13 @@ API reference pages are maintained in `apps/docs/content/docs/6.reference`.
 
 ## Project policy
 
-Report bugs through [GitHub Issues](https://github.com/Mat4m0/canvas/issues)
+Report bugs through [GitHub Issues](https://github.com/lupinum-dev/nuxt-board/issues)
 and security issues through [the private reporting process](SECURITY.md). See
 [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 Every publishable change carries a Changeset. Before 1.0, breaking public API
 changes are released as a minor version; patch releases preserve documented
 behavior. All packages are available under the [MIT License](LICENSE).
+
+For support and project discussion, join the
+[Lupinum OSS Discord](https://discord.gg/RPH6SeA36N).

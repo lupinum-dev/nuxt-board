@@ -1,0 +1,190 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful CI run ID for the current main commit
+        required: true
+        type: string
+      version:
+        description: Exact fixed package version, for example 0.2.0
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-nuxt-board
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify certified artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Require main and a valid version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.RELEASE_VERSION)) throw new Error('Invalid release version')"
+
+      - name: Verify the CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        run: |
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = ci
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .event)" = push
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = main
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = success
+
+      - name: Require an unused release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION")
+          case "$status" in
+            404) ;;
+            200) echo "Tag v$RELEASE_VERSION already exists" >&2; exit 1 ;;
+            *) echo "Could not verify tag availability (HTTP $status)" >&2; exit 1 ;;
+          esac
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: nuxt-board-release
+          path: .release
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.ci_run_id }}
+
+      - name: Verify the exact fixed-version package set
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          cd .release
+          sha256sum --check SHA256SUMS
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const crypto = require('node:crypto')
+          const path = require('node:path')
+          const expected = [
+            '@lupinum/board-connections',
+            '@lupinum/board-core',
+            '@lupinum/board-history',
+            '@lupinum/vue-board',
+            'nuxt-board',
+          ]
+          const manifest = JSON.parse(fs.readFileSync('release-artifact.json', 'utf8'))
+          const actual = manifest.packages.map(entry => entry.name).sort()
+          if (manifest.commit !== process.env.GITHUB_SHA) throw new Error('Artifact commit does not match main')
+          if (manifest.version !== process.env.RELEASE_VERSION) throw new Error('Artifact version does not match the input')
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Artifact package set is not exact')
+          for (const entry of manifest.packages) {
+            if (entry.version !== manifest.version) throw new Error(`${entry.name} is outside the fixed version`)
+            if (!/^[a-z0-9._-]+\.tgz$/.test(entry.filename)) throw new Error(`Unsafe tarball name: ${entry.filename}`)
+            const digest = crypto.createHash('sha256').update(fs.readFileSync(path.join('.', entry.filename))).digest('hex')
+            if (digest !== entry.sha256) throw new Error(`${entry.name} failed digest verification`)
+          }
+          NODE
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: verified-nuxt-board-release
+          path: .release
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
+
+  publish:
+    name: Publish fixed package set to npm
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.18.0
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: verified-nuxt-board-release
+          path: .release
+
+      - name: Publish inert tarballs with trusted publishing
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          node - <<'NODE'
+          const { spawnSync } = require('node:child_process')
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const [major, minor] = spawnSync('npm', ['--version'], { encoding: 'utf8' }).stdout.trim().split('.').map(Number)
+          if (major < 11 || (major === 11 && minor < 5)) throw new Error('npm 11.5 or newer is required')
+          const manifest = JSON.parse(fs.readFileSync('.release/release-artifact.json', 'utf8'))
+          const order = [
+            '@lupinum/board-core',
+            '@lupinum/vue-board',
+            '@lupinum/board-history',
+            '@lupinum/board-connections',
+            'nuxt-board',
+          ]
+          const tag = process.env.RELEASE_VERSION.includes('-')
+            ? process.env.RELEASE_VERSION.split('-')[1].split('.')[0]
+            : 'latest'
+          for (const name of order) {
+            const entry = manifest.packages.find(candidate => candidate.name === name)
+            if (!entry) throw new Error(`Missing verified package: ${name}`)
+            const result = spawnSync('npm', [
+              'publish', path.join('.release', entry.filename), '--access', 'public',
+              '--tag', tag, '--ignore-scripts', '--provenance',
+            ], { stdio: 'inherit' })
+            if (result.status !== 0) throw new Error(`npm publish failed for ${name}`)
+          }
+          NODE
+
+  github-release:
+    name: Create GitHub release
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: verified-nuxt-board-release
+          path: .release
+
+      - name: Create the release from the published artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          prerelease=()
+          case "$RELEASE_VERSION" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "v$RELEASE_VERSION" .release/*.tgz .release/SHA256SUMS .release/release-artifact.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v$RELEASE_VERSION" \
+            --generate-notes \
+            "${prerelease[@]}"

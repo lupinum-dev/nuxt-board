@@ -99,10 +99,10 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps security reporting contact consistent', () => {
-    expect(read('SECURITY.md')).toContain('security@lupinum.dev')
+    expect(read('SECURITY.md')).toContain('info@lupinum.com')
     expect(
       read('apps/docs/content/docs/7.project/2.support-and-security.md'),
-    ).toContain('security@lupinum.dev')
+    ).toContain('info@lupinum.com')
   })
 
   it('does not pass runtime snapshots directly to loadDocument in demos', () => {
