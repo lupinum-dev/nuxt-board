@@ -64,7 +64,7 @@
   "devDependencies": {
     "@lupinum/board-core": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
-    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/devtools": "^3.3.1",
     "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.8",
