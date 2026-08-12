@@ -18,6 +18,7 @@ an accepted design decision.
 - `packages/board-connections/` contains edges, routing, and Vue rendering.
 - `packages/nuxt-board/` contains the Nuxt module and its fixtures.
 - `apps/docs/` contains the public Ginko Docs site.
+- `docs/WRITING.md` defines the public writing profile.
 - `apps/playground/` contains the development application.
 - `scripts/` contains direct package verification operations.
 - `ARCHITECTURE.md` records the package and dependency boundaries.
