@@ -33,7 +33,8 @@ path.
 3. Review the versions and generated `CHANGELOG.md` as one fixed package set.
 4. Run `pnpm release:verify` on the final release-candidate commit.
 5. Merge the version pull request to protected `main`.
-6. Publish only retained, verified tarballs from the exact `main` commit.
+6. Start the `Publish` workflow with the exact fixed package version. It
+   finds the successful CI artifact for the current `main` commit.
 7. Approve the protected `npm` environment when GitHub requests approval.
 8. Verify all five registry versions, package files, provenance statements,
    and dist-tags.
