@@ -151,9 +151,7 @@ jobs:
             '@lupinum/board-connections',
             '@lupinum/nuxt-board',
           ]
-          const tag = process.env.RELEASE_VERSION.includes('-')
-            ? process.env.RELEASE_VERSION.split('-')[1].split('.')[0]
-            : 'latest'
+          const tag = process.env.RELEASE_VERSION.includes('-') ? 'next' : 'latest'
           for (const name of order) {
             const entry = manifest.packages.find(candidate => candidate.name === name)
             if (!entry) throw new Error(`Missing verified package: ${name}`)

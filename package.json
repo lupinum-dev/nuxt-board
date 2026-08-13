@@ -8,6 +8,7 @@
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter @lupinum/board-core build && pnpm --filter @lupinum/board-history --filter @lupinum/vue-board -r build && pnpm --filter @lupinum/board-connections build && pnpm --filter @lupinum/nuxt-board build",
     "build:docs": "pnpm --filter docs build",
+    "audit:all": "pnpm audit",
     "changelog": "node scripts/changelog.mjs",
     "dev": "pnpm dev:playground",
     "dev:docs": "pnpm --filter docs dev",
@@ -27,7 +28,7 @@
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
     "verify:library": "pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm test:docs",
-    "release:verify": "pnpm verify && pnpm test:e2e:functional && pnpm changeset status --since=origin/main && pnpm release:pack"
+    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm changeset status --since=origin/main && pnpm release:pack"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
@@ -59,7 +60,7 @@
       "hono": "4.12.34",
       "ip-address": "10.3.1",
       "js-yaml": "4.3.1",
-      "read-yaml-file>js-yaml": "3.14.2",
+      "read-yaml-file>js-yaml": "3.15.1",
       "launch-editor": "2.14.1",
       "nanoid": "3.3.17",
       "postcss": "8.5.23",

@@ -10,13 +10,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  version:
-    name: Prepare version pull request
+  prepare-version:
+    name: Prepare version files
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+    outputs:
+      has_changes: ${{ steps.generate.outputs.has_changes }}
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -36,10 +37,61 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Prepare version pull request
-        uses: changesets/action@22ccf9aa43179fe9e27dc62e575971d28cce197c # v2.0.0
+      - name: Generate version files without write credentials
+        id: generate
+        run: |
+          pnpm release:version
+          git add --intent-to-add .
+          if git diff --quiet; then
+            echo 'has_changes=false' >> "$GITHUB_OUTPUT"
+            touch version.patch
+          else
+            echo 'has_changes=true' >> "$GITHUB_OUTPUT"
+            git diff --binary --full-index > version.patch
+          fi
+
+      - name: Retain version patch
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          version-script: pnpm release:version
+          name: version-patch
+          path: version.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  version-pr:
+    name: Open version pull request
+    needs: prepare-version
+    if: needs.prepare-version.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: version-patch
+          path: ${{ runner.temp }}/version-patch
+
+      - name: Apply the unprivileged version patch
+        run: git apply --index "${{ runner.temp }}/version-patch/version.patch"
+
+      - name: Create or update the version pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/version-packages
+          commit-message: 'chore: version packages'
+          title: 'chore: version packages'
+          body: |
+            This pull request updates package versions and release notes from reviewed Changesets.
+
+            Merge it only after the complete release verification passes.
+          delete-branch: true

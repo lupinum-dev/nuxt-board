@@ -5,13 +5,14 @@ export default {
       name: { en: 'Vue Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
       logo: { light: '/app-icon.svg', dark: '/app-icon.svg' },
-      localeSwitcher: 'dropdown',
       docsSidebarSwitcher: 'tabs',
     },
     social: {
       github: 'https://github.com/lupinum-dev/nuxt-board',
       discord: 'https://discord.gg/RPH6SeA36N',
     },
+    analytics: { plausible: { scriptId: 'XxT9ZOr0ZLg10B4KV40xH' } },
+    feedback: { enabled: true },
     repository: {
       url: 'https://github.com/lupinum-dev/nuxt-board',
       branch: 'main',

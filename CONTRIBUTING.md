@@ -58,6 +58,10 @@ verification.
 2. Let Changesets prepare the version pull request.
 3. Run `pnpm release:verify` on the final release candidate SHA.
 4. Merge the version pull request.
-5. From that exact clean `main` commit, run the guarded maintainer publish script.
-6. Push the package tags and publish the corresponding GitHub release.
-7. Verify the npm packages, documentation deployment, and packed consumer checks.
+5. Start the protected publish workflow from that exact successful `main` CI run.
+6. Inspect the certified artifact and approve the protected `npm` environment.
+7. Verify npm provenance, the `latest` or `next` dist-tag, the protected tag,
+   the GitHub release, the documentation deployment, and packed consumers.
+
+Do not publish, tag, or push a release from a maintainer workstation. The
+protected workflow publishes only the retained tarballs that CI certified.
