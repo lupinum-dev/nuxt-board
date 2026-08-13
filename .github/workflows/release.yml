@@ -67,6 +67,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      actions: write
       contents: write
       pull-requests: write
 
@@ -84,6 +85,7 @@ jobs:
         run: git apply --index "${{ runner.temp }}/version-patch/version.patch"
 
       - name: Create or update the version pull request
+        id: version-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -95,3 +97,9 @@ jobs:
 
             Merge it only after the complete release verification passes.
           delete-branch: true
+
+      - name: Verify the version branch
+        if: steps.version-pr.outputs.pull-request-operation == 'created' || steps.version-pr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref release/version-packages
