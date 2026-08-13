@@ -23,6 +23,22 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('keeps contributor intake on the shared Lupinum contract', () => {
+    expect(read('.github/ISSUE_TEMPLATE/documentation.md')).toContain(
+      'name: Documentation report',
+    )
+    const pullRequestTemplate = read('.github/pull_request_template.md')
+    for (const heading of [
+      'Result',
+      'Verification',
+      'Documentation and compatibility',
+      'Release note',
+      'Risk',
+    ]) {
+      expect(pullRequestTemplate).toContain(`## ${heading}`)
+    }
+  })
+
   it('keeps every public README on the Lupinum structure', () => {
     const readmes = [
       'README.md',

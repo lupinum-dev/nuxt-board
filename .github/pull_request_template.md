@@ -14,3 +14,11 @@
 - [ ] I kept domain rules in the headless packages.
 - [ ] I kept this pull request focused on one concern.
 - [ ] I did not include credentials, customer data, or generated output.
+
+## Release note
+
+<!-- Add a Changeset for a package-facing change. Write "None" and explain why when no release note is required. -->
+
+## Risk
+
+<!-- State the main failure mode and the evidence that controls it. -->
