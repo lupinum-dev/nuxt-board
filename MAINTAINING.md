@@ -127,4 +127,6 @@ Vercel must deploy `docs/` from `main` to `nuxt-board.lupinum.com` and
 create pull-request previews. Set the Root Directory to `docs`. Enable
 **Include source files outside of the Root Directory in the Build Step** so the
 documentation build can use all five locked workspace packages. Do not set an
-Output Directory override.
+Output Directory override. Set the non-secret build environment variable
+`ENABLE_EXPERIMENTAL_COREPACK=1` for Production, Preview, and Development. The
+committed install command uses Corepack to activate the pinned pnpm version.
