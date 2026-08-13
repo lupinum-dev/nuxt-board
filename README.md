@@ -4,7 +4,7 @@ Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors: workflow 
 
 It gives you a headless board engine plus Vue rendering. The engine owns the model and commands; Vue renders that model and translates DOM input into board actions. Optional packages add history, connections, minimaps, and Nuxt auto-imports.
 
-## Is This For You?
+## Is this for you?
 
 Use Vue Board when you need:
 
@@ -17,7 +17,7 @@ Use Vue Board when you need:
 
 This is probably not the right starting point if you only need a static diagram renderer, a general-purpose drawing app, or a complete low-code workflow product with backend execution semantics. Vue Board is the canvas/model layer, not your product domain.
 
-## Quick Start
+## Quick start
 
 ```bash
 pnpm add @lupinum/board-core @lupinum/vue-board
@@ -61,7 +61,7 @@ export default defineNuxtConfig({
 })
 ```
 
-## How It Works
+## How it works
 
 `createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `zoomToFit`, and `loadDocument`. Pointer sessions are owned by `BoardRoot` through a framework-only adapter.
 
@@ -92,7 +92,7 @@ Install only the pieces you need.
 | `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
 | `@lupinum/vue-board/minimap` | Minimap composable and renderer.                                             |
 
-## What You Get
+## What you get
 
 - Nodes: JSON Canvas node types (`text`, `file`, `link`, `group`) with geometry, hierarchy, colors, locking, visibility, and custom renderers.
 - Interaction: drag, resize, select, box-select, keyboard shortcuts, pan, zoom, snap-to-grid, and edge snapping.

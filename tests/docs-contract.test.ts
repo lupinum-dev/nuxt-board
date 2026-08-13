@@ -26,7 +26,7 @@ describe('docs demo contracts', () => {
   it('documents only public board-core utility exports', () => {
     const source = read(
       'apps/docs/content/docs/6.reference/2.board-core.md',
-    ).split('## Math Helpers')[1]!
+    ).split('## Math helpers')[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,

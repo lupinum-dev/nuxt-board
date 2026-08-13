@@ -2,7 +2,7 @@
 
 Nuxt module for [Vue Board](https://nuxt-board.lupinum.com/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
 
-## What It Does
+## What it does
 
 - Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, `BoardSnapGuides`, and `BoardMinimap`
 - Auto-imports the core board composables plus `useBoardMinimap`
@@ -53,11 +53,11 @@ engine.createNode({
 </template>
 ```
 
-## SSR Notes
+## SSR notes
 
 With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum-dev/nuxt-board/tree/main/packages/nuxt-board/playground).
 
-## Module Options
+## Module options
 
 ```ts
 export default defineNuxtConfig({
@@ -76,7 +76,7 @@ When `prefix` is set, the module aliases the full auto-import surface consistent
 - Composables: `useMyBoardEngine()`, `useMyBoardCamera()`, ...
 - Helpers: `createMyBoardEngine()`
 
-## Local Development
+## Local development
 
 ```bash
 pnpm --filter @lupinum/nuxt-board build
