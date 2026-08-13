@@ -23,6 +23,22 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('uses Nuxt Board as the public product name', () => {
+    expect(read('apps/docs/app/app.config.ts')).toContain(
+      "name: { en: 'Nuxt Board' }",
+    )
+    expect(read('apps/docs/content.config.ts')).toContain("name: 'Nuxt Board'")
+    expect(read('README.md')).toContain('/docs/evaluate/why-nuxt-board')
+
+    for (const file of filesIn('apps/docs/content').filter((file) =>
+      /\.(?:md|ts|vue)$/u.test(file),
+    )) {
+      expect(read(file), file).not.toMatch(
+        /Vue Board|why-vue-board|how-vue-board-works/u,
+      )
+    }
+  })
+
   it('keeps contributor intake on the shared Lupinum contract', () => {
     expect(read('.github/ISSUE_TEMPLATE/documentation.md')).toContain(
       'name: Documentation report',

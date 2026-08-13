@@ -111,7 +111,7 @@ Keep the engine out of Vue deep reactivity. Use `shallowRef` if you store it in 
 
 ## Documentation
 
-Read the [Nuxt Board documentation](https://nuxt-board.lupinum.com). Start with [why Nuxt Board](https://nuxt-board.lupinum.com/docs/evaluate/why-vue-board) and [your first board](https://nuxt-board.lupinum.com/docs/start-building/your-first-board).
+Read the [Nuxt Board documentation](https://nuxt-board.lupinum.com). Start with [why Nuxt Board](https://nuxt-board.lupinum.com/docs/evaluate/why-nuxt-board) and [your first board](https://nuxt-board.lupinum.com/docs/start-building/your-first-board).
 
 ## Contributing and development
 

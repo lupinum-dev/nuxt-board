@@ -40,7 +40,7 @@ test('renders the documentation landing page and primary navigation', async ({
   page,
 }) => {
   const errors = await openDocs(page)
-  await expect(page).toHaveTitle(/Vue Board/i)
+  await expect(page).toHaveTitle(/Nuxt Board/i)
   await expect(page.getByRole('link', { name: /first board/i })).toBeVisible()
   await expect(
     page.getByRole('link', { name: /understand the system/i }),
@@ -64,7 +64,7 @@ test('navigates through solutions and reference', async ({ page }) => {
 })
 
 test('exposes command state and publication order', async ({ page }) => {
-  const errors = await openDocs(page, '/docs/evaluate/how-vue-board-works')
+  const errors = await openDocs(page, '/docs/evaluate/how-nuxt-board-works')
   await page.getByRole('button', { name: 'Rename card' }).click()
   await expect(page.getByText('command:after', { exact: true })).toBeVisible()
   await expect(

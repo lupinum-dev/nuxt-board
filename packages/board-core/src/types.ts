@@ -150,7 +150,7 @@ export interface VueBoardEdgeMetadata {
   readonly data?: Record<string, unknown>
 }
 
-/** Vue Board metadata for engine state that JSON Canvas 1.0 does not define. */
+/** Nuxt Board metadata for engine state that JSON Canvas 1.0 does not define. */
 export interface VueBoardDocumentMetadata {
   readonly camera?: Camera
   readonly grid?: GridSettings
