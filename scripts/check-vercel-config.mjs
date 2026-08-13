@@ -5,7 +5,6 @@ const root = resolve(import.meta.dirname, '..')
 const config = JSON.parse(
   readFileSync(resolve(root, 'docs/vercel.json'), 'utf8'),
 )
-const maintaining = readFileSync(resolve(root, 'MAINTAINING.md'), 'utf8')
 const failures = []
 const check = (condition, message) => {
   if (!condition) failures.push(message)
@@ -25,13 +24,8 @@ check(
   'Build all five packages before the docs app.',
 )
 check(
-  config.installCommand ===
-    'corepack enable && corepack prepare pnpm@10.10.0 --activate && pnpm --dir .. install --frozen-lockfile',
-  'Install the locked root workspace with the pinned package manager.',
-)
-check(
-  maintaining.includes('`ENABLE_EXPERIMENTAL_COREPACK=1`'),
-  'Document the required non-secret Vercel Corepack setting.',
+  !('installCommand' in config),
+  'Let Vercel detect pnpm from the repository lockfile.',
 )
 
 if (failures.length) {
