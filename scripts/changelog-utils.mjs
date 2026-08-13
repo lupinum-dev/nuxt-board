@@ -29,16 +29,7 @@ export function mergeReleaseSection(current, generated, version) {
     : normalizedCurrent.indexOf(`\n${marker}`) + 1
 
   if (markerAt > 0 || normalizedCurrent.startsWith(marker)) {
-    const nextSectionAt = normalizedCurrent.indexOf(
-      '\n## ',
-      markerAt + marker.length,
-    )
-    const before = normalizedCurrent.slice(0, markerAt).trimEnd()
-    const after =
-      nextSectionAt === -1
-        ? ''
-        : normalizedCurrent.slice(nextSectionAt + 1).trim()
-    return `${[before, generated, after].filter(Boolean).join('\n\n')}\n`
+    return `${normalizedCurrent}\n`
   }
 
   return `${normalizedCurrent}\n\n${generated}\n`
