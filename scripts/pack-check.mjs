@@ -209,6 +209,18 @@ for (const tarball of tarballs) {
   const packageRoot = unpackTarball(tarball)
   const manifest = readJson(join(packageRoot, 'package.json'))
   assertNoWorkspaceProtocols(manifest)
+  if (
+    manifest.author !== 'Lupinum OG <info@lupinum.com> (https://lupinum.com)'
+  ) {
+    throw new Error(
+      `${manifest.name} does not identify Lupinum OG as the package author.`,
+    )
+  }
+  if (manifest.homepage !== 'https://nuxt-board.lupinum.com') {
+    throw new Error(
+      `${manifest.name} does not link to the canonical documentation site.`,
+    )
+  }
   packedPackages.set(manifest.name, {
     manifest,
     packageRoot,

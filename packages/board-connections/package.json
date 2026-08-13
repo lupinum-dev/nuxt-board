@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Connection and edge rendering plugin for Vue Board.",
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"

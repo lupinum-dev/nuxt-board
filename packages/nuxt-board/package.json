@@ -12,6 +12,7 @@
     "url": "https://github.com/lupinum-dev/nuxt-board/issues"
   },
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"

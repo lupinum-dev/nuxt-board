@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Undo and redo plugin for @lupinum/board-core.",
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"

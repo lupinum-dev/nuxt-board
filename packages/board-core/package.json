@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Headless node-based board engine for spatial editors, diagramming tools, and whiteboard-style interfaces.",
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
