@@ -120,12 +120,28 @@ describe('docs demo contracts', () => {
     for (const file of files) {
       const source = read(file)
       const body = source.replace(/^---\n[\s\S]*?\n---\n/, '')
+      const title = source.match(/^title:\s*['"]?(.+?)['"]?\s*$/m)?.[1]
 
       expect(body, file).not.toMatch(/^# /m)
       expect(body, file).not.toMatch(/^## (Related|Conclusion|Next)$/m)
       expect(body, file).not.toMatch(
         /\b(?:aren['’]t|can['’]t|couldn['’]t|didn['’]t|doesn['’]t|don['’]t|hadn['’]t|hasn['’]t|haven['’]t|isn['’]t|it['’]s|shouldn['’]t|that['’]s|there['’]s|they['’]re|we['’]re|weren['’]t|what['’]s|won['’]t|wouldn['’]t|you['’]ll|you['’]re)\b/i,
       )
+
+      if (title) {
+        const uppercaseWords = title
+          .split(/\s+/)
+          .slice(1)
+          .filter((word) => /^[A-Z][A-Za-z-]*$/.test(word))
+
+        expect(uppercaseWords, file).toEqual(
+          uppercaseWords.filter((word) =>
+            ['API', 'Board', 'Canvas', 'JSON', 'Nuxt', 'SSR', 'Vue'].includes(
+              word,
+            ),
+          ),
+        )
+      }
     }
   })
 
