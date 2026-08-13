@@ -23,6 +23,20 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('keeps every package license identical to the repository license', () => {
+    const canonical = read('LICENSE')
+
+    for (const file of [
+      'packages/board-connections/LICENSE',
+      'packages/board-core/LICENSE',
+      'packages/board-history/LICENSE',
+      'packages/nuxt-board/LICENSE',
+      'packages/vue-board/LICENSE',
+    ]) {
+      expect(read(file), file).toBe(canonical)
+    }
+  })
+
   it('documents only public board-core utility exports', () => {
     const source = read(
       'apps/docs/content/docs/6.reference/2.board-core.md',
