@@ -97,6 +97,9 @@ GitHub must have:
   threads, and only checks that active workflows emit;
 - squash merge as the only merge method, auto-merge enabled, and merged branches
   deleted automatically;
+- GitHub Actions restricted to full commit-SHA references, with default
+  workflow permissions read-only;
+- GitHub Actions allowed to create the automated version pull request;
 - Issues enabled for public reports, with Wikis and Discussions disabled so
   versioned repository documentation remains authoritative;
 - protected release tags;
