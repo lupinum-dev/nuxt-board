@@ -8,6 +8,10 @@
 
 Use this module when a Nuxt application needs board auto-imports and deterministic server rendering.
 
+## Requirements
+
+The module requires Nuxt 3.19 or newer. Install matching versions of the three packages so their public contracts stay aligned.
+
 ## Installation
 
 ```bash
@@ -33,14 +37,18 @@ engine.createNode({ type: 'text', x: 64, y: 64, text: 'Nuxt Board' })
 </template>
 ```
 
-## Exports and requirements
+## Exports
 
-The module requires Nuxt 3.19 or newer. It auto-imports the board components, composables, `createBoardEngine`, and the default styles. Use stable node IDs for setup-time content so server HTML matches client hydration.
+The module auto-imports the board components, composables, `createBoardEngine`, and the default styles. Use stable node IDs for setup-time content so server HTML matches client hydration.
 
 ## Documentation
 
 Read the [Nuxt module reference](https://nuxt-board.lupinum.com/docs/reference/nuxt-board).
 
-## Support, security, and license
+## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy).
+
+## License
+
+This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).

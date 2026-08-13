@@ -8,6 +8,10 @@
 
 Use this package to render `@lupinum/board-core` state and handle pointer, keyboard, selection, camera, and node interactions in Vue.
 
+## Requirements
+
+This package requires Vue 3.5 or newer. Install the matching `@lupinum/board-core` version.
+
 ## Installation
 
 ```bash
@@ -31,14 +35,18 @@ engine.createNode({ type: 'text', x: 80, y: 80, text: 'Node' })
 </template>
 ```
 
-## Exports and requirements
+## Exports
 
-This package requires Vue 3.5 or newer. Keep the engine instance stable after mount. Use an engine command such as `loadDocument` to replace board content.
+The package exports the board components and composables. Keep the engine instance stable after mount. Use an engine command such as `loadDocument` to replace board content.
 
 ## Documentation
 
 Read the [Vue package reference](https://nuxt-board.lupinum.com/docs/reference/vue-board).
 
-## Support, security, and license
+## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy).
+
+## License
+
+This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).

@@ -8,6 +8,10 @@
 
 Use this package for board state, commands, selection, grouping, camera control, snapping, guards, events, and first-party plugin hooks.
 
+## Requirements
+
+The package is framework independent. Use `@lupinum/vue-board` or `@lupinum/nuxt-board` when you need rendering.
+
 ## Installation
 
 ```bash
@@ -25,9 +29,7 @@ const node = engine.createNode({ type: 'text', x: 80, y: 80, text: 'Node' })
 engine.select(node.id)
 ```
 
-## Exports and requirements
-
-The package is framework independent. Use `@lupinum/vue-board` or `@lupinum/nuxt-board` when you need rendering.
+## Exports
 
 The `@lupinum/board-core/internal` subpath is only for separately published first-party packages. Applications must use the top-level API and supported plugins.
 
@@ -35,6 +37,10 @@ The `@lupinum/board-core/internal` subpath is only for separately published firs
 
 Read the [board core reference](https://nuxt-board.lupinum.com/docs/reference/board-core).
 
-## Support, security, and license
+## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy).
+
+## License
+
+This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).

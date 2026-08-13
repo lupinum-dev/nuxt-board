@@ -8,6 +8,10 @@
 
 Use this plugin when users must reverse committed board changes. One completed drag, resize, text edit, or outer batch creates one history frame.
 
+## Requirements
+
+Install the same version of this package and `@lupinum/board-core`. The fixed-version release keeps the plugin ABI aligned with the engine.
+
 ## Installation
 
 ```bash
@@ -28,14 +32,18 @@ engine.plugins.history.undo()
 engine.plugins.history.redo()
 ```
 
-## Exports and requirements
+## Exports
 
-Install the same version of this package and `@lupinum/board-core`. The fixed-version release keeps the plugin ABI aligned with the engine.
+The package exports the history plugin and its typed history controls.
 
 ## Documentation
 
 Read the [history reference](https://nuxt-board.lupinum.com/docs/reference/history).
 
-## Support, security, and license
+## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy).
+
+## License
+
+This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).

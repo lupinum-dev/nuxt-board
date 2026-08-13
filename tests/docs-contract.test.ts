@@ -95,6 +95,32 @@ describe('docs demo contracts', () => {
     expect(
       orderedSections.every((heading) => rootReadme.includes(`## ${heading}`)),
     ).toBe(true)
+
+    const packageSections = [
+      'Purpose',
+      'Requirements',
+      'Installation',
+      'Quick start',
+      'Exports',
+      'Documentation',
+      'Support and security',
+      'License',
+    ]
+    for (const file of readmes.slice(1)) {
+      const source = read(file)
+      expect(
+        packageSections.map((heading) => source.indexOf(`## ${heading}`)),
+        file,
+      ).toEqual(
+        [...packageSections]
+          .map((heading) => source.indexOf(`## ${heading}`))
+          .sort((left, right) => left - right),
+      )
+      expect(
+        packageSections.every((heading) => source.includes(`## ${heading}`)),
+        file,
+      ).toBe(true)
+    }
   })
 
   it('keeps every package license identical to the repository license', () => {

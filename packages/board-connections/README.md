@@ -8,6 +8,10 @@
 
 Use this plugin when nodes must connect to each other. The plugin owns connection state and provides a Vue SVG layer for rendering.
 
+## Requirements
+
+Install the same version of this package, `@lupinum/board-core`, and `@lupinum/vue-board`. The fixed-version release keeps the plugin ABI aligned.
+
 ## Installation
 
 ```bash
@@ -33,14 +37,18 @@ engine.plugins.connections.createEdge({
 
 Render `BoardConnectionLayer` below `BoardRoot`. It reads the board context and positions its SVG layer against the board root.
 
-## Exports and requirements
+## Exports
 
-Install the same version of this package, `@lupinum/board-core`, and `@lupinum/vue-board`. The fixed-version release keeps the plugin ABI aligned.
+The package exports the connections plugin and the Vue connection layer.
 
 ## Documentation
 
 Read the [connections reference](https://nuxt-board.lupinum.com/docs/reference/connections).
 
-## Support, security, and license
+## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy).
+
+## License
+
+This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).
