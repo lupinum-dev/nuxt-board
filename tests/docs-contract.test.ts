@@ -98,6 +98,20 @@ describe('docs demo contracts', () => {
     }
   })
 
+  it('keeps public docs free of generic closing sections and duplicate titles', () => {
+    const files = filesIn('apps/docs/content/docs').filter((file) =>
+      file.endsWith('.md'),
+    )
+
+    for (const file of files) {
+      const source = read(file)
+      const body = source.replace(/^---\n[\s\S]*?\n---\n/, '')
+
+      expect(body, file).not.toMatch(/^# /m)
+      expect(body, file).not.toMatch(/^## (Related|Conclusion|Next)$/m)
+    }
+  })
+
   it('keeps security reporting contact consistent', () => {
     expect(read('SECURITY.md')).toContain('info@lupinum.com')
     expect(
