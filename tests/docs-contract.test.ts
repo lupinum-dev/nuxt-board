@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,6 +41,20 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps contributor intake on the shared Lupinum contract', () => {
+    const trackedFiles = new Set(
+      execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
+        .trim()
+        .split('\n'),
+    )
+    for (const path of [
+      '.github/ISSUE_TEMPLATE/bug.md',
+      '.github/ISSUE_TEMPLATE/config.yml',
+      '.github/ISSUE_TEMPLATE/documentation.md',
+      '.github/ISSUE_TEMPLATE/proposal.md',
+      '.github/pull_request_template.md',
+    ]) {
+      expect(trackedFiles.has(path), `${path} must be tracked`).toBe(true)
+    }
     expect(read('.github/ISSUE_TEMPLATE/documentation.md')).toContain(
       'name: Documentation report',
     )
@@ -53,6 +68,12 @@ describe('docs demo contracts', () => {
     ]) {
       expect(pullRequestTemplate).toContain(`## ${heading}`)
     }
+    expect(pullRequestTemplate).toContain(
+      '- [ ] I ran `pnpm verify`, or I explained why it does not apply.',
+    )
+    expect(pullRequestTemplate).toContain(
+      '- [ ] I updated versions, migration guidance, and compatibility notes when the public contract changed.',
+    )
 
     const maintaining = read('MAINTAINING.md')
     for (const heading of [
@@ -65,6 +86,19 @@ describe('docs demo contracts', () => {
       'Respond to a credential incident',
     ]) {
       expect(maintaining).toContain(`## ${heading}`)
+    }
+  })
+
+  it('keeps the production documentation services configured', () => {
+    const config = read('docs/app/app.config.ts')
+    for (const marker of [
+      "plausible: { scriptId: 'QbYVActbnoESYSo2_4S8V' }",
+      'feedback: { enabled: true }',
+      'https://discord.gg/RPH6SeA36N',
+      'https://lupinum.com/impressum',
+      'https://lupinum.com/datenschutz',
+    ]) {
+      expect(config).toContain(marker)
     }
   })
 
