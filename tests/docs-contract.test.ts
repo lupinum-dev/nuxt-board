@@ -92,6 +92,9 @@ describe('docs demo contracts', () => {
   it('verifies automated version pull requests without a second credential', () => {
     const ciWorkflow = read('.github/workflows/ci.yml')
     const releaseWorkflow = read('.github/workflows/release.yml')
+    const packageJson = JSON.parse(read('package.json')) as {
+      scripts: Record<string, string>
+    }
 
     expect(ciWorkflow).toContain('  workflow_dispatch:')
     expect(releaseWorkflow).toContain('      actions: write')
@@ -100,6 +103,9 @@ describe('docs demo contracts', () => {
       '        run: gh workflow run ci.yml --ref release/version-packages',
     )
     expect(releaseWorkflow).not.toContain('PERSONAL_ACCESS_TOKEN')
+    expect(packageJson.scripts['release:version']).toContain(
+      'prettier CHANGELOG.md --write',
+    )
   })
 
   it('keeps the production documentation services configured', () => {
