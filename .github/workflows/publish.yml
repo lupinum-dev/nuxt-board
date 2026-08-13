@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact fixed package version, for example 0.2.0
+        description: Exact fixed version from the five package manifests
         required: true
         type: string
 
