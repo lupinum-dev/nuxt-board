@@ -1,27 +1,55 @@
-# Vue Board
+<p align="center">
+  <img src="apps/docs/public/app-icon.svg" width="128" alt="Nuxt Board icon">
+</p>
 
-Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors: workflow builders, visual planning tools, graph-like canvases, whiteboard surfaces, and JSON Canvas-style document views.
+<h1 align="center">Nuxt Board</h1>
 
-It gives you a headless board engine plus Vue rendering. The engine owns the model and commands; Vue renders that model and translates DOM input into board actions. Optional packages add history, connections, minimaps, and Nuxt auto-imports.
+<p align="center">Build node editors and visual planning tools with one headless engine and native Vue components.</p>
 
-## Is this for you?
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lupinum/nuxt-board"><img src="https://img.shields.io/npm/v/@lupinum/nuxt-board?label=npm" alt="npm version"></a>
+  <a href="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml"><img src="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
 
-Use Vue Board when you need:
+> [!WARNING]
+> The first scoped release is in preparation. Public APIs can change before version 1.0.
 
-- draggable, resizable, selectable nodes on a pan/zoom canvas
-- a real board model outside the component tree
-- command-based mutation with guards, events, validation, and undo/redo support
-- custom Vue renderers for your domain-specific node content
-- JSON Canvas import/export, with optional edges, labels, anchors, routing, and minimaps
-- Nuxt integration without making Nuxt own the board behavior
+## Why use Nuxt Board?
 
-This is probably not the right starting point if you only need a static diagram renderer, a general-purpose drawing app, or a complete low-code workflow product with backend execution semantics. Vue Board is the canvas/model layer, not your product domain.
+Nuxt Board separates board behavior from Vue rendering. The engine owns state, commands, validation, and events. Vue renders the current model and converts pointer input into board actions.
 
-## Quick start
+This design gives you predictable state outside the component tree. You can add your own node content without replacing selection, drag, resize, pan, zoom, or keyboard behavior.
+
+## When to use it
+
+Use Nuxt Board for workflow builders, visual planning tools, graph canvases, whiteboard surfaces, and JSON Canvas document views.
+
+Do not use it when you only need a static diagram. It is also not a complete low-code product or drawing application. Your application must provide its own domain rules and backend behavior.
+
+## Requirements
+
+- Node.js 20.19 or newer.
+- Vue 3.5 or newer.
+- Nuxt 3.19 or newer when you use `@lupinum/nuxt-board`.
+
+## Installation
+
+Install the core engine and Vue renderer:
 
 ```bash
 pnpm add @lupinum/board-core @lupinum/vue-board
 ```
+
+Add the Nuxt module when you use Nuxt:
+
+```bash
+pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
+```
+
+## Quick start
+
+Create an engine and pass it to `BoardRoot`:
 
 ```vue
 <script setup lang="ts">
@@ -29,9 +57,7 @@ import { createBoardEngine } from '@lupinum/board-core'
 import { BoardRoot } from '@lupinum/vue-board'
 import '@lupinum/vue-board/style.css'
 
-const engine = createBoardEngine({
-  grid: { size: 20, snap: true },
-})
+const engine = createBoardEngine({ grid: { size: 20, snap: true } })
 
 engine.createNode({
   type: 'text',
@@ -39,8 +65,7 @@ engine.createNode({
   y: 80,
   width: 260,
   height: 140,
-  color: '5',
-  text: 'Drag, resize, select, and edit me.',
+  text: 'Drag and resize me.',
 })
 </script>
 
@@ -49,11 +74,7 @@ engine.createNode({
 </template>
 ```
 
-For Nuxt:
-
-```bash
-pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
-```
+Register the module in Nuxt:
 
 ```ts
 export default defineNuxtConfig({
@@ -63,88 +84,53 @@ export default defineNuxtConfig({
 
 ## How it works
 
-`createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `zoomToFit`, and `loadDocument`. Pointer sessions are owned by `BoardRoot` through a framework-only adapter.
+`createBoardEngine()` creates the source of truth. Change the board through commands such as `createNode`, `updateNode`, `select`, `zoomToFit`, and `loadDocument`.
 
-`BoardRoot` subscribes to the engine and renders the viewport, grid, nodes, resize handles, selection toolbar, snap guides, and pointer interaction. Custom renderers replace node content; they do not replace the interaction model.
+`BoardRoot` subscribes to the engine. It renders the viewport, grid, nodes, handles, selection tools, snap guides, and pointer interaction.
 
-```vue
-<template>
-  <BoardRoot :engine="engine">
-    <template #node:text="{ node, selected, beginEdit }">
-      <TaskCard :node="node" :selected="selected" @rename="beginEdit" />
-    </template>
-  </BoardRoot>
-</template>
-```
+Keep the engine out of Vue deep reactivity. Use `shallowRef` if you store it in Vue state. Load new board content through engine commands instead of replacing a mounted engine.
 
-Keep the engine out of Vue deep reactivity. If you store it in Vue state, use `shallowRef`. Treat the engine instance passed to `BoardRoot` as stable after mount; to replace board contents, load them through engine commands such as `loadDocument`.
+## Main capabilities
+
+- Drag, resize, select, group, pan, zoom, and snap nodes.
+- Use command guards, events, validation, and atomic batches.
+- Render custom Vue components for domain-specific node content.
+- Import and export JSON Canvas documents.
+- Add undo, redo, connections, labels, routing, and a minimap.
+- Render deterministic initial boards during Nuxt SSR.
 
 ## Packages
 
-Install only the pieces you need.
+| Package                      | Purpose                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `@lupinum/board-core`        | Headless board state, commands, types, geometry, hierarchy, and events. |
+| `@lupinum/vue-board`         | Vue components, pointer interaction, styles, and composables.           |
+| `@lupinum/nuxt-board`        | Nuxt module and auto-imports.                                           |
+| `@lupinum/board-connections` | Edges, anchors, labels, routing, and connection rendering.              |
+| `@lupinum/board-history`     | Undo and redo for engine commands.                                      |
 
-| Package                      | Use it for                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| `@lupinum/board-core`        | Headless board state, commands, types, math helpers, hierarchy, and events.  |
-| `@lupinum/vue-board`         | Vue board shell, pointer interaction, default UI, styles, and composables.   |
-| `@lupinum/nuxt-board`        | Nuxt module with board component/composable auto-imports.                    |
-| `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
-| `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
-| `@lupinum/vue-board/minimap` | Minimap composable and renderer.                                             |
+## Documentation
 
-## What you get
+Read the [Nuxt Board documentation](https://nuxt-board.lupinum.com). Start with [why Nuxt Board](https://nuxt-board.lupinum.com/docs/evaluate/why-vue-board) and [your first board](https://nuxt-board.lupinum.com/docs/start-building/your-first-board).
 
-- Nodes: JSON Canvas node types (`text`, `file`, `link`, `group`) with geometry, hierarchy, colors, locking, visibility, and custom renderers.
-- Interaction: drag, resize, select, box-select, keyboard shortcuts, pan, zoom, snap-to-grid, and edge snapping.
-- State model: immutable public snapshots/subscribables backed by a mutable command engine.
-- Extensibility: first-party history, connections, and minimap packages without a required all-in-one bundle.
-- Performance basics: viewport culling, level of detail rendering, requestAnimationFrame pointer updates, and batched command notifications.
-- Persistence: JSON Canvas import/export in core, with connection metadata handled by the connections package when installed.
-- SSR/Nuxt: deterministic initial state support and Nuxt auto-imports through `@lupinum/nuxt-board`.
+## Contributing and development
 
-## Development
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open a pull request. Run the normal handoff gate before you submit a change:
 
 ```bash
 corepack enable
 pnpm install
-pnpm dev:playground
-pnpm dev:docs
-```
-
-Use Node 20.19 or newer. The packages support Vue 3.5 or newer, and
-`@lupinum/nuxt-board` supports Nuxt 3.19+ and Nuxt 4.
-
-Run the repository gate before handing off a change:
-
-```bash
 pnpm verify
 ```
 
-Maintainers use `pnpm release:verify` on a release candidate. Run
-`pnpm test:e2e` when interaction or screenshot behavior changes.
+Maintainers use the protected workflow in [MAINTAINING.md](MAINTAINING.md) for releases.
 
-## Docs
+## Support and security
 
-- [Why Vue Board](apps/docs/content/docs/1.evaluate/1.why-vue-board.md)
-- [Your First Board](apps/docs/content/docs/2.start-building/2.your-first-board.md)
-- [How Vue Board Works](apps/docs/content/docs/1.evaluate/2.how-vue-board-works.md)
-- [Performance](apps/docs/content/docs/4.build-features/9.performance.md)
-- [API Reference](apps/docs/content/docs/6.reference)
-- [Contributing](CONTRIBUTING.md)
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for bugs and focused proposals. Join the [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N) for project discussion.
 
-API reference pages are maintained in `apps/docs/content/docs/6.reference`.
+Use the private process in [SECURITY.md](SECURITY.md) to report a vulnerability. Do not report a vulnerability in a public issue.
 
-## Project policy
+## License
 
-Report bugs through [GitHub Issues](https://github.com/lupinum-dev/nuxt-board/issues)
-and security issues through [the private reporting process](SECURITY.md). See
-[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-
-Every publishable change carries a Changeset. The release workflow uses
-Changelogen to update `CHANGELOG.md` from the accepted commits. Before 1.0,
-breaking public API changes are released as a minor version. Patch releases
-preserve documented behavior. All packages are available under the
-[MIT License](LICENSE).
-
-For support and project discussion, join the
-[Lupinum OSS Discord](https://discord.gg/RPH6SeA36N).
+Nuxt Board is available under the [MIT License](LICENSE). Copyright belongs to [Lupinum OG](https://lupinum.com).

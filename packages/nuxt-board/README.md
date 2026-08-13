@@ -1,86 +1,46 @@
-# @lupinum/nuxt-board
+<p align="center"><img src="https://raw.githubusercontent.com/lupinum-dev/nuxt-board/main/apps/docs/public/app-icon.svg" width="128" alt="Nuxt Board icon"></p>
 
-Nuxt module for [Vue Board](https://nuxt-board.lupinum.com/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
+<h1 align="center">@lupinum/nuxt-board</h1>
 
-## What it does
+<p align="center">Add the Nuxt Board components, composables, helpers, and styles to Nuxt.</p>
 
-- Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, `BoardSnapGuides`, and `BoardMinimap`
-- Auto-imports the core board composables plus `useBoardMinimap`
-- Auto-imports `createBoardEngine`
-- Supports an opt-in `prefix` so you can alias the auto-imports without forcing prefixed names by default
-- Lets deterministic board shells render in Nuxt SSR without client-only stubs
+## Purpose
 
-## Install
+Use this module when a Nuxt application needs board auto-imports and deterministic server rendering.
 
-Requires Nuxt 3.19 or newer, or Nuxt 4.
+## Installation
 
 ```bash
 pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
-Then register the module:
-
 ```ts
-// nuxt.config.ts
 export default defineNuxtConfig({
   modules: ['@lupinum/nuxt-board'],
 })
 ```
 
-## Usage
+## Quick start
 
 ```vue
 <script setup lang="ts">
-import { asNodeId } from '@lupinum/board-core'
-
-const engine = createBoardEngine({
-  grid: { size: 24, snap: true },
-})
-
-engine.createNode({
-  id: asNodeId('nuxt-ssr-board'),
-  type: 'text',
-  x: 64,
-  y: 64,
-  width: 220,
-  height: 96,
-  text: 'Node',
-})
+const engine = createBoardEngine({ grid: { size: 24, snap: true } })
+engine.createNode({ type: 'text', x: 64, y: 64, text: 'Nuxt Board' })
 </script>
 
 <template>
-  <BoardRoot :engine="engine" style="width: 100%; height: 480px;" />
+  <BoardRoot :engine="engine" style="height: 480px" />
 </template>
 ```
 
-## SSR notes
+## Exports and requirements
 
-With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum-dev/nuxt-board/tree/main/packages/nuxt-board/playground).
+The module requires Nuxt 3.19 or newer. It auto-imports the board components, composables, `createBoardEngine`, and the default styles. Use stable node IDs for setup-time content so server HTML matches client hydration.
 
-## Module options
+## Documentation
 
-```ts
-export default defineNuxtConfig({
-  modules: ['@lupinum/nuxt-board'],
-  board: {
-    prefix: '',
-    autoImportComponents: true,
-    autoImportComposables: true,
-  },
-})
-```
+Read the [Nuxt module reference](https://nuxt-board.lupinum.com/docs/reference/nuxt-board).
 
-When `prefix` is set, the module aliases the full auto-import surface consistently:
+## Support, security, and license
 
-- Components: `<MyBoardRoot>`, `<MyBoardNode>`, ...
-- Composables: `useMyBoardEngine()`, `useMyBoardCamera()`, ...
-- Helpers: `createMyBoardEngine()`
-
-## Local development
-
-```bash
-pnpm --filter @lupinum/nuxt-board build
-pnpm --filter @lupinum/nuxt-board dev
-pnpm --filter @lupinum/nuxt-board test
-pnpm --filter nuxt-board-playground build
-```
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for support. Report vulnerabilities through the [private security process](https://github.com/lupinum-dev/nuxt-board/security/policy). This package uses the [MIT License](https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE).

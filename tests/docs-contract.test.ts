@@ -23,6 +23,80 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('keeps every public README on the Lupinum structure', () => {
+    const readmes = [
+      'README.md',
+      'packages/board-connections/README.md',
+      'packages/board-core/README.md',
+      'packages/board-history/README.md',
+      'packages/nuxt-board/README.md',
+      'packages/vue-board/README.md',
+    ]
+
+    for (const file of readmes) {
+      const source = read(file)
+      const headings = Array.from(source.matchAll(/^## (.+)$/gm), (match) =>
+        match[1]!.trim(),
+      )
+      const h1Count =
+        (source.match(/^# /gm)?.length ?? 0) +
+        (source.match(/<h1\b/gu)?.length ?? 0)
+
+      expect(h1Count, file).toBe(1)
+      expect(source, file).toContain('width="128"')
+      expect(source, file).toContain('https://nuxt-board.lupinum.com')
+      expect(source, file).toContain(
+        'https://github.com/lupinum-dev/nuxt-board',
+      )
+      expect(source, file).toContain('MIT License')
+      expect(source, file).not.toMatch(/\b(?:TODO|TBD|PLACEHOLDER)\b/i)
+
+      for (const heading of headings) {
+        const words = heading.split(/\s+/).slice(1)
+        expect(
+          words.filter((word) => /^[A-Z][A-Za-z-]*$/.test(word)),
+          `${file}: ${heading}`,
+        ).toEqual(
+          words.filter(
+            (word) =>
+              /^[A-Z][A-Za-z-]*$/.test(word) &&
+              ['API', 'Nuxt', 'Vue'].includes(word),
+          ),
+        )
+      }
+    }
+
+    const rootReadme = read('README.md')
+    for (const badge of ['npm/v/', 'actions/workflows/ci.yml', 'license-MIT']) {
+      expect(rootReadme).toContain(badge)
+    }
+
+    const orderedSections = [
+      'Why use Nuxt Board?',
+      'When to use it',
+      'Requirements',
+      'Installation',
+      'Quick start',
+      'How it works',
+      'Main capabilities',
+      'Packages',
+      'Documentation',
+      'Contributing and development',
+      'Support and security',
+      'License',
+    ]
+    expect(
+      orderedSections.map((heading) => rootReadme.indexOf(`## ${heading}`)),
+    ).toEqual(
+      [...orderedSections]
+        .map((heading) => rootReadme.indexOf(`## ${heading}`))
+        .sort((left, right) => left - right),
+    )
+    expect(
+      orderedSections.every((heading) => rootReadme.includes(`## ${heading}`)),
+    ).toBe(true)
+  })
+
   it('keeps every package license identical to the repository license', () => {
     const canonical = read('LICENSE')
 
