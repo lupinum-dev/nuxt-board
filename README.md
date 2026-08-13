@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/docs/public/app-icon.svg" width="128" alt="Nuxt Board icon">
+  <img src="docs/public/app-icon.svg" width="128" alt="Nuxt Board icon">
 </p>
 
 <h1 align="center">Nuxt Board</h1>

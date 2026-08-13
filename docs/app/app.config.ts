@@ -20,7 +20,7 @@ export default {
     repository: {
       url: 'https://github.com/lupinum-dev/nuxt-board',
       branch: 'main',
-      contentDirectory: 'apps/docs/content',
+      contentDirectory: 'docs/content',
     },
     landing: {
       eyebrow: { en: 'Headless engine. Focused Vue renderer.' },

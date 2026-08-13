@@ -123,5 +123,8 @@ GitHub must have:
 npm must bind all five `@lupinum/*board*` packages to `publish.yml` and the
 `npm` environment through trusted publishing.
 
-Vercel must deploy the documentation from `main` to `nuxt-board.lupinum.com`
-and create pull-request previews.
+Vercel must deploy `docs/` from `main` to `nuxt-board.lupinum.com` and
+create pull-request previews. Set the Root Directory to `docs`. Enable
+**Include source files outside of the Root Directory in the Build Step** so the
+documentation build can use all five locked workspace packages. Do not set an
+Output Directory override.

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import * as boardConnections from '@lupinum/board-connections'
-import { createDemoDocument } from '../apps/docs/app/utils/demoDocument'
+import { createDemoDocument } from '../docs/app/utils/demoDocument'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -24,13 +24,13 @@ function filesIn(path: string): string[] {
 
 describe('docs demo contracts', () => {
   it('uses Nuxt Board as the public product name', () => {
-    expect(read('apps/docs/app/app.config.ts')).toContain(
+    expect(read('docs/app/app.config.ts')).toContain(
       "name: { en: 'Nuxt Board' }",
     )
-    expect(read('apps/docs/content.config.ts')).toContain("name: 'Nuxt Board'")
+    expect(read('docs/content.config.ts')).toContain("name: 'Nuxt Board'")
     expect(read('README.md')).toContain('/docs/evaluate/why-nuxt-board')
 
-    for (const file of filesIn('apps/docs/content').filter((file) =>
+    for (const file of filesIn('docs/content').filter((file) =>
       /\.(?:md|ts|vue)$/u.test(file),
     )) {
       expect(read(file), file).not.toMatch(
@@ -94,6 +94,10 @@ describe('docs demo contracts', () => {
         'https://github.com/lupinum-dev/nuxt-board',
       )
       expect(source, file).toContain('MIT License')
+      expect(source, file).toContain('npm/v/')
+      expect(source, file).toContain('actions/workflows/ci.yml')
+      expect(source, file).toContain('license-MIT')
+      expect(source, file).toContain('> [!WARNING]')
       expect(source, file).not.toMatch(/\b(?:TODO|TBD|PLACEHOLDER)\b/i)
 
       for (const heading of headings) {
@@ -112,10 +116,6 @@ describe('docs demo contracts', () => {
     }
 
     const rootReadme = read('README.md')
-    for (const badge of ['npm/v/', 'actions/workflows/ci.yml', 'license-MIT']) {
-      expect(rootReadme).toContain(badge)
-    }
-
     const orderedSections = [
       'Why use Nuxt Board?',
       'When to use it',
@@ -183,9 +183,9 @@ describe('docs demo contracts', () => {
   })
 
   it('documents only public board-core utility exports', () => {
-    const source = read(
-      'apps/docs/content/docs/6.reference/2.board-core.md',
-    ).split('## Math helpers')[1]!
+    const source = read('docs/content/docs/6.reference/2.board-core.md').split(
+      '## Math helpers',
+    )[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,
@@ -199,7 +199,7 @@ describe('docs demo contracts', () => {
 
   it('documents the board-core internal subpath as first-party ABI only', () => {
     for (const file of [
-      'apps/docs/content/docs/6.reference/2.board-core.md',
+      'docs/content/docs/6.reference/2.board-core.md',
       'ARCHITECTURE.md',
       'packages/board-core/README.md',
     ]) {
@@ -211,7 +211,7 @@ describe('docs demo contracts', () => {
   })
 
   it('documents public board-connections utility exports', () => {
-    const source = read('apps/docs/content/docs/6.reference/6.connections.md')
+    const source = read('docs/content/docs/6.reference/6.connections.md')
 
     for (const helper of [
       'resolveAnchorPoint',
@@ -229,9 +229,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps markdown examples copy-pasteable for known drift cases', () => {
-    const files = filesIn('apps/docs/content').filter((file) =>
-      file.endsWith('.md'),
-    )
+    const files = filesIn('docs/content').filter((file) => file.endsWith('.md'))
 
     for (const file of files) {
       const source = read(file)
@@ -245,7 +243,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps docs frontmatter complete', () => {
-    const files = filesIn('apps/docs/content/docs').filter(
+    const files = filesIn('docs/content/docs').filter(
       (file) => file.endsWith('.md') && !file.endsWith('/index.md'),
     )
 
@@ -258,7 +256,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps public docs free of generic closing sections and duplicate titles', () => {
-    const files = filesIn('apps/docs/content/docs').filter((file) =>
+    const files = filesIn('docs/content/docs').filter((file) =>
       file.endsWith('.md'),
     )
 
@@ -293,14 +291,14 @@ describe('docs demo contracts', () => {
   it('keeps security reporting contact consistent', () => {
     expect(read('SECURITY.md')).toContain('info@lupinum.com')
     expect(
-      read('apps/docs/content/docs/7.project/2.support-and-security.md'),
+      read('docs/content/docs/7.project/2.support-and-security.md'),
     ).toContain('info@lupinum.com')
   })
 
   it('does not pass runtime snapshots directly to loadDocument in demos', () => {
-    const files = readdirSync(resolve(root, 'apps/docs/app/components/demos'))
+    const files = readdirSync(resolve(root, 'docs/app/components/demos'))
       .filter((file) => file.endsWith('.vue'))
-      .map((file) => `apps/docs/app/components/demos/${file}`)
+      .map((file) => `docs/app/components/demos/${file}`)
 
     for (const file of files) {
       const source = read(file)

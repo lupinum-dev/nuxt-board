@@ -38,7 +38,7 @@
     "tests/**/*.ts"
   ],
   "exclude": [
-    "apps/docs/**",
+    "docs/**",
     "packages/nuxt-board/**",
     "**/.nuxt/**",
     "**/.output/**",

@@ -1,8 +1,17 @@
-<p align="center"><img src="https://raw.githubusercontent.com/lupinum-dev/nuxt-board/main/apps/docs/public/app-icon.svg" width="128" alt="Nuxt Board icon"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/lupinum-dev/nuxt-board/main/docs/public/app-icon.svg" width="128" alt="Nuxt Board icon"></p>
 
 <h1 align="center">@lupinum/vue-board</h1>
 
 <p align="center">Render a board engine with native Vue components and composables.</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lupinum/vue-board"><img src="https://img.shields.io/npm/v/@lupinum/vue-board?label=npm" alt="npm version"></a>
+  <a href="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml"><img src="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/lupinum-dev/nuxt-board/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+> [!WARNING]
+> This package has not reached a stable release. Review the changelog before each upgrade.
 
 ## Purpose
 
