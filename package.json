@@ -30,7 +30,8 @@
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
     "verify:library": "pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm test:docs",
-    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm changeset status --since=origin/main && pnpm release:pack"
+    "release:notes:check": "node scripts/check-release-notes.mjs",
+    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm release:notes:check && pnpm release:pack"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
