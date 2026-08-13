@@ -21,7 +21,7 @@
     "pack:check": "node scripts/pack-check.mjs",
     "package-preview:build": "node scripts/build-package-preview.mjs",
     "release:pack": "node scripts/pack-check.mjs --retain",
-    "release:version": "changeset version && pnpm changelog",
+    "release:version": "changeset version && pnpm changelog && prettier CHANGELOG.md --write",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:docs": "pnpm --filter docs typecheck && pnpm --filter docs build",
     "test:e2e": "playwright test",
