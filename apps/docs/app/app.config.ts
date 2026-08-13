@@ -15,7 +15,7 @@ export default {
       github: 'https://github.com/lupinum-dev/nuxt-board',
       discord: 'https://discord.gg/RPH6SeA36N',
     },
-    analytics: { plausible: { scriptId: 'XxT9ZOr0ZLg10B4KV40xH' } },
+    analytics: { plausible: { scriptId: 'QbYVActbnoESYSo2_4S8V' } },
     feedback: { enabled: true },
     repository: {
       url: 'https://github.com/lupinum-dev/nuxt-board',
