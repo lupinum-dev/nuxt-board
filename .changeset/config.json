@@ -8,7 +8,7 @@
       "@lupinum/vue-board",
       "@lupinum/board-history",
       "@lupinum/board-connections",
-      "nuxt-board"
+      "@lupinum/nuxt-board"
     ]
   ],
   "linked": [],

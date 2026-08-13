@@ -4,7 +4,7 @@ export default {
       url: 'https://nuxt-board.lupinum.com',
       name: { en: 'Vue Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
-      logo: { light: '/favicon.ico', dark: '/favicon.ico' },
+      logo: { light: '/app-icon.svg', dark: '/app-icon.svg' },
       localeSwitcher: 'dropdown',
       docsSidebarSwitcher: 'tabs',
     },

@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-board",
+  "name": "@lupinum/nuxt-board",
   "version": "0.1.0",
   "description": "Nuxt module for @lupinum/vue-board with board component and composable auto-imports.",
   "repository": {

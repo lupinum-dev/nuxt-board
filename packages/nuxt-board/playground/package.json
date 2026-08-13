@@ -16,6 +16,6 @@
     "@lupinum/board-history": "workspace:*",
     "@lupinum/vue-board": "workspace:*",
     "nuxt": "4.5.1",
-    "nuxt-board": "workspace:*"
+    "@lupinum/nuxt-board": "workspace:*"
   }
 }

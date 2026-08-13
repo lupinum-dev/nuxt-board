@@ -12,7 +12,7 @@ ownership over generic extension infrastructure.
 | `@lupinum/vue-board`         | DOM input translation, reactive adaptation, node rendering, bundled chrome, and the optional `minimap` subpath.                                      |
 | `@lupinum/board-connections` | The immutable edge slice, edge commands, persistence, routing, hit testing, and headless geometry. Its `/vue` subpath owns connection UI.            |
 | `@lupinum/board-history`     | Runtime undo/redo stacks containing structurally shared history roots.                                                                               |
-| `nuxt-board`                 | Explicit auto-import, style, and transpilation registration. It owns no board behavior.                                                              |
+| `@lupinum/nuxt-board`        | Explicit auto-import, style, and transpilation registration. It owns no board behavior.                                                              |
 
 The core root entry does not import Vue. The connections root entry is also
 headless; importing `@lupinum/board-connections/vue` is an explicit UI choice.

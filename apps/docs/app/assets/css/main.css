@@ -1,5 +1,5 @@
 /* Board design tokens ship via @lupinum/vue-board/style.css, which is
-   pulled in by the nuxt-board module's auto-registered css entry. */
+   pulled in by the @lupinum/nuxt-board module's auto-registered css entry. */
 
 @source "../../../content/**/*";
 

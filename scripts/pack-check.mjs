@@ -264,8 +264,8 @@ const expectedFirstPartyPeers = [
   ['@lupinum/board-history', '@lupinum/board-core'],
   ['@lupinum/board-connections', '@lupinum/board-core'],
   ['@lupinum/board-connections', '@lupinum/vue-board'],
-  ['nuxt-board', '@lupinum/board-core'],
-  ['nuxt-board', '@lupinum/vue-board'],
+  ['@lupinum/nuxt-board', '@lupinum/board-core'],
+  ['@lupinum/nuxt-board', '@lupinum/vue-board'],
 ]
 for (const [packageName, peerName] of expectedFirstPartyPeers) {
   const range =
@@ -433,7 +433,7 @@ run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-board.json')])
 
 writeFileSync(
   join(consumerDir, 'consumer-nuxt.ts'),
-  `import nuxtBoard from 'nuxt-board'
+  `import nuxtBoard from '@lupinum/nuxt-board'
 
 void nuxtBoard
 `,
@@ -457,7 +457,7 @@ writeFileSync(
 )
 run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-nuxt.json')])
 
-const packedNuxtBoard = packedPackages.get('nuxt-board')
+const packedNuxtBoard = packedPackages.get('@lupinum/nuxt-board')
 if (!packedNuxtBoard) throw new Error('Packed Nuxt Board package is missing.')
 
 async function verifyNuxtVersion(label, nuxtVersion) {
@@ -465,7 +465,7 @@ async function verifyNuxtVersion(label, nuxtVersion) {
   const localPackages = {
     '@lupinum/board-core': `file:${packedCore.tarball}`,
     '@lupinum/vue-board': `file:${packedVueBoard.tarball}`,
-    'nuxt-board': `file:${packedNuxtBoard.tarball}`,
+    '@lupinum/nuxt-board': `file:${packedNuxtBoard.tarball}`,
   }
   mkdirSync(nuxtConsumerDir, { recursive: true })
   writeFileSync(
@@ -490,7 +490,7 @@ async function verifyNuxtVersion(label, nuxtVersion) {
   )
   writeFileSync(
     join(nuxtConsumerDir, 'nuxt.config.ts'),
-    `export default defineNuxtConfig({ modules: ['nuxt-board'] })\n`,
+    `export default defineNuxtConfig({ modules: ['@lupinum/nuxt-board'] })\n`,
   )
   writeFileSync(
     join(nuxtConsumerDir, 'tsconfig.json'),
@@ -540,9 +540,25 @@ if (retainArtifacts) {
     },
   ).sort((left, right) => left.name.localeCompare(right.name))
 
+  const changelogSource = join(rootDir, 'CHANGELOG.md')
+  let changelog
+  if (existsSync(changelogSource)) {
+    const filename = 'CHANGELOG.md'
+    const destination = join(releaseArtifactsDir, filename)
+    copyFileSync(changelogSource, destination)
+    changelog = {
+      filename,
+      sha256: createHash('sha256')
+        .update(readFileSync(destination))
+        .digest('hex'),
+    }
+  }
+
+  const checksummedFiles = changelog ? [...artifacts, changelog] : artifacts
+
   writeFileSync(
     join(releaseArtifactsDir, 'SHA256SUMS'),
-    `${artifacts.map(({ filename, sha256 }) => `${sha256}  ${filename}`).join('\n')}\n`,
+    `${checksummedFiles.map(({ filename, sha256 }) => `${sha256}  ${filename}`).join('\n')}\n`,
   )
   writeFileSync(
     join(releaseArtifactsDir, 'release-artifact.json'),
@@ -553,6 +569,7 @@ if (retainArtifacts) {
           encoding: 'utf8',
         }).trim(),
         version: fixedReleaseVersion,
+        ...(changelog ? { changelog } : {}),
         packages: artifacts,
       },
       null,

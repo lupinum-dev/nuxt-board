@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
   devtools: { enabled: true },
   css: ['~/assets/playground.css'],
   alias: {
@@ -39,7 +39,7 @@ export default defineNuxtConfig({
       '@lupinum/board-connections/vue',
       '@lupinum/board-history',
       '@lupinum/vue-board/minimap',
-      'nuxt-board',
+      '@lupinum/nuxt-board',
     ],
   },
   compatibilityDate: '2026-04-13',

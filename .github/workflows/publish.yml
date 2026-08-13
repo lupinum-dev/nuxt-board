@@ -83,13 +83,18 @@ jobs:
             '@lupinum/board-core',
             '@lupinum/board-history',
             '@lupinum/vue-board',
-            'nuxt-board',
+            '@lupinum/nuxt-board',
           ]
           const manifest = JSON.parse(fs.readFileSync('release-artifact.json', 'utf8'))
           const actual = manifest.packages.map(entry => entry.name).sort()
           if (manifest.commit !== process.env.GITHUB_SHA) throw new Error('Artifact commit does not match main')
           if (manifest.version !== process.env.RELEASE_VERSION) throw new Error('Artifact version does not match the input')
           if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Artifact package set is not exact')
+          if (manifest.changelog?.filename !== 'CHANGELOG.md') throw new Error('Certified changelog is missing')
+          const changelog = fs.readFileSync(manifest.changelog.filename)
+          const changelogDigest = crypto.createHash('sha256').update(changelog).digest('hex')
+          if (changelogDigest !== manifest.changelog.sha256) throw new Error('Changelog failed digest verification')
+          if (!changelog.toString('utf8').includes(`## v${manifest.version}\n`)) throw new Error('Changelog has no section for this release')
           for (const entry of manifest.packages) {
             if (entry.version !== manifest.version) throw new Error(`${entry.name} is outside the fixed version`)
             if (!/^[a-z0-9._-]+\.tgz$/.test(entry.filename)) throw new Error(`Unsafe tarball name: ${entry.filename}`)
@@ -144,7 +149,7 @@ jobs:
             '@lupinum/vue-board',
             '@lupinum/board-history',
             '@lupinum/board-connections',
-            'nuxt-board',
+            '@lupinum/nuxt-board',
           ]
           const tag = process.env.RELEASE_VERSION.includes('-')
             ? process.env.RELEASE_VERSION.split('-')[1].split('.')[0]
@@ -180,11 +185,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const version = process.env.RELEASE_VERSION
+          const changelog = fs.readFileSync('.release/CHANGELOG.md', 'utf8').replaceAll('\r\n', '\n')
+          const marker = `## v${version}`
+          const start = changelog.startsWith(marker) ? 0 : changelog.indexOf(`\n${marker}`) + 1
+          if (start < 1 && !changelog.startsWith(marker)) throw new Error(`Missing changelog section for v${version}`)
+          const end = changelog.indexOf('\n## ', start + marker.length)
+          const notes = changelog.slice(start, end === -1 ? undefined : end).trim()
+          fs.writeFileSync('.release/RELEASE_NOTES.md', `${notes}\n`)
+          NODE
           prerelease=()
           case "$RELEASE_VERSION" in *-*) prerelease=(--prerelease) ;; esac
-          gh release create "v$RELEASE_VERSION" .release/*.tgz .release/SHA256SUMS .release/release-artifact.json \
+          gh release create "v$RELEASE_VERSION" .release/*.tgz .release/CHANGELOG.md .release/SHA256SUMS .release/release-artifact.json \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "v$RELEASE_VERSION" \
-            --generate-notes \
+            --notes-file .release/RELEASE_NOTES.md \
             "${prerelease[@]}"

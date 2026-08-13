@@ -22,7 +22,7 @@ engine.select(node.id)
 ```
 
 Use this package directly for framework-agnostic state and with
-`@lupinum/vue-board` or `nuxt-board` for rendering.
+`@lupinum/vue-board` or `@lupinum/nuxt-board` for rendering.
 
 The exported `@lupinum/board-core/internal` subpath is an unsupported ABI for
 separately published first-party packages. It is not capability-private, but

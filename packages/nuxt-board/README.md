@@ -1,4 +1,4 @@
-# nuxt-board
+# @lupinum/nuxt-board
 
 Nuxt module for [Vue Board](https://nuxt-board.lupinum.com/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
 
@@ -15,7 +15,7 @@ Nuxt module for [Vue Board](https://nuxt-board.lupinum.com/docs/reference/vue-bo
 Requires Nuxt 3.19 or newer, or Nuxt 4.
 
 ```bash
-pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
+pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 Then register the module:
@@ -23,7 +23,7 @@ Then register the module:
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
 })
 ```
 
@@ -61,7 +61,7 @@ With deterministic inputs, Nuxt can render the board shell and initial nodes dur
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
   board: {
     prefix: '',
     autoImportComponents: true,
@@ -79,8 +79,8 @@ When `prefix` is set, the module aliases the full auto-import surface consistent
 ## Local Development
 
 ```bash
-pnpm --filter nuxt-board build
-pnpm --filter nuxt-board dev
-pnpm --filter nuxt-board test
+pnpm --filter @lupinum/nuxt-board build
+pnpm --filter @lupinum/nuxt-board dev
+pnpm --filter @lupinum/nuxt-board test
 pnpm --filter nuxt-board-playground build
 ```
