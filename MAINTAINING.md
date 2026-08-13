@@ -84,3 +84,27 @@ require it.
    history.
 5. Deprecate untrusted versions and restore the last known-good dist-tags.
 6. Restore trusted publishing only after source and artifacts are verified.
+
+## Audit external settings
+
+Review these settings in January and July, and after an ownership or release
+workflow change.
+
+GitHub must have:
+
+- a protected `main` branch with pull requests, linear history, resolved review
+  threads, and only checks that active workflows emit;
+- squash merge as the only merge method, auto-merge enabled, and merged branches
+  deleted automatically;
+- protected release tags;
+- an `npm` environment that allows only `main`, requires a reviewer, and has no
+  package token;
+- private vulnerability reporting, secret scanning, push protection, automated
+  security fixes, and CodeQL Default Setup for JavaScript and TypeScript;
+- Renovate for routine dependency updates and CodeRabbit as an advisory reviewer.
+
+npm must bind all five `@lupinum/*board*` packages to `publish.yml` and the
+`npm` environment through trusted publishing.
+
+Vercel must deploy the documentation from `main` to `nuxt-board.lupinum.com`
+and create pull-request previews.
