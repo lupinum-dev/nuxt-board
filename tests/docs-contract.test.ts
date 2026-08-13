@@ -89,6 +89,19 @@ describe('docs demo contracts', () => {
     }
   })
 
+  it('verifies automated version pull requests without a second credential', () => {
+    const ciWorkflow = read('.github/workflows/ci.yml')
+    const releaseWorkflow = read('.github/workflows/release.yml')
+
+    expect(ciWorkflow).toContain('  workflow_dispatch:')
+    expect(releaseWorkflow).toContain('      actions: write')
+    expect(releaseWorkflow).toContain('        id: version-pr')
+    expect(releaseWorkflow).toContain(
+      '        run: gh workflow run ci.yml --ref release/version-packages',
+    )
+    expect(releaseWorkflow).not.toContain('PERSONAL_ACCESS_TOKEN')
+  })
+
   it('keeps the production documentation services configured', () => {
     const config = read('docs/app/app.config.ts')
     for (const marker of [
