@@ -16,6 +16,7 @@ playwright-report
 .nitro
 .data
 .pack-check
+.package-preview
 release-artifacts
 
 .env

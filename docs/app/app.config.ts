@@ -2,7 +2,7 @@ export default {
   ginkoDocs: {
     site: {
       url: 'https://nuxt-board.lupinum.com',
-      name: { en: 'Vue Board' },
+      name: { en: 'Nuxt Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
       logo: { light: '/app-icon.svg', dark: '/app-icon.svg' },
       docsSidebarSwitcher: 'tabs',
@@ -20,7 +20,7 @@ export default {
     repository: {
       url: 'https://github.com/lupinum-dev/nuxt-board',
       branch: 'main',
-      contentDirectory: 'apps/docs/content',
+      contentDirectory: 'docs/content',
     },
     landing: {
       eyebrow: { en: 'Headless engine. Focused Vue renderer.' },
@@ -34,7 +34,7 @@ export default {
       },
       secondary: {
         label: { en: 'Understand the system' },
-        to: { en: '/docs/evaluate/how-vue-board-works' },
+        to: { en: '/docs/evaluate/how-nuxt-board-works' },
       },
       features: [
         {

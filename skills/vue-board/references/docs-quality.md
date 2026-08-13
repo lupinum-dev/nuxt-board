@@ -50,7 +50,7 @@ Check source before changing claims about:
 Use these when doing docs review:
 
 ```bash
-rg -n "data\\.content|custom node types|node:task|type: 'task'|type: \"task\"|h-screen|20px grid|four routing|viewport slot|snap-guide-(width|glow)|serializable snapshot|documented persistence extension" README.md apps/docs/content packages/*/README.md
+rg -n "data\\.content|custom node types|node:task|type: 'task'|type: \"task\"|h-screen|20px grid|four routing|viewport slot|snap-guide-(width|glow)|serializable snapshot|documented persistence extension" README.md docs/content packages/*/README.md
 ```
 
 Check formatting and docs build:

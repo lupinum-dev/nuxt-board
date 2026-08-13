@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -5,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
 import * as boardConnections from '@lupinum/board-connections'
-import { createDemoDocument } from '../apps/docs/app/utils/demoDocument'
+import { createDemoDocument } from '../docs/app/utils/demoDocument'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -23,6 +24,184 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('uses Nuxt Board as the public product name', () => {
+    expect(read('docs/app/app.config.ts')).toContain(
+      "name: { en: 'Nuxt Board' }",
+    )
+    expect(read('docs/content.config.ts')).toContain("name: 'Nuxt Board'")
+    expect(read('README.md')).toContain('/docs/evaluate/why-nuxt-board')
+
+    for (const file of filesIn('docs/content').filter((file) =>
+      /\.(?:md|ts|vue)$/u.test(file),
+    )) {
+      expect(read(file), file).not.toMatch(
+        /Vue Board|why-vue-board|how-vue-board-works/u,
+      )
+    }
+  })
+
+  it('keeps contributor intake on the shared Lupinum contract', () => {
+    const trackedFiles = new Set(
+      execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
+        .trim()
+        .split('\n'),
+    )
+    for (const path of [
+      '.github/ISSUE_TEMPLATE/bug.md',
+      '.github/ISSUE_TEMPLATE/config.yml',
+      '.github/ISSUE_TEMPLATE/documentation.md',
+      '.github/ISSUE_TEMPLATE/proposal.md',
+      '.github/pull_request_template.md',
+    ]) {
+      expect(trackedFiles.has(path), `${path} must be tracked`).toBe(true)
+    }
+    expect(read('.github/ISSUE_TEMPLATE/documentation.md')).toContain(
+      'name: Documentation report',
+    )
+    const pullRequestTemplate = read('.github/pull_request_template.md')
+    for (const heading of [
+      'Result',
+      'Verification',
+      'Documentation and compatibility',
+      'Release note',
+      'Risk',
+    ]) {
+      expect(pullRequestTemplate).toContain(`## ${heading}`)
+    }
+    expect(pullRequestTemplate).toContain(
+      '- [ ] I ran `pnpm verify`, or I explained why it does not apply.',
+    )
+    expect(pullRequestTemplate).toContain(
+      '- [ ] I updated versions, migration guidance, and compatibility notes when the public contract changed.',
+    )
+
+    const maintaining = read('MAINTAINING.md')
+    for (const heading of [
+      'Prepare a quick fix',
+      'Prepare a large change',
+      'Change documentation',
+      'Prepare a release',
+      'Review dependency changes',
+      'Recover from a defective release',
+      'Respond to a credential incident',
+    ]) {
+      expect(maintaining).toContain(`## ${heading}`)
+    }
+  })
+
+  it('keeps the production documentation services configured', () => {
+    const config = read('docs/app/app.config.ts')
+    for (const marker of [
+      "plausible: { scriptId: 'QbYVActbnoESYSo2_4S8V' }",
+      'feedback: { enabled: true }',
+      'https://discord.gg/RPH6SeA36N',
+      'https://lupinum.com/impressum',
+      'https://lupinum.com/datenschutz',
+    ]) {
+      expect(config).toContain(marker)
+    }
+  })
+
+  it('keeps every public README on the Lupinum structure', () => {
+    const readmes = [
+      'README.md',
+      'packages/board-connections/README.md',
+      'packages/board-core/README.md',
+      'packages/board-history/README.md',
+      'packages/nuxt-board/README.md',
+      'packages/vue-board/README.md',
+    ]
+
+    for (const file of readmes) {
+      const source = read(file)
+      const headings = Array.from(source.matchAll(/^## (.+)$/gm), (match) =>
+        match[1]!.trim(),
+      )
+      const h1Count =
+        (source.match(/^# /gm)?.length ?? 0) +
+        (source.match(/<h1\b/gu)?.length ?? 0)
+
+      expect(h1Count, file).toBe(1)
+      expect(source, file).toContain('width="128"')
+      expect(source, file).toContain('https://nuxt-board.lupinum.com')
+      expect(source, file).toContain(
+        'https://github.com/lupinum-dev/nuxt-board',
+      )
+      expect(source, file).toContain('MIT License')
+      expect(source, file).toContain('npm/v/')
+      expect(source, file).toContain('actions/workflows/ci.yml')
+      expect(source, file).toContain('license-MIT')
+      expect(source, file).toContain('> [!WARNING]')
+      expect(source, file).not.toMatch(/\b(?:TODO|TBD|PLACEHOLDER)\b/i)
+
+      for (const heading of headings) {
+        const words = heading.split(/\s+/).slice(1)
+        expect(
+          words.filter((word) => /^[A-Z][A-Za-z-]*$/.test(word)),
+          `${file}: ${heading}`,
+        ).toEqual(
+          words.filter(
+            (word) =>
+              /^[A-Z][A-Za-z-]*$/.test(word) &&
+              ['API', 'Nuxt', 'Vue'].includes(word),
+          ),
+        )
+      }
+    }
+
+    const rootReadme = read('README.md')
+    const orderedSections = [
+      'Why use Nuxt Board?',
+      'When to use it',
+      'Requirements',
+      'Installation',
+      'Quick start',
+      'How it works',
+      'Main capabilities',
+      'Packages',
+      'Documentation',
+      'Contributing and development',
+      'Support and security',
+      'License',
+    ]
+    expect(
+      orderedSections.map((heading) => rootReadme.indexOf(`## ${heading}`)),
+    ).toEqual(
+      [...orderedSections]
+        .map((heading) => rootReadme.indexOf(`## ${heading}`))
+        .sort((left, right) => left - right),
+    )
+    expect(
+      orderedSections.every((heading) => rootReadme.includes(`## ${heading}`)),
+    ).toBe(true)
+
+    const packageSections = [
+      'Purpose',
+      'Requirements',
+      'Installation',
+      'Quick start',
+      'Exports',
+      'Documentation',
+      'Support and security',
+      'License',
+    ]
+    for (const file of readmes.slice(1)) {
+      const source = read(file)
+      expect(
+        packageSections.map((heading) => source.indexOf(`## ${heading}`)),
+        file,
+      ).toEqual(
+        [...packageSections]
+          .map((heading) => source.indexOf(`## ${heading}`))
+          .sort((left, right) => left - right),
+      )
+      expect(
+        packageSections.every((heading) => source.includes(`## ${heading}`)),
+        file,
+      ).toBe(true)
+    }
+  })
+
   it('keeps every package license identical to the repository license', () => {
     const canonical = read('LICENSE')
 
@@ -38,9 +217,9 @@ describe('docs demo contracts', () => {
   })
 
   it('documents only public board-core utility exports', () => {
-    const source = read(
-      'apps/docs/content/docs/6.reference/2.board-core.md',
-    ).split('## Math helpers')[1]!
+    const source = read('docs/content/docs/6.reference/2.board-core.md').split(
+      '## Math helpers',
+    )[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,
@@ -54,7 +233,7 @@ describe('docs demo contracts', () => {
 
   it('documents the board-core internal subpath as first-party ABI only', () => {
     for (const file of [
-      'apps/docs/content/docs/6.reference/2.board-core.md',
+      'docs/content/docs/6.reference/2.board-core.md',
       'ARCHITECTURE.md',
       'packages/board-core/README.md',
     ]) {
@@ -66,7 +245,7 @@ describe('docs demo contracts', () => {
   })
 
   it('documents public board-connections utility exports', () => {
-    const source = read('apps/docs/content/docs/6.reference/6.connections.md')
+    const source = read('docs/content/docs/6.reference/6.connections.md')
 
     for (const helper of [
       'resolveAnchorPoint',
@@ -84,9 +263,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps markdown examples copy-pasteable for known drift cases', () => {
-    const files = filesIn('apps/docs/content').filter((file) =>
-      file.endsWith('.md'),
-    )
+    const files = filesIn('docs/content').filter((file) => file.endsWith('.md'))
 
     for (const file of files) {
       const source = read(file)
@@ -100,7 +277,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps docs frontmatter complete', () => {
-    const files = filesIn('apps/docs/content/docs').filter(
+    const files = filesIn('docs/content/docs').filter(
       (file) => file.endsWith('.md') && !file.endsWith('/index.md'),
     )
 
@@ -113,7 +290,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps public docs free of generic closing sections and duplicate titles', () => {
-    const files = filesIn('apps/docs/content/docs').filter((file) =>
+    const files = filesIn('docs/content/docs').filter((file) =>
       file.endsWith('.md'),
     )
 
@@ -148,14 +325,14 @@ describe('docs demo contracts', () => {
   it('keeps security reporting contact consistent', () => {
     expect(read('SECURITY.md')).toContain('info@lupinum.com')
     expect(
-      read('apps/docs/content/docs/7.project/2.support-and-security.md'),
+      read('docs/content/docs/7.project/2.support-and-security.md'),
     ).toContain('info@lupinum.com')
   })
 
   it('does not pass runtime snapshots directly to loadDocument in demos', () => {
-    const files = readdirSync(resolve(root, 'apps/docs/app/components/demos'))
+    const files = readdirSync(resolve(root, 'docs/app/components/demos'))
       .filter((file) => file.endsWith('.vue'))
-      .map((file) => `apps/docs/app/components/demos/${file}`)
+      .map((file) => `docs/app/components/demos/${file}`)
 
     for (const file of files) {
       const source = read(file)

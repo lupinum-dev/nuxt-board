@@ -3,6 +3,10 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import {
+  extractGeneratedRelease,
+  mergeReleaseSection,
+} from './changelog-utils.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const packageManifests = [
@@ -33,37 +37,10 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1)
 }
 
-const generated = result.stdout
-  .replace(/^\s*##\s+[^\n]+/u, `## v${version}`)
-  .trim()
-if (!generated.startsWith(`## v${version}\n`)) {
-  throw new Error('Changelogen did not produce a release section.')
-}
+const generated = extractGeneratedRelease(result.stdout, version)
 
 const changelogPath = resolve(root, 'CHANGELOG.md')
 const current = existsSync(changelogPath)
   ? readFileSync(changelogPath, 'utf8')
   : '# Changelog\n'
-const marker = `## v${version}`
-const normalizedCurrent = current.replaceAll('\r\n', '\n').trimEnd()
-const markerAt = normalizedCurrent.startsWith(marker)
-  ? 0
-  : normalizedCurrent.indexOf(`\n${marker}`) + 1
-
-let next
-if (markerAt > 0 || normalizedCurrent.startsWith(marker)) {
-  const nextSectionAt = normalizedCurrent.indexOf(
-    '\n## ',
-    markerAt + marker.length,
-  )
-  const before = normalizedCurrent.slice(0, markerAt).trimEnd()
-  const after =
-    nextSectionAt === -1
-      ? ''
-      : normalizedCurrent.slice(nextSectionAt + 1).trim()
-  next = [before, generated, after].filter(Boolean).join('\n\n') + '\n'
-} else {
-  next = `${normalizedCurrent}\n\n${generated}\n`
-}
-
-writeFileSync(changelogPath, next)
+writeFileSync(changelogPath, mergeReleaseSection(current, generated, version))

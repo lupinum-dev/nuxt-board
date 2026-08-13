@@ -44,7 +44,7 @@ not a loop to repeat during normal development.
 
 ## Documentation
 
-Public documentation lives in `apps/docs/content/docs`, organized by reader
+Public documentation lives in `docs/content/docs`, organized by reader
 intent: evaluation, setup, system concepts, feature guides, solutions,
 reference, and project policy. Write each page for one reader and one job. Keep
 claims about defaults and public behavior aligned with source and contract

@@ -9,7 +9,7 @@ const systemFonts = {
   provider: 'local',
 } satisfies NonNullable<NuxtConfig['fonts']>
 const workspacePackage = (path: string) =>
-  fileURLToPath(new URL(`../../packages/${path}`, import.meta.url))
+  fileURLToPath(new URL(`../packages/${path}`, import.meta.url))
 const nuxtBoardModule = workspacePackage('nuxt-board/src/module.ts')
 const boardCoreInternal = workspacePackage('board-core/src/internal.ts')
 const boardCore = workspacePackage('board-core/src/index.ts')

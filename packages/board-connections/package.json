@@ -1,7 +1,7 @@
 {
   "name": "@lupinum/board-connections",
   "version": "0.1.0",
-  "description": "Connection and edge rendering plugin for Vue Board.",
+  "description": "Connection and edge rendering plugin for Nuxt Board.",
   "license": "MIT",
   "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",

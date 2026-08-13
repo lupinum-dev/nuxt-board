@@ -5,7 +5,7 @@ ASD-STE100 Issue 9. It does not claim formal ASD-STE100 compliance.
 
 The website is consumer documentation for the Nuxt Board package family.
 Package source and public tests define behavior. The pages under
-`apps/docs/content/docs` explain that behavior without exposing repository
+`docs/content/docs` explain that behavior without exposing repository
 internals.
 
 ## Organize by reader intent

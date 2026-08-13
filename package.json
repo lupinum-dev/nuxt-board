@@ -8,8 +8,10 @@
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter @lupinum/board-core build && pnpm --filter @lupinum/board-history --filter @lupinum/vue-board -r build && pnpm --filter @lupinum/board-connections build && pnpm --filter @lupinum/nuxt-board build",
     "build:docs": "pnpm --filter docs build",
+    "docs:build": "pnpm build:packages && pnpm build:docs",
     "audit:all": "pnpm audit",
     "changelog": "node scripts/changelog.mjs",
+    "check:vercel": "node scripts/check-vercel-config.mjs",
     "dev": "pnpm dev:playground",
     "dev:docs": "pnpm --filter docs dev",
     "dev:playground": "pnpm --filter @lupinum/board-playground dev",
@@ -17,6 +19,7 @@
     "format:check": "prettier . --check",
     "lint": "pnpm --filter docs lint && pnpm --filter @lupinum/nuxt-board lint",
     "pack:check": "node scripts/pack-check.mjs",
+    "package-preview:build": "node scripts/build-package-preview.mjs",
     "release:pack": "node scripts/pack-check.mjs --retain",
     "release:version": "changeset version && pnpm changelog",
     "test": "pnpm test:unit && pnpm test:e2e",
@@ -27,8 +30,9 @@
     "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter @lupinum/nuxt-board test:types",
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
     "verify:library": "pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm test:docs",
-    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm changeset status --since=origin/main && pnpm release:pack"
+    "verify": "pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm test:docs",
+    "release:notes:check": "node scripts/check-release-notes.mjs",
+    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm release:notes:check && pnpm release:pack"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
@@ -41,6 +45,7 @@
     "eslint-config-prettier": "^10.1.8",
     "fast-check": "^4.9.0",
     "jsdom": "^29.1.1",
+    "pkg-pr-new": "0.0.87",
     "prettier": "^3.9.5",
     "tailwindcss": "^4.3.2",
     "tsup": "^8.5.1",

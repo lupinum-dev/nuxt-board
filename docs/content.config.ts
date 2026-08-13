@@ -2,7 +2,7 @@ import { defineGinkoDocsConfig } from '@lupinum/ginko-docs/content'
 
 export default defineGinkoDocsConfig({
   site: {
-    name: 'Vue Board',
+    name: 'Nuxt Board',
     description:
       'A command-driven board engine and Vue renderer for products that need a real document model.',
     url: 'https://nuxt-board.lupinum.com',
