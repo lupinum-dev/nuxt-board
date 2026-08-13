@@ -28,13 +28,22 @@ describe('changelog generation', () => {
     )
   })
 
-  it('replaces the current release section without changing older releases', () => {
+  it('preserves curated notes for a version that already exists', () => {
     const current =
       '# Changelog\n\n## v0.1.0\n\nOld notes.\n\n## v0.0.1\n\nEarlier notes.\n'
     const generated = '## v0.1.0\n\nNew notes.'
 
     expect(mergeReleaseSection(current, generated, '0.1.0')).toBe(
-      '# Changelog\n\n## v0.1.0\n\nNew notes.\n\n## v0.0.1\n\nEarlier notes.\n',
+      '# Changelog\n\n## v0.1.0\n\nOld notes.\n\n## v0.0.1\n\nEarlier notes.\n',
+    )
+  })
+
+  it('adds generated notes when the version does not exist', () => {
+    const current = '# Changelog\n\n## v0.1.0\n\nFirst release.\n'
+    const generated = '## v0.2.0\n\n### Features\n\n- add exports'
+
+    expect(mergeReleaseSection(current, generated, '0.2.0')).toBe(
+      '# Changelog\n\n## v0.1.0\n\nFirst release.\n\n## v0.2.0\n\n### Features\n\n- add exports\n',
     )
   })
 })
