@@ -1,5 +1,17 @@
 # Contributing
 
+## Read this first
+
+Nuxt Board currently accepts limited contributions. You can open an issue or a
+pull request, but Lupinum OG can close or defer work that does not fit the
+current direction.
+
+We are most likely to accept small bug fixes, reliability fixes, focused
+documentation corrections, and maintenance that reduces complexity.
+
+Open an issue before you start a feature, a breaking change, or a large
+refactor.
+
 ## Local setup
 
 ```bash
@@ -18,6 +30,7 @@ documentation site with `pnpm dev:docs`.
 - Add or update tests for user-visible behavior changes.
 - Keep domain rules in the headless packages rather than Vue, Nuxt, or other
   transport layers.
+- Use Conventional Commits.
 
 Start with the narrowest relevant test while working. Before handoff, run:
 

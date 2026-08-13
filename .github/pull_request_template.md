@@ -1,15 +1,16 @@
-## Summary
+## Result
 
-Describe one focused change and the user problem it solves.
+<!-- State what changed and why it is necessary. -->
 
-## Testing
+## Verification
 
-- [ ] I ran the smallest relevant checks while working.
-- [ ] I ran the repository handoff gate, or I explained why it does not apply.
-- [ ] I updated public documentation for changed behavior.
+<!-- List the exact commands and browser checks that passed. -->
+
+## Documentation and compatibility
+
+- [ ] I updated public documentation when behavior changed.
+- [ ] I added tests for the changed invariant or failure boundary.
 - [ ] I added a Changeset for a publishable package change.
-
-## Risks
-
-State compatibility, security, release, and rollback risks. Write `None` when
-the change has no material risk.
+- [ ] I kept domain rules in the headless packages.
+- [ ] I kept this pull request focused on one concern.
+- [ ] I did not include credentials, customer data, or generated output.
