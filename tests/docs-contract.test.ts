@@ -109,6 +109,9 @@ describe('docs demo contracts', () => {
 
       expect(body, file).not.toMatch(/^# /m)
       expect(body, file).not.toMatch(/^## (Related|Conclusion|Next)$/m)
+      expect(body, file).not.toMatch(
+        /\b(?:aren['’]t|can['’]t|couldn['’]t|didn['’]t|doesn['’]t|don['’]t|hadn['’]t|hasn['’]t|haven['’]t|isn['’]t|it['’]s|shouldn['’]t|that['’]s|there['’]s|they['’]re|we['’]re|weren['’]t|what['’]s|won['’]t|wouldn['’]t|you['’]ll|you['’]re)\b/i,
+      )
     }
   })
 
