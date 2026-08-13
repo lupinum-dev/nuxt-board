@@ -1,17 +1,18 @@
 {
-  "name": "nuxt-board",
+  "name": "@lupinum/nuxt-board",
   "version": "0.1.0",
   "description": "Nuxt module for @lupinum/vue-board with board component and composable auto-imports.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "url": "git+https://github.com/lupinum-dev/nuxt-board.git",
     "directory": "packages/nuxt-board"
   },
-  "homepage": "https://vue-board.vercel.app",
+  "homepage": "https://nuxt-board.lupinum.com",
   "bugs": {
-    "url": "https://github.com/Mat4m0/canvas/issues"
+    "url": "https://github.com/lupinum-dev/nuxt-board/issues"
   },
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"

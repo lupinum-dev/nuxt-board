@@ -17,7 +17,7 @@
     "@lupinum/ginko-docs": "0.3.0-rc.3",
     "@lupinum/vue-board": "workspace:*",
     "nuxt": "4.5.2",
-    "nuxt-board": "workspace:*",
+    "@lupinum/nuxt-board": "workspace:*",
     "vue": "^3.5.39",
     "vue-router": "^5.2.0"
   },

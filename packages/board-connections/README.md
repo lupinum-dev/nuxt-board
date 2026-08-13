@@ -28,6 +28,6 @@ engine.plugins.connections.createEdge({
 
 Render `BoardConnectionLayer` anywhere under `BoardRoot`; it uses the board context and positions its SVG layer against the board root.
 
-- Docs: https://vue-board.vercel.app/docs/reference/connections
-- Issues: https://github.com/Mat4m0/canvas/issues
+- Docs: https://nuxt-board.lupinum.com/docs/reference/connections
+- Issues: https://github.com/lupinum-dev/nuxt-board/issues
 - License: MIT

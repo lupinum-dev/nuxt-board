@@ -23,10 +23,24 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('keeps every package license identical to the repository license', () => {
+    const canonical = read('LICENSE')
+
+    for (const file of [
+      'packages/board-connections/LICENSE',
+      'packages/board-core/LICENSE',
+      'packages/board-history/LICENSE',
+      'packages/nuxt-board/LICENSE',
+      'packages/vue-board/LICENSE',
+    ]) {
+      expect(read(file), file).toBe(canonical)
+    }
+  })
+
   it('documents only public board-core utility exports', () => {
     const source = read(
       'apps/docs/content/docs/6.reference/2.board-core.md',
-    ).split('## Math Helpers')[1]!
+    ).split('## Math helpers')[1]!
     const documentedHelpers = Array.from(
       source.matchAll(/^### ([A-Za-z_$][\w$]*)$/gm),
       (match) => match[1]!,
@@ -98,11 +112,44 @@ describe('docs demo contracts', () => {
     }
   })
 
+  it('keeps public docs free of generic closing sections and duplicate titles', () => {
+    const files = filesIn('apps/docs/content/docs').filter((file) =>
+      file.endsWith('.md'),
+    )
+
+    for (const file of files) {
+      const source = read(file)
+      const body = source.replace(/^---\n[\s\S]*?\n---\n/, '')
+      const title = source.match(/^title:\s*['"]?(.+?)['"]?\s*$/m)?.[1]
+
+      expect(body, file).not.toMatch(/^# /m)
+      expect(body, file).not.toMatch(/^## (Related|Conclusion|Next)$/m)
+      expect(body, file).not.toMatch(
+        /\b(?:aren['’]t|can['’]t|couldn['’]t|didn['’]t|doesn['’]t|don['’]t|hadn['’]t|hasn['’]t|haven['’]t|isn['’]t|it['’]s|shouldn['’]t|that['’]s|there['’]s|they['’]re|we['’]re|weren['’]t|what['’]s|won['’]t|wouldn['’]t|you['’]ll|you['’]re)\b/i,
+      )
+
+      if (title) {
+        const uppercaseWords = title
+          .split(/\s+/)
+          .slice(1)
+          .filter((word) => /^[A-Z][A-Za-z-]*$/.test(word))
+
+        expect(uppercaseWords, file).toEqual(
+          uppercaseWords.filter((word) =>
+            ['API', 'Board', 'Canvas', 'JSON', 'Nuxt', 'SSR', 'Vue'].includes(
+              word,
+            ),
+          ),
+        )
+      }
+    }
+  })
+
   it('keeps security reporting contact consistent', () => {
-    expect(read('SECURITY.md')).toContain('security@lupinum.dev')
+    expect(read('SECURITY.md')).toContain('info@lupinum.com')
     expect(
       read('apps/docs/content/docs/7.project/2.support-and-security.md'),
-    ).toContain('security@lupinum.dev')
+    ).toContain('info@lupinum.com')
   })
 
   it('does not pass runtime snapshots directly to loadDocument in demos', () => {

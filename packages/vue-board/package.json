@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Vue 3 board components and composables built on top of @lupinum/board-core.",
   "license": "MIT",
+  "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -16,22 +17,24 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./minimap": {
       "types": "./dist/minimap.d.ts",
-      "import": "./dist/minimap.js"
+      "import": "./dist/minimap.js",
+      "default": "./dist/minimap.js"
     },
     "./style.css": "./dist/index.css"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mat4m0/canvas.git",
+    "url": "git+https://github.com/lupinum-dev/nuxt-board.git",
     "directory": "packages/vue-board"
   },
-  "homepage": "https://vue-board.vercel.app",
+  "homepage": "https://nuxt-board.lupinum.com",
   "bugs": {
-    "url": "https://github.com/Mat4m0/canvas/issues"
+    "url": "https://github.com/lupinum-dev/nuxt-board/issues"
   },
   "keywords": [
     "board",

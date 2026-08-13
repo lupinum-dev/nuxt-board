@@ -1,4 +1,5 @@
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -7,8 +8,9 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +20,8 @@ const tarballDir = join(outputDir, 'tarballs')
 const unpackDir = join(outputDir, 'unpacked')
 const consumerDir = join(outputDir, 'consumer')
 const headlessConsumerDir = join(outputDir, 'headless-consumer')
+const releaseArtifactsDir = join(rootDir, 'release-artifacts')
+const retainArtifacts = process.argv.includes('--retain')
 const packageDirs = [
   'packages/board-core',
   'packages/vue-board',
@@ -205,6 +209,18 @@ for (const tarball of tarballs) {
   const packageRoot = unpackTarball(tarball)
   const manifest = readJson(join(packageRoot, 'package.json'))
   assertNoWorkspaceProtocols(manifest)
+  if (
+    manifest.author !== 'Lupinum OG <info@lupinum.com> (https://lupinum.com)'
+  ) {
+    throw new Error(
+      `${manifest.name} does not identify Lupinum OG as the package author.`,
+    )
+  }
+  if (manifest.homepage !== 'https://nuxt-board.lupinum.com') {
+    throw new Error(
+      `${manifest.name} does not link to the canonical documentation site.`,
+    )
+  }
   packedPackages.set(manifest.name, {
     manifest,
     packageRoot,
@@ -234,6 +250,14 @@ for (const tarball of tarballs) {
   assertNoLocalPaths(packageRoot)
 }
 
+const packageVersions = new Set(
+  Array.from(packedPackages.values(), ({ manifest }) => manifest.version),
+)
+if (packageVersions.size !== 1) {
+  throw new Error('All public packages must use one fixed release version.')
+}
+const [fixedReleaseVersion] = packageVersions
+
 const packedVueBoard = packedPackages.get('@lupinum/vue-board')
 if (!packedVueBoard) throw new Error('Packed Vue Board package is missing.')
 if (packedVueBoard.manifest.dependencies?.['@lupinum/board-core']) {
@@ -252,13 +276,13 @@ const expectedFirstPartyPeers = [
   ['@lupinum/board-history', '@lupinum/board-core'],
   ['@lupinum/board-connections', '@lupinum/board-core'],
   ['@lupinum/board-connections', '@lupinum/vue-board'],
-  ['nuxt-board', '@lupinum/board-core'],
-  ['nuxt-board', '@lupinum/vue-board'],
+  ['@lupinum/nuxt-board', '@lupinum/board-core'],
+  ['@lupinum/nuxt-board', '@lupinum/vue-board'],
 ]
 for (const [packageName, peerName] of expectedFirstPartyPeers) {
   const range =
     packedPackages.get(packageName)?.manifest.peerDependencies?.[peerName]
-  if (range !== '0.1.0') {
+  if (range !== fixedReleaseVersion) {
     throw new Error(
       `${packageName} must publish ${peerName} at the same first-party release version; received ${String(range)}.`,
     )
@@ -421,7 +445,7 @@ run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-board.json')])
 
 writeFileSync(
   join(consumerDir, 'consumer-nuxt.ts'),
-  `import nuxtBoard from 'nuxt-board'
+  `import nuxtBoard from '@lupinum/nuxt-board'
 
 void nuxtBoard
 `,
@@ -445,7 +469,7 @@ writeFileSync(
 )
 run('pnpm', ['exec', 'tsc', '-p', join(consumerDir, 'tsconfig-nuxt.json')])
 
-const packedNuxtBoard = packedPackages.get('nuxt-board')
+const packedNuxtBoard = packedPackages.get('@lupinum/nuxt-board')
 if (!packedNuxtBoard) throw new Error('Packed Nuxt Board package is missing.')
 
 async function verifyNuxtVersion(label, nuxtVersion) {
@@ -453,7 +477,7 @@ async function verifyNuxtVersion(label, nuxtVersion) {
   const localPackages = {
     '@lupinum/board-core': `file:${packedCore.tarball}`,
     '@lupinum/vue-board': `file:${packedVueBoard.tarball}`,
-    'nuxt-board': `file:${packedNuxtBoard.tarball}`,
+    '@lupinum/nuxt-board': `file:${packedNuxtBoard.tarball}`,
   }
   mkdirSync(nuxtConsumerDir, { recursive: true })
   writeFileSync(
@@ -478,7 +502,7 @@ async function verifyNuxtVersion(label, nuxtVersion) {
   )
   writeFileSync(
     join(nuxtConsumerDir, 'nuxt.config.ts'),
-    `export default defineNuxtConfig({ modules: ['nuxt-board'] })\n`,
+    `export default defineNuxtConfig({ modules: ['@lupinum/nuxt-board'] })\n`,
   )
   writeFileSync(
     join(nuxtConsumerDir, 'tsconfig.json'),
@@ -510,5 +534,60 @@ const engine = createBoardEngine({
 
 await verifyNuxtVersion('3-19', '3.19.0')
 await verifyNuxtVersion('4-0', '4.0.0')
+
+if (retainArtifacts) {
+  rmSync(releaseArtifactsDir, { recursive: true, force: true })
+  mkdirSync(releaseArtifactsDir, { recursive: true })
+
+  const artifacts = Array.from(
+    packedPackages,
+    ([name, { manifest, tarball }]) => {
+      const filename = basename(tarball)
+      const destination = join(releaseArtifactsDir, filename)
+      copyFileSync(tarball, destination)
+      const sha256 = createHash('sha256')
+        .update(readFileSync(destination))
+        .digest('hex')
+      return { name, version: manifest.version, filename, sha256 }
+    },
+  ).sort((left, right) => left.name.localeCompare(right.name))
+
+  const changelogSource = join(rootDir, 'CHANGELOG.md')
+  let changelog
+  if (existsSync(changelogSource)) {
+    const filename = 'CHANGELOG.md'
+    const destination = join(releaseArtifactsDir, filename)
+    copyFileSync(changelogSource, destination)
+    changelog = {
+      filename,
+      sha256: createHash('sha256')
+        .update(readFileSync(destination))
+        .digest('hex'),
+    }
+  }
+
+  const checksummedFiles = changelog ? [...artifacts, changelog] : artifacts
+
+  writeFileSync(
+    join(releaseArtifactsDir, 'SHA256SUMS'),
+    `${checksummedFiles.map(({ filename, sha256 }) => `${sha256}  ${filename}`).join('\n')}\n`,
+  )
+  writeFileSync(
+    join(releaseArtifactsDir, 'release-artifact.json'),
+    `${JSON.stringify(
+      {
+        commit: execFileSync('git', ['rev-parse', 'HEAD'], {
+          cwd: rootDir,
+          encoding: 'utf8',
+        }).trim(),
+        version: fixedReleaseVersion,
+        ...(changelog ? { changelog } : {}),
+        packages: artifacts,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+}
 
 rmSync(outputDir, { recursive: true, force: true })

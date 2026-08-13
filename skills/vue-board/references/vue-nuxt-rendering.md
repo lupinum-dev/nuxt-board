@@ -1,6 +1,6 @@
 # Vue and Nuxt Rendering Reference
 
-Use this reference for `@lupinum/vue-board` and `nuxt-board` implementation patterns.
+Use this reference for `@lupinum/vue-board` and `@lupinum/nuxt-board` implementation patterns.
 
 ## Contents
 
@@ -54,12 +54,12 @@ If the board is blank, first check container height and stylesheet import.
 ## Nuxt Setup
 
 ```bash
-pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
+pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
 })
 ```
 

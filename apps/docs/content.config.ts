@@ -5,7 +5,7 @@ export default defineGinkoDocsConfig({
     name: 'Vue Board',
     description:
       'A command-driven board engine and Vue renderer for products that need a real document model.',
-    url: 'https://vue-board.vercel.app',
+    url: 'https://nuxt-board.lupinum.com',
   },
   locales: ['en'],
   blog: false,

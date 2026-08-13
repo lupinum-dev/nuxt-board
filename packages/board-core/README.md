@@ -22,7 +22,7 @@ engine.select(node.id)
 ```
 
 Use this package directly for framework-agnostic state and with
-`@lupinum/vue-board` or `nuxt-board` for rendering.
+`@lupinum/vue-board` or `@lupinum/nuxt-board` for rendering.
 
 The exported `@lupinum/board-core/internal` subpath is an unsupported ABI for
 separately published first-party packages. It is not capability-private, but
@@ -30,6 +30,6 @@ applications should use the top-level API and supported `plugins` instead.
 The first-party packages release in lockstep so this internal boundary always
 resolves to the matching implementation version.
 
-- Docs: https://vue-board.vercel.app/docs/reference/board-core
-- Issues: https://github.com/Mat4m0/canvas/issues
+- Docs: https://nuxt-board.lupinum.com/docs/reference/board-core
+- Issues: https://github.com/lupinum-dev/nuxt-board/issues
 - License: MIT

@@ -1,8 +1,9 @@
-# Security Policy
+# Security policy
 
 Please report security issues privately instead of opening a public issue.
 
-- Email security@lupinum.dev with a clear description and reproduction details.
+- Use GitHub private vulnerability reporting for this repository.
+- If that channel is not available, email [info@lupinum.com](mailto:info@lupinum.com).
 - Include affected packages, versions, and impact.
 - You will receive confirmation and a remediation update when triaged.
 

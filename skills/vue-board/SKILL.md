@@ -38,7 +38,7 @@ Use this skill to keep Vue Board integrations simple, source-aligned, and copy-p
 
 1. Install the minimal packages:
    - Vue: `@lupinum/board-core` and `@lupinum/vue-board`
-   - Nuxt: `nuxt-board`, `@lupinum/board-core`, and `@lupinum/vue-board`
+   - Nuxt: `@lupinum/nuxt-board`, `@lupinum/board-core`, and `@lupinum/vue-board`
    - Add `@lupinum/board-connections`, `@lupinum/board-history`, or `@lupinum/vue-board/minimap` only when needed.
 2. Create one `BoardEngine` and keep it out of Vue deep reactivity. Use `shallowRef(engine)` only if it must live in Vue state.
 3. Seed deterministic scenes with complete `initialNodes` records and stable `asNodeId(...)` IDs, especially for SSR/tests. Use `createNode()` when partial `NodeInput` is better.

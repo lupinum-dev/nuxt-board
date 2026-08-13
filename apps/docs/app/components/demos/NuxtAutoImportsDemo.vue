@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import { createBoardEngine, createDemoDocument } from '#imports'
 
-// The generated #imports entry verifies the helpers are registered by nuxt-board.
+// The generated #imports entry verifies the helpers are registered by @lupinum/nuxt-board.
 const engine = createBoardEngine({
   grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
 })

@@ -9,45 +9,89 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  NODE_OPTIONS: --max-old-space-size=4096
-
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  prepare-version:
+    name: Prepare version files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
+      contents: read
+    outputs:
+      has_changes: ${{ steps.generate.outputs.has_changes }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.10.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 24.18.0
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Generate version files without write credentials
+        id: generate
+        run: |
+          pnpm release:version
+          git add --intent-to-add .
+          if git diff --quiet; then
+            echo 'has_changes=false' >> "$GITHUB_OUTPUT"
+            touch version.patch
+          else
+            echo 'has_changes=true' >> "$GITHUB_OUTPUT"
+            git diff --binary --full-index > version.patch
+          fi
 
-      - name: Verify release
-        run: pnpm release:verify
+      - name: Retain version patch
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: version-patch
+          path: version.patch
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Prepare version pull request
-        uses: changesets/action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  version-pr:
+    name: Open version pull request
+    needs: prepare-version
+    if: needs.prepare-version.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: version-patch
+          path: ${{ runner.temp }}/version-patch
+
+      - name: Apply the unprivileged version patch
+        run: git apply --index "${{ runner.temp }}/version-patch/version.patch"
+
+      - name: Create or update the version pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/version-packages
+          commit-message: 'chore: version packages'
+          title: 'chore: version packages'
+          body: |
+            This pull request updates package versions and release notes from reviewed Changesets.
+
+            Merge it only after the complete release verification passes.
+          delete-branch: true

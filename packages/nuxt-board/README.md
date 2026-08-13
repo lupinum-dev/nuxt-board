@@ -1,8 +1,8 @@
-# nuxt-board
+# @lupinum/nuxt-board
 
-Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
+Nuxt module for [Vue Board](https://nuxt-board.lupinum.com/docs/reference/vue-board) that wires board component/composable auto-imports, helper imports, and styles.
 
-## What It Does
+## What it does
 
 - Auto-imports `BoardRoot`, `BoardNode`, `BoardViewport`, `BoardGrid`, `BoardBoxSelect`, `BoardNodeHandle`, `BoardSelectionToolbar`, `BoardSnapGuides`, and `BoardMinimap`
 - Auto-imports the core board composables plus `useBoardMinimap`
@@ -15,7 +15,7 @@ Nuxt module for [Vue Board](https://vue-board.vercel.app/docs/reference/vue-boar
 Requires Nuxt 3.19 or newer, or Nuxt 4.
 
 ```bash
-pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
+pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 Then register the module:
@@ -23,7 +23,7 @@ Then register the module:
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
 })
 ```
 
@@ -53,15 +53,15 @@ engine.createNode({
 </template>
 ```
 
-## SSR Notes
+## SSR notes
 
-With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/Mat4m0/canvas/tree/main/packages/nuxt-board/playground).
+With deterministic inputs, Nuxt can render the board shell and initial nodes during SSR. Use stable IDs for setup-time content so server HTML and client hydration match. The reference playground lives at [packages/nuxt-board/playground](https://github.com/lupinum-dev/nuxt-board/tree/main/packages/nuxt-board/playground).
 
-## Module Options
+## Module options
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
   board: {
     prefix: '',
     autoImportComponents: true,
@@ -76,11 +76,11 @@ When `prefix` is set, the module aliases the full auto-import surface consistent
 - Composables: `useMyBoardEngine()`, `useMyBoardCamera()`, ...
 - Helpers: `createMyBoardEngine()`
 
-## Local Development
+## Local development
 
 ```bash
-pnpm --filter nuxt-board build
-pnpm --filter nuxt-board dev
-pnpm --filter nuxt-board test
+pnpm --filter @lupinum/nuxt-board build
+pnpm --filter @lupinum/nuxt-board dev
+pnpm --filter @lupinum/nuxt-board test
 pnpm --filter nuxt-board-playground build
 ```

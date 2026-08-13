@@ -1,6 +1,6 @@
 import { defineNuxtModule, addComponent, addImports } from '@nuxt/kit'
 
-/** Configuration for the `nuxt-board` module. */
+/** Configuration for the `@lupinum/nuxt-board` module. */
 export interface ModuleOptions {
   /**
    * Optional prefix for all auto-imported board exports.
@@ -54,7 +54,7 @@ function normalizePrefix(prefix: string | undefined): string {
 
   if (normalized && !/^[A-Z][A-Za-z0-9]*$/.test(normalized)) {
     throw new Error(
-      'nuxt-board: `board.prefix` must start with a letter and contain only letters or numbers.',
+      '@lupinum/nuxt-board: `board.prefix` must start with a letter and contain only letters or numbers.',
     )
   }
 
@@ -76,7 +76,7 @@ function getHelperAlias(name: string, prefix: string): string {
 /** Nuxt module that auto-registers the board components and composables. */
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: 'nuxt-board',
+    name: '@lupinum/nuxt-board',
     configKey: 'board',
     compatibility: {
       nuxt: '^3.19.0 || ^4.0.0',

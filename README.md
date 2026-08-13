@@ -4,7 +4,7 @@ Vue Board is a Vue 3 and Nuxt toolkit for building node-based editors: workflow 
 
 It gives you a headless board engine plus Vue rendering. The engine owns the model and commands; Vue renders that model and translates DOM input into board actions. Optional packages add history, connections, minimaps, and Nuxt auto-imports.
 
-## Is This For You?
+## Is this for you?
 
 Use Vue Board when you need:
 
@@ -17,7 +17,7 @@ Use Vue Board when you need:
 
 This is probably not the right starting point if you only need a static diagram renderer, a general-purpose drawing app, or a complete low-code workflow product with backend execution semantics. Vue Board is the canvas/model layer, not your product domain.
 
-## Quick Start
+## Quick start
 
 ```bash
 pnpm add @lupinum/board-core @lupinum/vue-board
@@ -52,16 +52,16 @@ engine.createNode({
 For Nuxt:
 
 ```bash
-pnpm add nuxt-board @lupinum/board-core @lupinum/vue-board
+pnpm add @lupinum/nuxt-board @lupinum/board-core @lupinum/vue-board
 ```
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-board'],
+  modules: ['@lupinum/nuxt-board'],
 })
 ```
 
-## How It Works
+## How it works
 
 `createBoardEngine()` creates the source of truth. Application code changes the board through commands such as `createNode`, `updateNode`, `select`, `zoomToFit`, and `loadDocument`. Pointer sessions are owned by `BoardRoot` through a framework-only adapter.
 
@@ -87,12 +87,12 @@ Install only the pieces you need.
 | ---------------------------- | ---------------------------------------------------------------------------- |
 | `@lupinum/board-core`        | Headless board state, commands, types, math helpers, hierarchy, and events.  |
 | `@lupinum/vue-board`         | Vue board shell, pointer interaction, default UI, styles, and composables.   |
-| `nuxt-board`                 | Nuxt module with board component/composable auto-imports.                    |
+| `@lupinum/nuxt-board`        | Nuxt module with board component/composable auto-imports.                    |
 | `@lupinum/board-connections` | Edges, anchors, labels, routing, connection state, and connection rendering. |
 | `@lupinum/board-history`     | Undo and redo for engine commands.                                           |
 | `@lupinum/vue-board/minimap` | Minimap composable and renderer.                                             |
 
-## What You Get
+## What you get
 
 - Nodes: JSON Canvas node types (`text`, `file`, `link`, `group`) with geometry, hierarchy, colors, locking, visibility, and custom renderers.
 - Interaction: drag, resize, select, box-select, keyboard shortcuts, pan, zoom, snap-to-grid, and edge snapping.
@@ -100,7 +100,7 @@ Install only the pieces you need.
 - Extensibility: first-party history, connections, and minimap packages without a required all-in-one bundle.
 - Performance basics: viewport culling, level of detail rendering, requestAnimationFrame pointer updates, and batched command notifications.
 - Persistence: JSON Canvas import/export in core, with connection metadata handled by the connections package when installed.
-- SSR/Nuxt: deterministic initial state support and Nuxt auto-imports through `nuxt-board`.
+- SSR/Nuxt: deterministic initial state support and Nuxt auto-imports through `@lupinum/nuxt-board`.
 
 ## Development
 
@@ -112,7 +112,7 @@ pnpm dev:docs
 ```
 
 Use Node 20.19 or newer. The packages support Vue 3.5 or newer, and
-`nuxt-board` supports Nuxt 3.19+ and Nuxt 4.
+`@lupinum/nuxt-board` supports Nuxt 3.19+ and Nuxt 4.
 
 Run the repository gate before handing off a change:
 
@@ -136,10 +136,15 @@ API reference pages are maintained in `apps/docs/content/docs/6.reference`.
 
 ## Project policy
 
-Report bugs through [GitHub Issues](https://github.com/Mat4m0/canvas/issues)
+Report bugs through [GitHub Issues](https://github.com/lupinum-dev/nuxt-board/issues)
 and security issues through [the private reporting process](SECURITY.md). See
 [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
-Every publishable change carries a Changeset. Before 1.0, breaking public API
-changes are released as a minor version; patch releases preserve documented
-behavior. All packages are available under the [MIT License](LICENSE).
+Every publishable change carries a Changeset. The release workflow uses
+Changelogen to update `CHANGELOG.md` from the accepted commits. Before 1.0,
+breaking public API changes are released as a minor version. Patch releases
+preserve documented behavior. All packages are available under the
+[MIT License](LICENSE).
+
+For support and project discussion, join the
+[Lupinum OSS Discord](https://discord.gg/RPH6SeA36N).
