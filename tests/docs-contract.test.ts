@@ -37,6 +37,19 @@ describe('docs demo contracts', () => {
     ]) {
       expect(pullRequestTemplate).toContain(`## ${heading}`)
     }
+
+    const maintaining = read('MAINTAINING.md')
+    for (const heading of [
+      'Prepare a quick fix',
+      'Prepare a large change',
+      'Change documentation',
+      'Prepare a release',
+      'Review dependency changes',
+      'Recover from a defective release',
+      'Respond to a credential incident',
+    ]) {
+      expect(maintaining).toContain(`## ${heading}`)
+    }
   })
 
   it('keeps every public README on the Lupinum structure', () => {

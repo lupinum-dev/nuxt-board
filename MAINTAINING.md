@@ -15,7 +15,7 @@ This file is for Lupinum OG maintainers. Contributors use
 Do not create a release branch, a second version file, or a local publication
 path.
 
-## Prepare a change
+## Prepare a quick fix
 
 1. Create a small branch from current `main`.
 2. Make one focused change.
@@ -25,6 +25,17 @@ path.
 6. Run `pnpm test:e2e` for interaction or visual changes.
 7. Add a Changeset for each publishable change.
 8. Open a pull request and wait for all required checks.
+
+## Prepare a large change
+
+Open an issue first. Split the work by public behavior and package ownership.
+Keep the headless engine, Vue bindings, Nuxt module, tests, and documentation
+aligned. Do not add compatibility paths for the unreleased scoped packages.
+
+## Change documentation
+
+Follow [docs/WRITING.md](./docs/WRITING.md). Keep examples executable. Run
+`pnpm docs:build` and `pnpm verify` before merge.
 
 ## Prepare a release
 
