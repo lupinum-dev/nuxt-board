@@ -78,6 +78,12 @@ For each update:
 
 ## Recover from a defective release
 
+Rerun the protected publish workflow with the same version when npm or GitHub
+fails after publication starts. The workflow skips each existing npm version
+only when its SHA-1 matches the corresponding certified tarball. It then
+requires matching provenance and the expected dist-tag for the complete fixed
+package set before it creates or repairs the GitHub release.
+
 Do not unpublish a release unless npm policy and a confirmed security incident
 require it.
 
