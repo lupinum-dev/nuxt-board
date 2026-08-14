@@ -548,7 +548,10 @@ if (retainArtifacts) {
       const sha256 = createHash('sha256')
         .update(readFileSync(destination))
         .digest('hex')
-      return { name, version: manifest.version, filename, sha256 }
+      const sha1 = createHash('sha1')
+        .update(readFileSync(destination))
+        .digest('hex')
+      return { name, version: manifest.version, filename, sha1, sha256 }
     },
   ).sort((left, right) => left.name.localeCompare(right.name))
 
@@ -581,6 +584,7 @@ if (retainArtifacts) {
           encoding: 'utf8',
         }).trim(),
         version: fixedReleaseVersion,
+        channel: fixedReleaseVersion.includes('-') ? 'next' : 'latest',
         ...(changelog ? { changelog } : {}),
         packages: artifacts,
       },

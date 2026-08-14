@@ -40,7 +40,7 @@ jobs:
           test -n "$run_id"
           printf 'run-id=%s\n' "$run_id" >> "$GITHUB_OUTPUT"
 
-      - name: Require an unused release tag
+      - name: Require a safe release tag
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
@@ -51,7 +51,11 @@ jobs:
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION")
           case "$status" in
             404) ;;
-            200) echo "Tag v$RELEASE_VERSION already exists" >&2; exit 1 ;;
+            200)
+              tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object.sha')"
+              test "$tag_sha" = "$GITHUB_SHA"
+              gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null
+              ;;
             *) echo "Could not verify tag availability (HTTP $status)" >&2; exit 1 ;;
           esac
 
@@ -76,13 +80,14 @@ jobs:
             '@lupinum/board-connections',
             '@lupinum/board-core',
             '@lupinum/board-history',
-            '@lupinum/vue-board',
             '@lupinum/nuxt-board',
+            '@lupinum/vue-board',
           ]
           const manifest = JSON.parse(fs.readFileSync('release-artifact.json', 'utf8'))
           const actual = manifest.packages.map(entry => entry.name).sort()
           if (manifest.commit !== process.env.GITHUB_SHA) throw new Error('Artifact commit does not match main')
           if (manifest.version !== process.env.RELEASE_VERSION) throw new Error('Artifact version does not match the input')
+          if (manifest.channel !== (manifest.version.includes('-') ? 'next' : 'latest')) throw new Error('Artifact channel is invalid')
           if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Artifact package set is not exact')
           if (manifest.changelog?.filename !== 'CHANGELOG.md') throw new Error('Certified changelog is missing')
           const changelog = fs.readFileSync(manifest.changelog.filename)
@@ -92,8 +97,9 @@ jobs:
           for (const entry of manifest.packages) {
             if (entry.version !== manifest.version) throw new Error(`${entry.name} is outside the fixed version`)
             if (!/^[a-z0-9._-]+\.tgz$/.test(entry.filename)) throw new Error(`Unsafe tarball name: ${entry.filename}`)
-            const digest = crypto.createHash('sha256').update(fs.readFileSync(path.join('.', entry.filename))).digest('hex')
-            if (digest !== entry.sha256) throw new Error(`${entry.name} failed digest verification`)
+            const bytes = fs.readFileSync(path.join('.', entry.filename))
+            if (crypto.createHash('sha1').update(bytes).digest('hex') !== entry.sha1) throw new Error(`${entry.name} failed SHA-1 verification`)
+            if (crypto.createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw new Error(`${entry.name} failed SHA-256 verification`)
           }
           NODE
 
@@ -127,7 +133,7 @@ jobs:
           name: verified-nuxt-board-release
           path: .release
 
-      - name: Publish inert tarballs with trusted publishing
+      - name: Publish or verify inert tarballs
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
@@ -135,7 +141,18 @@ jobs:
           const { spawnSync } = require('node:child_process')
           const fs = require('node:fs')
           const path = require('node:path')
-          const [major, minor] = spawnSync('npm', ['--version'], { encoding: 'utf8' }).stdout.trim().split('.').map(Number)
+          const fail = message => { throw new Error(message) }
+          const run = (args, inherit = false) => spawnSync('npm', args, {
+            encoding: 'utf8',
+            stdio: inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+          })
+          const view = (spec, field) => {
+            const result = run(['view', spec, field, '--json'])
+            if (result.status === 0) return JSON.parse(result.stdout.trim() || 'null')
+            if (/E404|404 Not Found/.test(result.stderr)) return null
+            fail(`npm view failed for ${spec} ${field}: ${result.stderr.trim()}`)
+          }
+          const [major, minor] = run(['--version']).stdout.trim().split('.').map(Number)
           if (major < 11 || (major === 11 && minor < 5)) throw new Error('npm 11.5 or newer is required')
           const manifest = JSON.parse(fs.readFileSync('.release/release-artifact.json', 'utf8'))
           const order = [
@@ -145,15 +162,35 @@ jobs:
             '@lupinum/board-connections',
             '@lupinum/nuxt-board',
           ]
-          const tag = process.env.RELEASE_VERSION.includes('-') ? 'next' : 'latest'
+          if (manifest.version !== process.env.RELEASE_VERSION) fail('Release version differs.')
           for (const name of order) {
             const entry = manifest.packages.find(candidate => candidate.name === name)
             if (!entry) throw new Error(`Missing verified package: ${name}`)
-            const result = spawnSync('npm', [
-              'publish', path.join('.release', entry.filename), '--access', 'public',
-              '--tag', tag, '--ignore-scripts', '--provenance',
-            ], { stdio: 'inherit' })
-            if (result.status !== 0) throw new Error(`npm publish failed for ${name}`)
+            const spec = `${name}@${entry.version}`
+            const existing = view(spec, 'dist.shasum')
+            if (existing && existing !== entry.sha1) fail(`${spec} exists with different bytes.`)
+            if (!existing) {
+              const result = run([
+                'publish', path.join('.release', entry.filename), '--access', 'public',
+                '--tag', manifest.channel, '--ignore-scripts', '--provenance',
+              ], true)
+              if (result.status !== 0) fail(`npm publish failed for ${name}.`)
+            }
+          }
+          for (const entry of manifest.packages) {
+            const spec = `${entry.name}@${entry.version}`
+            let verified = false
+            for (let attempt = 0; attempt < 12; attempt += 1) {
+              const shasum = view(spec, 'dist.shasum')
+              const attestations = view(spec, 'dist.attestations')
+              const channel = view(entry.name, `dist-tags.${manifest.channel}`)
+              if (shasum === entry.sha1 && attestations && channel === entry.version) {
+                verified = true
+                break
+              }
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
+            }
+            if (!verified) fail(`${spec} did not expose matching bytes, provenance, and ${manifest.channel}.`)
           }
           NODE
 
@@ -188,11 +225,18 @@ jobs:
           const notes = changelog.slice(start, end === -1 ? undefined : end).trim()
           fs.writeFileSync('.release/RELEASE_NOTES.md', `${notes}\n`)
           NODE
-          prerelease=()
-          case "$RELEASE_VERSION" in *-*) prerelease=(--prerelease) ;; esac
-          gh release create "v$RELEASE_VERSION" .release/*.tgz .release/CHANGELOG.md .release/SHA256SUMS .release/release-artifact.json \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "v$RELEASE_VERSION" \
-            --notes-file .release/RELEASE_NOTES.md \
-            "${prerelease[@]}"
+          if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object.sha')"
+            test "$tag_sha" = "$GITHUB_SHA"
+            gh release upload "v$RELEASE_VERSION" .release/*.tgz .release/CHANGELOG.md .release/SHA256SUMS .release/release-artifact.json --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --title "v$RELEASE_VERSION" --notes-file .release/RELEASE_NOTES.md
+          else
+            prerelease=()
+            case "$RELEASE_VERSION" in *-*) prerelease=(--prerelease) ;; esac
+            gh release create "v$RELEASE_VERSION" .release/*.tgz .release/CHANGELOG.md .release/SHA256SUMS .release/release-artifact.json \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "v$RELEASE_VERSION" \
+              --notes-file .release/RELEASE_NOTES.md \
+              "${prerelease[@]}"
+          fi
