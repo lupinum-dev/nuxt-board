@@ -80,9 +80,16 @@ For each update:
 
 Rerun the protected publish workflow with the same version when npm or GitHub
 fails after publication starts. The workflow skips each existing npm version
-only when its SHA-1 matches the corresponding certified tarball. It then
-requires matching provenance and the expected dist-tag for the complete fixed
-package set before it creates or repairs the GitHub release.
+only when its SHA-1 matches the corresponding certified tarball. A
+provenance-free package is accepted only when this is its sole first version,
+created interactively before trusted publishing could be configured. The
+GitHub release records that bootstrap exception. Every package version first
+published by the workflow requires OIDC provenance. The workflow also requires
+the expected dist-tag for the complete fixed package set before it creates or
+repairs the GitHub release.
+
+Set the `allow_bootstrap` dispatch input only for the known first-version
+recovery. The workflow rejects every other existing package without provenance.
 
 Do not unpublish a release unless npm policy and a confirmed security incident
 require it.
