@@ -7,6 +7,11 @@ on:
         description: Exact fixed version from the five package manifests
         required: true
         type: string
+      allow_bootstrap:
+        description: Authorize exact first-version recovery without npm provenance
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -121,6 +126,10 @@ jobs:
       actions: read
       contents: read
       id-token: write
+    outputs:
+      bootstrap: ${{ steps.publish.outputs.bootstrap }}
+      bootstrap-packages: ${{ steps.publish.outputs.bootstrap-packages }}
+      modes: ${{ steps.publish.outputs.modes }}
 
     steps:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -134,7 +143,9 @@ jobs:
           path: .release
 
       - name: Publish or verify inert tarballs
+        id: publish
         env:
+          ALLOW_BOOTSTRAP: ${{ inputs.allow_bootstrap }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           node - <<'NODE'
@@ -162,6 +173,7 @@ jobs:
             '@lupinum/board-connections',
             '@lupinum/nuxt-board',
           ]
+          const modes = new Map()
           if (manifest.version !== process.env.RELEASE_VERSION) fail('Release version differs.')
           for (const name of order) {
             const entry = manifest.packages.find(candidate => candidate.name === name)
@@ -169,12 +181,24 @@ jobs:
             const spec = `${name}@${entry.version}`
             const existing = view(spec, 'dist.shasum')
             if (existing && existing !== entry.sha1) fail(`${spec} exists with different bytes.`)
-            if (!existing) {
+            if (existing) {
+              const attestations = view(spec, 'dist.attestations')
+              const published = view(name, 'versions')
+              const versions = Array.isArray(published) ? published : [published]
+              if (!attestations && (versions.length !== 1 || versions[0] !== entry.version)) {
+                fail(`${spec} is not the first package version and has no provenance.`)
+              }
+              if (!attestations && process.env.ALLOW_BOOTSTRAP !== 'true') {
+                fail(`${spec} requires explicit bootstrap authorization.`)
+              }
+              modes.set(name, attestations ? 'oidc' : 'bootstrap')
+            } else {
               const result = run([
                 'publish', path.join('.release', entry.filename), '--access', 'public',
                 '--tag', manifest.channel, '--ignore-scripts', '--provenance',
               ], true)
               if (result.status !== 0) fail(`npm publish failed for ${name}.`)
+              modes.set(name, 'oidc')
             }
           }
           for (const entry of manifest.packages) {
@@ -184,14 +208,37 @@ jobs:
               const shasum = view(spec, 'dist.shasum')
               const attestations = view(spec, 'dist.attestations')
               const channel = view(entry.name, `dist-tags.${manifest.channel}`)
-              if (shasum === entry.sha1 && attestations && channel === entry.version) {
+              const mode = modes.get(entry.name)
+              const published = mode === 'bootstrap' ? view(entry.name, 'versions') : null
+              const versions = Array.isArray(published) ? published : [published]
+              const remainsFirstVersion = mode !== 'bootstrap' || (
+                versions.length === 1 && versions[0] === entry.version
+              )
+              if (
+                shasum === entry.sha1 &&
+                channel === entry.version &&
+                remainsFirstVersion &&
+                (mode === 'bootstrap' || (mode === 'oidc' && attestations))
+              ) {
                 verified = true
                 break
               }
               Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
             }
-            if (!verified) fail(`${spec} did not expose matching bytes, provenance, and ${manifest.channel}.`)
+            if (!verified) fail(`${spec} did not expose the required bytes, provenance mode, and ${manifest.channel}.`)
           }
+          const publicationModes = Object.fromEntries(modes)
+          const bootstrapPackages = [...modes]
+            .filter(([, mode]) => mode === 'bootstrap')
+            .map(([name]) => name)
+          const bootstrap = bootstrapPackages.length > 0
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `bootstrap=${String(bootstrap)}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `bootstrap-packages=${bootstrapPackages.join(',')}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `modes=${JSON.stringify(publicationModes)}\n`)
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `\nPublication modes: ${JSON.stringify(publicationModes)}.\n`,
+          )
           NODE
 
   github-release:
@@ -213,6 +260,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
+          BOOTSTRAP_RELEASE: ${{ needs.publish.outputs.bootstrap }}
+          BOOTSTRAP_PACKAGES: ${{ needs.publish.outputs.bootstrap-packages }}
         run: |
           node - <<'NODE'
           const fs = require('node:fs')
@@ -225,6 +274,14 @@ jobs:
           const notes = changelog.slice(start, end === -1 ? undefined : end).trim()
           fs.writeFileSync('.release/RELEASE_NOTES.md', `${notes}\n`)
           NODE
+          if [ "$BOOTSTRAP_RELEASE" = true ]; then
+            cat >> .release/RELEASE_NOTES.md <<'NOTICE'
+
+          > [!NOTE]
+          > This first npm version was created from the exact CI-certified artifact before npm trusted publishing could be configured. npm does not provide GitHub OIDC provenance for this bootstrap publication. The protected workflow verified the registry bytes. Later versions use trusted publishing with provenance.
+          NOTICE
+            printf '> Bootstrap packages: %s\n' "$BOOTSTRAP_PACKAGES" >> .release/RELEASE_NOTES.md
+          fi
           if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" --jq '.object.sha')"
             test "$tag_sha" = "$GITHUB_SHA"
