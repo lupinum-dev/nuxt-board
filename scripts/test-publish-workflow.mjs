@@ -25,11 +25,7 @@ const ciWorkflow = readFileSync(
   new URL('../.github/workflows/ci.yml', import.meta.url),
   'utf8',
 )
-for (const workflowPath of [
-  'ci.yml',
-  'package-preview.yml',
-  'release.yml',
-]) {
+for (const workflowPath of ['ci.yml', 'package-preview.yml', 'release.yml']) {
   const workflowSource = readFileSync(
     new URL(`../.github/workflows/${workflowPath}`, import.meta.url),
     'utf8',
@@ -42,6 +38,10 @@ for (const workflowPath of [
 assert(
   ciWorkflow.includes('node scripts/verify-action-shas.mjs'),
   'CI must verify pinned Action commits upstream.',
+)
+assert(
+  !ciWorkflow.includes('GITHUB_TOKEN'),
+  'Action verification must not receive GITHUB_TOKEN.',
 )
 const workspacePolicy = readFileSync(
   new URL('../pnpm-workspace.yaml', import.meta.url),
