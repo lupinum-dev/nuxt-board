@@ -5,7 +5,8 @@ const root = resolve(import.meta.dirname, '..')
 const config = JSON.parse(
   readFileSync(resolve(root, 'docs/vercel.json'), 'utf8'),
 )
-const expectedIgnoreCommand = 'if [ -z "$VERCEL_GIT_PREVIOUS_SHA" ]; then exit 1; fi; git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- . ../packages ../package.json ../pnpm-lock.yaml ../pnpm-workspace.yaml ../tsconfig.json'
+const expectedIgnoreCommand =
+  'if [ -z "$VERCEL_GIT_PREVIOUS_SHA" ]; then exit 1; fi; git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" HEAD -- . ../packages ../package.json ../pnpm-lock.yaml ../pnpm-workspace.yaml ../tsconfig.json'
 const failures = []
 const check = (condition, message) => {
   if (!condition) failures.push(message)
