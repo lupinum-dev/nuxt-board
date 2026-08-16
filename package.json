@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "packageManager": "pnpm@10.10.0",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter @lupinum/board-core build && pnpm --filter @lupinum/board-history --filter @lupinum/vue-board -r build && pnpm --filter @lupinum/board-connections build && pnpm --filter @lupinum/nuxt-board build",

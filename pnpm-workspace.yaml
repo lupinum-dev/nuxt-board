@@ -4,6 +4,8 @@ packages:
   - apps/*
   - docs
 minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - better-sqlite3

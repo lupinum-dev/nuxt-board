@@ -14,6 +14,35 @@ const workflow = readFileSync(
   new URL('../.github/workflows/publish.yml', import.meta.url),
   'utf8',
 )
+const ciWorkflow = readFileSync(
+  new URL('../.github/workflows/ci.yml', import.meta.url),
+  'utf8',
+)
+assert(
+  ciWorkflow.includes('node scripts/verify-action-shas.mjs'),
+  'CI must verify pinned Action commits upstream.',
+)
+const workspacePolicy = readFileSync(
+  new URL('../pnpm-workspace.yaml', import.meta.url),
+  'utf8',
+)
+const renovate = JSON.parse(
+  readFileSync(new URL('../renovate.json', import.meta.url), 'utf8'),
+)
+for (const policy of [
+  'minimumReleaseAge: 1440',
+  'minimumReleaseAgeStrict: true',
+  'minimumReleaseAgeIgnoreMissingTime: false',
+]) {
+  assert(
+    workspacePolicy.includes(policy),
+    `pnpm-workspace.yaml is missing: ${policy}`,
+  )
+}
+assert(
+  renovate.minimumReleaseAge === '1 day',
+  'Renovate must match the 24-hour pnpm quarantine.',
+)
 const publishJob = /^  publish:\n([\s\S]*?)(?=^  [a-z][a-z-]*:\n)/m.exec(
   workflow,
 )?.[1]
@@ -60,9 +89,6 @@ assert(
 )
 const publishScript = dedent(
   publishLines.slice(publishStart + 1, publishEnd).join('\n'),
-).replace(
-  'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)',
-  'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 0)',
 )
 
 const packageNames = [
@@ -226,6 +252,8 @@ function runScenario(name, options) {
         GITHUB_OUTPUT: outputPath,
         GITHUB_STEP_SUMMARY: join(root, 'summary.md'),
         RELEASE_VERSION: version,
+        REGISTRY_POLL_ATTEMPTS: '5',
+        REGISTRY_POLL_DELAY_MS: '0',
       },
     })
     const diagnostic = `${result.stdout}\n${result.stderr}`
