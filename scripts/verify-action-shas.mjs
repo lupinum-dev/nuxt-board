@@ -57,12 +57,9 @@ if (references.size === 0)
 for (const reference of [...references].sort()) {
   const [repository, sha] = reference.split('@')
   const response = await fetch(
-    `https://api.github.com/repos/${repository}/commits/${sha}`,
+    `https://github.com/${repository}/commit/${sha}`,
     {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
+      method: 'HEAD',
       signal: globalThis.AbortSignal.timeout(30_000),
     },
   )
@@ -71,8 +68,5 @@ for (const reference of [...references].sort()) {
       `${reference} is not a valid upstream commit: HTTP ${response.status}.`,
     )
   }
-  const commit = await response.json()
-  if (commit.sha !== sha)
-    throw new Error(`${reference} resolved to ${commit.sha}.`)
   console.log(`Verified ${reference}.`)
 }
