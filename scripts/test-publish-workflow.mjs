@@ -14,6 +14,63 @@ const workflow = readFileSync(
   new URL('../.github/workflows/publish.yml', import.meta.url),
   'utf8',
 )
+const packageManifest = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+)
+assert(
+  /^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(packageManifest.packageManager ?? ''),
+  'pnpm 11 or newer is required for strict dependency quarantine.',
+)
+const ciWorkflow = readFileSync(
+  new URL('../.github/workflows/ci.yml', import.meta.url),
+  'utf8',
+)
+for (const workflowPath of ['ci.yml', 'package-preview.yml', 'release.yml']) {
+  const workflowSource = readFileSync(
+    new URL(`../.github/workflows/${workflowPath}`, import.meta.url),
+    'utf8',
+  )
+  assert(
+    !/pnpm\/action-setup@[\s\S]{0,200}\n\s+version:/u.test(workflowSource),
+    `${workflowPath} must use the packageManager version as the single pnpm source of truth.`,
+  )
+  const setupCount = workflowSource.match(/pnpm\/action-setup@/gu)?.length ?? 0
+  const standaloneCount =
+    workflowSource.match(/standalone:\s+true/gu)?.length ?? 0
+  assert(
+    setupCount === standaloneCount,
+    `${workflowPath} must use standalone pnpm for the Node 20 compatibility lane.`,
+  )
+}
+assert(
+  ciWorkflow.includes('node scripts/verify-action-shas.mjs'),
+  'CI must verify pinned Action commits upstream.',
+)
+assert(
+  !ciWorkflow.includes('GITHUB_TOKEN'),
+  'Action verification must not receive GITHUB_TOKEN.',
+)
+const workspacePolicy = readFileSync(
+  new URL('../pnpm-workspace.yaml', import.meta.url),
+  'utf8',
+)
+const renovate = JSON.parse(
+  readFileSync(new URL('../renovate.json', import.meta.url), 'utf8'),
+)
+for (const policy of [
+  'minimumReleaseAge: 1440',
+  'minimumReleaseAgeStrict: true',
+  'minimumReleaseAgeIgnoreMissingTime: false',
+]) {
+  assert(
+    workspacePolicy.includes(policy),
+    `pnpm-workspace.yaml is missing: ${policy}`,
+  )
+}
+assert(
+  renovate.minimumReleaseAge === '1 day',
+  'Renovate must match the 24-hour pnpm quarantine.',
+)
 const publishJob = /^  publish:\n([\s\S]*?)(?=^  [a-z][a-z-]*:\n)/m.exec(
   workflow,
 )?.[1]
@@ -46,6 +103,18 @@ assert(
   ),
   'Bootstrap releases must record the missing first-version provenance.',
 )
+assert(
+  publishJob.includes('const verifiedPackages = new Set()'),
+  'The package set must share one registry polling budget.',
+)
+assert(
+  !publishJob.includes('let verified = false'),
+  'The registry polling budget must not restart for each package.',
+)
+assert(
+  publishJob.includes('if (attempt + 1 < pollAttempts)'),
+  'The registry poller must not sleep after its final attempt.',
+)
 
 const publishLines = publishJob.split('\n')
 const publishStart = publishLines.findIndex((line) =>
@@ -60,9 +129,6 @@ assert(
 )
 const publishScript = dedent(
   publishLines.slice(publishStart + 1, publishEnd).join('\n'),
-).replace(
-  'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)',
-  'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 0)',
 )
 
 const packageNames = [
@@ -226,6 +292,8 @@ function runScenario(name, options) {
         GITHUB_OUTPUT: outputPath,
         GITHUB_STEP_SUMMARY: join(root, 'summary.md'),
         RELEASE_VERSION: version,
+        REGISTRY_POLL_ATTEMPTS: '5',
+        REGISTRY_POLL_DELAY_MS: '0',
       },
     })
     const diagnostic = `${result.stdout}\n${result.stderr}`

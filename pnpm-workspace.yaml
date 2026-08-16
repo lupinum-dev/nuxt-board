@@ -4,9 +4,30 @@ packages:
   - apps/*
   - docs
 minimumReleaseAge: 1440
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - better-sqlite3
-  - esbuild
-  - unrs-resolver
-  - vue-demi
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+allowBuilds:
+  '@parcel/watcher': true
+  better-sqlite3: true
+  esbuild: true
+  unrs-resolver: true
+  vue-demi: true
+overrides:
+  '@hono/node-server': 1.19.15
+  '@babel/core': 7.29.6
+  brace-expansion: 5.0.9
+  esbuild: 0.28.1
+  fast-uri: 3.1.5
+  hono: 4.12.34
+  ip-address: 10.3.1
+  js-yaml: 4.3.1
+  'read-yaml-file>js-yaml': 3.15.1
+  launch-editor: 2.14.1
+  nanoid: 3.3.18
+  postcss: 8.5.23
+  sharp: 0.35.0
+  shell-quote: 1.9.0
+  tar: 7.5.22
+  'undici@6': 6.28.0
+  'undici@7': 7.29.0
+  ws: 8.21.0

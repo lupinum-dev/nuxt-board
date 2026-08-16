@@ -13,7 +13,7 @@
 </p>
 
 > [!WARNING]
-> The first scoped release is in preparation. Public APIs can change before version 1.0.
+> Nuxt Board is pre-1.0. Review the changelog before each upgrade.
 
 ## Why use Nuxt Board?
 

@@ -120,7 +120,7 @@ jobs:
     name: Publish fixed package set to npm
     needs: verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment: npm
     permissions:
       actions: read
@@ -174,6 +174,10 @@ jobs:
             '@lupinum/nuxt-board',
           ]
           const modes = new Map()
+          const pollAttempts = Number(process.env.REGISTRY_POLL_ATTEMPTS ?? 240)
+          const pollDelayMs = Number(process.env.REGISTRY_POLL_DELAY_MS ?? 5000)
+          if (!Number.isSafeInteger(pollAttempts) || pollAttempts < 1) fail('Invalid registry poll attempt count.')
+          if (!Number.isSafeInteger(pollDelayMs) || pollDelayMs < 0) fail('Invalid registry poll delay.')
           if (manifest.version !== process.env.RELEASE_VERSION) fail('Release version differs.')
           for (const name of order) {
             const entry = manifest.packages.find(candidate => candidate.name === name)
@@ -201,10 +205,11 @@ jobs:
               modes.set(name, 'oidc')
             }
           }
-          for (const entry of manifest.packages) {
-            const spec = `${entry.name}@${entry.version}`
-            let verified = false
-            for (let attempt = 0; attempt < 12; attempt += 1) {
+          const verifiedPackages = new Set()
+          for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+            for (const entry of manifest.packages) {
+              if (verifiedPackages.has(entry.name)) continue
+              const spec = `${entry.name}@${entry.version}`
               const shasum = view(spec, 'dist.shasum')
               const attestations = view(spec, 'dist.attestations')
               const channel = view(entry.name, `dist-tags.${manifest.channel}`)
@@ -220,12 +225,18 @@ jobs:
                 remainsFirstVersion &&
                 (mode === 'bootstrap' || (mode === 'oidc' && attestations))
               ) {
-                verified = true
-                break
+                verifiedPackages.add(entry.name)
               }
-              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000)
             }
-            if (!verified) fail(`${spec} did not expose the required bytes, provenance mode, and ${manifest.channel}.`)
+            if (verifiedPackages.size === manifest.packages.length) break
+            if (attempt + 1 < pollAttempts) {
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, pollDelayMs)
+            }
+          }
+          for (const entry of manifest.packages) {
+            if (!verifiedPackages.has(entry.name)) {
+              fail(`${entry.name}@${entry.version} did not expose the required bytes, provenance mode, and ${manifest.channel}.`)
+            }
           }
           const publicationModes = Object.fromEntries(modes)
           const bootstrapPackages = [...modes]

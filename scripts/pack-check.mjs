@@ -39,6 +39,22 @@ function run(command, args, options = {}) {
   })
 }
 
+function writeConsumerWorkspace(directory, overrides) {
+  const overrideLines = Object.entries(overrides).map(
+    ([name, value]) => `  ${JSON.stringify(name)}: ${JSON.stringify(value)}`,
+  )
+  writeFileSync(
+    join(directory, 'pnpm-workspace.yaml'),
+    [
+      'allowBuilds:',
+      '  esbuild: true',
+      'overrides:',
+      ...overrideLines,
+      '',
+    ].join('\n'),
+  )
+}
+
 async function getAvailablePort() {
   return await new Promise((resolvePort, reject) => {
     const server = createServer()
@@ -348,15 +364,13 @@ writeFileSync(
         typescript: rootManifest.devDependencies.typescript,
         vue: rootManifest.devDependencies.vue,
       },
-      pnpm: {
-        overrides: packedDependencies,
-      },
     },
     null,
     2,
   ),
 )
-run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], {
+writeConsumerWorkspace(consumerDir, packedDependencies)
+run('pnpm', ['install', '--no-frozen-lockfile'], {
   cwd: consumerDir,
 })
 
@@ -494,12 +508,12 @@ async function verifyNuxtVersion(label, nuxtVersion) {
           typescript: rootManifest.devDependencies.typescript,
           'vue-tsc': rootManifest.devDependencies['vue-tsc'],
         },
-        pnpm: { overrides: localPackages },
       },
       null,
       2,
     ),
   )
+  writeConsumerWorkspace(nuxtConsumerDir, localPackages)
   writeFileSync(
     join(nuxtConsumerDir, 'nuxt.config.ts'),
     `export default defineNuxtConfig({ modules: ['@lupinum/nuxt-board'] })\n`,
@@ -523,7 +537,7 @@ const engine = createBoardEngine({
 <template><BoardRoot :engine="engine" style="height: 320px" /></template>
 `,
   )
-  run('pnpm', ['install', '--ignore-workspace', '--no-frozen-lockfile'], {
+  run('pnpm', ['install', '--no-frozen-lockfile'], {
     cwd: nuxtConsumerDir,
   })
   run('pnpm', ['exec', 'nuxt', 'prepare'], { cwd: nuxtConsumerDir })
