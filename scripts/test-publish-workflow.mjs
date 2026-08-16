@@ -14,6 +14,13 @@ const workflow = readFileSync(
   new URL('../.github/workflows/publish.yml', import.meta.url),
   'utf8',
 )
+const packageManifest = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+)
+assert(
+  /^pnpm@(?:1[1-9]|[2-9]\d)\./u.test(packageManifest.packageManager ?? ''),
+  'pnpm 11 or newer is required for strict dependency quarantine.',
+)
 const ciWorkflow = readFileSync(
   new URL('../.github/workflows/ci.yml', import.meta.url),
   'utf8',

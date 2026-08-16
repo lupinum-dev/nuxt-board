@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.21.0",
   "scripts": {
     "build": "pnpm build:packages && pnpm build:docs",
     "build:packages": "pnpm --filter @lupinum/board-core build && pnpm --filter @lupinum/board-history --filter @lupinum/vue-board -r build && pnpm --filter @lupinum/board-connections build && pnpm --filter @lupinum/nuxt-board build",
@@ -55,27 +55,5 @@
     "vitest": "^4.1.10",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.7"
-  },
-  "pnpm": {
-    "overrides": {
-      "@hono/node-server": "1.19.15",
-      "@babel/core": "7.29.6",
-      "brace-expansion": "5.0.9",
-      "esbuild": "0.28.1",
-      "fast-uri": "3.1.5",
-      "hono": "4.12.34",
-      "ip-address": "10.3.1",
-      "js-yaml": "4.3.1",
-      "read-yaml-file>js-yaml": "3.15.1",
-      "launch-editor": "2.14.1",
-      "nanoid": "3.3.18",
-      "postcss": "8.5.23",
-      "sharp": "0.35.0",
-      "shell-quote": "1.9.0",
-      "tar": "7.5.22",
-      "undici@6": "6.28.0",
-      "undici@7": "7.29.0",
-      "ws": "8.21.0"
-    }
   }
 }
