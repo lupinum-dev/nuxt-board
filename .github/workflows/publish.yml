@@ -205,10 +205,11 @@ jobs:
               modes.set(name, 'oidc')
             }
           }
-          for (const entry of manifest.packages) {
-            const spec = `${entry.name}@${entry.version}`
-            let verified = false
-            for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+          const verifiedPackages = new Set()
+          for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+            for (const entry of manifest.packages) {
+              if (verifiedPackages.has(entry.name)) continue
+              const spec = `${entry.name}@${entry.version}`
               const shasum = view(spec, 'dist.shasum')
               const attestations = view(spec, 'dist.attestations')
               const channel = view(entry.name, `dist-tags.${manifest.channel}`)
@@ -224,12 +225,18 @@ jobs:
                 remainsFirstVersion &&
                 (mode === 'bootstrap' || (mode === 'oidc' && attestations))
               ) {
-                verified = true
-                break
+                verifiedPackages.add(entry.name)
               }
+            }
+            if (verifiedPackages.size === manifest.packages.length) break
+            if (attempt + 1 < pollAttempts) {
               Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, pollDelayMs)
             }
-            if (!verified) fail(`${spec} did not expose the required bytes, provenance mode, and ${manifest.channel}.`)
+          }
+          for (const entry of manifest.packages) {
+            if (!verifiedPackages.has(entry.name)) {
+              fail(`${entry.name}@${entry.version} did not expose the required bytes, provenance mode, and ${manifest.channel}.`)
+            }
           }
           const publicationModes = Object.fromEntries(modes)
           const bootstrapPackages = [...modes]

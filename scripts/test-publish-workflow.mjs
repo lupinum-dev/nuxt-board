@@ -103,6 +103,18 @@ assert(
   ),
   'Bootstrap releases must record the missing first-version provenance.',
 )
+assert(
+  publishJob.includes('const verifiedPackages = new Set()'),
+  'The package set must share one registry polling budget.',
+)
+assert(
+  !publishJob.includes('let verified = false'),
+  'The registry polling budget must not restart for each package.',
+)
+assert(
+  publishJob.includes('if (attempt + 1 < pollAttempts)'),
+  'The registry poller must not sleep after its final attempt.',
+)
 
 const publishLines = publishJob.split('\n')
 const publishStart = publishLines.findIndex((line) =>
