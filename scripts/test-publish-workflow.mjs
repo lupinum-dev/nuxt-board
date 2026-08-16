@@ -34,6 +34,13 @@ for (const workflowPath of ['ci.yml', 'package-preview.yml', 'release.yml']) {
     !/pnpm\/action-setup@[\s\S]{0,200}\n\s+version:/u.test(workflowSource),
     `${workflowPath} must use the packageManager version as the single pnpm source of truth.`,
   )
+  const setupCount = workflowSource.match(/pnpm\/action-setup@/gu)?.length ?? 0
+  const standaloneCount =
+    workflowSource.match(/standalone:\s+true/gu)?.length ?? 0
+  assert(
+    setupCount === standaloneCount,
+    `${workflowPath} must use standalone pnpm for the Node 20 compatibility lane.`,
+  )
 }
 assert(
   ciWorkflow.includes('node scripts/verify-action-shas.mjs'),
