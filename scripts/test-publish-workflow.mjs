@@ -25,6 +25,20 @@ const ciWorkflow = readFileSync(
   new URL('../.github/workflows/ci.yml', import.meta.url),
   'utf8',
 )
+for (const workflowPath of [
+  'ci.yml',
+  'package-preview.yml',
+  'release.yml',
+]) {
+  const workflowSource = readFileSync(
+    new URL(`../.github/workflows/${workflowPath}`, import.meta.url),
+    'utf8',
+  )
+  assert(
+    !/pnpm\/action-setup@[\s\S]{0,200}\n\s+version:/u.test(workflowSource),
+    `${workflowPath} must use the packageManager version as the single pnpm source of truth.`,
+  )
+}
 assert(
   ciWorkflow.includes('node scripts/verify-action-shas.mjs'),
   'CI must verify pinned Action commits upstream.',
