@@ -14,8 +14,41 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: read
+    outputs:
+      full: ${{ steps.paths.outputs.full }}
+    steps:
+      - name: Select required lanes
+        id: paths
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const runAll = context.eventName !== 'pull_request'
+            const files = runAll
+              ? []
+              : await github.paginate(github.rest.pulls.listFiles, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  per_page: 100,
+                })
+            const paths = files.map((file) => file.filename)
+            const publicDocsOnly =
+              paths.length > 0 &&
+              paths.every((path) =>
+                /^(?:docs\/content\/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
+              )
+            core.setOutput('full', String(runAll || !publicDocsOnly))
+
   checks:
     name: checks (Node ${{ matrix.node }})
+    needs: classify
+    if: needs.classify.outputs.full == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -65,6 +98,8 @@ jobs:
 
   visual-regression:
     name: visual regression (macOS)
+    needs: classify
+    if: needs.classify.outputs.full == 'true'
     runs-on: macos-latest
 
     steps:
@@ -97,3 +132,29 @@ jobs:
 
       - name: Playwright interactions and screenshots
         run: pnpm test:e2e
+
+  gate:
+    name: CI gate
+    if: always()
+    needs:
+      - classify
+      - checks
+      - visual-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every selected lane
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          FULL: ${{ needs.classify.outputs.full }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          VISUAL_RESULT: ${{ needs.visual-regression.result }}
+        run: |
+          test "$CLASSIFY_RESULT" = success
+          if [ "$FULL" = true ]; then
+            test "$CHECKS_RESULT" = success
+            test "$VISUAL_RESULT" = success
+          else
+            test "$CHECKS_RESULT" = skipped
+            test "$VISUAL_RESULT" = skipped
+          fi

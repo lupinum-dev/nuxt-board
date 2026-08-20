@@ -26,6 +26,62 @@ const ciWorkflow = readFileSync(
   new URL('../.github/workflows/ci.yml', import.meta.url),
   'utf8',
 )
+const ciConfig = parse(ciWorkflow)
+const classifyScript = ciConfig.jobs.classify.steps.find(
+  (step) => step.name === 'Select required lanes',
+)?.with?.script
+assert(
+  typeof classifyScript === 'string',
+  'CI must classify expensive pull-request lanes.',
+)
+const ciGate = ciConfig.jobs.gate
+assert(
+  ciGate.if === 'always()' &&
+    ciGate.name === 'CI gate' &&
+    ciGate.needs.includes('checks') &&
+    ciGate.needs.includes('visual-regression'),
+  'CI must expose one always-reported gate for every classified lane.',
+)
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+for (const scenario of [
+  {
+    name: 'public docs',
+    event: 'pull_request',
+    paths: ['docs/content/1.index.md'],
+    full: 'false',
+  },
+  {
+    name: 'library source',
+    event: 'pull_request',
+    paths: ['packages/core/src/index.ts'],
+    full: 'true',
+  },
+  {
+    name: 'workflow policy',
+    event: 'pull_request',
+    paths: ['.github/workflows/ci.yml'],
+    full: 'true',
+  },
+  { name: 'main certification', event: 'push', paths: [], full: 'true' },
+]) {
+  const outputs = new Map()
+  await new AsyncFunction('context', 'github', 'core', classifyScript)(
+    {
+      eventName: scenario.event,
+      issue: { number: 1 },
+      repo: { owner: 'lupinum-dev', repo: 'nuxt-board' },
+    },
+    {
+      paginate: async () => scenario.paths.map((filename) => ({ filename })),
+      rest: { pulls: { listFiles() {} } },
+    },
+    { setOutput: (name, value) => outputs.set(name, value) },
+  )
+  assert(
+    outputs.get('full') === scenario.full,
+    `CI classification failed the ${scenario.name} fixture.`,
+  )
+}
 const versionWorkflow = readFileSync(
   new URL('../.github/workflows/release.yml', import.meta.url),
   'utf8',
