@@ -44,12 +44,12 @@ jobs:
         run: |
           pnpm release:version
           git add --intent-to-add .
-          if git diff --quiet; then
+          if git diff HEAD --quiet; then
             echo 'has_changes=false' >> "$GITHUB_OUTPUT"
             touch version.patch
           else
             echo 'has_changes=true' >> "$GITHUB_OUTPUT"
-            git diff --binary --full-index > version.patch
+            git diff HEAD --binary --full-index > version.patch
           fi
 
       - name: Retain version patch

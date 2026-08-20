@@ -9,6 +9,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { parse } from 'yaml'
 
 const workflow = readFileSync(
   new URL('../.github/workflows/publish.yml', import.meta.url),
@@ -24,6 +25,23 @@ assert(
 const ciWorkflow = readFileSync(
   new URL('../.github/workflows/ci.yml', import.meta.url),
   'utf8',
+)
+const versionWorkflow = readFileSync(
+  new URL('../.github/workflows/release.yml', import.meta.url),
+  'utf8',
+)
+const versionConfig = parse(versionWorkflow)
+const versionPatchStep = versionConfig.jobs['prepare-version'].steps.find(
+  (step) => step.name === 'Generate version files without write credentials',
+)
+assert(
+  versionPatchStep,
+  'The release workflow must prepare an inert version patch.',
+)
+assert(
+  versionPatchStep.run.includes('git diff HEAD --binary --full-index') &&
+    versionPatchStep.run.includes('git diff HEAD --quiet'),
+  'The version patch must include staged Changeset deletions and new files.',
 )
 for (const workflowPath of ['ci.yml', 'package-preview.yml', 'release.yml']) {
   const workflowSource = readFileSync(
