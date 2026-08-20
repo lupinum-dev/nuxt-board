@@ -61,7 +61,15 @@ export default defineNuxtConfig({
     { path: '~/components/content', pathPrefix: false, global: true },
     { path: '~/components/mdc', pathPrefix: false, global: true },
   ],
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/theme.css'],
+  ginkoDocs: {
+    syntaxHighlighting: {
+      themes: {
+        light: 'material-theme-lighter',
+        dark: 'material-theme-palenight',
+      },
+    },
+  },
   content: {
     componentPolicy: {
       components: {

@@ -56,6 +56,7 @@ Use these focused commands during development:
 - `pnpm test:unit` runs the unit and Nuxt module tests.
 - `pnpm test:e2e` runs browser interaction and visual tests.
 - `pnpm test:docs` checks and builds the documentation site.
+- `pnpm docs:theme` checks the Nuxt visual tokens and Ginko Docs version.
 - `pnpm docs:build` builds the public documentation site.
 - `pnpm audit:all` audits the complete workspace dependency graph.
 - `pnpm pack:check` verifies all five packed packages in clean consumers.
