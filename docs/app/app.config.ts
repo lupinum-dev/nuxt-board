@@ -9,7 +9,7 @@ export default {
       url: 'https://nuxt-board.lupinum.com',
       name: { en: 'Nuxt Board' },
       description: { en: 'A real board model for Vue and Nuxt products.' },
-      logo: { light: '/app-icon.svg', dark: '/app-icon.svg' },
+      logo: { light: '/logo-light.svg', dark: '/logo-dark.svg' },
       docsSidebarSwitcher: 'tabs',
       legalLinks: [
         { label: { en: 'Legal notice' }, to: 'https://lupinum.com/impressum' },
