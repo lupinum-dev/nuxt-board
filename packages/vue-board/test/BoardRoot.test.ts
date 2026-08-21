@@ -27,6 +27,12 @@ function dispatchPointerEvent(
       value: init.pointerId,
     })
   }
+  if (!('pointerType' in event) && init.pointerType !== undefined) {
+    Object.defineProperty(event, 'pointerType', {
+      configurable: true,
+      value: init.pointerType,
+    })
+  }
 
   element.dispatchEvent(event)
 }
@@ -711,6 +717,162 @@ describe('BoardRoot', () => {
     await nextTick()
 
     expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('treats an empty-canvas touch as tap or pan without a timer', async () => {
+    const requestFrame = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        callback(0)
+        return 1
+      })
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({ type: 'text', text: 'Selected' })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+
+    dispatchPointerEvent(wrapper.element, 'pointerdown', {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 300,
+      clientY: 300,
+      button: 0,
+    })
+    expect(engine.getSelection()).toEqual([node.id])
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 300,
+      clientY: 300,
+    })
+    expect(engine.getSelection()).toEqual([])
+
+    dispatchPointerEvent(wrapper.element, 'pointerdown', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 300,
+      clientY: 300,
+      button: 0,
+    })
+    dispatchPointerEvent(wrapper.element, 'pointermove', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 303,
+      clientY: 302,
+    })
+    expect(engine.getState().camera).toEqual({ x: 0, y: 0, z: 1 })
+    dispatchPointerEvent(wrapper.element, 'pointermove', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 330,
+      clientY: 320,
+    })
+    expect(engine.getState().camera).toMatchObject({ x: 30, y: 20 })
+    dispatchPointerEvent(wrapper.element, 'pointerup', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 330,
+      clientY: 320,
+    })
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+    requestFrame.mockRestore()
+  })
+
+  it('lets a second finger take over with midpoint pan and pinch zoom', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+
+    dispatchPointerEvent(wrapper.element, 'pointerdown', {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 100,
+      clientY: 100,
+      button: 0,
+    })
+    dispatchPointerEvent(wrapper.element, 'pointerdown', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 200,
+      clientY: 100,
+      button: 0,
+    })
+    dispatchPointerEvent(wrapper.element, 'pointermove', {
+      pointerId: 2,
+      pointerType: 'touch',
+      clientX: 240,
+      clientY: 120,
+    })
+
+    const camera = engine.getState().camera
+    expect(camera.z).toBeGreaterThan(1)
+    expect(camera.x).not.toBe(0)
+    expect(camera.y).not.toBe(0)
+
+    dispatchPointerEvent(wrapper.element, 'pointercancel', {
+      pointerId: 2,
+      pointerType: 'touch',
+    })
+    expect(engine.getState().interaction).toEqual({ mode: 'idle' })
+  })
+
+  it('keeps node drag and resize available to touch pointers', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0)
+      return 1
+    })
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const node = engine.createNode({
+      type: 'text',
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+    })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+    const nodeElement = wrapper.find(`[data-node-id="${node.id}"]`).element
+
+    dispatchPointerEvent(nodeElement, 'pointerdown', {
+      pointerId: 7,
+      pointerType: 'touch',
+      clientX: 40,
+      clientY: 40,
+      button: 0,
+    })
+    dispatchPointerEvent(nodeElement, 'pointermove', {
+      pointerId: 7,
+      pointerType: 'touch',
+      clientX: 80,
+      clientY: 70,
+    })
+    dispatchPointerEvent(nodeElement, 'pointerup', {
+      pointerId: 7,
+      pointerType: 'touch',
+      clientX: 80,
+      clientY: 70,
+    })
+    expect(engine.getNode(node.id)).toMatchObject({ x: 60, y: 50 })
+
+    const handle = wrapper.find('[data-resize="se"]').element
+    dispatchPointerEvent(handle, 'pointerdown', {
+      pointerId: 8,
+      pointerType: 'touch',
+      clientX: 180,
+      clientY: 130,
+      button: 0,
+    })
+    dispatchPointerEvent(handle, 'pointermove', {
+      pointerId: 8,
+      pointerType: 'touch',
+      clientX: 210,
+      clientY: 150,
+    })
+    dispatchPointerEvent(handle, 'pointerup', {
+      pointerId: 8,
+      pointerType: 'touch',
+      clientX: 210,
+      clientY: 150,
+    })
+    expect(engine.getNode(node.id).width).toBeGreaterThan(120)
+    expect(engine.getNode(node.id).height).toBeGreaterThan(80)
   })
 
   it.each([
