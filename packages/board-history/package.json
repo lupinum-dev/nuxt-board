@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/board-history",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "description": "Undo and redo plugin for @lupinum/board-core.",
   "license": "MIT",
   "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",

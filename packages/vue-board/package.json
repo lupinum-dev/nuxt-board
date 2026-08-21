@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/vue-board",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.0",
   "description": "Vue 3 board components and composables built on top of @lupinum/board-core.",
   "license": "MIT",
   "author": "Lupinum OG <info@lupinum.com> (https://lupinum.com)",
