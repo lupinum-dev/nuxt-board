@@ -20,6 +20,15 @@ interface ActivePointer {
   type: string
 }
 
+type TouchInteractionState =
+  | { kind: 'idle' }
+  | { kind: 'pending-pan'; pointerId: number; startPoint: Point }
+  | {
+      kind: 'pinch'
+      previousDistance: number
+      previousMidpoint: Point
+    }
+
 type PendingPointerInteraction =
   | { kind: 'drag'; pointerId: number; startPoint: Point; nodeId: string }
   | {
@@ -73,8 +82,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
   const pendingInteraction = shallowRef<PendingPointerInteraction | null>(null)
   const activePointers = new Map<number, ActivePointer>()
-  let pinchActive = false
-  let pinchPrevDistance = 0
+  let touchInteraction: TouchInteractionState = { kind: 'idle' }
   let pendingPointer: {
     id: number
     point: Point
@@ -288,11 +296,15 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
     if (getActiveTouchPoints().length === 2 && event.pointerType === 'touch') {
       runBoardCommand(() => interaction.endInteraction())
+      event.preventDefault()
       rootElement.value?.setPointerCapture(event.pointerId)
       clearPendingInteraction()
       pendingPointer = null
-      pinchActive = true
-      pinchPrevDistance = getPinchDistance()
+      touchInteraction = {
+        kind: 'pinch',
+        previousDistance: getPinchDistance(),
+        previousMidpoint: getPinchMidpoint(),
+      }
       return
     }
 
@@ -306,6 +318,17 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
 
     const nodeId = findNodeId(event.target)
     const handle = findHandle(event.target)
+    if (event.pointerType === 'touch' && !nodeId && !handle) {
+      event.preventDefault()
+      rootElement.value?.setPointerCapture(event.pointerId)
+      rootElement.value?.focus()
+      touchInteraction = {
+        kind: 'pending-pan',
+        pointerId: event.pointerId,
+        startPoint: localPoint,
+      }
+      return
+    }
     beginDeferredInteraction(event, nodeId, handle)
   }
 
@@ -324,15 +347,39 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       type: activePointer.type,
     })
 
-    if (pinchActive) {
+    if (touchInteraction.kind === 'pinch') {
+      const pinch = touchInteraction
       const newDist = getPinchDistance()
-      if (pinchPrevDistance > 0 && newDist > 0) {
-        const ratio = newDist / pinchPrevDistance
+      const midpoint = getPinchMidpoint()
+      if (pinch.previousDistance > 0 && newDist > 0) {
+        runBoardCommand(() =>
+          engine.panBy(
+            midpoint.x - pinch.previousMidpoint.x,
+            midpoint.y - pinch.previousMidpoint.y,
+          ),
+        )
+        const ratio = newDist / pinch.previousDistance
         const delta = -100 * Math.log2(ratio)
-        runBoardCommand(() => engine.zoomAt(getPinchMidpoint(), delta))
+        runBoardCommand(() => engine.zoomAt(midpoint, delta))
       }
-      pinchPrevDistance = newDist
+      touchInteraction = {
+        kind: 'pinch',
+        previousDistance: newDist,
+        previousMidpoint: midpoint,
+      }
       return
+    }
+
+    if (
+      touchInteraction.kind === 'pending-pan' &&
+      event.pointerId === touchInteraction.pointerId
+    ) {
+      if (!exceedsPointerThreshold(touchInteraction.startPoint, localPoint)) {
+        return
+      }
+      const pending = touchInteraction
+      touchInteraction = { kind: 'idle' }
+      startPointerInteraction(event.pointerId, pending.startPoint, 'pan')
     }
 
     const startedPendingInteraction = startPendingInteraction(event, localPoint)
@@ -380,13 +427,21 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
       rootElement.value.releasePointerCapture(event.pointerId)
     }
 
-    if (pinchActive) {
+    if (touchInteraction.kind === 'pinch') {
       if (getActiveTouchPoints().length < 2) {
-        pinchActive = false
-        pinchPrevDistance = 0
+        touchInteraction = { kind: 'idle' }
         clearPendingInteraction()
         runBoardCommand(() => interaction.endInteraction())
       }
+      return
+    }
+
+    if (
+      touchInteraction.kind === 'pending-pan' &&
+      event.pointerId === touchInteraction.pointerId
+    ) {
+      touchInteraction = { kind: 'idle' }
+      runBoardCommand(() => engine.clearSelection())
       return
     }
 
@@ -403,6 +458,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
 
     activePointers.delete(event.pointerId)
+    touchInteraction = { kind: 'idle' }
     clearPendingInteraction(event.pointerId)
     pendingPointer = null
     if (rafId !== null) {
@@ -507,6 +563,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     rafScheduled = false
     pendingPointer = null
     activePointers.clear()
+    touchInteraction = { kind: 'idle' }
     clearPendingInteraction()
     runBoardCommand(() => interaction.cancelInteraction())
   })
