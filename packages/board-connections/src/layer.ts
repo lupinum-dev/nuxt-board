@@ -93,16 +93,15 @@ export const BoardConnectionLayer = defineComponent({
           ConnectionsEventMap
         >,
     )
-    const version = shallowRef(0)
+    const edges = shallowRef(engine.value.plugins.connections.$edges.get())
     const markerId = `board-connection-arrow-${useId().replace(/[^A-Za-z0-9_-]/g, '-')}`
     const sideCache = new Map<
       string,
       { source: AnchorSide; target: AnchorSide }
     >()
-    const geometryCache = new Map<
-      string,
+    const geometryCache = new WeakMap<
+      BoardEdge,
       {
-        key: string
         routing: ConnectionRouting
         sourceNode: BoardNode
         targetNode: BoardNode
@@ -123,31 +122,16 @@ export const BoardConnectionLayer = defineComponent({
       typeof window !== 'undefined' &&
       window.matchMedia?.('(pointer: coarse)').matches
 
-    let versionDirty = false
-    function scheduleVersion(): void {
-      if (!versionDirty) {
-        versionDirty = true
-        queueMicrotask(() => {
-          version.value += 1
-          versionDirty = false
-        })
-      }
-    }
-
     watch(
       engine,
       (current, _prev, onCleanup) => {
-        const unsubscribes = [
-          current.on('edge:created', scheduleVersion),
-          current.on('edge:updated', scheduleVersion),
-          current.on('edge:deleted', scheduleVersion),
-          current.$nodes.subscribe(() => scheduleVersion()),
-        ]
-        onCleanup(() => {
-          for (const unsubscribe of unsubscribes) {
-            unsubscribe()
-          }
-        })
+        edges.value = current.plugins.connections.$edges.get()
+        const unsubscribe = current.plugins.connections.$edges.subscribe(
+          (value) => {
+            edges.value = value
+          },
+        )
+        onCleanup(unsubscribe)
       },
       { immediate: true },
     )
@@ -228,7 +212,6 @@ export const BoardConnectionLayer = defineComponent({
     )
 
     const entries = computed<EdgeRenderEntry[]>(() => {
-      void version.value
       const nodes = injected.$nodes.value
       const currentEngine = engine.value
       const routing =
@@ -253,8 +236,8 @@ export const BoardConnectionLayer = defineComponent({
         { source: AnchorSide; target: AnchorSide }
       >()
 
-      const edges = currentEngine.plugins.connections.getEdges()
-      const resolved = edges
+      const edgeRecords = Array.from(edges.value.values())
+      const resolved = edgeRecords
         .map((edge) => {
           const sourceNode = nodes.get(edge.from)
           const targetNode = nodes.get(edge.to)
@@ -263,19 +246,10 @@ export const BoardConnectionLayer = defineComponent({
           }
 
           const edgeId = String(edge.id)
-          const geometryKey = JSON.stringify([
-            edge.from,
-            edge.to,
-            edge.fromAnchor,
-            edge.toAnchor,
-            edge.fromEnd,
-            edge.toEnd,
-          ])
-          const cached = geometryCache.get(edgeId)
+          const cached = geometryCache.get(edge)
           const previous = sideCache.get(edgeId)
           const geometry =
-            cached?.key === geometryKey &&
-            cached.routing === routing &&
+            cached?.routing === routing &&
             cached.sourceNode === sourceNode &&
             cached.targetNode === targetNode
               ? cached.geometry
@@ -285,8 +259,7 @@ export const BoardConnectionLayer = defineComponent({
                   previousTargetSide: previous?.target,
                 })
 
-          geometryCache.set(edgeId, {
-            key: geometryKey,
+          geometryCache.set(edge, {
             routing,
             sourceNode,
             targetNode,
@@ -319,11 +292,6 @@ export const BoardConnectionLayer = defineComponent({
       for (const [edgeId, value] of nextCache) {
         sideCache.set(edgeId, value)
       }
-      const liveIds = new Set(edges.map((edge) => String(edge.id)))
-      for (const id of geometryCache.keys()) {
-        if (!liveIds.has(id)) geometryCache.delete(id)
-      }
-
       return resolved
     })
 
@@ -600,42 +568,50 @@ export const BoardConnectionLayer = defineComponent({
       }
     }
 
-    watch(selectedEdgeId, (_next, _prev, onCleanup) => {
-      if (!selectedEdgeId.value) {
-        return
-      }
-      const handleKey = (event: KeyboardEvent) => {
-        const id = selectedEdgeId.value
-        if (!id) {
+    watch(
+      [selectedEdgeId, () => injected.rootElement.value],
+      (_next, _prev, onCleanup) => {
+        if (!selectedEdgeId.value) {
           return
         }
-        if (editingEdgeId.value) {
-          return
-        }
-        const target = event.target
-        if (target instanceof HTMLElement) {
-          const tag = target.tagName
-          if (
-            tag === 'INPUT' ||
-            tag === 'TEXTAREA' ||
-            target.isContentEditable
-          ) {
+        const root = injected.rootElement.value
+        if (!root) return
+        const handleKey = (event: KeyboardEvent) => {
+          const id = selectedEdgeId.value
+          if (!id) {
             return
           }
+          if (editingEdgeId.value) {
+            return
+          }
+          const target = event.target
+          if (target instanceof HTMLElement) {
+            const tag = target.tagName
+            if (
+              tag === 'INPUT' ||
+              tag === 'TEXTAREA' ||
+              target.isContentEditable
+            ) {
+              return
+            }
+          }
+          if (event.key === 'Delete' || event.key === 'Backspace') {
+            event.preventDefault()
+            deleteEdge(id)
+          } else if (event.key === 'Escape') {
+            event.preventDefault()
+            colorMenuEdgeId.value = null
+            directionMenuEdgeId.value = null
+            selectedEdgeId.value = null
+            hoveredEdgeId.value = null
+          }
         }
-        if (event.key === 'Delete' || event.key === 'Backspace') {
-          event.preventDefault()
-          deleteEdge(id)
-        } else if (event.key === 'Escape') {
-          colorMenuEdgeId.value = null
-          directionMenuEdgeId.value = null
-        }
-      }
-      window.addEventListener('keydown', handleKey)
-      onCleanup(() => {
-        window.removeEventListener('keydown', handleKey)
-      })
-    })
+        root.addEventListener('keydown', handleKey)
+        onCleanup(() => {
+          root.removeEventListener('keydown', handleKey)
+        })
+      },
+    )
 
     watch([pendingDrag, dragState], ([pending, active], _prev, onCleanup) => {
       if (!pending && !active) {

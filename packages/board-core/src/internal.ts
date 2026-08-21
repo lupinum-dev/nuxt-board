@@ -1,4 +1,5 @@
 export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
+export { readonlyMapView } from './helpers/clone.js'
 export {
   collectJsonObjectExtras,
   freezeJsonObject,

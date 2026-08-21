@@ -1,5 +1,5 @@
 import { h, type VNode } from 'vue'
-import type { Point } from '@lupinum/board-core'
+import type { CanvasColor, Point } from '@lupinum/board-core'
 import { EDGE_COLOR_PRESETS, resolvePresetColor } from './colors.js'
 import type { BoardEdge } from './types.js'
 
@@ -13,7 +13,7 @@ export interface ConnectionToolbarOptions {
   onDelete: () => void
   onToggleColorMenu: () => void
   onToggleDirectionMenu: () => void
-  onSetColor: (color: string | undefined) => void
+  onSetColor: (color: CanvasColor | undefined) => void
   onSetDirectionality: (direction: 'none' | 'to' | 'both') => void
   onResetAnchor: (end: 'from' | 'to' | 'both') => void
   onClearLabel: () => void
@@ -300,7 +300,7 @@ export function renderConnectionToolbar(
                       onClick: (event: MouseEvent) => {
                         event.preventDefault()
                         event.stopPropagation()
-                        callbacks.onSetColor(option.hex)
+                        callbacks.onSetColor(option.hex as CanvasColor)
                       },
                     }),
                   ),

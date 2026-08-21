@@ -3,6 +3,7 @@ import {
   CommandBlockedError,
   type BoardEngine,
   type BoardNode,
+  type CanvasColor,
 } from '@lupinum/board-core'
 import { edgeEndsForDirectionality } from './directionality.js'
 import { sameAnchor } from './layer-helpers.js'
@@ -65,6 +66,7 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
     if (state.editingEdgeId.value && state.editingEdgeId.value !== edgeId) {
       commitLabelEdit()
     }
+    deps.getEngine().clearSelection()
     state.selectedEdgeId.value = edgeId
     state.hoveredEdgeId.value = edgeId
     state.hoveredNodeHandle.value = null
@@ -140,7 +142,10 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
     state.directionMenuEdgeId.value = null
   }
 
-  function applyEdgeColor(edgeId: string, color: string | undefined): void {
+  function applyEdgeColor(
+    edgeId: string,
+    color: CanvasColor | undefined,
+  ): void {
     const entry = deps.getEntry(edgeId)
     if (!entry) return
     runConnectionCommand(() =>

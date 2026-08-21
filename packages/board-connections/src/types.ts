@@ -2,10 +2,12 @@ import type {
   Bounds,
   BoardEventMap,
   BoardNode,
+  CanvasColor,
   EdgeId,
   JsonObject,
   NodeId,
   Point,
+  Subscribable,
 } from '@lupinum/board-core'
 
 /** Public events installed with the connections plugin. */
@@ -29,36 +31,46 @@ type EndpointResolutionKind = 'explicit' | 'auto'
 
 /** Anchor location along a given node side, with `offset` normalized from 0 to 1. */
 export interface AnchorPosition {
-  side: AnchorSide
-  offset: number
+  readonly side: AnchorSide
+  readonly offset: number
 }
 
 /** Persistent edge record owned by the connections plugin. */
 export interface BoardEdge<T extends JsonObject = JsonObject> {
-  id: EdgeId
-  from: NodeId
-  to: NodeId
-  fromAnchor?: AnchorPosition
-  toAnchor?: AnchorPosition
-  fromEnd?: EdgeEnd
-  toEnd?: EdgeEnd
-  label?: string
-  color?: string
-  data: T
-  zIndex: number
+  readonly id: EdgeId
+  readonly from: NodeId
+  readonly to: NodeId
+  readonly fromAnchor?: AnchorPosition
+  readonly toAnchor?: AnchorPosition
+  readonly fromEnd?: EdgeEnd
+  readonly toEnd?: EdgeEnd
+  readonly label?: string
+  readonly color?: CanvasColor
+  readonly data: Readonly<T>
+  readonly zIndex: number
+}
+
+/** Input accepted when creating an edge. */
+export type BoardEdgeInput<T extends JsonObject = JsonObject> = Omit<
+  BoardEdge<T>,
+  'id' | 'zIndex' | 'data'
+> & {
+  readonly id?: EdgeId
+  readonly zIndex?: number
+  readonly data?: T
 }
 
 /** Partial update payload accepted by `updateEdge`. */
 export interface BoardEdgePatch<T extends JsonObject = JsonObject> {
-  from?: NodeId
-  to?: NodeId
-  fromAnchor?: AnchorPosition
-  toAnchor?: AnchorPosition
-  fromEnd?: EdgeEnd
-  toEnd?: EdgeEnd
-  label?: string
-  color?: string
-  data?: T
+  readonly from?: NodeId
+  readonly to?: NodeId
+  readonly fromAnchor?: AnchorPosition
+  readonly toAnchor?: AnchorPosition
+  readonly fromEnd?: EdgeEnd
+  readonly toEnd?: EdgeEnd
+  readonly label?: string
+  readonly color?: CanvasColor
+  readonly data?: T
 }
 
 /** Options for configuring the connections plugin defaults. */
@@ -85,11 +97,9 @@ export interface ConnectionConfig {
 
 /** Engine API installed by the connections plugin. */
 export interface ConnectionsApi {
+  readonly $edges: Subscribable<ReadonlyMap<EdgeId, BoardEdge>>
   createEdge<T extends JsonObject = JsonObject>(
-    input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
-      id?: EdgeId
-      zIndex?: number
-    },
+    input: BoardEdgeInput<T>,
   ): BoardEdge<T>
   updateEdge<T extends JsonObject = JsonObject>(
     id: EdgeId,

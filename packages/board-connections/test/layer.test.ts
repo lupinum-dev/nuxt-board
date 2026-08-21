@@ -77,6 +77,61 @@ beforeEach(() => {
 })
 
 describe('BoardConnectionLayer', () => {
+  it('scopes Escape and Delete to the exact owning board', async () => {
+    const engines = [0, 1].map(() => {
+      const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+      const source = engine.createNode({ text: 'Source' })
+      const target = engine.createNode({ x: 240, text: 'Target' })
+      engine.plugins.connections.createEdge({
+        from: source.id,
+        to: target.id,
+      })
+      return engine
+    })
+    const wrapper = mount({
+      render: () =>
+        h(
+          'div',
+          engines.map((engine) =>
+            h(
+              BoardRoot,
+              { engine },
+              { viewport: () => h(BoardConnectionLayer) },
+            ),
+          ),
+        ),
+    })
+    await nextTick()
+    const roots = wrapper.findAll('[data-board-root="true"]')
+
+    for (const root of roots) {
+      dispatchPointerEvent(
+        root.find('[data-connection-hit="true"]').element,
+        'pointerdown',
+        { pointerId: 1, button: 0, clientX: 120, clientY: 30 },
+      )
+    }
+    await nextTick()
+    expect(roots[0]!.find('[data-connection-toolbar]').exists()).toBe(true)
+    expect(roots[1]!.find('[data-connection-toolbar]').exists()).toBe(true)
+
+    await roots[0]!.trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    expect(roots[0]!.find('[data-connection-toolbar]').exists()).toBe(false)
+    expect(roots[1]!.find('[data-connection-toolbar]').exists()).toBe(true)
+
+    dispatchPointerEvent(
+      roots[0]!.find('[data-connection-hit="true"]').element,
+      'pointerdown',
+      { pointerId: 2, button: 0, clientX: 120, clientY: 30 },
+    )
+    await nextTick()
+    await roots[0]!.trigger('keydown', { key: 'Delete' })
+    expect(engines[0]!.plugins.connections.getEdges()).toHaveLength(0)
+    expect(engines[1]!.plugins.connections.getEdges()).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('does not create DOM paths for 10,000 offscreen edges', async () => {
     const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
     const visibleA = engine.createNode({
