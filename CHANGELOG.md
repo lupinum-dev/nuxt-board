@@ -16,6 +16,15 @@
 
 [compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v0.1.0...main)
 
+### Migration highlights
+
+- Replace the experimental `VueBoard*Metadata` types with `BoardNodeMetadata`, `BoardEdgeMetadata`, and `BoardDocumentMetadata`. Existing documents using `x-vue-board` remain readable, while every new export uses `x-lupinum-board` and preserves unknown valid JSON Canvas fields.
+- Connections now expose immutable, identity-stable edge snapshots through `$edges`. Persisted edge data must be a JSON-compatible object, and edge selection and keyboard actions are scoped to the owning board.
+- Paste is owned by the browser `paste` event. External clipboard data is tried before the internal buffer, and native clipboard or context-menu behavior continues unless the board or consumer handles it.
+- Touch input supports tap deselection, threshold-based one-finger panning, node drag and resize, and two-finger midpoint pan plus pinch zoom without timers.
+- Undo and redo shortcuts now use `<BoardHistoryShortcuts :history="engine.plugins.history" />` inside `BoardRoot`; shortcut handling and history frames are scoped to that exact board.
+- The Nuxt module now supports only `prefix`, `autoImportComponents`, and `autoImportComposables`. History and connection integrations require explicit package imports.
+
 ### 🚀 Enhancements
 
 - **docs:** Make Nuxt Board feel native to Nuxt ([#23](https://github.com/lupinum-dev/nuxt-board/pull/23))
