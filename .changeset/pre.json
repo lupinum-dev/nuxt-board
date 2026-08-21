@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@lupinum/board-playground": "0.1.0",
+    "@lupinum/board-connections": "0.1.0",
+    "@lupinum/board-core": "0.1.0",
+    "@lupinum/board-history": "0.1.0",
+    "@lupinum/nuxt-board": "0.1.0",
+    "@lupinum/vue-board": "0.1.0"
+  },
+  "changesets": []
+}

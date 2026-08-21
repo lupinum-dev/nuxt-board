@@ -60,6 +60,19 @@ any local publish command.
 Do not rebuild a package after verification. Do not publish from a maintainer
 workstation after trusted publishing is configured.
 
+### Prepare a prerelease
+
+1. Run `pnpm changeset pre enter beta` before the version workflow consumes the
+   release Changesets.
+2. Let Changesets create `1.0.0-beta.0` as the first beta version. Do not edit
+   the generated version to start at `beta.1`.
+3. Publish prerelease versions with the `next` dist-tag. Keep `latest` on the
+   last stable version.
+4. Keep prerelease mode active for follow-up beta versions.
+5. Run `pnpm changeset pre exit` only after one beta iteration has no public API
+   changes, all release gates pass, and no high- or medium-severity correctness
+   issue remains.
+
 ## Review dependency changes
 
 Renovate opens grouped dependency pull requests on Monday. It must not merge
