@@ -78,6 +78,29 @@ describe('nuxt-board module registration', () => {
     )
   })
 
+  it('registers only core and Vue imports without optional-package probing', () => {
+    setupModule()
+
+    const componentSources = kit.addComponent.mock.calls.map(
+      ([component]) => component.filePath,
+    )
+    const importSources = kit.addImports.mock.calls
+      .flatMap(([entries]) => entries)
+      .map((entry) => entry.from)
+    const sources = [...componentSources, ...importSources]
+
+    expect(new Set(sources)).toEqual(
+      new Set([
+        '@lupinum/board-core',
+        '@lupinum/vue-board',
+        '@lupinum/vue-board/minimap',
+      ]),
+    )
+    expect(sources).not.toContain('@lupinum/board-history')
+    expect(sources).not.toContain('@lupinum/board-connections')
+    expect(sources).not.toContain('@lupinum/board-connections/vue')
+  })
+
   it.each(['9board', 'board-name', 'board name'])(
     'rejects the invalid prefix %s',
     (prefix) => {

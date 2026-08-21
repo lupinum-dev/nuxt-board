@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { h } from 'vue'
+import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
-import { BoardMinimap } from '../src/minimap'
+import BoardRoot from '../src/components/BoardRoot.vue'
+import { BoardMinimap, useBoardMinimap } from '../src/minimap'
 
 function dispatchPointerEvent(
   target: EventTarget,
@@ -50,6 +51,23 @@ beforeEach(() => {
 })
 
 describe('BoardMinimap', () => {
+  it('resolves the enclosing board in the composable', () => {
+    const engine = createBoardEngine()
+    engine.createNode({ type: 'text', x: 10, y: 20, width: 100, height: 80 })
+    const Reader = defineComponent({
+      setup() {
+        const minimap = useBoardMinimap()
+        return () => h('output', minimap.minimapNodes.value.length)
+      },
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { viewport: () => h(Reader) },
+    })
+
+    expect(wrapper.find('output').text()).toBe('1')
+  })
+
   it('renders 10,000 projected nodes without per-node DOM elements', () => {
     const engine = createBoardEngine()
     engine.batch(() => {

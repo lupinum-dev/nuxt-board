@@ -1,4 +1,5 @@
 import { defineNuxtModule, addComponent, addImports } from '@nuxt/kit'
+import { name, version } from '../package.json'
 
 /** Configuration for the `@lupinum/nuxt-board` module. */
 export interface ModuleOptions {
@@ -76,7 +77,8 @@ function getHelperAlias(name: string, prefix: string): string {
 /** Nuxt module that auto-registers the board components and composables. */
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: '@lupinum/nuxt-board',
+    name,
+    version,
     configKey: 'board',
     compatibility: {
       nuxt: '^3.19.0 || ^4.0.0',

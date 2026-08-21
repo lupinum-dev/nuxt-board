@@ -75,7 +75,7 @@ async function seedConnectionScene(page: Page) {
             text: 'Output',
           },
         ],
-        'x-vue-board': {
+        'x-lupinum-board': {
           camera: { x: -80, y: -40, z: 1 },
           grid: { size: 20, majorEvery: 5, snap: true, pattern: 'dot' },
           selection: [],
