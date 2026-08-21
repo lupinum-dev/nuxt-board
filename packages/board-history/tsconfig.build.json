@@ -9,7 +9,8 @@
     "baseUrl": ".",
     "paths": {
       "@lupinum/board-core": ["../board-core/dist/index.d.ts"],
-      "@lupinum/board-core/internal": ["../board-core/dist/internal.d.ts"]
+      "@lupinum/board-core/internal": ["../board-core/dist/internal.d.ts"],
+      "@lupinum/vue-board": ["../vue-board/dist/index.d.ts"]
     }
   },
   "include": ["src/**/*.ts"]
