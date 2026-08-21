@@ -32,7 +32,10 @@ import { useViewportSize } from '../composables/useViewportSize.js'
 import { useResolvedGrid } from '../composables/useResolvedGrid.js'
 import { useLodCulling } from '../composables/useLodCulling.js'
 import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js'
-import { usePointerInteraction } from '../composables/usePointerInteraction.js'
+import {
+  usePointerInteraction,
+  type BoardContextMenuInfo,
+} from '../composables/usePointerInteraction.js'
 import BoardBoxSelect from './BoardBoxSelect.vue'
 import BoardGrid from './BoardGrid.vue'
 import BoardNode from './BoardNode.vue'
@@ -78,6 +81,8 @@ const props = defineProps({
 
 const emit = defineEmits<{
   ready: [engine: BoardEngine]
+  nodeContextmenu: [info: BoardContextMenuInfo & { node: BoardNodeState }]
+  canvasContextmenu: [info: BoardContextMenuInfo & { node: null }]
 }>()
 
 const rootElement = ref<HTMLElement | null>(null)
@@ -226,11 +231,17 @@ const {
   onPointerCancel,
   onWheel,
   onDoubleClick,
+  onContextMenu,
+  onPaste,
 } = usePointerInteraction({
   engine,
   rootElement,
   spacePressed,
   toLocalPoint,
+  onContextMenu(info) {
+    if (info.node) emit('nodeContextmenu', { ...info, node: info.node })
+    else emit('canvasContextmenu', { ...info, node: null })
+  },
 })
 
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
@@ -283,6 +294,8 @@ onBeforeUnmount(() => {
     @dblclick="onDoubleClick"
     @keydown="onKeyDown"
     @keyup="onKeyUp"
+    @contextmenu="onContextMenu"
+    @paste="onPaste"
   >
     <BoardGrid v-if="grid !== false" />
     <BoardViewport>

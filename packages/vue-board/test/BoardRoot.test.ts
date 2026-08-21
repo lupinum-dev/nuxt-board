@@ -548,6 +548,171 @@ describe('BoardRoot', () => {
     expect(engine.getState().nodes.size).toBe(1)
   })
 
+  it('cuts the selection as one history frame', async () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+    engine.createNode({ type: 'text', text: 'Cut me' })
+    engine.plugins.history.clear()
+    const wrapper = mount(BoardRoot, { props: { engine } })
+
+    await wrapper.trigger('keydown', { key: 'x', ctrlKey: true })
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(engine.plugins.history.getState().undoDepth).toBe(1)
+
+    engine.plugins.history.undo()
+    expect(engine.getState().nodes.size).toBe(1)
+  })
+
+  it('lets the paste event own external and internal paste exactly once', async () => {
+    let deserializations = 0
+    const engine = createBoardEngine({
+      clipboard: {
+        deserialize(payload) {
+          deserializations += 1
+          return (payload as { text?: string }).text === 'external'
+            ? [{ type: 'text', text: 'external' }]
+            : null
+        },
+      },
+    })
+    const buffered = engine.createNode({ type: 'text', text: 'buffered' })
+    engine.copySelected()
+    const wrapper = mount(BoardRoot, { props: { engine } })
+
+    const keydown = new KeyboardEvent('keydown', {
+      key: 'v',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    wrapper.element.dispatchEvent(keydown)
+    expect(keydown.defaultPrevented).toBe(false)
+    expect(engine.getState().nodes.size).toBe(1)
+
+    const paste = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => 'external', files: [] },
+    })
+    wrapper.element.dispatchEvent(paste)
+    await nextTick()
+
+    expect(paste.defaultPrevented).toBe(true)
+    expect(deserializations).toBe(1)
+    expect(
+      Array.from(engine.getState().nodes.values()).filter(
+        (node) => node.text === 'external',
+      ),
+    ).toHaveLength(1)
+
+    engine.select(buffered.id)
+    engine.copySelected()
+    const fallback = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(fallback, 'clipboardData', {
+      value: { getData: () => 'unknown', files: [] },
+    })
+    wrapper.element.dispatchEvent(fallback)
+    expect(fallback.defaultPrevented).toBe(true)
+    expect(engine.getState().nodes.size).toBe(3)
+  })
+
+  it.each([
+    ['editable', 'input', {}],
+    ['explicitly interactive', 'div', { 'data-board-interactive': 'true' }],
+  ])(
+    'preserves native paste behavior for %s targets',
+    async (_label, tag, attributes) => {
+      const deserialize = vi.fn(() => [{ type: 'text' as const }])
+      const engine = createBoardEngine({ clipboard: { deserialize } })
+      const wrapper = mount(BoardRoot, {
+        props: { engine },
+        attachTo: document.body,
+      })
+      const target = document.createElement(tag)
+      for (const [name, value] of Object.entries(attributes)) {
+        target.setAttribute(name, value)
+      }
+      wrapper.element.append(target)
+      const paste = new Event('paste', { bubbles: true, cancelable: true })
+      Object.defineProperty(paste, 'clipboardData', {
+        value: { getData: () => 'external', files: [] },
+      })
+
+      target.dispatchEvent(paste)
+      await nextTick()
+
+      expect(paste.defaultPrevented).toBe(false)
+      expect(deserialize).not.toHaveBeenCalled()
+      expect(engine.getState().nodes.size).toBe(0)
+    },
+  )
+
+  it('leaves unsuccessful paste data to the consumer when no buffer exists', async () => {
+    const deserialize = vi.fn(() => null)
+    const engine = createBoardEngine({ clipboard: { deserialize } })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+    const paste = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: () => 'unsupported', files: [] },
+    })
+
+    wrapper.element.dispatchEvent(paste)
+    await nextTick()
+
+    expect(deserialize).toHaveBeenCalledOnce()
+    expect(paste.defaultPrevented).toBe(false)
+    expect(engine.getState().nodes.size).toBe(0)
+  })
+
+  it('emits context information without suppressing the native menu', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text', x: 10, y: 20 })
+    const wrapper = mount(BoardRoot, { props: { engine } })
+    const target = wrapper.find(`[data-node-id="${node.id}"]`).element
+    const event = new MouseEvent('contextmenu', {
+      clientX: 30,
+      clientY: 40,
+      bubbles: true,
+      cancelable: true,
+    })
+
+    target.dispatchEvent(event)
+    await nextTick()
+
+    expect(event.defaultPrevented).toBe(false)
+    const payload = wrapper.emitted('nodeContextmenu')?.[0]?.[0] as {
+      event: MouseEvent
+      node: { id: string }
+      screen: { x: number; y: number }
+    }
+    expect(payload.event).toBe(event)
+    expect(payload.node.id).toBe(node.id)
+    expect(payload.screen).toEqual({ x: 30, y: 40 })
+  })
+
+  it('lets a context-menu consumer deliberately suppress the native menu', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text', x: 10, y: 20 })
+    const wrapper = mount(BoardRoot, {
+      props: {
+        engine,
+        onNodeContextmenu(payload: { event: MouseEvent }) {
+          payload.event.preventDefault()
+        },
+      },
+    })
+    const target = wrapper.find(`[data-node-id="${node.id}"]`).element
+    const event = new MouseEvent('contextmenu', {
+      clientX: 30,
+      clientY: 40,
+      bubbles: true,
+      cancelable: true,
+    })
+
+    target.dispatchEvent(event)
+    await nextTick()
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
   it.each([
     ['file', { type: 'file' as const, file: 'poster.png' }],
     ['link', { type: 'link' as const, url: 'https://example.com' }],

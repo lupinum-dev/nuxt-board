@@ -93,9 +93,12 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       engine.copySelected()
       return
     }
-    if (mod && event.key.toLowerCase() === 'v') {
+    if (mod && event.key.toLowerCase() === 'x' && selection.length > 0) {
       event.preventDefault()
-      engine.pasteClipboard()
+      engine.batch(() => {
+        engine.copySelected()
+        engine.deleteSelected()
+      })
       return
     }
     if (mod && event.key === '0') {
