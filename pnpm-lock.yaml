@@ -175,10 +175,16 @@ importers:
   packages/board-core: {}
 
   packages/board-history:
-    dependencies:
+    devDependencies:
       '@lupinum/board-core':
         specifier: workspace:*
         version: link:../board-core
+      '@lupinum/vue-board':
+        specifier: workspace:*
+        version: link:../vue-board
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.41(typescript@5.9.3)
 
   packages/nuxt-board:
     dependencies:

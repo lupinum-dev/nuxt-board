@@ -18,7 +18,7 @@ interface UseKeyboardShortcutsOptions {
 /**
  * Provide the keyboard handlers used by `BoardRoot`.
  *
- * Shortcuts cover selection, clipboard commands, history, zoom presets, and
+ * Shortcuts cover selection, clipboard commands, zoom presets, and
  * keyboard nudging while intentionally ignoring editable targets.
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
@@ -54,11 +54,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
     const mod = event.metaKey || event.ctrlKey
     const selection = engine.getSelection()
-    const history = (
-      engine.plugins as unknown as {
-        history?: { undo: () => void; redo: () => void }
-      }
-    ).history
     if (event.key === 'Escape') {
       engine.clearSelection()
       interaction.cancelInteraction()
@@ -109,20 +104,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
     if (mod && event.key === '1') {
       event.preventDefault()
       void engine.zoomToFit(40, true)
-      return
-    }
-    if (mod && event.key.toLowerCase() === 'z') {
-      event.preventDefault()
-      if (event.shiftKey) {
-        history?.redo()
-      } else {
-        history?.undo()
-      }
-      return
-    }
-    if (mod && event.key.toLowerCase() === 'y') {
-      event.preventDefault()
-      history?.redo()
       return
     }
     if (selection.length > 0 && event.key.startsWith('Arrow')) {
