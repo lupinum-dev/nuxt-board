@@ -2,6 +2,7 @@ import { onBeforeUnmount, shallowRef, type Ref } from 'vue'
 import {
   asNodeId,
   type BoardEngine,
+  type BoardNode,
   type Point,
   type ResizeHandle,
 } from '@lupinum/board-core'
@@ -36,6 +37,15 @@ interface UsePointerInteractionOptions {
   rootElement: Ref<HTMLElement | null>
   spacePressed: Ref<boolean>
   toLocalPoint: (clientX: number, clientY: number) => Point
+  onContextMenu?: (info: BoardContextMenuInfo) => void
+}
+
+/** Information emitted when the user opens a board context menu. */
+export interface BoardContextMenuInfo {
+  event: MouseEvent
+  node: BoardNode | null
+  world: Point
+  screen: Point
 }
 
 function findNodeId(target: EventTarget | null): string | undefined {
@@ -420,6 +430,46 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     }
   }
 
+  function onContextMenu(event: MouseEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+    if (isBoardInteractiveEventTarget(event.target)) return
+
+    const screen = toLocalPoint(event.clientX, event.clientY)
+    const world = engine.screenToWorld(screen)
+    const nodeId = findNodeId(event.target) ?? findNodeIdAtPoint(screen)
+    options.onContextMenu?.({
+      event,
+      node: nodeId ? engine.findNode(asNodeId(nodeId)) : null,
+      world,
+      screen,
+    })
+  }
+
+  function onPaste(event: ClipboardEvent): void {
+    if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
+    if (isBoardInteractiveEventTarget(event.target)) return
+
+    const data = event.clipboardData
+    const payload = {
+      text: data?.getData('text/plain') ?? '',
+      files: Array.from(data?.files ?? []),
+    }
+    const viewport = rootElement.value
+    const offset = viewport
+      ? engine.screenToWorld({
+          x: viewport.clientWidth / 2,
+          y: viewport.clientHeight / 2,
+        })
+      : undefined
+    const external = runBoardCommand(() => engine.pasteData(payload, offset))
+    if (external && external.length > 0) {
+      event.preventDefault()
+      return
+    }
+    const internal = runBoardCommand(() => engine.pasteClipboard())
+    if (internal && internal.length > 0) event.preventDefault()
+  }
+
   function onDoubleClick(event: MouseEvent): void {
     if (!isEventOwnedByBoardRoot(event.target, rootElement.value)) return
     if (
@@ -468,5 +518,7 @@ export function usePointerInteraction(options: UsePointerInteractionOptions) {
     onPointerCancel,
     onWheel,
     onDoubleClick,
+    onContextMenu,
+    onPaste,
   }
 }

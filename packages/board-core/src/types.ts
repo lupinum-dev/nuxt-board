@@ -316,6 +316,11 @@ export interface DuplicateNodesResult {
   readonly idMap: ReadonlyMap<NodeId, NodeId>
 }
 
+/** Clipboard hook used to translate host payloads into board nodes. */
+export interface BoardClipboardHooks {
+  deserialize(payload: unknown): NodeInput[] | null
+}
+
 /** Options controlling how a validated document enters the current board. */
 export interface DocumentLoadOptions {
   mode?: 'replace' | 'merge'
@@ -478,6 +483,7 @@ export interface BoardEngineOptions<
   nodes?: Partial<NodeConstraints>
   boxSelect?: Partial<BoxSelectSettings>
   plugins?: TPlugins
+  clipboard?: BoardClipboardHooks
   diagnostics?: boolean | { traceLimit?: number }
   onUnhandledError?: (
     error: unknown,
@@ -644,6 +650,8 @@ export interface BoardEngine<
   duplicateNodes(ids: NodeId[], offset?: Point): DuplicateNodesResult
   copySelected(): BoardNode[]
   pasteClipboard(offset?: Point): BoardNode[]
+  /** Paste a host payload, or return `null` when the hook does not recognize it. */
+  pasteData(payload: unknown, offset?: Point): BoardNode[] | null
   select(ids: NodeId | NodeId[], mode?: SelectionMode): void
   selectAll(): void
   clearSelection(): void

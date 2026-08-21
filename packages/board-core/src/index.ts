@@ -41,6 +41,7 @@ export type {
   BoardEdgeMetadata,
   BoardNodeMetadata,
   BoardColorPreset,
+  BoardClipboardHooks,
   BoardState,
   Bounds,
   Camera,

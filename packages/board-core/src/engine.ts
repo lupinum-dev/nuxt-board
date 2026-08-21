@@ -1607,6 +1607,27 @@ export function createBoardEngine<
         return created.map((node) => materializeNode(node))
       })
     },
+    pasteData(payload: unknown, offset = { x: grid.size, y: grid.size }) {
+      return runCommand('pasteData', [payload, offset], () => {
+        const inputs = options.clipboard?.deserialize(payload) ?? null
+        if (!inputs || inputs.length === 0) return null
+
+        const created = inputs.map((input) =>
+          normalizeNode({
+            ...input,
+            x: input.x ?? offset.x,
+            y: input.y ?? offset.y,
+          }),
+        )
+        for (const node of created) {
+          state.nodes.set(node.id, node)
+          emit('node:created', materializeNode(node))
+        }
+        notifyNodesChanged()
+        setSelection(created.map((node) => node.id))
+        return created.map((node) => materializeNode(node))
+      })
+    },
     select(ids, mode = 'replace') {
       runCommand(
         'select',

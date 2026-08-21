@@ -2067,6 +2067,29 @@ describe('transaction isolation regressions', () => {
     expect(engine.pasteClipboard().map((node) => node.text)).toEqual(['keep'])
   })
 
+  it('pastes recognized host payloads and preserves explicit positions', () => {
+    const engine = createBoardEngine({
+      clipboard: {
+        deserialize(payload) {
+          if (payload !== 'card') return null
+          return [
+            { type: 'text', text: 'placed', x: 40, y: 60 },
+            { type: 'text', text: 'centered' },
+          ]
+        },
+      },
+    })
+
+    expect(engine.pasteData('unknown', { x: 200, y: 150 })).toBeNull()
+    const created = engine.pasteData('card', { x: 200, y: 150 })
+
+    expect(created).toMatchObject([
+      { text: 'placed', x: 40, y: 60 },
+      { text: 'centered', x: 200, y: 150 },
+    ])
+    expect(engine.getSelection()).toEqual(created?.map((node) => node.id))
+  })
+
   it('preserves transient gesture geometry when document validation fails', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({ type: 'text', x: 0, y: 0 })
