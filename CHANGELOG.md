@@ -39,6 +39,7 @@
 
 - **release:** Preserve consumed Changeset deletions ([#24](https://github.com/lupinum-dev/nuxt-board/pull/24))
 - **docs:** Build when Vercel baseline is missing ([#26](https://github.com/lupinum-dev/nuxt-board/pull/26))
+- **release:** Accept consumed prerelease notes ([#37](https://github.com/lupinum-dev/nuxt-board/pull/37))
 
 ### 📖 Documentation
 
