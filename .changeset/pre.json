@@ -9,5 +9,12 @@
     "@lupinum/nuxt-board": "0.1.0",
     "@lupinum/vue-board": "0.1.0"
   },
-  "changesets": []
+  "changesets": [
+    "bright-boards-agree",
+    "calm-edges-listen",
+    "kind-apis-settle",
+    "soft-fingers-move",
+    "warm-clips-open",
+    "wise-history-stays"
+  ]
 }
