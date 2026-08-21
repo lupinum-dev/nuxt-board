@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asNodeId, createBoardEngine } from '../src'
+import { asNodeId, BoardInputError, createBoardEngine } from '../src'
 import type { BoardNode, JsonCanvasDocument } from '../src'
 import {
   defineInternalBoardPlugin,
@@ -54,15 +54,84 @@ describe('board-core public document API', () => {
     ).toBe(true)
   })
 
+  it('keeps node passthrough fields aligned through clipboard, delete, and merge remapping', () => {
+    const engine = createBoardEngine({
+      initialDocument: {
+        nodes: [
+          {
+            id: 'source',
+            type: 'text',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 60,
+            text: 'Source',
+            'source-extra': { retained: true },
+          },
+        ],
+        'x-lupinum-board': { selection: ['source'] },
+      } as never,
+    })
+
+    engine.copySelected()
+    engine.deleteNode(asNodeId('source'))
+    const [pasted] = engine.pasteClipboard()
+    expect(pasted).toBeDefined()
+
+    engine.loadDocument(
+      {
+        nodes: [
+          {
+            id: pasted!.id,
+            type: 'text',
+            x: 200,
+            y: 0,
+            width: 100,
+            height: 60,
+            text: 'Merged',
+            'merged-extra': { retained: true },
+          },
+        ],
+      },
+      { mode: 'merge' },
+    )
+
+    const exported = engine.exportDocument()
+    expect(exported.nodes).toHaveLength(2)
+    expect(exported.nodes).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'source' })]),
+    )
+    expect(exported.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: pasted!.id,
+          'source-extra': { retained: true },
+        }),
+        expect.objectContaining({
+          'merged-extra': { retained: true },
+        }),
+      ]),
+    )
+  })
+
   it('rejects invalid persisted edge data without requiring the connections plugin', () => {
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
+    const sparse: unknown[] = []
+    sparse.length = 2
+    sparse[1] = 'value'
 
     for (const data of [
       cyclic,
       { callback: () => undefined },
       { instance: new Date() },
       { value: Number.POSITIVE_INFINITY },
+      { value: Number.NEGATIVE_INFINITY },
+      { value: Number.NaN },
+      { value: undefined },
+      { value: Symbol('value') },
+      { value: 1n },
+      { value: sparse },
       ['not-an-object'],
     ]) {
       const engine = createBoardEngine()
@@ -71,8 +140,45 @@ describe('board-core public document API', () => {
           nodes: [],
           'x-lupinum-board': { edges: { ghost: { data } } },
         }),
-      ).toThrow(/Invalid board document/)
+      ).toThrow(BoardInputError)
     }
+  })
+
+  it('rejects property shapes that JSON cannot represent without executing accessors', () => {
+    let getterCalls = 0
+    const accessor = Object.defineProperty({}, 'value', {
+      enumerable: true,
+      get() {
+        getterCalls += 1
+        return 'unsafe'
+      },
+    })
+    const hidden = Object.defineProperty({}, 'hidden', {
+      enumerable: false,
+      value: () => undefined,
+    })
+    const symbolKey = { [Symbol('hidden')]: 'value' }
+
+    for (const data of [accessor, hidden, symbolKey]) {
+      const engine = createBoardEngine()
+      expect(() =>
+        engine.loadDocument({
+          nodes: [],
+          'x-lupinum-board': { edges: { ghost: { data } } },
+        }),
+      ).toThrow(BoardInputError)
+    }
+    expect(getterCalls).toBe(0)
+  })
+
+  it('rejects class instances at the document root', () => {
+    class DocumentInput {
+      nodes: unknown[] = []
+    }
+
+    expect(() => createBoardEngine().loadDocument(new DocumentInput())).toThrow(
+      BoardInputError,
+    )
   })
 
   it.each([
@@ -460,7 +566,7 @@ describe('board-core public document API', () => {
       },
       persistence: {
         loadDocument(pluginEngine) {
-          pluginEngine.updatePluginState<{ imports: number }>((state) => ({
+          pluginEngine.updatePluginState((state) => ({
             imports: state.imports + 1,
           }))
           throw new Error('plugin import failed')

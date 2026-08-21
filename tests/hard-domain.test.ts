@@ -114,7 +114,7 @@ describe('hard board domain regressions', () => {
       },
       persistence: {
         loadDocument(engine) {
-          engine.updatePluginState<{ imports: number }>((state) => ({
+          engine.updatePluginState((state) => ({
             imports: state.imports + 1,
           }))
           throw new Error('feature import failed')

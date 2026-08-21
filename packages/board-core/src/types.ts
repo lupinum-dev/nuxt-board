@@ -695,6 +695,7 @@ export interface InternalPluginContext<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
+  TState = unknown,
 > extends Omit<BoardEngine, 'plugins'> {
   readonly plugins: TPluginApis
   /** Assert that the owning engine has not been destroyed. */
@@ -719,9 +720,11 @@ export interface InternalPluginContext<
     metadata: CommandMetadata,
   ): T
   /** Read the immutable persistent slice owned by the current plugin. */
-  getPluginState<S>(): S
+  getPluginState(): TState
   /** Replace the current plugin's persistent slice inside the active command. */
-  updatePluginState<S>(update: (current: S) => S): S
+  updatePluginState(update: (current: TState) => TState): TState
+  /** Project persistent plugin state through the canonical subscribable lifecycle. */
+  createCommitSubscribable<T>(select: () => T, channel: string): Subscribable<T>
   /** Prepare final bookkeeping/event publication for a validated outer commit. The effect cannot mutate or destroy the board. */
   projectCommit(
     projector: (
@@ -733,8 +736,8 @@ export interface InternalPluginContext<
 }
 
 /** Persistent state owned by an internal plugin. */
-interface InternalPluginSlice {
-  initial: unknown
+interface InternalPluginSlice<TState> {
+  initial: TState
 }
 
 /** Optional internal hook for persisted JSON Canvas document data. */
@@ -743,12 +746,13 @@ export interface InternalPluginPersistence<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
+  TState = unknown,
 > {
   exportDocument?(
-    engine: InternalPluginContext<TPluginApis, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents, TState>,
   ): Partial<JsonCanvasDocument> | void
   loadDocument?(
-    engine: InternalPluginContext<TPluginApis, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents, TState>,
     document: JsonCanvasDocument,
     mode: 'replace' | 'merge',
     idMap: ReadonlyMap<NodeId, NodeId>,
@@ -761,16 +765,17 @@ export interface InternalBoardPlugin<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
+  TState = unknown,
 > extends BoardPlugin<TPluginApis, TEvents> {
   name: string
-  slice?: InternalPluginSlice
-  persistence?: InternalPluginPersistence<TPluginApis, TEvents>
+  slice?: InternalPluginSlice<TState>
+  persistence?: InternalPluginPersistence<TPluginApis, TEvents, TState>
   nodeDeleted?(
-    engine: InternalPluginContext<TPluginApis, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents, TState>,
     nodeId: NodeId,
   ): void
   install(
-    engine: InternalPluginContext<TPluginApis, TEvents>,
+    engine: InternalPluginContext<TPluginApis, TEvents, TState>,
     options?: Record<string, unknown>,
   ): void | PluginCleanup
 }
@@ -780,6 +785,10 @@ export type InternalBoardPluginDefinition<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
-> = Omit<InternalBoardPlugin<TPluginApis, TEvents>, keyof BoardPlugin> & {
+  TState = unknown,
+> = Omit<
+  InternalBoardPlugin<TPluginApis, TEvents, TState>,
+  keyof BoardPlugin
+> & {
   readonly name: string
 }

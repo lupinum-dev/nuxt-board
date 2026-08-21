@@ -6,6 +6,7 @@ import {
   BoardInputError,
   CommandBlockedError,
   createBoardEngine,
+  type Subscribable,
 } from '../src'
 import {
   defineInternalBoardPlugin,
@@ -14,6 +15,45 @@ import {
 } from '../src/internal'
 
 describe('board engine', () => {
+  it('projects plugin state through the canonical subscribable lifecycle', () => {
+    const failures: Array<{ error: unknown; channel: string }> = []
+    const observed: number[] = []
+    let projected!: Subscribable<number>
+    const probe = defineInternalBoardPlugin({
+      name: 'projection-probe',
+      install(engine) {
+        projected = engine.createCommitSubscribable(
+          () => engine.getState().nodes.size,
+          '$probe',
+        )
+      },
+    })
+    const engine = createBoardEngine({
+      plugins: [probe],
+      onUnhandledError(error, context) {
+        if (context.source === 'subscriber') {
+          failures.push({ error, channel: context.channel })
+        }
+      },
+    })
+    projected.subscribe(() => {
+      throw new Error('projection failed')
+    })
+    projected.subscribe((value) => observed.push(value))
+
+    engine.batch(() => {
+      engine.createNode({ type: 'text' })
+      engine.createNode({ type: 'text' })
+    })
+
+    expect(projected.get()).toBe(2)
+    expect(observed).toEqual([2])
+    expect(failures).toMatchObject([{ channel: '$probe' }])
+
+    engine.destroy()
+    expect(() => projected.get()).toThrow(BoardDestroyedError)
+  })
+
   it('reports listener failures without rolling back committed state', () => {
     const failures: Array<{ error: unknown; event: string }> = []
     const engine = createBoardEngine({
@@ -314,11 +354,31 @@ describe('board engine', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 
-  it('keeps pointer methods off the runtime public facade', () => {
+  it('keeps every privileged method off the runtime public facade', () => {
     const engine = createBoardEngine()
-    expect(Object.keys(engine)).not.toContain('beginNodeDrag')
-    expect(Object.keys(engine)).not.toContain('runCommand')
-    expect('beginNodeDrag' in engine).toBe(false)
+    for (const key of [
+      'assertActive',
+      'isBatching',
+      'emit',
+      'extend',
+      'runCommand',
+      'createCommitSubscribable',
+      'projectCommit',
+      'restoreHistoryRoot',
+      'getPluginState',
+      'updatePluginState',
+      'beginPan',
+      'beginNodeDrag',
+      'beginResize',
+      'beginBoxSelect',
+      'updatePointer',
+      'endInteraction',
+      'cancelInteraction',
+      'getUniformTranslationTargets',
+      'syncGroupZOrder',
+    ]) {
+      expect(key in engine).toBe(false)
+    }
     expect(getBoardInteractionAdapter(engine).beginNodeDrag).toBeTypeOf(
       'function',
     )
