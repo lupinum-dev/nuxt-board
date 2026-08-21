@@ -17,6 +17,21 @@ function createHistoryEngine() {
 }
 
 describe('BoardHistoryShortcuts', () => {
+  it('rejects a history API owned by another board', () => {
+    const first = createHistoryEngine()
+    const second = createHistoryEngine()
+
+    expect(() =>
+      mount(BoardRoot, {
+        props: { engine: first },
+        slots: {
+          viewport: () =>
+            h(BoardHistoryShortcuts, { history: second.plugins.history }),
+        },
+      }),
+    ).toThrow(/must belong to its enclosing BoardRoot/)
+  })
+
   it('undoes only the board that owns the keyboard event', async () => {
     const first = createHistoryEngine()
     const second = createHistoryEngine()

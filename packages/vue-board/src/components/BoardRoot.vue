@@ -31,10 +31,12 @@ import { useViewportSize } from '../composables/useViewportSize.js'
 import { useResolvedGrid } from '../composables/useResolvedGrid.js'
 import { useLodCulling } from '../composables/useLodCulling.js'
 import { useKeyboardShortcuts } from '../composables/useKeyboardShortcuts.js'
+import { usePointerInteraction } from '../composables/usePointerInteraction.js'
+import { useBoardClipboard } from '../composables/useBoardClipboard.js'
 import {
-  usePointerInteraction,
+  useBoardContextMenu,
   type BoardContextMenuInfo,
-} from '../composables/usePointerInteraction.js'
+} from '../composables/useBoardContextMenu.js'
 import BoardBoxSelect from './BoardBoxSelect.vue'
 import BoardGrid from './BoardGrid.vue'
 import BoardNode from './BoardNode.vue'
@@ -229,18 +231,24 @@ const {
   onPointerCancel,
   onWheel,
   onDoubleClick,
-  onContextMenu,
-  onPaste,
 } = usePointerInteraction({
   engine,
   rootElement,
   spacePressed,
+  toLocalPoint,
+})
+
+const { onContextMenu } = useBoardContextMenu({
+  engine,
+  rootElement,
   toLocalPoint,
   onContextMenu(info) {
     if (info.node) emit('nodeContextmenu', { ...info, node: info.node })
     else emit('canvasContextmenu', { ...info, node: null })
   },
 })
+
+const { onPaste } = useBoardClipboard({ engine, rootElement })
 
 const { onKeyDown, onKeyUp } = useKeyboardShortcuts({
   engine,
