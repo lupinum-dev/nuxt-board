@@ -5,6 +5,7 @@ import {
   BoardConflictError,
   BoardInputError,
   type BoardEngine,
+  type JsonCanvasEdge,
   createBoardEngine,
 } from '@lupinum/board-core'
 import {
@@ -19,6 +20,7 @@ import {
   resolveEdgeRenderState,
   type ConnectionsApi,
 } from '../src'
+import { historyPlugin } from '@lupinum/board-history'
 
 function expectEdgesReferenceExistingNodes(
   engine: BoardEngine<{ connections: ConnectionsApi }>,
@@ -30,6 +32,141 @@ function expectEdgesReferenceExistingNodes(
 }
 
 describe('connections plugin', () => {
+  it('publishes immutable identity-stable edge snapshots once per commit', () => {
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+    const source = engine.createNode({ text: 'Source' })
+    const target = engine.createNode({ text: 'Target' })
+    const snapshots: ReadonlyMap<unknown, unknown>[] = []
+    engine.plugins.connections.$edges.subscribe((value) =>
+      snapshots.push(value),
+    )
+
+    const edge = engine.plugins.connections.createEdge({
+      from: source.id,
+      to: target.id,
+      fromAnchor: { side: 'right', offset: 0.25 },
+      toAnchor: { side: 'left', offset: 0.75 },
+      data: { nested: { weight: 2 }, values: [1, 2] },
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(engine.plugins.connections.$edges.get().get(edge.id)).toBe(edge)
+    expect(engine.plugins.connections.getEdge(edge.id)).toBe(edge)
+    expect(Object.isFrozen(edge)).toBe(true)
+    expect(Object.isFrozen(edge.data)).toBe(true)
+    expect(Object.isFrozen(edge.data.nested)).toBe(true)
+    expect(Object.isFrozen(edge.data.values)).toBe(true)
+    expect(Object.isFrozen(edge.fromAnchor)).toBe(true)
+    expect(Object.isFrozen(edge.toAnchor)).toBe(true)
+
+    engine.plugins.connections.updateEdge(edge.id, {})
+    engine.plugins.connections.deleteEdge(asEdgeId('missing'))
+    expect(snapshots).toHaveLength(1)
+  })
+
+  it('publishes one edge snapshot for an outer batch', () => {
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+    const source = engine.createNode({ text: 'Source' })
+    const target = engine.createNode({ text: 'Target' })
+    const snapshots: ReadonlyMap<unknown, unknown>[] = []
+    engine.plugins.connections.$edges.subscribe((value) =>
+      snapshots.push(value),
+    )
+
+    let firstId = asEdgeId('missing')
+    engine.batch(() => {
+      const first = engine.plugins.connections.createEdge({
+        from: source.id,
+        to: target.id,
+      })
+      firstId = first.id
+      engine.plugins.connections.createEdge({
+        from: target.id,
+        to: source.id,
+      })
+      engine.plugins.connections.updateEdge(first.id, { label: 'Batched' })
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]?.size).toBe(2)
+    expect(snapshots[0]?.get(firstId)).toBe(
+      engine.plugins.connections.getEdge(firstId),
+    )
+  })
+
+  it('round-trips frozen unknown JSON Canvas edge fields through edits and history', () => {
+    const engine = createBoardEngine({
+      plugins: [historyPlugin(), connectionsPlugin()],
+    })
+    const future = { nested: { enabled: true } }
+    engine.loadDocument({
+      nodes: [
+        {
+          id: 'source',
+          type: 'text',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 60,
+          text: 'Source',
+        },
+        {
+          id: 'target',
+          type: 'text',
+          x: 200,
+          y: 0,
+          width: 100,
+          height: 60,
+          text: 'Target',
+        },
+      ],
+      edges: [
+        {
+          id: 'future-edge',
+          fromNode: 'source',
+          toNode: 'target',
+          'future-edge-field': future,
+        },
+      ],
+    } as never)
+    future.nested.enabled = false
+    engine.plugins.history.clear()
+
+    const id = asEdgeId('future-edge')
+    engine.plugins.connections.updateEdge(id, { label: 'Updated' })
+    engine.plugins.history.undo()
+    engine.plugins.history.redo()
+
+    const exported = engine.exportDocument()
+    const edge = exported.edges?.[0] as JsonCanvasEdge & Record<string, unknown>
+    expect(edge.label).toBe('Updated')
+    expect(edge['future-edge-field']).toEqual({ nested: { enabled: true } })
+    expect(Object.isFrozen(edge['future-edge-field'])).toBe(true)
+  })
+
+  it('rejects non-JSON and cyclic edge data', () => {
+    const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+    const source = engine.createNode({ text: 'Source' })
+    const target = engine.createNode({ text: 'Target' })
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+
+    expect(() =>
+      engine.plugins.connections.createEdge({
+        from: source.id,
+        to: target.id,
+        data: cyclic as never,
+      }),
+    ).toThrow(BoardInputError)
+    expect(() =>
+      engine.plugins.connections.createEdge({
+        from: source.id,
+        to: target.id,
+        data: { invalid: new Date() } as never,
+      }),
+    ).toThrow(BoardInputError)
+  })
+
   it('keeps connection projection current when a later commit effect fails', () => {
     const failures: string[] = []
     const finalized: string[] = []
@@ -108,7 +245,7 @@ describe('connections plugin', () => {
       engine.plugins.connections.createEdge({
         from: source.id,
         to: target.id,
-        color: 'tomato',
+        color: 'tomato' as never,
         data: {},
       }),
     ).toThrow(BoardInputError)
