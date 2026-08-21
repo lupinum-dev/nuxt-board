@@ -3,6 +3,8 @@ import { isBoardColorPreset } from '../colors.js'
 import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types.js'
 import { normalizeExistingNode } from '../state/initial.js'
 import { BoardInputError } from '../errors.js'
+import { collectJsonObjectExtras, freezeJsonObject } from '../helpers/json.js'
+import type { JsonCanvasPassthrough } from '../state/types.js'
 import type {
   BoardNode,
   InternalBoardSnapshot,
@@ -15,7 +17,8 @@ import type {
   JsonCanvasNodeType,
   JsonCanvasSide,
   NodeId,
-  VueBoardDocumentMetadata,
+  BoardDocumentMetadata,
+  JsonObject,
 } from '../types.js'
 
 const JSON_CANVAS_NODE_TYPES = new Set<JsonCanvasNodeType>([
@@ -35,6 +38,29 @@ const JSON_CANVAS_SIDES = new Set<JsonCanvasSide>([
 const JSON_CANVAS_EDGE_ENDS = new Set<JsonCanvasEdgeEnd>(['none', 'arrow'])
 
 const JSON_CANVAS_BACKGROUND_STYLES = new Set(['cover', 'ratio', 'repeat'])
+const LEGACY_BOARD_METADATA_KEY = 'x-vue-board'
+const DOCUMENT_FIELDS = new Set([
+  'nodes',
+  'edges',
+  'x-lupinum-board',
+  LEGACY_BOARD_METADATA_KEY,
+])
+const NODE_FIELDS = new Set([
+  'id',
+  'type',
+  'x',
+  'y',
+  'width',
+  'height',
+  'color',
+  'text',
+  'file',
+  'subpath',
+  'url',
+  'label',
+  'background',
+  'backgroundStyle',
+])
 
 function isJsonCanvasNodeType(value: unknown): value is JsonCanvasNodeType {
   return (
@@ -170,8 +196,12 @@ function jsonNodeToBoardNode(
   return withNodeFields(base, node) as BoardNode
 }
 
-function boardNodeToJsonNode(node: BoardNode): JsonCanvasNode {
+function boardNodeToJsonNode(
+  node: BoardNode,
+  extras: JsonObject | undefined,
+): JsonCanvasNode {
   const base = {
+    ...(extras ?? {}),
     id: node.id,
     type: node.type,
     x: node.x,
@@ -209,9 +239,9 @@ function boardNodeToJsonNode(node: BoardNode): JsonCanvasNode {
 }
 
 function mergeMetadata(
-  base: VueBoardDocumentMetadata,
-  patch: VueBoardDocumentMetadata | undefined,
-): VueBoardDocumentMetadata {
+  base: BoardDocumentMetadata,
+  patch: BoardDocumentMetadata | undefined,
+): BoardDocumentMetadata {
   if (!patch) return base
   return {
     ...base,
@@ -229,15 +259,18 @@ function mergeMetadata(
 
 function getDocumentMetadata(
   document: Partial<JsonCanvasDocument>,
-): VueBoardDocumentMetadata | undefined {
-  return document['x-vue-board']
+): BoardDocumentMetadata | undefined {
+  const record = document as Record<string, unknown>
+  return (document['x-lupinum-board'] ?? record[LEGACY_BOARD_METADATA_KEY]) as
+    BoardDocumentMetadata | undefined
 }
 
 export function toPersistedDocument(
   snapshot: InternalBoardSnapshot,
   featureDocuments: Partial<JsonCanvasDocument>[],
+  passthrough: JsonCanvasPassthrough,
 ): JsonCanvasDocument {
-  let metadata: VueBoardDocumentMetadata = {
+  let metadata: BoardDocumentMetadata = {
     camera: snapshot.camera,
     grid: snapshot.grid,
     selection: snapshot.selection,
@@ -264,9 +297,12 @@ export function toPersistedDocument(
   }
 
   return {
-    nodes: snapshot.nodes.map((node) => boardNodeToJsonNode(node)),
+    ...passthrough.document,
+    nodes: snapshot.nodes.map((node) =>
+      boardNodeToJsonNode(node, passthrough.nodes.get(node.id)),
+    ),
     ...(edges !== undefined ? { edges } : {}),
-    'x-vue-board': metadata,
+    'x-lupinum-board': metadata,
   }
 }
 
@@ -429,15 +465,22 @@ function validateDocumentMetadata(metadata: unknown): void {
           `Invalid board document: metadata for edge "${id}" has invalid data.`,
         )
       }
+      if (edge.data !== undefined) {
+        freezeJsonObject(
+          edge.data,
+          `Invalid board document: metadata for edge "${id}" data`,
+        )
+      }
     }
   }
 }
 
 export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
-  const parsed = assertRecord(
+  const parsedRecord = assertRecord(
     raw,
     'Invalid board document: document must be an object.',
-  ) as Partial<JsonCanvasDocument>
+  )
+  const parsed = parsedRecord as Partial<JsonCanvasDocument>
   if (!Array.isArray(parsed.nodes)) {
     throw new BoardInputError('Invalid board document: missing nodes array.')
   }
@@ -451,11 +494,19 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   ] as const) {
     if (key in parsed) {
       throw new BoardInputError(
-        `Invalid board document: runtime field "${key}" belongs under x-vue-board.`,
+        `Invalid board document: runtime field "${key}" belongs under x-lupinum-board.`,
       )
     }
   }
-  validateDocumentMetadata(getDocumentMetadata(parsed))
+  const rawMetadata = getDocumentMetadata(parsed)
+  validateDocumentMetadata(rawMetadata)
+  const metadata =
+    rawMetadata === undefined
+      ? undefined
+      : (freezeJsonObject(
+          rawMetadata,
+          'Invalid board document: board metadata',
+        ) as BoardDocumentMetadata)
 
   const seenNodes = new Set<string>()
   const nodes = parsed.nodes.map((node) => {
@@ -495,7 +546,10 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
         `Invalid board document: node "${String(node.id)}" has unsupported backgroundStyle "${String(node.backgroundStyle)}".`,
       )
     }
-    const normalized = { ...node } as unknown as JsonCanvasNode
+    const normalized = freezeJsonObject(
+      node,
+      `Invalid board document: node "${String(node.id ?? '?')}"`,
+    ) as unknown as JsonCanvasNode
     validateJsonCanvasNodeFields(normalized)
     if (seenNodes.has(normalized.id)) {
       throw new BoardInputError(
@@ -580,16 +634,45 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
           `Invalid board document: edge "${id}" has invalid label.`,
         )
       }
-      return { ...edge, id, fromNode, toNode } as JsonCanvasEdge
+      return freezeJsonObject(
+        { ...edge, id, fromNode, toNode },
+        `Invalid board document: edge "${id}"`,
+      ) as unknown as JsonCanvasEdge
     })
   }
 
   return {
+    ...collectJsonObjectExtras(
+      parsedRecord,
+      DOCUMENT_FIELDS,
+      'Invalid board document',
+    ),
     nodes,
     ...(edges !== undefined ? { edges } : {}),
-    ...(getDocumentMetadata(parsed) !== undefined
-      ? { 'x-vue-board': getDocumentMetadata(parsed) }
-      : {}),
+    ...(metadata !== undefined ? { 'x-lupinum-board': metadata } : {}),
+  }
+}
+
+export function extractJsonCanvasPassthrough(
+  document: JsonCanvasDocument,
+): JsonCanvasPassthrough {
+  const record = document as unknown as Readonly<Record<string, unknown>>
+  return {
+    document: collectJsonObjectExtras(
+      record,
+      DOCUMENT_FIELDS,
+      'Invalid board document',
+    ),
+    nodes: new Map(
+      document.nodes.map((node) => [
+        node.id as NodeId,
+        collectJsonObjectExtras(
+          node as unknown as Readonly<Record<string, unknown>>,
+          NODE_FIELDS,
+          `Invalid board document: node "${node.id}"`,
+        ),
+      ]),
+    ),
   }
 }
 

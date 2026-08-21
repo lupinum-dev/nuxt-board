@@ -25,6 +25,7 @@ describe('stagePersistentRoots', () => {
         interaction: { mode: 'idle' as const },
         snapGuides: [],
         nextZIndex: 2,
+        jsonCanvas: { document: Object.freeze({}), nodes: new Map() },
       },
       grid: {
         size: 10,

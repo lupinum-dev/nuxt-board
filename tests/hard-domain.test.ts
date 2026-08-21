@@ -42,7 +42,7 @@ describe('hard board domain regressions', () => {
             text: 'Outer',
           },
         ],
-        'x-vue-board': {
+        'x-lupinum-board': {
           nodes: {
             group: { zIndex: 1, locked: false, visible: true },
             inner: {

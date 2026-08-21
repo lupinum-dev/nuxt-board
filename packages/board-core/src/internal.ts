@@ -1,4 +1,9 @@
 export type { InternalBoardCommit, InternalHistoryRoot } from './state/types.js'
+export {
+  collectJsonObjectExtras,
+  freezeJsonObject,
+  freezeJsonValue,
+} from './helpers/json.js'
 
 export type {
   InternalBoardPlugin,

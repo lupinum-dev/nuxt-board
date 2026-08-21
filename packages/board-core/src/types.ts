@@ -89,6 +89,18 @@ export type BoardColorPreset = '1' | '2' | '3' | '4' | '5' | '6'
 /** JSON Canvas color value: a preset id or a concrete hex color. */
 export type CanvasColor = BoardColorPreset | `#${string}`
 
+/** A value that can be persisted without changing its JSON representation. */
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue }
+
+/** A JSON object used for extension-owned persisted data. */
+export type JsonObject = { readonly [key: string]: JsonValue }
+
 interface JsonCanvasNodeBase<TType extends JsonCanvasNodeType> {
   readonly id: string
   readonly type: TType
@@ -138,33 +150,33 @@ export interface JsonCanvasEdge {
   readonly label?: string
 }
 
-export interface VueBoardNodeMetadata {
+export interface BoardNodeMetadata {
   readonly zIndex?: number
   readonly locked?: boolean
   readonly visible?: boolean
   readonly parentId?: string
 }
 
-export interface VueBoardEdgeMetadata {
+export interface BoardEdgeMetadata {
   readonly zIndex?: number
-  readonly data?: Record<string, unknown>
+  readonly data?: JsonObject
 }
 
 /** Nuxt Board metadata for engine state that JSON Canvas 1.0 does not define. */
-export interface VueBoardDocumentMetadata {
+export interface BoardDocumentMetadata {
   readonly camera?: Camera
   readonly grid?: GridSettings
   readonly selection?: readonly string[]
   readonly nextZIndex?: number
-  readonly nodes?: Readonly<Record<string, VueBoardNodeMetadata>>
-  readonly edges?: Readonly<Record<string, VueBoardEdgeMetadata>>
+  readonly nodes?: Readonly<Record<string, BoardNodeMetadata>>
+  readonly edges?: Readonly<Record<string, BoardEdgeMetadata>>
 }
 
 /** Canonical persisted board document. */
 export interface JsonCanvasDocument {
   readonly nodes: readonly JsonCanvasNode[]
   readonly edges?: readonly JsonCanvasEdge[]
-  readonly 'x-vue-board'?: VueBoardDocumentMetadata
+  readonly 'x-lupinum-board'?: BoardDocumentMetadata
 }
 
 interface BoardNodeBase {

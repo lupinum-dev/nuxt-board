@@ -9,6 +9,7 @@ import {
   type EdgeId,
   type JsonCanvasDocument,
   type JsonCanvasEdge,
+  type JsonObject,
   type JsonCanvasSide,
 } from '@lupinum/board-core'
 import { defineInternalBoardPlugin } from '@lupinum/board-core/internal'
@@ -106,7 +107,7 @@ function reduceConnectionsState(
   }
 }
 
-function cloneEdge<T>(edge: BoardEdge<T>): BoardEdge<T> {
+function cloneEdge<T extends JsonObject>(edge: BoardEdge<T>): BoardEdge<T> {
   return {
     ...edge,
     data: structuredClone(edge.data),
@@ -169,7 +170,7 @@ export function connectionsPlugin(
         }
         return {
           edges: edges.map(edgeToJsonCanvas),
-          'x-vue-board': {
+          'x-lupinum-board': {
             edges: Object.fromEntries(
               edges.map((edge) => [
                 edge.id,
@@ -200,7 +201,7 @@ export function connectionsPlugin(
           if (!engine.hasNode(from) || !engine.hasNode(to)) {
             continue
           }
-          const metadata = document['x-vue-board']?.edges?.[edge.id]
+          const metadata = document['x-lupinum-board']?.edges?.[edge.id]
           const id =
             mode === 'merge' && api.getEdge(asEdgeId(edge.id))
               ? asEdgeId(crypto.randomUUID())
@@ -254,7 +255,7 @@ export function connectionsPlugin(
       }
 
       const api: ConnectionsApi = {
-        createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+        createEdge<T extends JsonObject = JsonObject>(
           input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
             id?: EdgeId
             zIndex?: number
@@ -313,7 +314,7 @@ export function connectionsPlugin(
             { history: 'record' },
           ) as BoardEdge<T>
         },
-        updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+        updateEdge<T extends JsonObject = JsonObject>(
           id: EdgeId,
           patch: BoardEdgePatch<T>,
         ) {

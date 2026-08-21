@@ -409,7 +409,7 @@ describe('docs demo contracts', () => {
     expect(engine.getNode(asNodeId('child')).parentId).toBe(asNodeId('group'))
     expect(engine.exportDocument()).toMatchObject({
       nodes: expect.any(Array),
-      'x-vue-board': {
+      'x-lupinum-board': {
         selection: [asNodeId('child')],
         nodes: {
           child: { parentId: asNodeId('group') },

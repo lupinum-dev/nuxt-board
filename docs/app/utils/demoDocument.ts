@@ -1,11 +1,11 @@
 import type {
   BoardNode,
+  BoardNodeMetadata,
   Camera,
   GridSettings,
   JsonCanvasDocument,
   JsonCanvasNode,
   NodeId,
-  VueBoardNodeMetadata,
 } from '@lupinum/board-core'
 
 type DemoNode = Omit<
@@ -91,7 +91,7 @@ function toJsonCanvasNode(node: DemoNode): JsonCanvasNode {
   }
 }
 
-function toNodeMetadata(node: DemoNode): VueBoardNodeMetadata {
+function toNodeMetadata(node: DemoNode): BoardNodeMetadata {
   return {
     zIndex: node.zIndex,
     locked: node.locked,
@@ -105,7 +105,7 @@ export function createDemoDocument(
 ): JsonCanvasDocument {
   return {
     nodes: input.nodes.map(toJsonCanvasNode),
-    'x-vue-board': {
+    'x-lupinum-board': {
       ...(input.camera ? { camera: input.camera } : {}),
       ...(input.grid ? { grid: input.grid } : {}),
       ...(input.selection

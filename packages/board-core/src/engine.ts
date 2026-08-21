@@ -35,6 +35,7 @@ import { AnimationCancelled } from './helpers/animation.js'
 import type {
   InternalBoardCommit,
   InternalHistoryRoot,
+  JsonCanvasPassthrough,
   MutableBoardState,
 } from './state/types.js'
 import {
@@ -72,6 +73,7 @@ import {
 } from './engine/transaction.js'
 import {
   documentToSnapshot,
+  extractJsonCanvasPassthrough,
   materializeSnapshotNodes,
   normalizeDocumentForImport,
   toPersistedDocument,
@@ -222,6 +224,10 @@ export function createBoardEngine<
     for (const hook of nodeDeletedHooks) hook(nodeId)
   }
   const clipboard: BoardNode[] = []
+  const clipboardPassthrough = new Map<
+    NodeId,
+    import('./types.js').JsonObject
+  >()
   const plugins = {} as BoardPluginApis
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let destroyed = false
@@ -266,6 +272,7 @@ export function createBoardEngine<
     interaction: { mode: 'idle' },
     snapGuides: [],
     nextZIndex: 1,
+    jsonCanvas: { document: Object.freeze({}), nodes: new Map() },
   }
   const initialDocument = options.initialDocument
     ? normalizeDocumentForImport(options.initialDocument)
@@ -273,6 +280,7 @@ export function createBoardEngine<
 
   if (initialDocument) {
     const initial = documentToSnapshot(initialDocument)
+    state.jsonCanvas = extractJsonCanvasPassthrough(initialDocument)
     state.camera = { ...initial.camera }
     state.selection = new Set()
     state.nextZIndex = initial.nextZIndex
@@ -386,6 +394,7 @@ export function createBoardEngine<
   interface EngineCheckpoint {
     roots: PersistentRoots
     clipboard: BoardNode[]
+    clipboardPassthrough: Map<NodeId, import('./types.js').JsonObject>
     nodeOverrides: Map<NodeId, BoardNode>
     activeGestureHistoryRoot: InternalHistoryRoot | null
     activeBoxSelectionBefore: ReadonlySet<NodeId> | null
@@ -396,6 +405,7 @@ export function createBoardEngine<
     const checkpoint: EngineCheckpoint = {
       roots,
       clipboard: [...clipboard],
+      clipboardPassthrough: new Map(clipboardPassthrough),
       nodeOverrides: new Map(nodeOverrides),
       activeGestureHistoryRoot,
       activeBoxSelectionBefore,
@@ -412,6 +422,10 @@ export function createBoardEngine<
     grid = checkpoint.roots.grid
     pluginStates = checkpoint.roots.pluginStates
     clipboard.splice(0, clipboard.length, ...checkpoint.clipboard)
+    clipboardPassthrough.clear()
+    for (const [id, extras] of checkpoint.clipboardPassthrough) {
+      clipboardPassthrough.set(id, extras)
+    }
     nodeOverrides.clear()
     for (const [id, node] of checkpoint.nodeOverrides) {
       nodeOverrides.set(id, node)
@@ -427,6 +441,7 @@ export function createBoardEngine<
       grid: freezeClone({ ...grid }),
       selection: state.selection,
       nextZIndex: state.nextZIndex,
+      jsonCanvas: state.jsonCanvas,
       pluginSlices: new Map(
         Array.from(pluginStates, ([name, pluginState]) => [
           name,
@@ -441,6 +456,11 @@ export function createBoardEngine<
     right: InternalHistoryRoot,
   ): boolean {
     if (left.nextZIndex !== right.nextZIndex) return false
+    if (left.jsonCanvas.document !== right.jsonCanvas.document) return false
+    if (left.jsonCanvas.nodes.size !== right.jsonCanvas.nodes.size) return false
+    for (const [id, extras] of left.jsonCanvas.nodes) {
+      if (right.jsonCanvas.nodes.get(id) !== extras) return false
+    }
     if (
       left.grid.size !== right.grid.size ||
       left.grid.majorEvery !== right.grid.majorEvery ||
@@ -818,9 +838,30 @@ export function createBoardEngine<
     )
   }
 
+  function deleteNodePassthrough(id: NodeId): void {
+    if (!state.jsonCanvas.nodes.has(id)) return
+    const nodes = new Map(state.jsonCanvas.nodes)
+    nodes.delete(id)
+    state.jsonCanvas = { ...state.jsonCanvas, nodes }
+  }
+
+  function copyNodePassthrough(
+    idMap: ReadonlyMap<NodeId, NodeId>,
+    source: ReadonlyMap<NodeId, import('./types.js').JsonObject> = state
+      .jsonCanvas.nodes,
+  ): void {
+    const nodes = new Map(state.jsonCanvas.nodes)
+    for (const [sourceId, targetId] of idMap) {
+      const extras = source.get(sourceId)
+      if (extras) nodes.set(targetId, extras)
+    }
+    state.jsonCanvas = { ...state.jsonCanvas, nodes }
+  }
+
   function restoreSnapshot(
     snapshot: InternalBoardSnapshot,
     mode: 'replace' | 'merge',
+    passthrough: JsonCanvasPassthrough,
   ): Map<NodeId, NodeId> {
     const snapshotNodes = materializeSnapshotNodes(snapshot)
     const idMap = new Map<NodeId, NodeId>()
@@ -832,6 +873,7 @@ export function createBoardEngine<
           continue
         }
         state.nodes.delete(id)
+        deleteNodePassthrough(id)
         notifyNodeDeletedPlugins(prevNode.id)
         emit('node:deleted', id, materializeNode(prevNode))
       }
@@ -844,6 +886,10 @@ export function createBoardEngine<
         state.nodes.set(node.id, node)
         idMap.set(rawNode.id, node.id)
         emit('node:created', materializeNode(node))
+      }
+      state.jsonCanvas = {
+        document: passthrough.document,
+        nodes: new Map(passthrough.nodes),
       }
 
       state.selection = new Set(
@@ -866,6 +912,19 @@ export function createBoardEngine<
       const id = state.nodes.has(node.id) ? createNodeId() : node.id
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
       idMap.set(node.id, id)
+    }
+    state.jsonCanvas = {
+      document: Object.freeze({
+        ...state.jsonCanvas.document,
+        ...passthrough.document,
+      }),
+      nodes: new Map([
+        ...state.jsonCanvas.nodes,
+        ...Array.from(
+          passthrough.nodes,
+          ([id, extras]) => [idMap.get(id) ?? id, extras] as const,
+        ),
+      ]),
     }
     notifyNodesChanged()
     return idMap
@@ -1114,6 +1173,10 @@ export function createBoardEngine<
             Array.from(root.selection).filter((id) => state.nodes.has(id)),
           )
           state.nextZIndex = root.nextZIndex
+          state.jsonCanvas = {
+            document: root.jsonCanvas.document,
+            nodes: new Map(root.jsonCanvas.nodes),
+          }
           Object.assign(grid, root.grid)
           for (const [name, pluginState] of pluginStates) {
             if (root.pluginSlices.has(name)) {
@@ -1333,6 +1396,7 @@ export function createBoardEngine<
             continue
           }
           state.nodes.delete(deleteId)
+          deleteNodePassthrough(deleteId)
           notifyNodeDeletedPlugins(prevNode.id)
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
@@ -1503,6 +1567,7 @@ export function createBoardEngine<
           .filter((node): node is BoardNode => Boolean(node))
           .sort((a, b) => a.zIndex - b.zIndex)
         const duplicated = duplicateForest(source, offset)
+        copyNodePassthrough(duplicated.idMap)
         const created = duplicated.nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
@@ -1519,15 +1584,20 @@ export function createBoardEngine<
     copySelected() {
       return runCommand('copySelected', [], () => {
         clipboard.length = 0
+        clipboardPassthrough.clear()
         for (const node of getCopyClosureNodes()) {
           clipboard.push({ ...node })
+          const extras = state.jsonCanvas.nodes.get(node.id)
+          if (extras) clipboardPassthrough.set(node.id, extras)
         }
         return clipboard.map((node) => materializeNode(node))
       })
     },
     pasteClipboard(offset = { x: grid.size, y: grid.size }) {
       return runCommand('pasteClipboard', [offset], () => {
-        const created = duplicateForest(clipboard, offset).nodes
+        const duplicated = duplicateForest(clipboard, offset)
+        copyNodePassthrough(duplicated.idMap, clipboardPassthrough)
+        const created = duplicated.nodes
         for (const node of created) {
           state.nodes.set(node.id, node)
           emit('node:created', materializeNode(node))
@@ -1604,6 +1674,7 @@ export function createBoardEngine<
             continue
           }
           state.nodes.delete(deleteId)
+          deleteNodePassthrough(deleteId)
           notifyNodeDeletedPlugins(prevNode.id)
           emit('node:deleted', deleteId, materializeNode(prevNode))
         }
@@ -2108,6 +2179,7 @@ export function createBoardEngine<
       return toPersistedDocument(
         buildSnapshot(state, grid, buildPublicNodeMap(state)),
         pluginDocuments,
+        state.jsonCanvas,
       )
     },
     loadDocument(document, options = {}) {
@@ -2119,10 +2191,11 @@ export function createBoardEngine<
           const normalized = normalizeDocumentForImport(document)
           assertCanRestoreDocument(normalized)
           const snapshot = documentToSnapshot(normalized)
+          const passthrough = extractJsonCanvasPassthrough(normalized)
           nodeOverrides.clear()
           activeGestureHistoryRoot = null
           activeBoxSelectionBefore = null
-          const idMap = restoreSnapshot(snapshot, mode)
+          const idMap = restoreSnapshot(snapshot, mode, passthrough)
           restorePluginDocuments(normalized, mode, idMap)
         },
         IGNORE_COMMAND,

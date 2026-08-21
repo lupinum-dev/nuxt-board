@@ -227,7 +227,7 @@ describe('connections plugin', () => {
         label: 'edge label',
       },
     ])
-    expect(exported['x-vue-board']?.edges?.[edgeId]).toEqual({
+    expect(exported['x-lupinum-board']?.edges?.[edgeId]).toEqual({
       zIndex: 4,
       data: { weight: 2 },
     })
@@ -352,7 +352,7 @@ describe('connections plugin', () => {
     engine.loadDocument(
       {
         nodes: [],
-        'x-vue-board': {
+        'x-lupinum-board': {
           selection: [],
           nextZIndex: 1,
         },
