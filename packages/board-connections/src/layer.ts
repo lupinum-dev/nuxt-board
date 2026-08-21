@@ -14,6 +14,7 @@ import {
   type BoardNode,
   type NodeId,
 } from '@lupinum/board-core'
+import { BOARD_INTERACTIVE_SELECTOR } from '@lupinum/board-core/internal'
 import { useBoardEngine } from '@lupinum/vue-board'
 import {
   buildConnectionRoute,
@@ -150,7 +151,7 @@ export const BoardConnectionLayer = defineComponent({
           const target = event.target
           if (
             target instanceof Element &&
-            target.closest('[data-board-interactive="true"]')
+            target.closest(BOARD_INTERACTIVE_SELECTOR)
           ) {
             return
           }

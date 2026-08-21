@@ -875,6 +875,19 @@ describe('BoardRoot', () => {
     expect(engine.getNode(node.id).height).toBeGreaterThan(80)
   })
 
+  it('warns when the engine prop changes after mount', async () => {
+    const first = createBoardEngine()
+    const second = createBoardEngine()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const wrapper = mount(BoardRoot, { props: { engine: first } })
+
+    await wrapper.setProps({ engine: second })
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('engine` prop changed'),
+    )
+  })
+
   it.each([
     ['file', { type: 'file' as const, file: 'poster.png' }],
     ['link', { type: 'link' as const, url: 'https://example.com' }],

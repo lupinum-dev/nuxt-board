@@ -1,7 +1,13 @@
-const BOARD_ROOT_SELECTOR = '[data-board-root="true"]'
-const BOARD_INTERACTIVE_SELECTOR = [
-  '[data-board-interactive="true"]',
-  '[data-editor="true"]',
+import {
+  BOARD_EDITOR_ATTRIBUTE,
+  BOARD_INTERACTIVE_SELECTOR,
+  BOARD_RESIZE_ATTRIBUTE,
+  BOARD_ROOT_SELECTOR,
+} from '@lupinum/board-core/internal'
+
+const BOARD_INTERACTIVE_TARGET_SELECTOR = [
+  BOARD_INTERACTIVE_SELECTOR,
+  `[${BOARD_EDITOR_ATTRIBUTE}="true"]`,
   'input',
   'textarea',
   'select',
@@ -30,6 +36,6 @@ export function isBoardInteractiveEventTarget(
   target: EventTarget | null,
 ): boolean {
   const element = asElement(target)
-  if (element?.closest('[data-resize]')) return false
-  return Boolean(element?.closest(BOARD_INTERACTIVE_SELECTOR))
+  if (element?.closest(`[${BOARD_RESIZE_ATTRIBUTE}]`)) return false
+  return Boolean(element?.closest(BOARD_INTERACTIVE_TARGET_SELECTOR))
 }

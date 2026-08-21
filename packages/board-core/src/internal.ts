@@ -5,6 +5,15 @@ export {
   freezeJsonObject,
   freezeJsonValue,
 } from './helpers/json.js'
+export {
+  BOARD_EDITOR_ATTRIBUTE,
+  BOARD_INTERACTIVE_ATTRIBUTE,
+  BOARD_INTERACTIVE_SELECTOR,
+  BOARD_NODE_ID_ATTRIBUTE,
+  BOARD_RESIZE_ATTRIBUTE,
+  BOARD_ROOT_ATTRIBUTE,
+  BOARD_ROOT_SELECTOR,
+} from './dom-attributes.js'
 
 export type {
   InternalBoardPlugin,

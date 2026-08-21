@@ -6,7 +6,11 @@ import {
   type Point,
   type ResizeHandle,
 } from '@lupinum/board-core'
-import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
+import {
+  BOARD_NODE_ID_ATTRIBUTE,
+  BOARD_RESIZE_ATTRIBUTE,
+  getBoardInteractionAdapter,
+} from '@lupinum/board-core/internal'
 import { runBoardCommand, tryBoardCommand } from './runBoardCommand.js'
 import {
   isBoardInteractiveEventTarget,
@@ -59,14 +63,15 @@ export interface BoardContextMenuInfo {
 
 function findNodeId(target: EventTarget | null): string | undefined {
   return target instanceof HTMLElement
-    ? target.closest<HTMLElement>('[data-node-id]')?.dataset.nodeId
+    ? target.closest<HTMLElement>(`[${BOARD_NODE_ID_ATTRIBUTE}]`)?.dataset
+        .nodeId
     : undefined
 }
 
 function findHandle(target: EventTarget | null): ResizeHandle | undefined {
   return target instanceof HTMLElement
-    ? (target.closest<HTMLElement>('[data-resize]')?.dataset.resize as
-        ResizeHandle | undefined)
+    ? (target.closest<HTMLElement>(`[${BOARD_RESIZE_ATTRIBUTE}]`)?.dataset
+        .resize as ResizeHandle | undefined)
     : undefined
 }
 

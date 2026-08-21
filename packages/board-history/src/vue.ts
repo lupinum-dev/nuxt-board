@@ -1,12 +1,17 @@
 import { defineComponent, watch, type PropType } from 'vue'
 import { useBoardEngine } from '@lupinum/vue-board'
+import {
+  BOARD_EDITOR_ATTRIBUTE,
+  BOARD_INTERACTIVE_SELECTOR,
+  BOARD_ROOT_SELECTOR,
+} from '@lupinum/board-core/internal'
 import type { HistoryApi } from './index.js'
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
   return Boolean(
     target.closest(
-      '[data-board-interactive="true"], [data-editor="true"], input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"])',
+      `${BOARD_INTERACTIVE_SELECTOR}, [${BOARD_EDITOR_ATTRIBUTE}="true"], input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"])`,
     ),
   )
 }
@@ -31,7 +36,7 @@ export const BoardHistoryShortcuts = defineComponent({
         const onKeyDown = (event: KeyboardEvent) => {
           if (event.defaultPrevented || isEditableTarget(event.target)) return
           if (!(event.target instanceof Element)) return
-          if (event.target.closest('[data-board-root="true"]') !== root) return
+          if (event.target.closest(BOARD_ROOT_SELECTOR) !== root) return
           if (!event.metaKey && !event.ctrlKey) return
 
           const key = event.key.toLowerCase()

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useSlots, watch } from 'vue'
 import type { BoardNode, ResizeHandle } from '@lupinum/board-core'
+import { BOARD_EDITOR_ATTRIBUTE } from '@lupinum/board-core/internal'
 import { useBoardEngine } from '../useBoardEngine.js'
 import { runBoardCommand } from '../composables/runBoardCommand.js'
 import { resolveNodeColorStyle } from '../nodeColors.js'
@@ -134,7 +135,8 @@ function selectOnFocus(): void {
 
 function isEditingTarget(target: EventTarget | null): boolean {
   return (
-    target instanceof HTMLElement && Boolean(target.closest('[data-editor]'))
+    target instanceof HTMLElement &&
+    Boolean(target.closest(`[${BOARD_EDITOR_ATTRIBUTE}]`))
   )
 }
 

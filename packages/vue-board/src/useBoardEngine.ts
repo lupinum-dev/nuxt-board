@@ -134,15 +134,9 @@ export function useBoardNode(id: MaybeRefOrGetter<NodeId>) {
   const interaction = getBoardInteractionAdapter(engine)
   const nodeId = computed(() => toValue(id))
 
-  const node = computed(() => {
-    const current = $nodes.value.get(nodeId.value)
-    if (!current) {
-      throw new Error(
-        `Node "${nodeId.value}" is not present in the current snapshot.`,
-      )
-    }
-    return current
-  })
+  const node = computed<BoardNode | null>(
+    () => $nodes.value.get(nodeId.value) ?? null,
+  )
 
   const selected = computed(() => $selection.value.has(nodeId.value))
   const editing = computed(
@@ -150,15 +144,19 @@ export function useBoardNode(id: MaybeRefOrGetter<NodeId>) {
       $interaction.value.mode === 'editing-text' &&
       $interaction.value.nodeId === nodeId.value,
   )
-  const locked = computed(() => node.value.locked)
+  const locked = computed(() => node.value?.locked ?? false)
 
-  const style = computed(() => ({
-    left: `${node.value.x}px`,
-    top: `${node.value.y}px`,
-    width: `${node.value.width}px`,
-    height: `${node.value.height}px`,
-    zIndex: String(node.value.zIndex),
-  }))
+  const style = computed(() =>
+    node.value
+      ? {
+          left: `${node.value.x}px`,
+          top: `${node.value.y}px`,
+          width: `${node.value.width}px`,
+          height: `${node.value.height}px`,
+          zIndex: String(node.value.zIndex),
+        }
+      : {},
+  )
 
   return {
     node,
@@ -167,10 +165,10 @@ export function useBoardNode(id: MaybeRefOrGetter<NodeId>) {
     locked,
     style,
     beginEdit: () => {
-      if (node.value.type === 'text') engine.beginTextEdit(nodeId.value)
+      if (node.value?.type === 'text') engine.beginTextEdit(nodeId.value)
     },
     commitText: (text: string) => {
-      if (node.value.type === 'text') engine.commitTextEdit(nodeId.value, text)
+      if (node.value?.type === 'text') engine.commitTextEdit(nodeId.value, text)
     },
     startDrag: (event: PointerEvent) =>
       interaction.beginNodeDrag(

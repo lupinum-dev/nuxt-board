@@ -12,7 +12,6 @@ import {
   useSlots,
   watch,
   type Component,
-  type PropType,
 } from 'vue'
 import {
   type BoardState,
@@ -44,39 +43,26 @@ import BoardViewport from './BoardViewport.vue'
 import BoardSelectionToolbar from './BoardSelectionToolbar.vue'
 import { resolveNodeColorStyle } from '../nodeColors.js'
 
-const props = defineProps({
-  engine: {
-    type: Object as PropType<BoardEngine | undefined>,
-    default: undefined,
-  },
-  cullMargin: {
-    type: Number,
-    default: 200,
-  },
-  grid: {
-    type: [Boolean, Object] as PropType<boolean | BoardGridOptions>,
-    default: true,
-  },
-  selectionToolbar: {
-    type: Boolean,
-    default: true,
-  },
-  snapGuides: {
-    type: Boolean,
-    default: true,
-  },
-  boxSelect: {
-    type: Boolean,
-    default: true,
-  },
-  renderers: {
-    type: Object as PropType<BoardRendererRegistry>,
-    default: () => ({}),
-  },
-  fallbackRenderer: {
-    type: Object as PropType<Component | null>,
-    default: null,
-  },
+interface Props {
+  engine?: BoardEngine
+  cullMargin?: number
+  grid?: boolean | BoardGridOptions
+  selectionToolbar?: boolean
+  snapGuides?: boolean
+  boxSelect?: boolean
+  renderers?: BoardRendererRegistry
+  fallbackRenderer?: Component | null
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  engine: undefined,
+  cullMargin: 200,
+  grid: true,
+  selectionToolbar: true,
+  snapGuides: true,
+  boxSelect: true,
+  renderers: () => ({}),
+  fallbackRenderer: null,
 })
 
 const emit = defineEmits<{
@@ -88,6 +74,18 @@ const emit = defineEmits<{
 const rootElement = ref<HTMLElement | null>(null)
 const engine = props.engine ?? createBoardEngine()
 const ownsEngine = props.engine === undefined
+const isDevelopment = (import.meta as ImportMeta & { env: { DEV: boolean } })
+  .env.DEV
+watch(
+  () => props.engine,
+  (value) => {
+    if (isDevelopment && value && value !== engine) {
+      console.warn(
+        '[vue-board] The `engine` prop changed after mount. Keep one engine instance and use `engine.loadDocument()` to replace its content.',
+      )
+    }
+  },
+)
 const renderersRef = shallowRef<Readonly<BoardRendererRegistry>>({})
 
 const $camera = shallowRef<Camera>(engine.$camera.get())

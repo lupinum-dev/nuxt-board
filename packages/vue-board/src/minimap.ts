@@ -47,7 +47,7 @@ export interface MinimapSlotProps {
  * helper that pans the main board camera from minimap pointer input.
  */
 export function useBoardMinimap(
-  engine: BoardEngine,
+  engine?: BoardEngine,
   options: MinimapOptions = {},
 ): {
   bounds: ComputedRef<Bounds>
@@ -68,26 +68,27 @@ export function useBoardMinimap(
   >
   panToMinimapPoint: (point: Point) => Promise<void>
 } {
-  const camera = shallowRef(engine.$camera.get())
-  const nodes = shallowRef(engine.$nodes.get())
-  const viewportSize = shallowRef(engine.getViewportSize())
+  const resolvedEngine = engine ?? useBoardEngine().engine
+  const camera = shallowRef(resolvedEngine.$camera.get())
+  const nodes = shallowRef(resolvedEngine.$nodes.get())
+  const viewportSize = shallowRef(resolvedEngine.getViewportSize())
   const unsubscribes: Array<() => void> = []
 
   function subscribeToEngine(): void {
     unsubscribes.push(
-      engine.$camera.subscribe((value) => {
+      resolvedEngine.$camera.subscribe((value) => {
         camera.value = value
       }),
-      engine.$nodes.subscribe((value) => {
+      resolvedEngine.$nodes.subscribe((value) => {
         nodes.value = value
       }),
-      engine.on('viewport:change', (value) => {
+      resolvedEngine.on('viewport:change', (value) => {
         viewportSize.value = value
       }),
     )
-    camera.value = engine.$camera.get()
-    nodes.value = engine.$nodes.get()
-    viewportSize.value = engine.getViewportSize()
+    camera.value = resolvedEngine.$camera.get()
+    nodes.value = resolvedEngine.$nodes.get()
+    viewportSize.value = resolvedEngine.getViewportSize()
   }
 
   if (getCurrentInstance()) {
@@ -191,7 +192,7 @@ export function useBoardMinimap(
         (point.y - off.y) / scale.value -
         viewportSize.value.y / (2 * currentCamera.z),
     }
-    await engine.panTo(world, false)
+    await resolvedEngine.panTo(world, false)
   }
 
   return {

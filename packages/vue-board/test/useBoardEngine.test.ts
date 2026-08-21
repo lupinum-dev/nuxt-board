@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { defineComponent, h, type PropType } from 'vue'
+import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { createBoardEngine, type NodeId } from '@lupinum/board-core'
@@ -21,7 +21,8 @@ describe('Vue board composables', () => {
       },
       setup(props) {
         const { node } = useBoardNode(() => props.nodeId)
-        return () => h('output', { class: 'active-node' }, node.value.text)
+        return () =>
+          h('output', { class: 'active-node' }, node.value?.text ?? 'missing')
       },
     })
     const Shell = defineComponent({
@@ -50,5 +51,25 @@ describe('Vue board composables', () => {
     await wrapper.setProps({ nodeId: second.id })
 
     expect(wrapper.find('.active-node').text()).toBe('Second')
+  })
+
+  it('returns null while a deleted node renderer is unmounting', async () => {
+    const engine = createBoardEngine()
+    const node = engine.createNode({ type: 'text', text: 'Temporary' })
+    const Reader = defineComponent({
+      setup() {
+        const current = useBoardNode(node.id)
+        return () => h('output', current.node.value?.text ?? 'gone')
+      },
+    })
+    const wrapper = mount(BoardRoot, {
+      props: { engine },
+      slots: { default: () => h(Reader) },
+    })
+
+    engine.deleteNode(node.id)
+    await nextTick()
+
+    expect(wrapper.find('output').text()).toBe('gone')
   })
 })
