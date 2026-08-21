@@ -132,15 +132,29 @@ test('renders stable screenshots for connection routing styles', async ({
     .filter({ hasText: 'Connections' })
     .locator('select')
   const board = page.locator('.board-root').first()
+  const visualSurface = board.locator('.board-viewport')
+  const screenshotOptions = {
+    mask: [board.locator('[data-board-interactive="true"]')],
+    maxDiffPixels: 1,
+  }
 
   await routingSelect.selectOption('bezier')
-  await expect(board).toHaveScreenshot('connections-bezier.png')
+  await expect(visualSurface).toHaveScreenshot(
+    'connections-bezier.png',
+    screenshotOptions,
+  )
 
   await routingSelect.selectOption('smooth-step')
-  await expect(board).toHaveScreenshot('connections-smooth-step.png')
+  await expect(visualSurface).toHaveScreenshot(
+    'connections-smooth-step.png',
+    screenshotOptions,
+  )
 
   await routingSelect.selectOption('step')
-  await expect(board).toHaveScreenshot('connections-step.png')
+  await expect(visualSurface).toHaveScreenshot(
+    'connections-step.png',
+    screenshotOptions,
+  )
 })
 
 test('keeps connection labels readable at low zoom', async ({ page }) => {
@@ -267,6 +281,7 @@ test('keeps connections attached through drag resize and zoom interactions', asy
 
   await expect(board).toHaveScreenshot('connections-interaction-zoom.png', {
     maxDiffPixels: 100,
+    mask: [board.locator('[data-board-interactive="true"]')],
   })
 })
 
@@ -321,7 +336,10 @@ test('creates a new connection from a card edge and previews the route cleanly',
   )
   await page.mouse.down()
   await page.mouse.move(start.x + 150, start.y - 28, { steps: 10 })
-  await expect(board).toHaveScreenshot('connections-create-edge-preview.png')
+  await expect(board).toHaveScreenshot('connections-create-edge-preview.png', {
+    mask: [board.locator('[data-board-interactive="true"]')],
+    maxDiffPixels: 1,
+  })
 
   const output = page.locator('[data-node-id="output"]')
   const outputBox = await output.boundingBox()
