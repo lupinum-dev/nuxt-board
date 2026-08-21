@@ -225,7 +225,7 @@ function demoSceneToDocument(scene: DemoScene): JsonCanvasDocument {
       }
     }),
     edges: scene.edges,
-    'x-vue-board': {
+    'x-lupinum-board': {
       camera: scene.snapshot.camera,
       grid: scene.snapshot.grid,
       selection: [],

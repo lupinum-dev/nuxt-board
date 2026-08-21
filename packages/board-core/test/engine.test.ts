@@ -196,7 +196,7 @@ describe('board engine', () => {
 
     expect(engine.getState().camera).toEqual(camera)
     expect(engine.getViewportSize()).toEqual(viewport)
-    expect(engine.exportDocument()['x-vue-board']?.camera).toEqual(camera)
+    expect(engine.exportDocument()['x-lupinum-board']?.camera).toEqual(camera)
     expect(cameraEvents).not.toHaveBeenCalled()
     expect(viewportEvents).not.toHaveBeenCalled()
   })
@@ -1238,7 +1238,7 @@ describe('board engine', () => {
           text: 'imported',
         },
       ],
-      'x-vue-board': {
+      'x-lupinum-board': {
         camera: { x: 0, y: 0, z: 1 },
         grid: { size: 10, majorEvery: 5, snap: true, pattern: 'line' },
       },
@@ -1396,7 +1396,7 @@ describe('board engine', () => {
               text: 'Child',
             },
           ],
-          'x-vue-board': {
+          'x-lupinum-board': {
             nodes: {
               group: { zIndex: 10, visible: true },
               child: { zIndex: 4, visible: true, parentId: 'group' },

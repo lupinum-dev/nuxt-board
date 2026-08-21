@@ -190,6 +190,10 @@ export function stagePersistentRoots(roots: PersistentRoots): PersistentRoots {
       interaction: cloneInteraction(roots.state.interaction),
       snapGuides: roots.state.snapGuides.map((guide) => ({ ...guide })),
       nextZIndex: roots.state.nextZIndex,
+      jsonCanvas: {
+        document: roots.state.jsonCanvas.document,
+        nodes: new Map(roots.state.jsonCanvas.nodes),
+      },
     },
     grid: { ...roots.grid },
     pluginStates: new Map(

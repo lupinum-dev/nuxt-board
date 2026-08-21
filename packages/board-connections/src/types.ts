@@ -3,6 +3,7 @@ import type {
   BoardEventMap,
   BoardNode,
   EdgeId,
+  JsonObject,
   NodeId,
   Point,
 } from '@lupinum/board-core'
@@ -33,7 +34,7 @@ export interface AnchorPosition {
 }
 
 /** Persistent edge record owned by the connections plugin. */
-export interface BoardEdge<T = Record<string, unknown>> {
+export interface BoardEdge<T extends JsonObject = JsonObject> {
   id: EdgeId
   from: NodeId
   to: NodeId
@@ -48,7 +49,7 @@ export interface BoardEdge<T = Record<string, unknown>> {
 }
 
 /** Partial update payload accepted by `updateEdge`. */
-export interface BoardEdgePatch<T = Record<string, unknown>> {
+export interface BoardEdgePatch<T extends JsonObject = JsonObject> {
   from?: NodeId
   to?: NodeId
   fromAnchor?: AnchorPosition
@@ -84,13 +85,13 @@ export interface ConnectionConfig {
 
 /** Engine API installed by the connections plugin. */
 export interface ConnectionsApi {
-  createEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+  createEdge<T extends JsonObject = JsonObject>(
     input: Omit<BoardEdge<T>, 'id' | 'zIndex'> & {
       id?: EdgeId
       zIndex?: number
     },
   ): BoardEdge<T>
-  updateEdge<T extends Record<string, unknown> = Record<string, unknown>>(
+  updateEdge<T extends JsonObject = JsonObject>(
     id: EdgeId,
     patch: BoardEdgePatch<T>,
   ): BoardEdge<T>

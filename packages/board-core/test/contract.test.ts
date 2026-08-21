@@ -7,6 +7,74 @@ import {
 } from '../src/internal'
 
 describe('board-core public document API', () => {
+  it('preserves frozen unknown JSON Canvas fields while canonical fields keep authority', () => {
+    const future = { nested: { enabled: true }, values: [1, 2, 3] }
+    const engine = createBoardEngine({
+      initialDocument: {
+        nodes: [
+          {
+            id: 'future-node',
+            type: 'text',
+            x: 10,
+            y: 20,
+            width: 100,
+            height: 60,
+            text: 'Before',
+            'future-node-field': future,
+          },
+        ],
+        'future-document-field': { revision: 2 },
+      } as never,
+    })
+
+    future.nested.enabled = false
+    engine.updateNode(asNodeId('future-node'), { text: 'After', x: 40 })
+    engine.duplicateNodes([asNodeId('future-node')], { x: 20, y: 20 })
+    const exported = engine.exportDocument() as JsonCanvasDocument &
+      Record<string, unknown>
+    const node = exported.nodes.find(
+      (entry) => entry.id === 'future-node',
+    ) as (typeof exported.nodes)[number] & Record<string, unknown>
+
+    expect(exported['future-document-field']).toEqual({ revision: 2 })
+    expect(node['future-node-field']).toEqual({
+      nested: { enabled: true },
+      values: [1, 2, 3],
+    })
+    expect(node.text).toBe('After')
+    expect(node.x).toBe(40)
+    expect(Object.isFrozen(node['future-node-field'])).toBe(true)
+    expect(
+      exported.nodes.every(
+        (entry) =>
+          (entry as typeof entry & Record<string, unknown>)[
+            'future-node-field'
+          ] !== undefined,
+      ),
+    ).toBe(true)
+  })
+
+  it('rejects invalid persisted edge data without requiring the connections plugin', () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+
+    for (const data of [
+      cyclic,
+      { callback: () => undefined },
+      { instance: new Date() },
+      { value: Number.POSITIVE_INFINITY },
+      ['not-an-object'],
+    ]) {
+      const engine = createBoardEngine()
+      expect(() =>
+        engine.loadDocument({
+          nodes: [],
+          'x-lupinum-board': { edges: { ghost: { data } } },
+        }),
+      ).toThrow(/Invalid board document/)
+    }
+  })
+
   it.each([
     ['zero camera zoom', { camera: { z: 0 } }],
     ['negative edge snap threshold', { grid: { edgeSnapThreshold: -1 } }],
@@ -14,11 +82,11 @@ describe('board-core public document API', () => {
   ])('rejects invalid semantic metadata: %s', (_label, metadata) => {
     const engine = createBoardEngine()
     expect(() =>
-      engine.loadDocument({ nodes: [], 'x-vue-board': metadata }),
+      engine.loadDocument({ nodes: [], 'x-lupinum-board': metadata }),
     ).toThrow(/Invalid board document/)
   })
 
-  it('exports persisted state as JSON Canvas with board metadata under x-vue-board', () => {
+  it('exports persisted state with canonical Lupinum metadata', () => {
     const engine = createBoardEngine({ grid: { snap: false } })
     const node = engine.createNode({
       id: asNodeId('note-1'),
@@ -46,7 +114,7 @@ describe('board-core public document API', () => {
     ])
     expect(document).not.toHaveProperty('camera')
     expect(document).not.toHaveProperty('grid')
-    expect(document['x-vue-board']).toMatchObject({
+    expect(document['x-lupinum-board']).toMatchObject({
       camera: { x: 0, y: 0, z: 1 },
       selection: [node.id],
       nodes: {
@@ -68,7 +136,7 @@ describe('board-core public document API', () => {
           text: 'hello',
         },
       ],
-      'x-vue-board': {
+      'x-lupinum-board': {
         nextZIndex: 7,
         nodes: {
           'node-a': { zIndex: 6, locked: true, visible: true },
@@ -88,7 +156,34 @@ describe('board-core public document API', () => {
       locked: true,
       visible: true,
     })
-    expect(engine.exportDocument()['x-vue-board']?.nextZIndex).toBe(7)
+    expect(engine.exportDocument()['x-lupinum-board']?.nextZIndex).toBe(7)
+  })
+
+  it('imports legacy metadata but exports only the canonical key', () => {
+    const engine = createBoardEngine()
+    engine.loadDocument({
+      nodes: [
+        {
+          id: 'legacy',
+          type: 'text',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 50,
+          text: 'legacy',
+        },
+      ],
+      'x-vue-board': {
+        nodes: { legacy: { zIndex: 4, locked: true } },
+      },
+    })
+
+    expect(engine.getNode(asNodeId('legacy'))).toMatchObject({
+      zIndex: 4,
+      locked: true,
+    })
+    expect(engine.exportDocument()['x-lupinum-board']).toBeDefined()
+    expect(engine.exportDocument()).not.toHaveProperty('x-vue-board')
   })
 
   it('does not accept runtime snapshots as persisted documents', () => {
@@ -207,7 +302,7 @@ describe('board-core public document API', () => {
       'malformed metadata',
       {
         nodes: [],
-        'x-vue-board': {
+        'x-lupinum-board': {
           grid: { pattern: 'checkerboard' },
         },
       },
@@ -227,7 +322,7 @@ describe('board-core public document API', () => {
             text: 'A',
           },
         ],
-        'x-vue-board': {
+        'x-lupinum-board': {
           nodes: {
             a: { parentId: 42 },
           },
@@ -259,7 +354,7 @@ describe('board-core public document API', () => {
           },
         ],
         edges: [{ id: 'edge', fromNode: 'a', toNode: 'b' }],
-        'x-vue-board': {
+        'x-lupinum-board': {
           edges: {
             edge: { data: ['not', 'an', 'object'] },
           },
@@ -401,7 +496,7 @@ describe('board-core public document API', () => {
               text: 'replacement',
             },
           ],
-          'x-vue-board': {
+          'x-lupinum-board': {
             selection: ['replacement'],
             nextZIndex: 10,
           },

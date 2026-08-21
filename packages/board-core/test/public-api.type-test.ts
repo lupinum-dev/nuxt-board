@@ -4,6 +4,17 @@ import {
   type BoardNode,
   type BoardPlugin,
 } from '../src'
+
+// @ts-expect-error The v0.1 metadata name was removed from the 1.0 API.
+import type { VueBoardNodeMetadata } from '../src'
+// @ts-expect-error The v0.1 metadata name was removed from the 1.0 API.
+import type { VueBoardEdgeMetadata } from '../src'
+// @ts-expect-error The v0.1 metadata name was removed from the 1.0 API.
+import type { VueBoardDocumentMetadata } from '../src'
+
+type RemovedMetadataNames =
+  VueBoardNodeMetadata | VueBoardEdgeMetadata | VueBoardDocumentMetadata
+void (null as RemovedMetadataNames | null)
 import {
   defineInternalBoardPlugin,
   type InternalBoardPlugin,

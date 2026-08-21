@@ -560,7 +560,7 @@ describe('history plugin', () => {
 
     engine.plugins.history.clear()
     const nextZIndex = () =>
-      engine.exportDocument()['x-vue-board']?.nextZIndex ?? 1
+      engine.exportDocument()['x-lupinum-board']?.nextZIndex ?? 1
     const before = nextZIndex()
     const created = engine.createNode({ type: 'text', x: 0, y: 0, text: '' })
 
@@ -600,7 +600,7 @@ describe('history plugin', () => {
             text: 'Imported',
           },
         ],
-        'x-vue-board': {
+        'x-lupinum-board': {
           selection: [existing.id],
         },
       },

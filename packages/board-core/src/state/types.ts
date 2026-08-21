@@ -5,12 +5,18 @@ import type {
   CommandMetadata,
   GridSettings,
   InteractionState,
+  JsonObject,
   NodeConstraints,
   NodeId,
   Point,
   SnapGuide,
   ZoomSettings,
 } from '../types.js'
+
+export interface JsonCanvasPassthrough {
+  readonly document: JsonObject
+  readonly nodes: ReadonlyMap<NodeId, JsonObject>
+}
 
 export const DEFAULT_CAMERA: Camera = { x: 0, y: 0, z: 1 }
 export const DEFAULT_ZOOM: ZoomSettings = { min: 0.1, max: 8 }
@@ -37,6 +43,7 @@ export interface MutableBoardState {
   interaction: InteractionState
   snapGuides: SnapGuide[]
   nextZIndex: number
+  jsonCanvas: JsonCanvasPassthrough
 }
 
 export type ListenerMap = Map<
@@ -50,6 +57,7 @@ export interface InternalHistoryRoot {
   readonly grid: GridSettings
   readonly selection: ReadonlySet<NodeId>
   readonly nextZIndex: number
+  readonly jsonCanvas: JsonCanvasPassthrough
   readonly pluginSlices: ReadonlyMap<string, unknown>
 }
 
