@@ -44,3 +44,39 @@ test('keeps Nuxt history shortcuts scoped to the hydrated board', async ({
   await board.press(`${modifier}+Shift+z`)
   await expect(nodes).toHaveCount(13)
 })
+
+test('presents an unobstructed board focus on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 })
+  await page.goto('http://127.0.0.1:4175/', { waitUntil: 'networkidle' })
+
+  const board = page.getByRole('application', { name: 'Board canvas' })
+  await expect(board).toBeVisible()
+  expect((await board.boundingBox())?.height).toBeGreaterThan(500)
+  await expect(page.getByRole('button', { name: 'Minimap' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await expect(page.getByRole('button', { name: 'Stats' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await expect(page.getByRole('button', { name: 'Details' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await expect(page.locator('.demo-diagnostics')).toHaveCount(0)
+  await expect(page.locator('.sidebar')).toHaveCount(0)
+
+  const moodboard = page.getByRole('img', { name: 'Moodboard' })
+  await expect(moodboard).toBeVisible()
+  await expect
+    .poll(() =>
+      moodboard.evaluate(
+        (image) =>
+          image instanceof HTMLImageElement &&
+          image.complete &&
+          image.naturalWidth > 0,
+      ),
+    )
+    .toBe(true)
+})

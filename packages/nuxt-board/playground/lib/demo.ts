@@ -276,7 +276,7 @@ function createWorkflowScene(): DemoScene {
       118,
       120,
       162,
-      'Visual direction',
+      '/demo-moodboard.svg',
       12,
       'workflow-intake',
     ),

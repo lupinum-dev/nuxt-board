@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
 import { BoardConnectionLayer } from '../../board-connections/src/vue'
 import { BoardHistoryShortcuts } from '../../board-history/src/vue'
@@ -101,6 +101,18 @@ onBeforeUnmount(() => {
 })
 
 const stats = ref(getDemoCounts(engine))
+
+onMounted(() => {
+  if (!window.matchMedia('(max-width: 720px)').matches) {
+    return
+  }
+
+  showMinimap.value = false
+  showDiagnostics.value = false
+  showPanel.value = false
+  engine.zoomTo(0.7)
+  engine.panBy(0, -88)
+})
 
 const gridOptions = computed(() => ({
   visible: showGrid.value,
@@ -554,17 +566,44 @@ function groupSelection(): void {
     grid-template-columns: 1fr 1fr;
   }
 
+  .demo-stage-shell {
+    gap: 0.75rem;
+  }
+
+  .demo-stage-shell__header {
+    gap: 0.35rem;
+  }
+
+  .demo-stage-shell__status {
+    display: none;
+  }
+
+  .demo-stage-grid {
+    gap: 0.75rem;
+  }
+
   .demo-board-shell {
-    min-height: min(34rem, 72dvh);
+    height: min(35rem, 64dvh);
+    min-height: 34rem;
     padding: 0.75rem;
+    border-radius: 24px;
   }
 
   .demo-board {
-    min-height: min(32rem, calc(72dvh - 1.5rem));
+    height: 100%;
+    min-height: 0;
+    border-radius: 18px;
   }
 
   .demo-minimap {
     display: none;
+  }
+
+  .demo-diagnostics {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    max-width: none;
   }
 }
 </style>

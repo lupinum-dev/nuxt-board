@@ -75,7 +75,7 @@ const emit = defineEmits<{
         :aria-pressed="showDiagnostics"
         @click="showDiagnostics = !showDiagnostics"
       >
-        Diag
+        Stats
       </button>
       <button
         class="toolbar__toggle"
@@ -83,7 +83,7 @@ const emit = defineEmits<{
         :aria-pressed="showPanel"
         @click="showPanel = !showPanel"
       >
-        Panel
+        Details
       </button>
     </div>
   </div>
@@ -162,8 +162,50 @@ const emit = defineEmits<{
     padding: 0.8rem;
   }
 
+  .toolbar__field {
+    width: 100%;
+  }
+
   .toolbar__select {
     min-width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.7rem;
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  .toolbar__field {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .toolbar__select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar__cluster {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .toolbar__cluster::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toolbar__button,
+  .toolbar__toggle {
+    flex: 0 0 auto;
+    padding: 0.5rem 0.68rem;
+    font-size: 0.82rem;
   }
 }
 </style>
