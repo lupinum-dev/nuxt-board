@@ -42,6 +42,8 @@ check(
     'AbortSignal.timeout',
     'ignored-build-step',
     'reusedExistingPreview',
+    'sha=${encodeURIComponent(commitSha)}&state=READY',
+    'reportBestEffort',
   ].every((boundary) => previewWorkflow.includes(boundary)),
   'Keep preview authorization, API resilience, exact-SHA reuse, and neutral skip handling.',
 )
