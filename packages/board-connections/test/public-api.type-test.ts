@@ -10,6 +10,10 @@ bare.on('edge:created', () => undefined)
 const connected = createBoardEngine({ plugins: [connectionsPlugin()] })
 connected.plugins.connections.getEdges()
 connected.on('edge:created', (edge) => edge.id)
+const existing = connected.plugins.connections.getEdges()[0]!
+// @ts-expect-error updateEdge cannot let callers invent a narrower data shape.
+const invented: { readonly data: { readonly invented: true } } =
+  connected.plugins.connections.updateEdge(existing.id, {})
 
 declare const enableConnections: boolean
 const conditionalPlugins = enableConnections
