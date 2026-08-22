@@ -1,26 +1,42 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { BoardNode } from '@lupinum/board-core'
 
-defineProps<{
+const props = defineProps<{
   node: BoardNode
   selected: boolean
 }>()
 
-const imageAlt = (node: BoardNode): string => node.file ?? 'Image node'
+const imageFailed = ref(false)
+
+watch(
+  () => props.node.file,
+  () => {
+    imageFailed.value = false
+  },
+)
+
+const imageAlt = (node: BoardNode): string =>
+  String(node.id)
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ''}${part.slice(1)}`)
+    .join(' ') || 'Image node'
 </script>
 
 <template>
   <div class="image-card" :class="{ 'is-selected': selected }">
     <img
-      v-if="node.file"
+      v-if="node.file && !imageFailed"
       :src="node.file"
       :alt="imageAlt(node)"
       class="image-card__media"
       draggable="false"
+      @error="imageFailed = true"
     />
     <div v-else class="image-card__placeholder">
       <span class="image-card__badge">Preview</span>
-      <strong>{{ node.file ?? 'Reference image' }}</strong>
+      <strong>{{ imageAlt(node) }}</strong>
       <p>Drop product shots, diagrams, or runbooks into the board.</p>
     </div>
   </div>

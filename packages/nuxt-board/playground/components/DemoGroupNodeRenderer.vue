@@ -98,10 +98,10 @@ function cancel(): void {
   max-width: 15rem;
   padding: 0.3rem 0.75rem;
   border: none;
-  border-radius: 10px 10px 0 0;
+  border-radius: 6px 6px 0 0;
   background: var(--board-node-color, var(--board-node-selection));
   color: #fff;
-  font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+  font-family: var(--playground-sans);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.03em;

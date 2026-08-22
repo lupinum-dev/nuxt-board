@@ -381,13 +381,11 @@ onBeforeUnmount(() => {
 .board-node-simple {
   position: absolute;
   box-sizing: border-box;
-  border: calc(1px / var(--board-zoom, 1)) solid
-    var(--board-node-border, rgba(148, 163, 184, 0.28));
+  border: 4px solid var(--board-node-border, rgba(148, 163, 184, 0.28));
   background: var(--board-node-bg, #fff);
-  border-radius: calc(var(--board-node-radius, 10px) / var(--board-zoom, 1));
-  box-shadow: var(--board-node-shadow, 0 0.5px 1px 0.5px rgba(9, 14, 28, 0.08));
+  border-radius: var(--board-node-radius, 10px);
   overflow: hidden;
-  contain: layout style paint;
+  contain: strict;
 }
 
 .board-node-simple.is-colored {
@@ -397,23 +395,7 @@ onBeforeUnmount(() => {
 
 .board-node-simple.is-group {
   border-style: dashed;
-  border-radius: calc(var(--board-group-radius, 16px) / var(--board-zoom, 1));
-}
-
-.board-node-simple::after {
-  content: '';
-  position: absolute;
-  top: 25%;
-  left: 20%;
-  right: 20%;
-  height: 50%;
-  background: repeating-linear-gradient(
-    to bottom,
-    var(--board-divider, rgba(15, 23, 42, 0.06)) 0px,
-    var(--board-divider, rgba(15, 23, 42, 0.06)) 2px,
-    transparent 2px,
-    transparent 6px
-  );
+  border-radius: var(--board-group-radius, 16px);
 }
 
 @media (prefers-reduced-motion: reduce) {
