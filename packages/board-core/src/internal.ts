@@ -13,6 +13,8 @@ export {
   BOARD_RESIZE_ATTRIBUTE,
   BOARD_ROOT_ATTRIBUTE,
   BOARD_ROOT_SELECTOR,
+  isBoardInteractiveEventTarget,
+  isEventOwnedByBoardRoot,
 } from './dom-attributes.js'
 
 export type {
