@@ -3,7 +3,11 @@ import { isBoardColorPreset } from '../colors.js'
 import { DEFAULT_CAMERA, DEFAULT_GRID } from '../state/types.js'
 import { normalizeExistingNode } from '../state/initial.js'
 import { BoardInputError } from '../errors.js'
-import { collectJsonObjectExtras, freezeJsonObject } from '../helpers/json.js'
+import {
+  collectJsonObjectExtras,
+  createJsonValueBudget,
+  freezeJsonObject,
+} from '../helpers/json.js'
 import type { JsonCanvasPassthrough } from '../state/types.js'
 import type {
   BoardNode,
@@ -38,6 +42,9 @@ const JSON_CANVAS_SIDES = new Set<JsonCanvasSide>([
 const JSON_CANVAS_EDGE_ENDS = new Set<JsonCanvasEdgeEnd>(['none', 'arrow'])
 
 const JSON_CANVAS_BACKGROUND_STYLES = new Set(['cover', 'ratio', 'repeat'])
+const MAX_DOCUMENT_NODES = 10_000
+const MAX_DOCUMENT_EDGES = 20_000
+const MAX_DOCUMENT_SELECTION = 10_000
 const LEGACY_BOARD_METADATA_KEY = 'x-vue-board'
 const DOCUMENT_FIELDS = new Set([
   'nodes',
@@ -467,12 +474,6 @@ function validateDocumentMetadata(metadata: unknown): void {
           `Invalid board document: metadata for edge "${id}" has invalid data.`,
         )
       }
-      if (edge.data !== undefined) {
-        freezeJsonObject(
-          edge.data,
-          `Invalid board document: metadata for edge "${id}" data`,
-        )
-      }
     }
   }
 }
@@ -485,6 +486,19 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
   const parsed = parsedRecord as Partial<JsonCanvasDocument>
   if (!Array.isArray(parsed.nodes)) {
     throw new BoardInputError('Invalid board document: missing nodes array.')
+  }
+  if (parsed.nodes.length > MAX_DOCUMENT_NODES) {
+    throw new BoardInputError(
+      `Invalid board document: nodes exceed the supported limit of ${MAX_DOCUMENT_NODES}.`,
+    )
+  }
+  if (parsed.edges !== undefined && !Array.isArray(parsed.edges)) {
+    throw new BoardInputError('Invalid board document: edges must be an array.')
+  }
+  if (parsed.edges && parsed.edges.length > MAX_DOCUMENT_EDGES) {
+    throw new BoardInputError(
+      `Invalid board document: edges exceed the supported limit of ${MAX_DOCUMENT_EDGES}.`,
+    )
   }
   for (const key of [
     'camera',
@@ -501,13 +515,41 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
     }
   }
   const rawMetadata = getDocumentMetadata(parsed)
+  if (isRecord(rawMetadata)) {
+    if (
+      Array.isArray(rawMetadata.selection) &&
+      rawMetadata.selection.length > MAX_DOCUMENT_SELECTION
+    ) {
+      throw new BoardInputError(
+        `Invalid board document: selection exceeds the supported limit of ${MAX_DOCUMENT_SELECTION}.`,
+      )
+    }
+    if (
+      isRecord(rawMetadata.nodes) &&
+      Reflect.ownKeys(rawMetadata.nodes).length > MAX_DOCUMENT_NODES
+    ) {
+      throw new BoardInputError(
+        `Invalid board document: node metadata exceeds the supported limit of ${MAX_DOCUMENT_NODES}.`,
+      )
+    }
+    if (
+      isRecord(rawMetadata.edges) &&
+      Reflect.ownKeys(rawMetadata.edges).length > MAX_DOCUMENT_EDGES
+    ) {
+      throw new BoardInputError(
+        `Invalid board document: edge metadata exceeds the supported limit of ${MAX_DOCUMENT_EDGES}.`,
+      )
+    }
+  }
   validateDocumentMetadata(rawMetadata)
+  const jsonBudget = createJsonValueBudget()
   const metadata =
     rawMetadata === undefined
       ? undefined
       : (freezeJsonObject(
           rawMetadata,
           'Invalid board document: board metadata',
+          jsonBudget,
         ) as BoardDocumentMetadata)
 
   const seenNodes = new Set<string>()
@@ -551,6 +593,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
     const normalized = freezeJsonObject(
       node,
       `Invalid board document: node "${String(node.id ?? '?')}"`,
+      jsonBudget,
     ) as unknown as JsonCanvasNode
     validateJsonCanvasNodeFields(normalized)
     if (seenNodes.has(normalized.id)) {
@@ -564,11 +607,6 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
 
   let edges: readonly JsonCanvasEdge[] | undefined
   if (parsed.edges !== undefined) {
-    if (!Array.isArray(parsed.edges)) {
-      throw new BoardInputError(
-        'Invalid board document: edges must be an array.',
-      )
-    }
     const seenEdges = new Set<string>()
     edges = parsed.edges.map((edge) => {
       if (!isRecord(edge)) {
@@ -639,6 +677,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
       return freezeJsonObject(
         { ...edge, id, fromNode, toNode },
         `Invalid board document: edge "${id}"`,
+        jsonBudget,
       ) as unknown as JsonCanvasEdge
     })
   }
@@ -648,6 +687,7 @@ export function normalizeDocumentForImport(raw: unknown): JsonCanvasDocument {
       parsedRecord,
       DOCUMENT_FIELDS,
       'Invalid board document',
+      jsonBudget,
     ),
     nodes,
     ...(edges !== undefined ? { edges } : {}),
@@ -693,6 +733,7 @@ export function documentToSnapshot(
       jsonNodeToBoardNode(node, metadata?.nodes?.[node.id], index),
     ),
   )
+  const nodeIds = new Set(nodes.map((node) => node.id))
   const gridSettings: GridSettings = {
     ...DEFAULT_GRID,
     ...(metadata?.grid ?? {}),
@@ -701,7 +742,7 @@ export function documentToSnapshot(
     ? metadata.selection
         .filter(
           (id): id is string =>
-            typeof id === 'string' && nodes.some((node) => node.id === id),
+            typeof id === 'string' && nodeIds.has(id as NodeId),
         )
         .map((id) => id as NodeId)
     : []

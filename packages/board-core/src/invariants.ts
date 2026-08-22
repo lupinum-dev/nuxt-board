@@ -111,6 +111,7 @@ export function validateState(
     }
     zIndexes.add(node.zIndex)
   }
+  validateParentCycles(state, push)
 
   for (const id of state.selection.values()) {
     if (!state.nodes.has(id)) {
@@ -190,27 +191,34 @@ function validateNodeParent(
       `Node ${node.id} parent must be type "group", got "${parent.type}".`,
     )
   }
-  let walk: BoardNode | undefined = parent
-  const seen = new Set<NodeId>()
-  while (walk) {
-    if (seen.has(walk.id)) {
-      push(
-        'node.parentId',
-        `Cycle detected in parent chain for node ${node.id}.`,
-      )
-      return
+}
+
+function validateParentCycles(
+  state: BoardState,
+  push: (name: string, message: string) => void,
+): void {
+  const complete = new Set<NodeId>()
+
+  for (const start of state.nodes.keys()) {
+    if (complete.has(start)) continue
+
+    const path: NodeId[] = []
+    const pathIndexes = new Map<NodeId, number>()
+    let current: NodeId | undefined = start
+
+    while (current !== undefined && !complete.has(current)) {
+      const cycleStart = pathIndexes.get(current)
+      if (cycleStart !== undefined) {
+        const cycle = [...path.slice(cycleStart), current].join(' -> ')
+        push('node.parentId', `Cycle detected in parent chain: ${cycle}.`)
+        break
+      }
+
+      pathIndexes.set(current, path.length)
+      path.push(current)
+      current = state.nodes.get(current)?.parentId
     }
-    seen.add(walk.id)
-    if (walk.id === node.id) {
-      push(
-        'node.parentId',
-        `Node ${node.id} would create a cycle in the parent chain.`,
-      )
-      return
-    }
-    if (!walk.parentId) {
-      break
-    }
-    walk = state.nodes.get(walk.parentId)
+
+    for (const id of path) complete.add(id)
   }
 }

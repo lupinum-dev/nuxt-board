@@ -904,11 +904,25 @@ export function createBoardEngine<
       return idMap
     }
 
+    const reservedIds = new Set(state.nodes.keys())
+    for (const rawNode of snapshotNodes) {
+      let id = rawNode.id
+      while (reservedIds.has(id)) id = createNodeId()
+      reservedIds.add(id)
+      idMap.set(rawNode.id, id)
+    }
     for (const rawNode of snapshotNodes) {
       const node = normalizeExistingNode(rawNode)
-      const id = state.nodes.has(node.id) ? createNodeId() : node.id
-      state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
-      idMap.set(node.id, id)
+      const id = idMap.get(node.id)!
+      const parentId = node.parentId
+        ? (idMap.get(node.parentId) ?? node.parentId)
+        : undefined
+      state.nodes.set(id, {
+        ...node,
+        id,
+        parentId,
+        zIndex: state.nextZIndex++,
+      })
     }
     state.jsonCanvas = mergeJsonCanvasExtras(
       state.jsonCanvas,
@@ -1624,13 +1638,27 @@ export function createBoardEngine<
         const inputs = options.clipboard?.deserialize(payload) ?? null
         if (!inputs || inputs.length === 0) return null
 
-        const created = inputs.map((input) =>
-          normalizeNode({
-            ...input,
-            x: input.x ?? offset.x,
-            y: input.y ?? offset.y,
-          }),
-        )
+        const stagedNodes = new Map(state.nodes)
+        let nextZIndex = state.nextZIndex
+        const created = inputs.map((input) => {
+          const normalized = normalizeNodeInput(
+            {
+              ...input,
+              x: input.x ?? offset.x,
+              y: input.y ?? offset.y,
+            },
+            {
+              nodes: stagedNodes,
+              grid,
+              constraints: nodeConstraints,
+              nextZIndex,
+            },
+          )
+          nextZIndex = normalized.nextZIndex
+          stagedNodes.set(normalized.node.id, normalized.node)
+          return normalized.node
+        })
+        state.nextZIndex = nextZIndex
         for (const node of created) {
           state.nodes.set(node.id, node)
           emit('node:created', materializeNode(node))

@@ -7,6 +7,27 @@ import {
 } from '../src/internal'
 
 describe('board-core public document API', () => {
+  it('rejects documents beyond the supported entity and nesting limits', () => {
+    const engine = createBoardEngine()
+    const nested: Record<string, unknown> = {}
+    let cursor = nested
+    for (let depth = 0; depth < 70; depth += 1) {
+      const next: Record<string, unknown> = {}
+      cursor.next = next
+      cursor = next
+    }
+
+    expect(() => engine.loadDocument({ nodes: [], extension: nested })).toThrow(
+      /nesting depth/,
+    )
+    expect(() =>
+      engine.loadDocument({
+        nodes: Array.from({ length: 10_001 }, () => ({})),
+      }),
+    ).toThrow(/nodes exceed the supported limit/)
+    expect(engine.getState().nodes.size).toBe(0)
+  })
+
   it('preserves frozen unknown JSON Canvas fields while canonical fields keep authority', () => {
     const future = { nested: { enabled: true }, values: [1, 2, 3] }
     const engine = createBoardEngine({
