@@ -1,0 +1,72 @@
+import type { BoardEngine, BoardPluginApis } from '../types.js'
+
+/**
+ * Build the public capability boundary explicitly.
+ *
+ * Keep this whitelist in sync with `BoardEngine`: privileged plugin and pointer
+ * methods must never become observable merely because the runtime gains a key.
+ */
+export function createPublicEngine<
+  TPluginApis extends BoardPluginApis,
+  TPluginEvents,
+>(engine: BoardEngine<TPluginApis>): BoardEngine<TPluginApis, TPluginEvents> {
+  return {
+    plugins: engine.plugins,
+    $camera: engine.$camera,
+    $grid: engine.$grid,
+    $nodes: engine.$nodes,
+    $selection: engine.$selection,
+    $interaction: engine.$interaction,
+    $snapGuides: engine.$snapGuides,
+    destroy: engine.destroy,
+    batch: engine.batch,
+    getState: engine.getState,
+    getGridSettings: engine.getGridSettings,
+    getViewportSize: engine.getViewportSize,
+    updateGridSettings: engine.updateGridSettings,
+    setViewportSize: engine.setViewportSize,
+    on: engine.on as BoardEngine<TPluginApis, TPluginEvents>['on'],
+    once: engine.once as BoardEngine<TPluginApis, TPluginEvents>['once'],
+    off: engine.off as BoardEngine<TPluginApis, TPluginEvents>['off'],
+    exportTrace: engine.exportTrace,
+    addCommandGuard: engine.addCommandGuard,
+    screenToWorld: engine.screenToWorld,
+    worldToScreen: engine.worldToScreen,
+    getVisibleBounds: engine.getVisibleBounds,
+    getNode: engine.getNode,
+    findNode: engine.findNode,
+    hasNode: engine.hasNode,
+    getNodeAt: engine.getNodeAt,
+    getNodesInBounds: engine.getNodesInBounds,
+    panBy: engine.panBy,
+    panTo: engine.panTo,
+    zoomAt: engine.zoomAt,
+    zoomTo: engine.zoomTo,
+    zoomToFit: engine.zoomToFit,
+    zoomToNodes: engine.zoomToNodes,
+    createNode: engine.createNode,
+    updateNode: engine.updateNode,
+    deleteNode: engine.deleteNode,
+    moveNode: engine.moveNode,
+    translateSelectedNodes: engine.translateSelectedNodes,
+    resizeNode: engine.resizeNode,
+    bringToFront: engine.bringToFront,
+    sendToBack: engine.sendToBack,
+    lockNode: engine.lockNode,
+    unlockNode: engine.unlockNode,
+    duplicateNodes: engine.duplicateNodes,
+    copySelected: engine.copySelected,
+    pasteClipboard: engine.pasteClipboard,
+    pasteData: engine.pasteData,
+    select: engine.select,
+    selectAll: engine.selectAll,
+    clearSelection: engine.clearSelection,
+    deleteSelected: engine.deleteSelected,
+    getSelection: engine.getSelection,
+    beginTextEdit: engine.beginTextEdit,
+    commitTextEdit: engine.commitTextEdit,
+    cancelTextEdit: engine.cancelTextEdit,
+    exportDocument: engine.exportDocument,
+    loadDocument: engine.loadDocument,
+  }
+}

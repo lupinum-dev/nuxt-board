@@ -1,8 +1,10 @@
 import {
   createBoardEngine,
   type BoardEngine,
+  type BoardEventMap,
   type BoardNode,
   type BoardPlugin,
+  type BoardPluginApis,
 } from '../src'
 
 // @ts-expect-error The v0.1 metadata name was removed from the 1.0 API.
@@ -52,6 +54,23 @@ const feature: InternalBoardPlugin = defineInternalBoardPlugin({
 })
 
 createBoardEngine({ plugins: [feature] })
+
+interface TypeProbeState {
+  count: number
+}
+
+defineInternalBoardPlugin<BoardPluginApis, BoardEventMap, TypeProbeState>({
+  name: 'state-type-probe',
+  slice: { initial: { count: 0 } },
+  install(featureEngine) {
+    featureEngine.getPluginState().count.toFixed()
+    featureEngine.updatePluginState((state) => ({
+      count: state.count + 1,
+    }))
+    // @ts-expect-error A plugin updater cannot replace its slice with another shape.
+    featureEngine.updatePluginState(() => ({ wrong: true }))
+  },
+})
 // @ts-expect-error Runtime extension installation is intentionally not public.
 engine.use(feature)
 

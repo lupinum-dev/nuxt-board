@@ -46,10 +46,11 @@ export function defineInternalBoardPlugin<
   TEvents extends {
     [K in keyof TEvents]: (...args: never[]) => unknown
   } = BoardEventMap,
+  TState = unknown,
 >(
-  plugin: InternalBoardPluginDefinition<TPluginApis, TEvents>,
-): InternalBoardPlugin<TPluginApis, TEvents> {
-  return plugin as InternalBoardPlugin<TPluginApis, TEvents>
+  plugin: InternalBoardPluginDefinition<TPluginApis, TEvents, TState>,
+): InternalBoardPlugin<TPluginApis, TEvents, TState> {
+  return plugin as InternalBoardPlugin<TPluginApis, TEvents, TState>
 }
 
 export function assertInternalBoardPlugin(

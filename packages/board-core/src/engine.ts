@@ -64,6 +64,7 @@ import {
   createValidator,
 } from './engine/command-runtime.js'
 import { createReactiveLayer } from './engine/subscribables.js'
+import { createBatchController, createSubscribable } from './subscribable.js'
 import {
   createTransactionExecutor,
   stagePersistentRoots,
@@ -81,6 +82,14 @@ import {
 import { assertInternalBoardPlugin } from './internal.js'
 import { registerBoardInteractionAdapter } from './engine/interaction-adapter.js'
 import { createCameraSession } from './engine/camera-session.js'
+import { createPublicEngine } from './engine/public-engine.js'
+import {
+  copyNodeExtras,
+  mergeJsonCanvasExtras,
+  removeNodeExtras,
+  replaceJsonCanvasExtras,
+  selectNodeExtras,
+} from './engine/json-canvas-extras.js'
 import {
   applyNodePatchToNode,
   normalizeNodeInput,
@@ -111,7 +120,6 @@ import type {
   InternalInteractionAdapter,
   InstalledPluginApis,
   InstalledPluginEvents,
-  BoardPluginApis,
   BoardPlugin,
   CommandMetadata,
   InteractionState,
@@ -122,7 +130,6 @@ import type {
   NodePatch,
   Point,
   SnapGuide,
-  Subscribable,
   ZoomSettings,
 } from './types.js'
 
@@ -210,6 +217,7 @@ export function createBoardEngine<
   const commitProjectors = new Set<
     (commit: InternalBoardCommit) => () => void
   >()
+  const projectedSubscribables = new Set<{ destroy(): void }>()
   const nodeDeletedHooks = new Set<(nodeId: NodeId) => void>()
   const pluginCleanups = new Map<string, () => void>()
   let pluginStates: MutablePluginStates = new Map()
@@ -228,7 +236,7 @@ export function createBoardEngine<
     NodeId,
     import('./types.js').JsonObject
   >()
-  const plugins = {} as BoardPluginApis
+  const plugins = {} as InstalledPluginApis<TPlugins>
   let viewportSize = { ...DEFAULT_VIEWPORT_SIZE }
   let destroyed = false
   let finalizingCommitEffects = false
@@ -839,10 +847,7 @@ export function createBoardEngine<
   }
 
   function deleteNodePassthrough(id: NodeId): void {
-    if (!state.jsonCanvas.nodes.has(id)) return
-    const nodes = new Map(state.jsonCanvas.nodes)
-    nodes.delete(id)
-    state.jsonCanvas = { ...state.jsonCanvas, nodes }
+    state.jsonCanvas = removeNodeExtras(state.jsonCanvas, id)
   }
 
   function copyNodePassthrough(
@@ -850,12 +855,7 @@ export function createBoardEngine<
     source: ReadonlyMap<NodeId, import('./types.js').JsonObject> = state
       .jsonCanvas.nodes,
   ): void {
-    const nodes = new Map(state.jsonCanvas.nodes)
-    for (const [sourceId, targetId] of idMap) {
-      const extras = source.get(sourceId)
-      if (extras) nodes.set(targetId, extras)
-    }
-    state.jsonCanvas = { ...state.jsonCanvas, nodes }
+    state.jsonCanvas = copyNodeExtras(state.jsonCanvas, idMap, source)
   }
 
   function restoreSnapshot(
@@ -887,10 +887,7 @@ export function createBoardEngine<
         idMap.set(rawNode.id, node.id)
         emit('node:created', materializeNode(node))
       }
-      state.jsonCanvas = {
-        document: passthrough.document,
-        nodes: new Map(passthrough.nodes),
-      }
+      state.jsonCanvas = replaceJsonCanvasExtras(passthrough)
 
       state.selection = new Set(
         snapshot.selection.filter((id) => state.nodes.has(id)),
@@ -913,19 +910,11 @@ export function createBoardEngine<
       state.nodes.set(id, { ...node, id, zIndex: state.nextZIndex++ })
       idMap.set(node.id, id)
     }
-    state.jsonCanvas = {
-      document: Object.freeze({
-        ...state.jsonCanvas.document,
-        ...passthrough.document,
-      }),
-      nodes: new Map([
-        ...state.jsonCanvas.nodes,
-        ...Array.from(
-          passthrough.nodes,
-          ([id, extras]) => [idMap.get(id) ?? id, extras] as const,
-        ),
-      ]),
-    }
+    state.jsonCanvas = mergeJsonCanvasExtras(
+      state.jsonCanvas,
+      passthrough,
+      idMap,
+    )
     notifyNodesChanged()
     return idMap
   }
@@ -960,7 +949,7 @@ export function createBoardEngine<
     const pluginCtx: InternalPluginContext = Object.assign(
       Object.create(engine) as InternalPluginContext,
       {
-        getPluginState: <S>(): S => {
+        getPluginState: (): unknown => {
           assertAlive()
           const entry = pluginStates.get(plugin.name)
           if (!entry) {
@@ -968,9 +957,9 @@ export function createBoardEngine<
               `Plugin "${plugin.name}" did not register a persistent slice.`,
             )
           }
-          return entry.state as S
+          return entry.state
         },
-        updatePluginState: <S>(update: (current: S) => S): S => {
+        updatePluginState: (update: (current: unknown) => unknown): unknown => {
           assertAlive()
           assertMutationAllowed()
           const entry = pluginStates.get(plugin.name)
@@ -979,7 +968,7 @@ export function createBoardEngine<
               `Plugin "${plugin.name}" did not register a persistent slice.`,
             )
           }
-          const next = update(entry.state as S)
+          const next = update(entry.state)
           entry.state = next
           return next
         },
@@ -998,14 +987,18 @@ export function createBoardEngine<
     pluginCleanups.set(plugin.name, cleanup ?? (() => undefined))
   }
 
-  const engine: InternalPluginContext & InternalInteractionAdapter = {
+  const engine: Omit<
+    InternalPluginContext<InstalledPluginApis<TPlugins>>,
+    'getPluginState' | 'updatePluginState'
+  > &
+    InternalInteractionAdapter = {
     plugins,
     assertActive: assertAlive,
     isBatching: () => batches.isBatching(),
     $camera,
     $grid,
-    $nodes: $nodes as Subscribable<ReadonlyMap<NodeId, BoardNode>>,
-    $selection: $selection as Subscribable<ReadonlySet<NodeId>>,
+    $nodes,
+    $selection,
     $interaction,
     $snapGuides,
     destroy() {
@@ -1031,6 +1024,8 @@ export function createBoardEngine<
       pluginStates.clear()
       pluginPersistence.clear()
       commitProjectors.clear()
+      for (const projection of projectedSubscribables) projection.destroy()
+      projectedSubscribables.clear()
       nodeDeletedHooks.clear()
       commandGuards.clear()
       eventBus.clear()
@@ -1044,7 +1039,7 @@ export function createBoardEngine<
     },
     extend(key, value) {
       assertMutationAllowed()
-      ;(plugins as unknown as Record<string, unknown>)[key] = value as unknown
+      Reflect.set(plugins, key, value)
     },
     batch(fn) {
       assertCommandReady()
@@ -1161,6 +1156,28 @@ export function createBoardEngine<
       commitProjectors.add(projector)
       return () => commitProjectors.delete(projector)
     },
+    createCommitSubscribable<T>(select: () => T, channel: string) {
+      assertAlive()
+      assertMutationAllowed()
+      let selected = select()
+      const projection = createSubscribable(
+        selected,
+        createBatchController(),
+        (error) =>
+          reportUnhandledError(error, { source: 'subscriber', channel }),
+      )
+      const projector = () => {
+        const next = select()
+        if (Object.is(next, selected)) return () => undefined
+        return () => {
+          selected = next
+          projection.set(next)
+        }
+      }
+      commitProjectors.add(projector)
+      projectedSubscribables.add(projection)
+      return projection
+    },
     restoreHistoryRoot(root) {
       runCommand(
         'history:restore',
@@ -1190,16 +1207,6 @@ export function createBoardEngine<
           notifySelectionChanged()
         },
         IGNORE_COMMAND,
-      )
-    },
-    getPluginState<S>(): S {
-      throw new Error(
-        'getPluginState is only available inside an internal plugin install() context.',
-      )
-    },
-    updatePluginState<S>(_update: (current: S) => S): S {
-      throw new Error(
-        'updatePluginState is only available inside an internal plugin install() context.',
       )
     },
     screenToWorld(point) {
@@ -1585,10 +1592,15 @@ export function createBoardEngine<
       return runCommand('copySelected', [], () => {
         clipboard.length = 0
         clipboardPassthrough.clear()
-        for (const node of getCopyClosureNodes()) {
+        const copied = getCopyClosureNodes()
+        for (const node of copied) {
           clipboard.push({ ...node })
-          const extras = state.jsonCanvas.nodes.get(node.id)
-          if (extras) clipboardPassthrough.set(node.id, extras)
+        }
+        for (const [id, extras] of selectNodeExtras(
+          state.jsonCanvas.nodes,
+          copied.map((node) => node.id),
+        )) {
+          clipboardPassthrough.set(id, extras)
         }
         return clipboard.map((node) => materializeNode(node))
       })
@@ -2243,32 +2255,10 @@ export function createBoardEngine<
 
   validate('createBoardEngine')
 
-  const internalKeys = new Set([
-    'emit',
-    'assertActive',
-    'isBatching',
-    'extend',
-    'runCommand',
-    'projectCommit',
-    'restoreHistoryRoot',
-    'getPluginState',
-    'updatePluginState',
-    'beginPan',
-    'beginNodeDrag',
-    'beginResize',
-    'beginBoxSelect',
-    'updatePointer',
-    'endInteraction',
-    'cancelInteraction',
-    'getUniformTranslationTargets',
-    'syncGroupZOrder',
-  ])
-  const publicEngine = Object.fromEntries(
-    Object.entries(engine).filter(([key]) => !internalKeys.has(key)),
-  ) as unknown as BoardEngine<
+  const publicEngine = createPublicEngine<
     InstalledPluginApis<TPlugins>,
     InstalledPluginEvents<TPlugins>
-  >
+  >(engine)
   registerBoardInteractionAdapter(publicEngine, engine)
   return publicEngine
 }

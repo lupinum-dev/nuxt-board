@@ -176,14 +176,15 @@ export function connectionsPlugin(
 
   const plugin = defineInternalBoardPlugin<
     ConnectionsPluginApis,
-    ConnectionsEventMap
+    ConnectionsEventMap,
+    ConnectionsState
   >({
     name: CONNECTIONS_FEATURE_NAME,
     slice: {
       initial: initialConnectionsState,
     },
     nodeDeleted(engine, nodeId) {
-      engine.updatePluginState<ConnectionsState>((state) => {
+      engine.updatePluginState((state) => {
         const edges = new Map(state.edges)
         const jsonCanvas = new Map(state.jsonCanvas)
         for (const [id, edge] of edges) {
@@ -199,7 +200,7 @@ export function connectionsPlugin(
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
-        const state = engine.getPluginState<ConnectionsState>()
+        const state = engine.getPluginState()
         const edges = engine.plugins.connections.getEdges()
         if (edges.length === 0) {
           return {}
@@ -269,7 +270,7 @@ export function connectionsPlugin(
             `Invalid board document: edge "${edge.id}"`,
           )
           if (Object.keys(extras).length > 0) {
-            engine.updatePluginState<ConnectionsState>((state) => ({
+            engine.updatePluginState((state) => ({
               ...state,
               jsonCanvas: new Map(state.jsonCanvas).set(created.id, extras),
             }))
@@ -278,8 +279,7 @@ export function connectionsPlugin(
       },
     },
     install(engine) {
-      const getState = (): ConnectionsState =>
-        engine.getPluginState<ConnectionsState>()
+      const getState = (): ConnectionsState => engine.getPluginState()
       let batchEdges: Map<EdgeId, BoardEdge> | null = null
       const applyAction = (action: ConnectionsAction): ConnectionsState =>
         engine.updatePluginState((state: ConnectionsState) => {
