@@ -1311,6 +1311,54 @@ describe('board engine', () => {
     expect(snapshot.nodes.get(existing.id)?.text).toBe('original')
   })
 
+  it('remaps imported parent links when a group id collides', () => {
+    const engine = createBoardEngine({ grid: { snap: false } })
+    const existingGroup = engine.createNode({
+      id: asNodeId('shared-group'),
+      type: 'group',
+      label: 'Existing',
+    })
+
+    engine.loadDocument(
+      {
+        nodes: [
+          {
+            id: 'imported-child',
+            type: 'text',
+            x: 20,
+            y: 20,
+            width: 120,
+            height: 80,
+            text: 'Child',
+          },
+          {
+            id: 'shared-group',
+            type: 'group',
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 200,
+            label: 'Imported',
+          },
+        ],
+        'x-lupinum-board': {
+          nodes: {
+            'imported-child': { parentId: 'shared-group' },
+          },
+        },
+      },
+      { mode: 'merge' },
+    )
+
+    const importedGroup = Array.from(engine.getState().nodes.values()).find(
+      (node) => node.type === 'group' && node.label === 'Imported',
+    )
+    const child = engine.getNode(asNodeId('imported-child'))
+    expect(importedGroup?.id).toBeDefined()
+    expect(importedGroup?.id).not.toBe(existingGroup.id)
+    expect(child?.parentId).toBe(importedGroup?.id)
+  })
+
   it('selectAll skips hidden nodes', () => {
     const engine = createBoardEngine()
     const visible = engine.createNode({
@@ -2148,6 +2196,23 @@ describe('transaction isolation regressions', () => {
       { text: 'centered', x: 200, y: 150 },
     ])
     expect(engine.getSelection()).toEqual(created?.map((node) => node.id))
+  })
+
+  it('rejects duplicate ids from one external clipboard batch atomically', () => {
+    const engine = createBoardEngine({
+      clipboard: {
+        deserialize: () => [
+          { id: asNodeId('duplicate'), type: 'text', text: 'First' },
+          { id: asNodeId('duplicate'), type: 'text', text: 'Second' },
+        ],
+      },
+    })
+    const created = vi.fn()
+    engine.on('node:created', created)
+
+    expect(() => engine.pasteData('cards')).toThrow(BoardConflictError)
+    expect(engine.getState().nodes.size).toBe(0)
+    expect(created).not.toHaveBeenCalled()
   })
 
   it('preserves transient gesture geometry when document validation fails', () => {

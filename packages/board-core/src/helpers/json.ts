@@ -1,12 +1,49 @@
 import { BoardInputError } from '../errors.js'
 import type { JsonObject, JsonValue } from '../types.js'
 
+const DEFAULT_MAX_JSON_DEPTH = 64
+const DEFAULT_MAX_JSON_VALUES = 250_000
+const DEFAULT_MAX_JSON_STRING_CHARACTERS = 8_000_000
+
+export interface JsonValueBudget {
+  remainingValues: number
+  remainingStringCharacters: number
+}
+
+/** Create one shared resource budget for an untrusted JSON input boundary. */
+export function createJsonValueBudget(): JsonValueBudget {
+  return {
+    remainingValues: DEFAULT_MAX_JSON_VALUES,
+    remainingStringCharacters: DEFAULT_MAX_JSON_STRING_CHARACTERS,
+  }
+}
+
+function consumeBudget(
+  budget: JsonValueBudget,
+  path: string,
+  stringCharacters = 0,
+): void {
+  budget.remainingValues -= 1
+  budget.remainingStringCharacters -= stringCharacters
+  if (budget.remainingValues < 0 || budget.remainingStringCharacters < 0) {
+    throw new BoardInputError(`${path} exceeds the supported JSON size.`)
+  }
+}
+
 /** Clone, validate, and freeze a JSON-compatible value at an input boundary. */
 export function freezeJsonValue(
   value: unknown,
   path: string,
   ancestors: Set<object> = new Set(),
+  budget: JsonValueBudget = createJsonValueBudget(),
+  depth = 0,
 ): JsonValue {
+  if (depth > DEFAULT_MAX_JSON_DEPTH) {
+    throw new BoardInputError(
+      `${path} exceeds the supported JSON nesting depth.`,
+    )
+  }
+  consumeBudget(budget, path, typeof value === 'string' ? value.length : 0)
   if (
     value === null ||
     typeof value === 'string' ||
@@ -48,7 +85,13 @@ export function freezeJsonValue(
           )
         }
         entries.push(
-          freezeJsonValue(descriptor.value, `${path}[${index}]`, ancestors),
+          freezeJsonValue(
+            descriptor.value,
+            `${path}[${index}]`,
+            ancestors,
+            budget,
+            depth + 1,
+          ),
         )
       }
       return Object.freeze(entries)
@@ -68,9 +111,19 @@ export function freezeJsonValue(
           `${path}.${key} must be an enumerable data property.`,
         )
       }
+      budget.remainingStringCharacters -= key.length
+      if (budget.remainingStringCharacters < 0) {
+        throw new BoardInputError(`${path} exceeds the supported JSON size.`)
+      }
       entries.push([
         key,
-        freezeJsonValue(descriptor.value, `${path}.${key}`, ancestors),
+        freezeJsonValue(
+          descriptor.value,
+          `${path}.${key}`,
+          ancestors,
+          budget,
+          depth + 1,
+        ),
       ])
     }
     return Object.freeze(Object.fromEntries(entries))
@@ -80,8 +133,12 @@ export function freezeJsonValue(
 }
 
 /** Clone, validate, and freeze a JSON object at an input boundary. */
-export function freezeJsonObject(value: unknown, path: string): JsonObject {
-  const cloned = freezeJsonValue(value, path)
+export function freezeJsonObject(
+  value: unknown,
+  path: string,
+  budget: JsonValueBudget = createJsonValueBudget(),
+): JsonObject {
+  const cloned = freezeJsonValue(value, path, new Set(), budget)
   if (Array.isArray(cloned) || cloned === null || typeof cloned !== 'object') {
     throw new BoardInputError(`${path} must be a JSON object.`)
   }
@@ -93,12 +150,16 @@ export function collectJsonObjectExtras(
   value: Readonly<Record<string, unknown>>,
   knownKeys: ReadonlySet<string>,
   path = 'JSON object',
+  budget: JsonValueBudget = createJsonValueBudget(),
 ): JsonObject {
   return Object.freeze(
     Object.fromEntries(
       Object.entries(value)
         .filter(([key]) => !knownKeys.has(key))
-        .map(([key, entry]) => [key, freezeJsonValue(entry, `${path}.${key}`)]),
+        .map(([key, entry]) => [
+          key,
+          freezeJsonValue(entry, `${path}.${key}`, new Set(), budget),
+        ]),
     ),
   ) as JsonObject
 }
