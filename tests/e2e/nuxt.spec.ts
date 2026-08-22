@@ -56,16 +56,20 @@ test('presents an unobstructed board focus on mobile', async ({ page }) => {
     'aria-pressed',
     'false',
   )
-  await expect(page.getByRole('button', { name: 'Stats' })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Debug' })).toHaveAttribute(
     'aria-pressed',
     'false',
   )
-  await expect(page.getByRole('button', { name: 'Details' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  )
+  await expect(
+    page.getByRole('button', { name: 'Inspector', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false')
   await expect(page.locator('.demo-diagnostics')).toHaveCount(0)
   await expect(page.locator('.sidebar')).toHaveCount(0)
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
 
   const moodboard = page.getByRole('img', { name: 'Moodboard' })
   await expect(moodboard).toBeVisible()

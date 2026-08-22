@@ -14,44 +14,49 @@ const documentText = defineModel<string>('documentText', { required: true })
 
 const emit = defineEmits<{
   import: []
+  benchmark: []
 }>()
 </script>
 
 <template>
   <aside class="sidebar">
-    <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Active Scene</p>
-      <h2 class="sidebar__title">
-        {{ sceneLabel }}
-      </h2>
+    <header class="sidebar__header">
+      <div>
+        <p class="sidebar__eyebrow">Inspector</p>
+        <h2 class="sidebar__title">
+          {{ sceneLabel }}
+        </h2>
+      </div>
       <p class="sidebar__copy">
         {{ sceneSummary }}
       </p>
+    </header>
+
+    <div class="sidebar__block">
+      <h3 class="sidebar__section-title">Grid</h3>
+      <div class="sidebar__field-grid">
+        <label class="sidebar__field">
+          <span>Size</span>
+          <select v-model="gridSize" class="sidebar__select">
+            <option :value="16">16 px</option>
+            <option :value="24">24 px</option>
+            <option :value="40">40 px</option>
+          </select>
+        </label>
+        <label class="sidebar__field">
+          <span>Pattern</span>
+          <select v-model="gridPattern" class="sidebar__select">
+            <option value="line">Line</option>
+            <option value="dot">Dot</option>
+            <option value="cross">Cross</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+      </div>
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Grid</p>
-      <label class="sidebar__field">
-        <span>Size</span>
-        <select v-model="gridSize" class="sidebar__select">
-          <option :value="16">16 px</option>
-          <option :value="24">24 px</option>
-          <option :value="40">40 px</option>
-        </select>
-      </label>
-      <label class="sidebar__field">
-        <span>Pattern</span>
-        <select v-model="gridPattern" class="sidebar__select">
-          <option value="line">Line</option>
-          <option value="dot">Dot</option>
-          <option value="cross">Cross</option>
-          <option value="none">None</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="sidebar__block">
-      <label class="sidebar__eyebrow" for="json-canvas-editor">
+      <label class="sidebar__section-title" for="json-canvas-editor">
         JSON Canvas
       </label>
       <textarea
@@ -63,23 +68,29 @@ const emit = defineEmits<{
       />
       <div class="sidebar__footer">
         <button class="sidebar__button" @click="emit('import')">
-          Import JSON
+          Import document
         </button>
-        <span class="sidebar__status" role="status" aria-live="polite">
+        <span class="sidebar__status">
           {{ status }}
         </span>
       </div>
     </div>
 
     <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Benchmark</p>
+      <h3 class="sidebar__section-title">Performance</h3>
       <p class="sidebar__copy sidebar__copy--mono">
         {{ benchmarkResult }}
       </p>
+      <button
+        class="sidebar__button sidebar__button--secondary"
+        @click="emit('benchmark')"
+      >
+        Run benchmark
+      </button>
     </div>
 
-    <div class="sidebar__block">
-      <p class="sidebar__eyebrow">Shortcuts</p>
+    <details class="sidebar__details">
+      <summary>Keyboard shortcuts</summary>
       <ul class="sidebar__list">
         <li>Double-click the board to create a text node.</li>
         <li>Drag from a card edge to create a connection.</li>
@@ -95,108 +106,170 @@ const emit = defineEmits<{
         <li>Use <kbd>Ctrl/Cmd</kbd> + <kbd>1</kbd> to zoom-to-fit.</li>
         <li>Use arrows to nudge the current selection.</li>
       </ul>
-    </div>
+    </details>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
   display: grid;
-  gap: 1rem;
-  padding: 1.15rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 24px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.95),
-    rgba(248, 250, 252, 0.94)
-  );
-  box-shadow: 0 20px 50px -34px rgba(15, 23, 42, 0.42);
+  align-content: start;
+  gap: 0;
+  overflow: auto;
+  max-height: max(36rem, calc(100dvh - 12.75rem));
+  border: 1px solid var(--playground-border);
+  border-radius: 0.75rem;
+  background: var(--playground-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
+.sidebar__header,
 .sidebar__block {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.sidebar__block,
+.sidebar__details {
+  border-top: 1px solid var(--playground-border);
 }
 
 .sidebar__eyebrow {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  color: var(--playground-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #0f766e;
 }
 
 .sidebar__title {
   margin: 0;
-  font-size: 1.1rem;
-  line-height: 1.2;
-  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--playground-title);
 }
 
 .sidebar__copy {
   margin: 0;
-  color: #475569;
+  color: var(--playground-muted);
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
 .sidebar__copy--mono {
   font-family: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
-  font-size: 0.82rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar__section-title {
+  margin: 0;
+  color: var(--playground-title);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.sidebar__field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 
 .sidebar__field {
   display: grid;
   gap: 0.35rem;
-  color: #334155;
-  font-size: 0.86rem;
-  font-weight: 600;
+  color: #3f3f46;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .sidebar__select,
 .sidebar__textarea,
 .sidebar__button {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #0f172a;
+  min-height: 2.25rem;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.5rem;
+  background: var(--playground-surface);
+  color: var(--playground-title);
   font: inherit;
 }
 
 .sidebar__select {
-  padding: 0.6rem 0.7rem;
+  padding: 0.4rem 0.6rem;
 }
 
 .sidebar__textarea {
-  min-height: 11rem;
-  padding: 0.8rem 0.9rem;
+  min-height: 8rem;
+  padding: 0.65rem;
   resize: vertical;
   font-family: 'IBM Plex Mono', 'SFMono-Regular', ui-monospace, monospace;
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .sidebar__footer {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
 }
 
 .sidebar__button {
-  padding: 0.62rem 0.9rem;
+  width: fit-content;
+  padding: 0.5rem 0.75rem;
+  background: #18181b;
+  color: #fafafa;
+  font-size: 0.78rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
+.sidebar__button--secondary {
+  background: var(--playground-surface);
+  color: var(--playground-title);
+}
+
+.sidebar__button:hover {
+  opacity: 0.88;
+}
+
 .sidebar__status {
-  color: #64748b;
+  color: var(--playground-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.sidebar__details {
+  padding: 0.875rem 1rem 1rem;
+}
+
+.sidebar__details summary {
+  cursor: pointer;
+  color: var(--playground-title);
   font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .sidebar__list {
-  margin: 0;
-  padding-left: 1rem;
-  color: #475569;
+  margin: 0.75rem 0 0;
+  padding-inline-start: 1rem;
+  color: var(--playground-muted);
+  font-size: 0.78rem;
   line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .sidebar__select,
+  .sidebar__textarea,
+  .sidebar__button {
+    font-size: 1rem;
+  }
 }
 </style>
