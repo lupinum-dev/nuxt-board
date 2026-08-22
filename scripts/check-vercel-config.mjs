@@ -34,8 +34,9 @@ check(
     'getCollaboratorPermissionLevel',
     'AbortSignal.timeout',
     'ignored-build-step',
+    'reusedExistingPreview',
   ].every((boundary) => previewWorkflow.includes(boundary)),
-  'Keep preview authorization, API resilience, and neutral skip handling.',
+  'Keep preview authorization, API resilience, exact-SHA reuse, and neutral skip handling.',
 )
 check(
   !/actions\/checkout@|vercel build|vercel deploy|pnpm install|^\s*(?:-\s*)?run:/mu.test(
