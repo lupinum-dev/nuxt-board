@@ -67,3 +67,57 @@
 ### ❤️ Contributors
 
 - Matthias Amon
+
+## v1.0.0-beta.1
+
+[compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v0.1.0...main)
+
+### 🚀 Enhancements
+
+- **docs:** Make Nuxt Board feel native to Nuxt ([#23](https://github.com/lupinum-dev/nuxt-board/pull/23))
+- **core:** ⚠️ Establish the 1.0 document contract ([#28](https://github.com/lupinum-dev/nuxt-board/pull/28))
+- **connections:** ⚠️ Publish immutable edge state ([#29](https://github.com/lupinum-dev/nuxt-board/pull/29))
+- **clipboard:** ⚠️ Preserve browser event ownership ([#30](https://github.com/lupinum-dev/nuxt-board/pull/30))
+- **vue:** ⚠️ Add timer-free touch navigation ([#31](https://github.com/lupinum-dev/nuxt-board/pull/31))
+- **history:** ⚠️ Scope shortcuts to one board ([#32](https://github.com/lupinum-dev/nuxt-board/pull/32))
+- **api:** ⚠️ Settle Vue and Nuxt integration ([#33](https://github.com/lupinum-dev/nuxt-board/pull/33))
+
+### 🩹 Fixes
+
+- **release:** Preserve consumed Changeset deletions ([#24](https://github.com/lupinum-dev/nuxt-board/pull/24))
+- **docs:** Build when Vercel baseline is missing ([#26](https://github.com/lupinum-dev/nuxt-board/pull/26))
+- **release:** Accept consumed prerelease notes ([#37](https://github.com/lupinum-dev/nuxt-board/pull/37))
+- **core:** Enforce canonical engine boundaries ([#38](https://github.com/lupinum-dev/nuxt-board/pull/38))
+
+### 💅 Refactors
+
+- **vue:** Make interaction ownership explicit ([#39](https://github.com/lupinum-dev/nuxt-board/pull/39))
+- **connections:** Unify edge state ownership ([#40](https://github.com/lupinum-dev/nuxt-board/pull/40))
+
+### 📖 Documentation
+
+- Refresh Nuxt Board branding ([#27](https://github.com/lupinum-dev/nuxt-board/pull/27))
+
+### 🏡 Chore
+
+- **standard:** Complete first-release cleanup ([#21](https://github.com/lupinum-dev/nuxt-board/pull/21))
+- **release:** Enter the 1.0 beta cycle ([#34](https://github.com/lupinum-dev/nuxt-board/pull/34))
+- Version packages ([#36](https://github.com/lupinum-dev/nuxt-board/pull/36))
+
+### 🤖 CI
+
+- **docs:** Cut unrelated Vercel build usage ([#22](https://github.com/lupinum-dev/nuxt-board/pull/22))
+- Classify expensive verification lanes ([#25](https://github.com/lupinum-dev/nuxt-board/pull/25))
+
+#### ⚠️ Breaking Changes
+
+- **core:** ⚠️ Establish the 1.0 document contract ([#28](https://github.com/lupinum-dev/nuxt-board/pull/28))
+- **connections:** ⚠️ Publish immutable edge state ([#29](https://github.com/lupinum-dev/nuxt-board/pull/29))
+- **clipboard:** ⚠️ Preserve browser event ownership ([#30](https://github.com/lupinum-dev/nuxt-board/pull/30))
+- **vue:** ⚠️ Add timer-free touch navigation ([#31](https://github.com/lupinum-dev/nuxt-board/pull/31))
+- **history:** ⚠️ Scope shortcuts to one board ([#32](https://github.com/lupinum-dev/nuxt-board/pull/32))
+- **api:** ⚠️ Settle Vue and Nuxt integration ([#33](https://github.com/lupinum-dev/nuxt-board/pull/33))
+
+### ❤️ Contributors
+
+- Matthias Amon
