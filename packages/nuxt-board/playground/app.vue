@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
 import { BoardConnectionLayer } from '../../board-connections/src/vue'
 import { BoardHistoryShortcuts } from '../../board-history/src/vue'
@@ -41,9 +41,9 @@ const engine = seeded.engine
 const sceneId = ref<DemoSceneId>(defaultSceneId)
 const activeScene = ref<DemoSceneOption>(seeded.scene)
 const showGrid = ref(true)
-const showMinimap = ref(true)
-const showDiagnostics = ref(true)
-const showPanel = ref(true)
+const showMinimap = ref(false)
+const showDiagnostics = ref(false)
+const showPanel = ref(false)
 const benchmarkResult = ref('idle')
 const documentText = ref('')
 const status = ref('Scene seeded from deterministic data for SSR hydration.')
@@ -103,15 +103,32 @@ onBeforeUnmount(() => {
 const stats = ref(getDemoCounts(engine))
 
 onMounted(() => {
-  if (!window.matchMedia('(max-width: 720px)').matches) {
+  if (window.matchMedia('(min-width: 901px)').matches) {
+    void nextTick(() => engine.zoomToFit(64, false))
     return
   }
 
-  showMinimap.value = false
-  showDiagnostics.value = false
-  showPanel.value = false
-  engine.zoomTo(0.7)
-  engine.panBy(0, -88)
+  if (window.matchMedia('(min-width: 721px)').matches) {
+    void nextTick(() => engine.zoomToFit(48, false))
+    return
+  }
+
+  if (window.matchMedia('(max-width: 720px)').matches) {
+    engine.zoomTo(0.7)
+    engine.panBy(0, -88)
+  }
+})
+
+watch(showPanel, async () => {
+  if (
+    typeof window === 'undefined' ||
+    !window.matchMedia('(min-width: 901px)').matches
+  ) {
+    return
+  }
+
+  await nextTick()
+  await engine.zoomToFit(64, false)
 })
 
 const gridOptions = computed(() => ({
@@ -195,48 +212,42 @@ function groupSelection(): void {
 
 <template>
   <main class="demo-shell">
-    <section class="demo-hero">
-      <div class="demo-hero__copy">
-        <p class="demo-hero__eyebrow">Nuxt SSR Playground</p>
-        <h1>
-          Interactive board markup, rendered on the server before hydration.
-        </h1>
-        <p class="demo-hero__lede">
-          This playground uses deterministic scene data so Nuxt can
-          server-render the board, then hydrate into the same live engine with
-          history, connections, minimap, and JSON import/export intact.
-        </p>
+    <header class="demo-header">
+      <div class="demo-brand">
+        <span class="demo-brand__mark" aria-hidden="true">N</span>
+        <div>
+          <h1>Nuxt Board</h1>
+          <p>SSR playground</p>
+        </div>
       </div>
 
-      <dl class="demo-stats">
-        <div class="demo-stats__card">
+      <dl class="demo-summary" aria-label="Board summary">
+        <div>
           <dt>Nodes</dt>
           <dd>{{ stats.nodes }}</dd>
         </div>
-        <div class="demo-stats__card">
+        <div>
           <dt>Edges</dt>
           <dd>{{ stats.edges }}</dd>
         </div>
-        <div class="demo-stats__card">
-          <dt>Undo Steps</dt>
+        <div>
+          <dt>Undo</dt>
           <dd>{{ stats.history }}</dd>
         </div>
-        <div class="demo-stats__card">
-          <dt>Hydration</dt>
-          <dd>Deterministic</dd>
+        <div class="demo-summary__status">
+          <dt>Rendering</dt>
+          <dd><span aria-hidden="true"></span> SSR ready</dd>
         </div>
       </dl>
-    </section>
+    </header>
 
-    <section class="demo-stage-shell">
-      <div class="demo-stage-shell__header">
+    <section class="demo-workspace" aria-labelledby="workspace-title">
+      <div class="demo-workspace__header">
         <div>
-          <p class="demo-stage-shell__eyebrow">
-            {{ activeScene.label }}
-          </p>
-          <h2>{{ activeScene.summary }}</h2>
+          <h2 id="workspace-title">{{ activeScene.label }}</h2>
+          <p>{{ activeScene.summary }}</p>
         </div>
-        <p class="demo-stage-shell__status">
+        <p class="demo-workspace__status" role="status" aria-live="polite">
           {{ status }}
         </p>
       </div>
@@ -249,14 +260,13 @@ function groupSelection(): void {
         v-model:show-diagnostics="showDiagnostics"
         v-model:show-panel="showPanel"
         :scenes="DEMO_SCENES"
-        @benchmark="runBenchmark"
         @export="exportDocument"
         @fit="fitScene"
         @group="groupSelection"
         @reseed="reseedScene"
       />
 
-      <div class="demo-stage-grid">
+      <div class="demo-stage-grid" :class="{ 'has-inspector': showPanel }">
         <section class="demo-board-shell">
           <BoardRoot
             class="demo-board"
@@ -298,6 +308,7 @@ function groupSelection(): void {
           :scene-summary="activeScene.summary"
           :benchmark-result="benchmarkResult"
           :status="status"
+          @benchmark="runBenchmark"
           @import="loadDocument"
         />
       </div>
@@ -308,201 +319,211 @@ function groupSelection(): void {
 <style scoped>
 .demo-shell {
   display: grid;
-  gap: 1.5rem;
+  grid-template-rows: auto 1fr;
   min-height: 100vh;
-  padding: 2rem;
+  background: var(--playground-bg);
 }
 
-.demo-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 28rem);
-  gap: 1.5rem;
-  align-items: stretch;
-}
-
-.demo-hero__copy,
-.demo-stats {
-  padding: 1.5rem 1.6rem;
-  border: 1px solid var(--playground-border);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--playground-shadow);
-  backdrop-filter: blur(18px) saturate(1.2);
-}
-
-.demo-hero__eyebrow,
-.demo-stage-shell__eyebrow {
-  margin: 0 0 0.5rem;
-  color: var(--playground-accent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.demo-hero h1,
-.demo-stage-shell h2 {
-  margin: 0;
-  color: var(--playground-title);
-  line-height: 1.04;
-}
-
-.demo-hero h1 {
-  max-width: 15ch;
-  font-size: clamp(2.2rem, 5vw, 4.1rem);
-}
-
-.demo-stage-shell h2 {
-  font-size: 1.15rem;
-}
-
-.demo-hero__lede {
-  max-width: 58ch;
-  margin: 1rem 0 0;
-  color: var(--playground-copy);
-  font-size: 1rem;
-  line-height: 1.65;
-}
-
-.demo-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-.demo-stats__card {
-  padding: 1rem;
-  border-radius: 20px;
-  background: linear-gradient(
-    180deg,
-    rgba(248, 250, 252, 0.96),
-    rgba(241, 245, 249, 0.9)
-  );
-  border: 1px solid rgba(15, 23, 42, 0.06);
-}
-
-.demo-stats__card dt {
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.demo-stats__card dd {
-  margin: 0.5rem 0 0;
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.demo-stage-shell {
-  display: grid;
-  gap: 1rem;
-}
-
-.demo-stage-shell__header {
+.demo-header {
   display: flex;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--playground-border);
+  background: var(--playground-surface);
+}
+
+.demo-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.demo-brand__mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: #18181b;
+  color: #fafafa;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.demo-brand h1,
+.demo-brand p {
+  margin: 0;
+}
+
+.demo-brand h1 {
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.demo-brand p {
+  color: var(--playground-muted);
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.demo-summary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0;
+}
+
+.demo-summary > div {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.demo-summary dt {
+  color: var(--playground-muted);
+  font-size: 0.72rem;
+}
+
+.demo-summary dd {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-summary__status dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.demo-summary__status dd span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.demo-workspace {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.demo-workspace__header {
+  display: flex;
+  min-height: 2.5rem;
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.demo-stage-shell__status {
-  max-width: 36ch;
+.demo-workspace__header h2,
+.demo-workspace__header p {
   margin: 0;
-  color: #475569;
-  text-align: right;
-  line-height: 1.55;
+}
+
+.demo-workspace__header h2 {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.demo-workspace__header > div p,
+.demo-workspace__status {
+  color: var(--playground-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.demo-workspace__status {
+  max-width: 44ch;
+  text-align: end;
 }
 
 .demo-stage-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 24rem);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.demo-stage-grid.has-inspector {
+  grid-template-columns: minmax(0, 1fr) 20rem;
 }
 
 .demo-board-shell {
   position: relative;
-  min-height: 44rem;
-  padding: 1rem;
+  height: max(36rem, calc(100dvh - 13.25rem));
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--playground-border);
-  border-radius: 30px;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.76),
-      rgba(255, 255, 255, 0.58)
-    ),
-    rgba(248, 250, 252, 0.86);
-  box-shadow: var(--playground-shadow);
+  border-radius: 0.75rem;
+  background: var(--playground-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
 .demo-board {
   position: relative;
-  min-height: 42rem;
-  border-radius: 22px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
 .demo-diagnostics {
   position: absolute;
-  left: 1rem;
-  bottom: 1rem;
+  inset-inline-start: 0.75rem;
+  bottom: 0.75rem;
   z-index: 10;
-  max-width: min(34rem, calc(100% - 2rem));
+  max-width: min(32rem, calc(100% - 1.5rem));
 }
 
 .demo-minimap {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 0.75rem;
+  inset-inline-end: 0.75rem;
   z-index: 10;
-  padding: 0.5rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 16px 38px -28px rgba(15, 23, 42, 0.52);
-  color: #475569;
+  padding: 0.375rem;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.625rem;
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  color: #52525b;
 }
 
 :deep(.demo-board.board-root) {
-  --board-bg: #f8fafc;
-  --board-fg: #0f172a;
+  --board-bg: #fafafa;
+  --board-fg: #18181b;
   --board-node-bg: #ffffff;
-  --board-node-border: rgba(15, 23, 42, 0.08);
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(14, 165, 233, 0.12),
-      transparent 32%
-    ),
-    linear-gradient(180deg, #f8fafc, #eef5f8);
+  --board-node-border: #e4e4e7;
+  background: #fafafa;
 }
 
 :deep(.demo-board .board-node) {
-  border-radius: 18px;
-  border-color: rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 30px -24px rgba(15, 23, 42, 0.35);
+  border-radius: 0.5rem;
+  border-color: #e4e4e7;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 :deep(.demo-board .board-node.is-selected) {
-  outline: 2px solid rgba(15, 118, 110, 0.8);
+  outline: 2px solid #18181b;
   outline-offset: -1px;
-  box-shadow:
-    0 0 0 6px rgba(15, 118, 110, 0.08),
-    0 18px 36px -26px rgba(15, 23, 42, 0.42);
+  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.12);
 }
 
 :deep(.demo-board .board-node__content),
 :deep(.demo-board .board-node__editor) {
   font-family: var(--playground-sans);
-  font-size: 0.96rem;
-  line-height: 1.55;
-  color: #0f172a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #18181b;
 }
 
 :deep(.demo-board .board-node__content) {
@@ -512,87 +533,64 @@ function groupSelection(): void {
 }
 
 :deep(.demo-board .board-connection-layer) {
-  color: rgba(14, 116, 144, 0.44);
+  color: rgb(82 82 91 / 0.5);
 }
 
 :deep(.demo-board .board-node-handle) {
   border-radius: 4px;
-  border-color: rgba(15, 118, 110, 0.86);
+  border-color: #52525b;
   background: white;
 }
 
-@media (max-width: 1100px) {
-  .demo-hero,
-  .demo-stage-grid {
+@media (max-width: 900px) {
+  .demo-stage-grid.has-inspector {
     grid-template-columns: 1fr;
-  }
-
-  .demo-stage-shell__header {
-    flex-direction: column;
-    align-items: start;
-  }
-
-  .demo-stage-shell__status {
-    text-align: left;
   }
 }
 
 @media (max-width: 720px) {
-  .demo-shell {
-    gap: 1rem;
+  .demo-header {
+    min-height: 3.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .demo-summary > div:not(.demo-summary__status) {
+    display: none;
+  }
+
+  .demo-summary__status dt {
+    display: none;
+  }
+
+  .demo-workspace {
+    gap: 0.625rem;
     padding: 0.75rem;
   }
 
-  .demo-hero {
-    gap: 0.75rem;
+  .demo-workspace__header {
+    align-items: start;
   }
 
-  .demo-hero__copy,
-  .demo-stats {
-    padding: 1rem;
-    border-radius: 18px;
-  }
-
-  .demo-hero h1 {
-    max-width: none;
-    font-size: 2rem;
-  }
-
-  .demo-hero__lede {
+  .demo-workspace__header > div p {
     display: none;
   }
 
-  .demo-stats {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .demo-stage-shell {
-    gap: 0.75rem;
-  }
-
-  .demo-stage-shell__header {
-    gap: 0.35rem;
-  }
-
-  .demo-stage-shell__status {
-    display: none;
-  }
-
-  .demo-stage-grid {
-    gap: 0.75rem;
+  .demo-workspace__status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .demo-board-shell {
-    height: min(35rem, 64dvh);
-    min-height: 34rem;
-    padding: 0.75rem;
-    border-radius: 24px;
-  }
-
-  .demo-board {
-    height: 100%;
-    min-height: 0;
-    border-radius: 18px;
+    height: max(32rem, calc(100dvh - 17.5rem));
+    min-height: 32rem;
+    border-radius: 0.625rem;
   }
 
   .demo-minimap {
@@ -600,7 +598,7 @@ function groupSelection(): void {
   }
 
   .demo-diagnostics {
-    right: 0.75rem;
+    inset-inline-end: 0.75rem;
     bottom: 0.75rem;
     left: 0.75rem;
     max-width: none;

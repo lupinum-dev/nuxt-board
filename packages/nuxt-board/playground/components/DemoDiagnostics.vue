@@ -46,12 +46,12 @@ defineProps<{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem 1rem;
-  padding: 0.9rem 1rem;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.78);
-  color: #e2e8f0;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 18px 45px -28px rgba(15, 23, 42, 0.7);
+  padding: 0.75rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.625rem;
+  background: rgb(24 24 27 / 0.94);
+  color: #fafafa;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.14);
 }
 
 .diagnostics__item {
@@ -63,11 +63,11 @@ defineProps<{
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(226, 232, 240, 0.64);
+  color: #a1a1aa;
 }
 
 .diagnostics__item strong {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -76,7 +76,7 @@ defineProps<{
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem 0.65rem;
     padding: 0.7rem 0.8rem;
-    border-radius: 14px;
+    border-radius: 0.5rem;
   }
 }
 </style>

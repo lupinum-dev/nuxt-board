@@ -17,7 +17,6 @@ const showPanel = defineModel<boolean>('showPanel', { required: true })
 const emit = defineEmits<{
   reseed: []
   fit: []
-  benchmark: []
   export: []
   group: []
 }>()
@@ -26,7 +25,7 @@ const emit = defineEmits<{
 <template>
   <div class="toolbar">
     <label class="toolbar__field">
-      <span>Scene</span>
+      <span class="toolbar__label">Scene</span>
       <select v-model="sceneId" class="toolbar__select">
         <option v-for="scene in scenes" :key="scene.id" :value="scene.id">
           {{ scene.label }}
@@ -34,17 +33,16 @@ const emit = defineEmits<{
       </select>
     </label>
 
-    <div class="toolbar__cluster">
+    <div class="toolbar__cluster toolbar__cluster--actions">
       <button class="toolbar__button" @click="emit('reseed')">Reset</button>
-      <button class="toolbar__button" @click="emit('fit')">Fit</button>
+      <button class="toolbar__button" @click="emit('fit')">Fit view</button>
       <button class="toolbar__button" @click="emit('group')">Group</button>
-      <button class="toolbar__button" @click="emit('benchmark')">
-        Benchmark
-      </button>
       <button class="toolbar__button" @click="emit('export')">Export</button>
     </div>
 
-    <div class="toolbar__cluster">
+    <div class="toolbar__spacer" />
+
+    <div class="toolbar__cluster toolbar__cluster--views">
       <button
         class="toolbar__toggle"
         :class="{ 'is-active': showGrid }"
@@ -75,7 +73,7 @@ const emit = defineEmits<{
         :aria-pressed="showDiagnostics"
         @click="showDiagnostics = !showDiagnostics"
       >
-        Stats
+        Debug
       </button>
       <button
         class="toolbar__toggle"
@@ -83,7 +81,7 @@ const emit = defineEmits<{
         :aria-pressed="showPanel"
         @click="showPanel = !showPanel"
       >
-        Details
+        Inspector
       </button>
     </div>
   </div>
@@ -94,72 +92,73 @@ const emit = defineEmits<{
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(18px) saturate(1.25);
-  box-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.42);
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.75rem;
+  background: var(--playground-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 
 .toolbar__field {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: #334155;
+  gap: 0.5rem;
+  padding-inline-start: 0.375rem;
+  color: #3f3f46;
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .toolbar__select,
 .toolbar__button,
 .toolbar__toggle {
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 12px;
-  background: rgba(248, 250, 252, 0.94);
-  color: #0f172a;
+  min-height: 2.25rem;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.5rem;
+  background: var(--playground-surface);
+  color: var(--playground-title);
   font: inherit;
 }
 
 .toolbar__select {
-  min-width: 12rem;
-  padding: 0.55rem 0.8rem;
+  min-width: 11rem;
+  padding: 0.4rem 2rem 0.4rem 0.65rem;
 }
 
 .toolbar__cluster {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.25rem;
+}
+
+.toolbar__spacer {
+  flex: 1 1 auto;
 }
 
 .toolbar__button,
 .toolbar__toggle {
-  padding: 0.55rem 0.85rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 0.18s ease,
-    color 0.18s ease,
-    border-color 0.18s ease,
-    transform 0.18s ease;
+  transition: background-color 0.15s ease;
 }
 
 .toolbar__button:hover,
 .toolbar__toggle:hover {
-  border-color: rgba(14, 116, 144, 0.35);
-  background: #ffffff;
-  transform: translateY(-1px);
+  background: #f4f4f5;
 }
 
 .toolbar__toggle.is-active {
-  border-color: rgba(15, 118, 110, 0.32);
-  background: #0f766e;
-  color: #f8fafc;
+  border-color: #18181b;
+  background: #f4f4f5;
+  color: #18181b;
 }
 
 @media (max-width: 900px) {
   .toolbar {
-    padding: 0.8rem;
+    align-items: stretch;
   }
 
   .toolbar__field {
@@ -167,22 +166,25 @@ const emit = defineEmits<{
   }
 
   .toolbar__select {
-    min-width: 100%;
+    flex: 1;
+    min-width: 0;
   }
 }
 
 @media (max-width: 720px) {
   .toolbar {
     display: grid;
-    gap: 0.65rem;
-    padding: 0.7rem;
-    overflow: hidden;
-    border-radius: 16px;
+    grid-template-columns: 1fr;
+    gap: 0.375rem;
+    padding: 0.375rem;
+    border-radius: 0.625rem;
   }
 
   .toolbar__field {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
+    min-height: 2.5rem;
+    padding-inline: 0.375rem;
   }
 
   .toolbar__select {
@@ -191,21 +193,34 @@ const emit = defineEmits<{
   }
 
   .toolbar__cluster {
-    flex-wrap: nowrap;
-    gap: 0.35rem;
-    overflow-x: auto;
-    scrollbar-width: none;
+    display: grid;
+    gap: 0.25rem;
   }
 
-  .toolbar__cluster::-webkit-scrollbar {
-    display: none;
+  .toolbar__cluster--actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .toolbar__cluster--views {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .toolbar__button,
   .toolbar__toggle {
-    flex: 0 0 auto;
-    padding: 0.5rem 0.68rem;
-    font-size: 0.82rem;
+    min-width: 0;
+    padding-inline: 0.35rem;
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .toolbar__spacer {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .toolbar__cluster--views {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>
