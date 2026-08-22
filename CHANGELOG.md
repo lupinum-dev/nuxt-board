@@ -121,3 +121,15 @@
 ### ❤️ Contributors
 
 - Matthias Amon
+
+## v1.0.0-beta.2
+
+[compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v1.0.0-beta.1...main)
+
+### 🩹 Fixes
+
+- **core:** Harden untrusted board inputs ([#43](https://github.com/lupinum-dev/nuxt-board/pull/43))
+
+### ❤️ Contributors
+
+- Matthias Amon
