@@ -133,6 +133,37 @@ test('supports alt-drag duplication and benchmark reporting', async ({
   })
 })
 
+test('groups the selected nodes and owns undo and redo shortcuts', async ({
+  page,
+}) => {
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto('/')
+
+  const board = page.getByRole('application', { name: 'Board canvas' })
+  const nodes = page.locator('[data-node-id]')
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+  await nodes.first().click()
+  const beforeDuplicate = await nodes.count()
+  await board.press(`${modifier}+d`)
+  await expect(nodes).toHaveCount(beforeDuplicate + 1)
+  await board.press(`${modifier}+z`)
+  await expect(nodes).toHaveCount(beforeDuplicate)
+  await board.press(`${modifier}+Shift+z`)
+  await expect(nodes).toHaveCount(beforeDuplicate + 1)
+
+  await board.press(`${modifier}+a`)
+  const beforeGroup = await nodes.count()
+  await page
+    .getByRole('button', {
+      name: 'Wrap selected nodes in a group (or add an empty group in view)',
+    })
+    .click()
+  await expect(nodes).toHaveCount(beforeGroup + 1)
+  expect(errors).toEqual([])
+})
+
 test('renders connections, minimap, and import/export helpers', async ({
   page,
 }) => {

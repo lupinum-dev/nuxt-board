@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { GridPattern } from '@lupinum/board-core'
 import { BoardConnectionLayer } from '../../board-connections/src/vue'
+import { BoardHistoryShortcuts } from '../../board-history/src/vue'
 import { BoardMinimap } from '../../vue-board/src/minimap'
 import type { BoardRendererRegistry } from '@lupinum/vue-board'
 import DemoDiagnostics from '~/components/DemoDiagnostics.vue'
@@ -256,6 +257,8 @@ function groupSelection(): void {
             </template>
 
             <template #default="{ debugState }">
+              <BoardHistoryShortcuts :history="engine.plugins.history" />
+
               <DemoDiagnostics
                 v-if="showDiagnostics"
                 class="demo-diagnostics"
