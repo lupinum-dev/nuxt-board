@@ -25,3 +25,22 @@ test('server-renders and hydrates the deterministic Nuxt board', async ({
 
   expect(errors).toEqual([])
 })
+
+test('keeps Nuxt history shortcuts scoped to the hydrated board', async ({
+  page,
+}) => {
+  await page.goto('http://127.0.0.1:4175/', { waitUntil: 'networkidle' })
+
+  const board = page.getByRole('application', { name: 'Board canvas' })
+  const nodes = page.locator('[data-node-id]')
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+  await page.locator('[data-node-id="brief"]').click()
+  await expect(page.locator('[data-node-id].is-selected')).toHaveCount(1)
+  await board.press(`${modifier}+d`)
+  await expect(nodes).toHaveCount(13)
+  await board.press(`${modifier}+z`)
+  await expect(nodes).toHaveCount(12)
+  await board.press(`${modifier}+Shift+z`)
+  await expect(nodes).toHaveCount(13)
+})
