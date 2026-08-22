@@ -1,62 +1,89 @@
 name: release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: changesets-version
   cancel-in-progress: false
+
+permissions: {}
 
 jobs:
   prepare-version:
     name: Prepare version files
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
     outputs:
       has_changes: ${{ steps.generate.outputs.has_changes }}
-
+      sha: ${{ steps.freshness.outputs.sha }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Ignore completed runs that are no longer current main
+        id: freshness
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const defaultBranch = context.payload.repository.default_branch
+            const { data: currentMain } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${defaultBranch}`,
+            })
+            core.setOutput('current', currentMain.object.sha === context.payload.workflow_run.head_sha ? 'true' : 'false')
+            core.setOutput('sha', context.payload.workflow_run.head_sha)
+
+      - name: Checkout verified main SHA
+        if: steps.freshness.outputs.current == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup pnpm
+        if: steps.freshness.outputs.current == 'true'
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           standalone: true
 
       - name: Setup Node
+        if: steps.freshness.outputs.current == 'true'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.18.0
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.freshness.outputs.current == 'true'
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Generate version files without write credentials
+        if: steps.freshness.outputs.current == 'true'
         id: generate
         run: |
           pnpm release:version
           git add --intent-to-add .
+          git diff HEAD --binary --full-index --output="$RUNNER_TEMP/version.patch"
           if git diff HEAD --quiet; then
             echo 'has_changes=false' >> "$GITHUB_OUTPUT"
-            touch version.patch
           else
             echo 'has_changes=true' >> "$GITHUB_OUTPUT"
-            git diff HEAD --binary --full-index > version.patch
           fi
 
       - name: Retain version patch
+        if: steps.freshness.outputs.current == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: version-patch
-          path: version.patch
+          name: version-patch-${{ github.event.workflow_run.head_sha }}
+          path: ${{ runner.temp }}/version.patch
           if-no-files-found: error
           retention-days: 1
 
@@ -70,30 +97,48 @@ jobs:
       actions: write
       contents: write
       pull-requests: write
-
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Checkout the verified main SHA
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          fetch-depth: 0
           persist-credentials: false
+          ref: main
 
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      - name: Download the inert version patch
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: version-patch
-          path: ${{ runner.temp }}/version-patch
+          name: version-patch-${{ needs.prepare-version.outputs.sha }}
+          path: ${{ runner.temp }}
+
+      - name: Confirm that the prepared SHA is still current main
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const defaultBranch = context.payload.repository.default_branch
+            const { data: currentMain } = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${defaultBranch}`,
+            })
+            if (currentMain.object.sha !== '${{ needs.prepare-version.outputs.sha }}') {
+              core.setFailed('The default branch advanced after the version patch was prepared.')
+            }
 
       - name: Apply the unprivileged version patch
-        run: git apply --index "${{ runner.temp }}/version-patch/version.patch"
+        run: git apply --index "$RUNNER_TEMP/version.patch"
 
       - name: Create or update the version pull request
         id: version-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
           branch: release/version-packages
           commit-message: 'chore: version packages'
           title: 'chore: version packages'
           body: |
-            This pull request updates package versions and release notes from reviewed Changesets.
+            This pull request updates package versions and release notes from reviewed Changesets on a successful main commit.
 
             Merge it only after the complete release verification passes.
           delete-branch: true

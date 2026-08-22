@@ -102,6 +102,10 @@ describe('docs demo contracts', () => {
     expect(releaseWorkflow).toContain(
       '        run: gh workflow run ci.yml --ref release/version-packages',
     )
+    expect(releaseWorkflow).toContain('github.event.workflow_run.head_sha')
+    expect(releaseWorkflow).toContain(
+      'The default branch advanced after the version patch was prepared.',
+    )
     expect(releaseWorkflow).not.toContain('PERSONAL_ACCESS_TOKEN')
     expect(packageJson.scripts['release:version']).toContain(
       'prettier CHANGELOG.md --write',
