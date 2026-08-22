@@ -61,7 +61,7 @@ export type BoardEdgeInput<T extends JsonObject = JsonObject> = Omit<
 }
 
 /** Partial update payload accepted by `updateEdge`. */
-export interface BoardEdgePatch<T extends JsonObject = JsonObject> {
+export interface BoardEdgePatch {
   readonly from?: NodeId
   readonly to?: NodeId
   readonly fromAnchor?: AnchorPosition
@@ -70,7 +70,7 @@ export interface BoardEdgePatch<T extends JsonObject = JsonObject> {
   readonly toEnd?: EdgeEnd
   readonly label?: string
   readonly color?: CanvasColor
-  readonly data?: T
+  readonly data?: JsonObject
 }
 
 /** Options for configuring the connections plugin defaults. */
@@ -101,10 +101,7 @@ export interface ConnectionsApi {
   createEdge<T extends JsonObject = JsonObject>(
     input: BoardEdgeInput<T>,
   ): BoardEdge<T>
-  updateEdge<T extends JsonObject = JsonObject>(
-    id: EdgeId,
-    patch: BoardEdgePatch<T>,
-  ): BoardEdge<T>
+  updateEdge(id: EdgeId, patch: BoardEdgePatch): BoardEdge
   deleteEdge(id: EdgeId): void
   getEdge(id: EdgeId): BoardEdge | undefined
   getEdges(): BoardEdge[]

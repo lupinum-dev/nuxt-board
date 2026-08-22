@@ -2,81 +2,33 @@
 
 import { h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { asEdgeId, createBoardEngine } from '@lupinum/board-core'
 import { getBoardInteractionAdapter } from '@lupinum/board-core/internal'
 import { BoardRoot } from '@lupinum/vue-board'
 import { connectionsPlugin } from '../src'
 import { BoardConnectionLayer } from '../src/vue'
+import {
+  dispatchPointerEvent,
+  installConnectionLayerDomHarness,
+  query,
+  queryAll,
+} from './connection-layer-harness.js'
 
-function dispatchPointerEvent(
-  target: EventTarget,
-  type: string,
-  init: PointerEventInit & { pointerId?: number },
-) {
-  const EventCtor = window.PointerEvent ?? window.MouseEvent
-  const event = new EventCtor(type, {
-    bubbles: true,
-    cancelable: true,
-    ...init,
-  })
-
-  if (!('pointerId' in event) && init.pointerId !== undefined) {
-    Object.defineProperty(event, 'pointerId', {
-      configurable: true,
-      value: init.pointerId,
-    })
-  }
-
-  target.dispatchEvent(event)
-}
-
-function query(selector: string): Element {
-  const element = document.body.querySelector(selector)
-  if (!element) {
-    throw new Error(`Missing element for selector: ${selector}`)
-  }
-  return element
-}
-
-function queryAll(selector: string): Element[] {
-  return Array.from(document.body.querySelectorAll(selector))
-}
-
-beforeEach(() => {
-  Object.defineProperty(HTMLElement.prototype, 'setPointerCapture', {
-    configurable: true,
-    value: vi.fn(),
-  })
-  Object.defineProperty(HTMLElement.prototype, 'releasePointerCapture', {
-    configurable: true,
-    value: vi.fn(),
-  })
-  Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
-    configurable: true,
-    value: vi.fn().mockReturnValue(true),
-  })
-  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
-    configurable: true,
-    value() {
-      return {
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 800,
-        bottom: 600,
-        width: 800,
-        height: 600,
-        toJSON() {
-          return this
-        },
-      }
-    },
-  })
-})
+beforeEach(installConnectionLayerDomHarness)
 
 describe('BoardConnectionLayer', () => {
+  it('fails clearly when the connections plugin is missing', () => {
+    const engine = createBoardEngine()
+
+    expect(() =>
+      mount(BoardRoot, {
+        props: { engine },
+        slots: { viewport: () => h(BoardConnectionLayer) },
+      }),
+    ).toThrow(/requires connectionsPlugin\(\)/)
+  })
+
   it('scopes Escape and Delete to the exact owning board', async () => {
     const engines = [0, 1].map(() => {
       const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
@@ -130,6 +82,56 @@ describe('BoardConnectionLayer', () => {
     expect(engines[0]!.plugins.connections.getEdges()).toHaveLength(0)
     expect(engines[1]!.plugins.connections.getEdges()).toHaveLength(1)
     wrapper.unmount()
+  })
+
+  it('does not let a nested board clear or delete the outer selection', async () => {
+    const createEngine = () => {
+      const engine = createBoardEngine({ plugins: [connectionsPlugin()] })
+      const source = engine.createNode({ text: 'Source' })
+      const target = engine.createNode({ x: 240, text: 'Target' })
+      engine.plugins.connections.createEdge({ from: source.id, to: target.id })
+      return engine
+    }
+    const outer = createEngine()
+    const inner = createEngine()
+    const wrapper = mount(BoardRoot, {
+      props: { engine: outer },
+      slots: {
+        viewport: () => [
+          h(BoardConnectionLayer),
+          h(
+            BoardRoot,
+            { engine: inner },
+            { viewport: () => h(BoardConnectionLayer) },
+          ),
+        ],
+      },
+    })
+    await nextTick()
+    const roots = wrapper.findAll('[data-board-root="true"]')
+    const outerRoot = roots[0]!
+    const innerRoot = roots[1]!
+    const outerHit = outerRoot
+      .findAll('[data-connection-hit="true"]')
+      .find((hit) => !innerRoot.element.contains(hit.element))!
+
+    dispatchPointerEvent(outerHit.element, 'pointerdown', {
+      pointerId: 1,
+      button: 0,
+    })
+    await nextTick()
+    expect(outerRoot.find('[data-connection-toolbar]').exists()).toBe(true)
+
+    dispatchPointerEvent(innerRoot.element, 'pointerdown', {
+      pointerId: 2,
+      button: 0,
+    })
+    await innerRoot.trigger('keydown', { key: 'Escape' })
+    await innerRoot.trigger('keydown', { key: 'Delete' })
+    await nextTick()
+
+    expect(outer.plugins.connections.getEdges()).toHaveLength(1)
+    expect(outerRoot.find('[data-connection-toolbar]').exists()).toBe(true)
   })
 
   it('does not create DOM paths for 10,000 offscreen edges', async () => {
@@ -705,531 +707,6 @@ describe('BoardConnectionLayer', () => {
     expect(fromCircles[1]?.getAttribute('cy')).toBe('80')
     expect(toCircles[1]?.getAttribute('cx')).toBe('280')
     expect(toCircles[1]?.getAttribute('cy')).toBe('220')
-    wrapper.unmount()
-  })
-
-  it('reconnects a dragged handle to another node and stays idle in the board engine', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 20,
-      y: 20,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const mid = engine.createNode({
-      type: 'text',
-      x: 260,
-      y: 20,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const target = engine.createNode({
-      type: 'text',
-      x: 500,
-      y: 20,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const edge = engine.plugins.connections.createEdge({
-      from: source.id,
-      to: mid.id,
-      fromAnchor: { side: 'right', offset: 0.25 },
-      toAnchor: { side: 'left', offset: 0.75 },
-      data: {},
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const hit = query('[data-connection-hit="true"]')
-    dispatchPointerEvent(hit, 'pointermove', {
-      pointerId: 2,
-      clientX: 150,
-      clientY: 60,
-    })
-    await nextTick()
-
-    const handle = query('[data-connection-handle="to"]')
-    dispatchPointerEvent(handle, 'pointerdown', {
-      pointerId: 2,
-      button: 0,
-      clientX: 260,
-      clientY: 60,
-    })
-    await nextTick()
-
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 2,
-      clientX: 500,
-      clientY: 40,
-    })
-    await nextTick()
-    await nextTick()
-    expect(queryAll('.board-connection-layer rect')).not.toHaveLength(0)
-
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 2,
-      clientX: 500,
-      clientY: 40,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(engine.getState().interaction).toMatchObject({ mode: 'idle' })
-    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
-      to: target.id,
-      fromAnchor: { side: 'right', offset: 0.25 },
-      toAnchor: { side: 'left', offset: 0.25 },
-    })
-    wrapper.unmount()
-  })
-
-  it('cancels reconnect when the dragged endpoint is dropped off-node', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 20,
-      y: 20,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const target = engine.createNode({
-      type: 'text',
-      x: 260,
-      y: 20,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const edge = engine.plugins.connections.createEdge({
-      from: source.id,
-      to: target.id,
-      data: {},
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const hit = query('[data-connection-hit="true"]')
-    dispatchPointerEvent(hit, 'pointermove', {
-      pointerId: 3,
-      clientX: 150,
-      clientY: 60,
-    })
-    await nextTick()
-
-    const handle = query('[data-connection-handle="from"]')
-    dispatchPointerEvent(handle, 'pointerdown', {
-      pointerId: 3,
-      button: 0,
-      clientX: 140,
-      clientY: 60,
-    })
-    await nextTick()
-
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 3,
-      clientX: 740,
-      clientY: 440,
-    })
-    await nextTick()
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 3,
-      clientX: 740,
-      clientY: 440,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(engine.plugins.connections.getEdge(edge.id)).toMatchObject({
-      from: source.id,
-      to: target.id,
-    })
-    wrapper.unmount()
-  })
-
-  it('reveals a node-side create handle and creates a new edge to another node', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 40,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const target = engine.createNode({
-      type: 'text',
-      x: 320,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const root = query('.board-root')
-    dispatchPointerEvent(root, 'pointermove', {
-      pointerId: 9,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-
-    const createHandle = query(
-      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
-    )
-    expect(queryAll('[data-connection-create-handle="true"]')).toHaveLength(4)
-
-    dispatchPointerEvent(createHandle, 'pointerdown', {
-      pointerId: 9,
-      button: 0,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 9,
-      clientX: 340,
-      clientY: 80,
-    })
-    await nextTick()
-    await nextTick()
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 9,
-      clientX: 340,
-      clientY: 80,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
-    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
-      from: source.id,
-      to: target.id,
-    })
-    expect(engine.plugins.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
-    expect(engine.plugins.connections.getEdges()[0]?.toAnchor).toBeUndefined()
-    wrapper.unmount()
-  })
-
-  it('can lock UI-created edges to manual endpoint anchors', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 40,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const target = engine.createNode({
-      type: 'text',
-      x: 320,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer, { endpointMode: 'manual' }),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const root = query('.board-root')
-    dispatchPointerEvent(root, 'pointermove', {
-      pointerId: 11,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-
-    const createHandle = query(
-      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
-    )
-    dispatchPointerEvent(createHandle, 'pointerdown', {
-      pointerId: 11,
-      button: 0,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 11,
-      clientX: 320,
-      clientY: 80,
-    })
-    await nextTick()
-    await nextTick()
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 11,
-      clientX: 320,
-      clientY: 80,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
-    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
-      from: source.id,
-      to: target.id,
-      fromAnchor: { side: 'right', offset: 0.5 },
-      toAnchor: { side: 'left', offset: 0.5 },
-    })
-    wrapper.unmount()
-  })
-
-  it('resets manual endpoint anchors back to auto from the edge toolbar', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 40,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const target = engine.createNode({
-      type: 'text',
-      x: 320,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const edge = engine.plugins.connections.createEdge({
-      from: source.id,
-      to: target.id,
-      fromAnchor: { side: 'right', offset: 0.25 },
-      toAnchor: { side: 'left', offset: 0.75 },
-      data: {},
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const hit = query('[data-connection-hit="true"]')
-    dispatchPointerEvent(hit, 'pointerdown', {
-      pointerId: 12,
-      button: 0,
-      clientX: 240,
-      clientY: 80,
-    })
-    await nextTick()
-
-    const resetSource = query('[data-connection-reset-source-anchor]')
-    resetSource.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await nextTick()
-    expect(
-      engine.plugins.connections.getEdge(edge.id)?.fromAnchor,
-    ).toBeUndefined()
-    expect(engine.plugins.connections.getEdge(edge.id)?.toAnchor).toEqual({
-      side: 'left',
-      offset: 0.75,
-    })
-
-    const resetAll = query('[data-connection-reset-target-anchor]')
-    resetAll.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await nextTick()
-    expect(
-      engine.plugins.connections.getEdge(edge.id)?.fromAnchor,
-    ).toBeUndefined()
-    expect(
-      engine.plugins.connections.getEdge(edge.id)?.toAnchor,
-    ).toBeUndefined()
-    wrapper.unmount()
-  })
-
-  it('does not create a node when a create drag is dropped on empty space by default', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 40,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () => h(BoardConnectionLayer),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const root = query('.board-root')
-    dispatchPointerEvent(root, 'pointermove', {
-      pointerId: 10,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-
-    const createHandle = query(
-      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
-    )
-    dispatchPointerEvent(createHandle, 'pointerdown', {
-      pointerId: 10,
-      button: 0,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 10,
-      clientX: 520,
-      clientY: 220,
-    })
-    await nextTick()
-    await nextTick()
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 10,
-      clientX: 520,
-      clientY: 220,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(engine.getState().nodes.size).toBe(1)
-    expect(engine.plugins.connections.getEdges()).toHaveLength(0)
-    expect(engine.getState().interaction).toMatchObject({
-      mode: 'idle',
-    })
-    wrapper.unmount()
-  })
-
-  it('uses the opt-in empty-drop callback to create and connect a node', async () => {
-    const engine = createBoardEngine({
-      plugins: [connectionsPlugin()],
-    })
-    const source = engine.createNode({
-      type: 'text',
-      x: 40,
-      y: 40,
-      width: 120,
-      height: 80,
-      text: 'Node',
-    })
-    const createNodeForConnection = vi.fn((context) =>
-      engine.createNode({
-        type: 'text',
-        x: context.pointerWorld.x,
-        y: context.pointerWorld.y,
-        width: 120,
-        height: 80,
-        text: 'Created',
-      }),
-    )
-
-    const wrapper = mount(BoardRoot, {
-      props: { engine },
-      slots: {
-        viewport: () =>
-          h(BoardConnectionLayer, {
-            createNodeForConnection,
-          }),
-      },
-      attachTo: document.body,
-    })
-
-    await nextTick()
-    const root = query('.board-root')
-    dispatchPointerEvent(root, 'pointermove', {
-      pointerId: 10,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-
-    const createHandle = query(
-      `[data-connection-node-id="${source.id}"][data-connection-side="right"]`,
-    )
-    dispatchPointerEvent(createHandle, 'pointerdown', {
-      pointerId: 10,
-      button: 0,
-      clientX: 160,
-      clientY: 80,
-    })
-    await nextTick()
-    dispatchPointerEvent(window, 'pointermove', {
-      pointerId: 10,
-      clientX: 520,
-      clientY: 220,
-    })
-    await nextTick()
-    await nextTick()
-    dispatchPointerEvent(window, 'pointerup', {
-      pointerId: 10,
-      clientX: 520,
-      clientY: 220,
-    })
-    await nextTick()
-    await nextTick()
-
-    expect(createNodeForConnection).toHaveBeenCalledWith({
-      sourceNodeId: source.id,
-      sourceSide: 'right',
-      pointerWorld: { x: 520, y: 220 },
-      candidateAnchor: null,
-    })
-    expect(engine.getState().nodes.size).toBe(2)
-    expect(engine.plugins.connections.getEdges()).toHaveLength(1)
-    expect(engine.plugins.connections.getEdges()[0]).toMatchObject({
-      from: source.id,
-    })
-    expect(engine.plugins.connections.getEdges()[0]?.fromAnchor).toBeUndefined()
-    expect(engine.plugins.connections.getEdges()[0]?.toAnchor).toBeUndefined()
     wrapper.unmount()
   })
 })

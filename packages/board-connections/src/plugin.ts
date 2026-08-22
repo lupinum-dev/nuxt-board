@@ -79,7 +79,6 @@ function validateEdgeColor(color: string | undefined): void {
 
 interface ConnectionsState {
   readonly edges: ReadonlyMap<EdgeId, BoardEdge>
-  readonly jsonCanvas: ReadonlyMap<EdgeId, JsonObject>
   readonly nextZIndex: number
 }
 
@@ -94,7 +93,6 @@ interface ConnectionsPluginApis extends BoardPluginApis {
 
 const initialConnectionsState: ConnectionsState = {
   edges: new Map(),
-  jsonCanvas: new Map(),
   nextZIndex: 1,
 }
 
@@ -122,9 +120,7 @@ function reduceConnectionsState(
       if (!state.edges.has(action.id)) return state
       const edges = reusableEdges ?? new Map(state.edges)
       edges.delete(action.id)
-      const jsonCanvas = new Map(state.jsonCanvas)
-      jsonCanvas.delete(action.id)
-      return { ...state, edges, jsonCanvas }
+      return { ...state, edges }
     }
   }
 }
@@ -137,6 +133,16 @@ function freezeAnchor(
 
 function freezeEdge<T extends JsonObject>(edge: BoardEdge<T>): BoardEdge<T> {
   return Object.freeze(edge)
+}
+
+function sameAnchor(
+  first: BoardEdge['fromAnchor'],
+  second: BoardEdge['fromAnchor'],
+): boolean {
+  return (
+    first === second ||
+    (first?.side === second?.side && first?.offset === second?.offset)
+  )
 }
 
 function edgeToJsonCanvas(
@@ -173,6 +179,7 @@ export function connectionsPlugin(
     defaultArrow,
   }
   const defaults = edgeEndsForDirectionality(defaultArrow)
+  const edgeExtras = new WeakMap<BoardEdge, JsonObject>()
 
   const plugin = defineInternalBoardPlugin<
     ConnectionsPluginApis,
@@ -186,28 +193,23 @@ export function connectionsPlugin(
     nodeDeleted(engine, nodeId) {
       engine.updatePluginState((state) => {
         const edges = new Map(state.edges)
-        const jsonCanvas = new Map(state.jsonCanvas)
         for (const [id, edge] of edges) {
           if (edge.from === nodeId || edge.to === nodeId) {
             edges.delete(id)
-            jsonCanvas.delete(id)
           }
         }
-        return edges.size === state.edges.size
-          ? state
-          : { ...state, edges, jsonCanvas }
+        return edges.size === state.edges.size ? state : { ...state, edges }
       })
     },
     persistence: {
       exportDocument(engine): Partial<JsonCanvasDocument> {
-        const state = engine.getPluginState()
         const edges = engine.plugins.connections.getEdges()
         if (edges.length === 0) {
           return {}
         }
         return {
           edges: edges.map((edge) =>
-            edgeToJsonCanvas(edge, state.jsonCanvas.get(edge.id)),
+            edgeToJsonCanvas(edge, edgeExtras.get(edge)),
           ),
           'x-lupinum-board': {
             edges: Object.fromEntries(
@@ -270,10 +272,7 @@ export function connectionsPlugin(
             `Invalid board document: edge "${edge.id}"`,
           )
           if (Object.keys(extras).length > 0) {
-            engine.updatePluginState((state) => ({
-              ...state,
-              jsonCanvas: new Map(state.jsonCanvas).set(created.id, extras),
-            }))
+            edgeExtras.set(created, extras)
           }
         }
       },
@@ -303,23 +302,19 @@ export function connectionsPlugin(
         return edge
       }
 
-      const edgeListeners = new Set<
-        (
-          value: ReadonlyMap<EdgeId, BoardEdge>,
-          prev: ReadonlyMap<EdgeId, BoardEdge>,
-        ) => void
-      >()
-      let publicEdges = readonlyMapView(getState().edges)
+      let publicEdgeSource = getState().edges
+      let publicEdges = readonlyMapView(publicEdgeSource)
+      const $edges = engine.createCommitSubscribable(() => {
+        const next = getState().edges
+        if (next !== publicEdgeSource) {
+          publicEdgeSource = next
+          publicEdges = readonlyMapView(next)
+        }
+        return publicEdges
+      }, 'connections.$edges')
 
       const api: ConnectionsApi = {
-        $edges: {
-          get: () => publicEdges,
-          subscribe(callback) {
-            engine.assertActive()
-            edgeListeners.add(callback)
-            return () => edgeListeners.delete(callback)
-          },
-        },
+        $edges,
         createEdge<T extends JsonObject = JsonObject>(
           input: BoardEdgeInput<T>,
         ) {
@@ -376,11 +371,8 @@ export function connectionsPlugin(
             { history: 'record' },
           ) as BoardEdge<T>
         },
-        updateEdge<T extends JsonObject = JsonObject>(
-          id: EdgeId,
-          patch: BoardEdgePatch<T>,
-        ) {
-          const current = getEdgeOrThrow(id, 'update') as BoardEdge<T>
+        updateEdge(id: EdgeId, patch: BoardEdgePatch) {
+          const current = getEdgeOrThrow(id, 'update')
 
           return engine.runCommand(
             'edge:update',
@@ -408,26 +400,35 @@ export function connectionsPlugin(
               )
               validateEdgeColor('color' in patch ? patch.color : current.color)
 
+              const nextFromAnchor =
+                'fromAnchor' in patch
+                  ? sameAnchor(patch.fromAnchor, current.fromAnchor)
+                    ? current.fromAnchor
+                    : freezeAnchor(patch.fromAnchor)
+                  : current.fromAnchor
+              const nextToAnchor =
+                'toAnchor' in patch
+                  ? sameAnchor(patch.toAnchor, current.toAnchor)
+                    ? current.toAnchor
+                    : freezeAnchor(patch.toAnchor)
+                  : current.toAnchor
+              const nextData =
+                'data' in patch
+                  ? patch.data === current.data
+                    ? current.data
+                    : freezeJsonObject(patch.data ?? {}, 'edge data')
+                  : current.data
               const next = freezeEdge({
                 ...current,
                 from: nextFrom,
                 to: nextTo,
-                fromAnchor:
-                  'fromAnchor' in patch
-                    ? freezeAnchor(patch.fromAnchor)
-                    : current.fromAnchor,
-                toAnchor:
-                  'toAnchor' in patch
-                    ? freezeAnchor(patch.toAnchor)
-                    : current.toAnchor,
+                fromAnchor: nextFromAnchor,
+                toAnchor: nextToAnchor,
                 fromEnd: 'fromEnd' in patch ? patch.fromEnd : current.fromEnd,
                 toEnd: 'toEnd' in patch ? patch.toEnd : current.toEnd,
                 label: 'label' in patch ? patch.label : current.label,
                 color: 'color' in patch ? patch.color : current.color,
-                data:
-                  'data' in patch
-                    ? (freezeJsonObject(patch.data ?? {}, 'edge data') as T)
-                    : current.data,
+                data: nextData,
               })
 
               if (
@@ -447,12 +448,14 @@ export function connectionsPlugin(
               applyAction({
                 type: 'EDGE_UPDATED',
                 id,
-                after: next as BoardEdge,
+                after: next,
               })
+              const extras = edgeExtras.get(current)
+              if (extras) edgeExtras.set(next, extras)
               return next
             },
             { history: 'record' },
-          ) as BoardEdge<T>
+          )
         },
         deleteEdge(id) {
           const current = getState().edges.get(id)
@@ -498,11 +501,7 @@ export function connectionsPlugin(
         const beforeEdges = prevEdges
         return () => {
           batchEdges = null
-          const previousPublicEdges = publicEdges
-          publicEdges = readonlyMapView(next)
-          for (const listener of edgeListeners) {
-            listener(publicEdges, previousPublicEdges)
-          }
+          prevEdges = next
           for (const [id, edge] of next) {
             const before = beforeEdges.get(id)
             if (!before) {
@@ -516,14 +515,10 @@ export function connectionsPlugin(
               engine.emit('edge:deleted', id)
             }
           }
-          prevEdges = next
         }
       })
 
-      return () => {
-        unsubscribe()
-        edgeListeners.clear()
-      }
+      return unsubscribe
     },
   })
 

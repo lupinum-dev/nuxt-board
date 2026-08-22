@@ -33,8 +33,7 @@ interface ConnectionActionsState {
   selectedEdgeId: Ref<string | null>
   editingEdgeId: Ref<string | null>
   labelDraft: Ref<string>
-  colorMenuEdgeId: Ref<string | null>
-  directionMenuEdgeId: Ref<string | null>
+  openMenu: Ref<{ kind: 'color' | 'direction'; edgeId: string } | null>
 }
 
 interface ConnectionActionsDeps {
@@ -139,7 +138,7 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
         toEnd: next.toEnd,
       }),
     )
-    state.directionMenuEdgeId.value = null
+    state.openMenu.value = null
   }
 
   function applyEdgeColor(
@@ -151,7 +150,7 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
     runConnectionCommand(() =>
       deps.getEngine().plugins.connections.updateEdge(entry.edge.id, { color }),
     )
-    state.colorMenuEdgeId.value = null
+    state.openMenu.value = null
   }
 
   function resetEndpointAnchor(edgeId: string, end: DragEnd | 'both'): void {
@@ -172,11 +171,10 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
       state.editingEdgeId,
       state.selectedEdgeId,
       state.hoveredEdgeId,
-      state.colorMenuEdgeId,
-      state.directionMenuEdgeId,
     ]) {
       if (ref.value === edgeId) ref.value = null
     }
+    if (state.openMenu.value?.edgeId === edgeId) state.openMenu.value = null
     runConnectionCommand(() =>
       deps.getEngine().plugins.connections.deleteEdge(entry.edge.id),
     )
