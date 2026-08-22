@@ -99,6 +99,17 @@ assert(
     versionPatchStep.run.includes('git diff HEAD --quiet'),
   'The version patch must include staged Changeset deletions and new files.',
 )
+assert(
+  versionConfig.on?.workflow_run?.workflows?.includes('ci') &&
+    versionConfig.jobs['prepare-version'].if.includes(
+      "workflow_run.conclusion == 'success'",
+    ) &&
+    versionWorkflow.includes('github.event.workflow_run.head_sha') &&
+    versionWorkflow.includes(
+      'The default branch advanced after the version patch was prepared.',
+    ),
+  'The version workflow must use a successful, still-current main CI SHA.',
+)
 for (const workflowPath of ['ci.yml', 'package-preview.yml', 'release.yml']) {
   const workflowSource = readFileSync(
     new URL(`../.github/workflows/${workflowPath}`, import.meta.url),
