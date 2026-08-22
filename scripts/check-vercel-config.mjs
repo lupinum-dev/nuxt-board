@@ -6,7 +6,10 @@ const root = resolve(import.meta.dirname, '..')
 const config = JSON.parse(
   readFileSync(resolve(root, 'docs/vercel.json'), 'utf8'),
 )
-const previewWorkflow = readFileSync(resolve(root, '.github/workflows/vercel-preview.yml'), 'utf8')
+const previewWorkflow = readFileSync(
+  resolve(root, '.github/workflows/vercel-preview.yml'),
+  'utf8',
+)
 const expectedIgnoreCommand = 'node scripts/vercel-ignore.mjs'
 const failures = []
 const check = (condition, message) => {
@@ -27,7 +30,17 @@ check(
   'Report exact-commit preview status without canceling requested builds.',
 )
 check(
-  !/actions\/checkout@|vercel build|vercel deploy|pnpm install|^\s+run:/mu.test(previewWorkflow),
+  [
+    'getCollaboratorPermissionLevel',
+    'AbortSignal.timeout',
+    'ignored-build-step',
+  ].every((boundary) => previewWorkflow.includes(boundary)),
+  'Keep preview authorization, API resilience, and neutral skip handling.',
+)
+check(
+  !/actions\/checkout@|vercel build|vercel deploy|pnpm install|^\s*(?:-\s*)?run:/mu.test(
+    previewWorkflow,
+  ),
   'The token-holding preview workflow must not execute pull-request code.',
 )
 check(config.framework === 'nuxtjs', 'Select the Nuxt framework explicitly.')
