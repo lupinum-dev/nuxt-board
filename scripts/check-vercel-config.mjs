@@ -6,6 +6,10 @@ const root = resolve(import.meta.dirname, '..')
 const config = JSON.parse(
   readFileSync(resolve(root, 'docs/vercel.json'), 'utf8'),
 )
+const previewWorkflow = readFileSync(
+  resolve(root, '.github/workflows/vercel-preview.yml'),
+  'utf8',
+)
 const expectedIgnoreCommand = 'node scripts/vercel-ignore.mjs'
 const failures = []
 const check = (condition, message) => {
@@ -16,10 +20,36 @@ check(
   !existsSync(resolve(root, 'vercel.json')),
   'Keep vercel.json in the deployable docs app.',
 )
+check(
+  previewWorkflow.includes('/v13/deployments'),
+  'Create previews through the Vercel deployment API.',
+)
+check(
+  previewWorkflow.includes('checks: write') &&
+    previewWorkflow.includes('cancel-in-progress: false'),
+  'Report exact-commit preview status without canceling requested builds.',
+)
+check(
+  [
+    'getCollaboratorPermissionLevel',
+    'AbortSignal.timeout',
+    'ignored-build-step',
+    'reusedExistingPreview',
+  ].every((boundary) => previewWorkflow.includes(boundary)),
+  'Keep preview authorization, API resilience, exact-SHA reuse, and neutral skip handling.',
+)
+check(
+  !/actions\/checkout@|vercel build|vercel deploy|pnpm install|^\s*(?:-\s*)?run:/mu.test(
+    previewWorkflow,
+  ),
+  'The token-holding preview workflow must not execute pull-request code.',
+)
 check(config.framework === 'nuxtjs', 'Select the Nuxt framework explicitly.')
 check(
-  config.git?.deploymentEnabled === true,
-  'Create a Vercel status for every pull-request commit.',
+  config.git?.deploymentEnabled?.['**'] === false &&
+    config.git.deploymentEnabled.main === true &&
+    Object.keys(config.git.deploymentEnabled).length === 2,
+  'Deploy main automatically and require /vercel for pull-request previews.',
 )
 check(
   config.ignoreCommand === expectedIgnoreCommand,
