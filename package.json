@@ -27,7 +27,7 @@
     "test:docs": "pnpm docs:theme && pnpm --filter docs typecheck && pnpm --filter docs build",
     "test:e2e": "playwright test",
     "test:e2e:functional": "playwright test --ignore-snapshots",
-    "test:release-policy": "node scripts/test-publish-workflow.mjs",
+    "test:release-policy": "node scripts/test-registry-provenance.mjs && node scripts/test-publish-workflow.mjs",
     "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts --exclude packages/nuxt-board/test/prefixed.test.ts && pnpm --filter @lupinum/nuxt-board test",
     "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter @lupinum/nuxt-board test:types",
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
