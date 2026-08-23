@@ -45,7 +45,8 @@ Follow [docs/WRITING.md](./docs/WRITING.md). Keep examples executable. Run
 4. Run `pnpm release:verify` on the final release-candidate commit.
 5. Merge the version pull request to protected `main`.
 6. Start the `Publish` workflow with the exact fixed package version. It
-   finds the successful CI artifact for the current `main` commit.
+   certifies the successful CI artifact for the commit that is current on
+   `main` when the workflow starts.
 7. Approve the protected `npm` environment when GitHub requests approval.
 8. Verify all five registry versions, package files, provenance statements,
    and dist-tags.
@@ -59,6 +60,10 @@ any local publish command.
 
 Do not rebuild a package after verification. Do not publish from a maintainer
 workstation after trusted publishing is configured.
+
+The certified candidate remains valid if `main` advances while it waits for
+environment approval. The workflow binds publication to the dispatch-time
+source SHA and never substitutes artifacts from the newer commit.
 
 ### Prepare a prerelease
 
@@ -92,14 +97,16 @@ For each update:
 ## Recover from a defective release
 
 Rerun the protected publish workflow with the same version when npm or GitHub
-fails after publication starts. The workflow skips each existing npm version
-only when its SHA-1 matches the corresponding certified tarball. A
-provenance-free package is accepted only when this is its sole first version,
-created interactively before trusted publishing could be configured. The
-GitHub release records that bootstrap exception. Every package version first
-published by the workflow requires OIDC provenance. The workflow also requires
-the expected dist-tag for the complete fixed package set before it creates or
-repairs the GitHub release.
+fails after publication starts. The read-only verification job checks each
+existing npm version against the certified tarball. For an OIDC publication,
+it also checks the Sigstore signature, publishing workflow, source commit, and
+tarball SHA-512. The protected job accepts only that verification record and
+stops if the registry state changes before approval. A provenance-free package
+is accepted only when this is its sole first version, created interactively
+before trusted publishing could be configured. The GitHub release records that
+bootstrap exception. Every package version first published by the workflow
+requires OIDC provenance. The workflow also requires the expected dist-tag for
+the complete fixed package set before it creates or repairs the GitHub release.
 
 Set the `allow_bootstrap` dispatch input only for the known first-version
 recovery. The workflow rejects every other existing package without provenance.
