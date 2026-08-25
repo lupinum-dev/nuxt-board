@@ -11,6 +11,7 @@ import {
 } from '@lupinum/board-connections'
 import { BoardConnectionLayer } from '@lupinum/board-connections/vue'
 import { historyPlugin } from '@lupinum/board-history'
+import { BoardHistoryShortcuts } from '@lupinum/board-history/vue'
 import { BoardMinimap } from '@lupinum/vue-board/minimap'
 import { BoardRoot, type BoardRendererRegistry } from '@lupinum/vue-board'
 import GroupNodeRenderer from './components/GroupNodeRenderer.vue'
@@ -198,7 +199,9 @@ function wrapSelectionInGroup(): void {
     return
   }
 
-  const nodes = snap.nodes.filter((n) => sel.includes(n.id))
+  const nodes = Array.from(snap.nodes.values()).filter((node) =>
+    sel.includes(node.id),
+  )
   if (nodes.length === 0) {
     return
   }
@@ -296,6 +299,8 @@ onMounted(async () => {
       </template>
 
       <template #default="{ debugState }">
+        <BoardHistoryShortcuts :history="engine.plugins.history" />
+
         <!-- Diagnostics -->
         <Transition name="fade">
           <PlaygroundDiagnostics
