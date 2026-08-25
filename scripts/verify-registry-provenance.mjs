@@ -209,20 +209,7 @@ export async function createRegistryVerification({
       continue
     }
 
-    const published = view(name, 'versions')
-    const versions = Array.isArray(published) ? published : [published]
-    assert(
-      versions.length === 1 && versions[0] === pkg.version,
-      `${spec} is not the sole first package version and has no provenance.`,
-    )
-    packages.push({
-      ...pkg,
-      sha512,
-      mode: 'bootstrap',
-      registryShasum: shasum,
-      channelVersion,
-      provenanceBundleSha256: null,
-    })
+    assert(false, `${spec} exists without verifiable npm provenance.`)
   }
 
   return {

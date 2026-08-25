@@ -101,15 +101,16 @@ fails after publication starts. The read-only verification job checks each
 existing npm version against the certified tarball. For an OIDC publication,
 it also checks the Sigstore signature, publishing workflow, source commit, and
 tarball SHA-512. The protected job accepts only that verification record and
-stops if the registry state changes before approval. A provenance-free package
-is accepted only when this is its sole first version, created interactively
-before trusted publishing could be configured. The GitHub release records that
-bootstrap exception. Every package version first published by the workflow
-requires OIDC provenance. The workflow also requires the expected dist-tag for
+stops if the registry state changes before approval. Immutable versions created
+before trusted publishing are historical exceptions and are not valid recovery
+inputs. Every package version first published by the workflow requires OIDC
+provenance. The workflow also requires the expected dist-tag for
 the complete fixed package set before it creates or repairs the GitHub release.
 
-Set the `allow_bootstrap` dispatch input only for the known first-version
-recovery. The workflow rejects every other existing package without provenance.
+When all five registry packages already match, the workflow skips the protected
+npm environment and repairs only the shared tag or GitHub Release. If GitHub
+rejects historical tag creation, the failed job prints the exact `gh api`
+command a maintainer must run before retrying only the GitHub Release job.
 
 Do not unpublish a release unless npm policy and a confirmed security incident
 require it.
