@@ -265,10 +265,20 @@ for (const forbidden of [
 const releaseJob = /^  github-release:\n([\s\S]*)$/m.exec(workflow)?.[1]
 assert(releaseJob, 'publish.yml is missing GitHub release creation.')
 assert(
-  releaseJob.includes(
-    'This first npm version was created from the exact CI-certified artifact',
+  Object.keys(publishConfig.on?.workflow_dispatch?.inputs ?? {}).join(',') ===
+    'version',
+  'Publish dispatch must accept only the reviewed fixed-set version.',
+)
+assert(
+  publishConfig.jobs.publish.if ===
+    "needs.verify.outputs.publish-required == 'true'",
+  'The protected npm environment must be skipped when every package already matches.',
+)
+assert(
+  publishConfig.jobs['github-release'].if.includes(
+    "needs.publish.result == 'skipped'",
   ),
-  'Bootstrap releases must record the missing first-version provenance.',
+  'Release repair must remain available after a verified npm no-op.',
 )
 for (const required of [
   '/releases/tags/$RELEASE_TAG',
@@ -280,6 +290,8 @@ for (const required of [
   '.release/registry-verification.json',
   '"${release_assets[@]}"',
   '--clobber',
+  'HUMAN-ONLY:',
+  'HTTP 403',
 ]) {
   assert(
     releaseJob.includes(required),
@@ -318,7 +330,7 @@ for (const required of [
   'verification.releaseArtifactSha256',
   'was absent during verification but now exists; rerun verification',
   "hash(tarball, 'sha512') !== verified.sha512",
-  "mode === 'oidc' && hasAttestations(attestations)",
+  'hasAttestations(attestations)',
   "url.origin !== 'https://registry.npmjs.org'",
   "redirect: 'error'",
   'candidates.length !== 1',
@@ -409,6 +421,12 @@ runGitHubReleaseScenario('Release without a tag fails closed', {
   expectedActions: [],
   expectedSuccess: false,
 })
+runGitHubReleaseScenario('historical tag 403 gives a maintainer command', {
+  postForbidden: true,
+  expectedActions: [],
+  expectedSuccess: false,
+  expectedDiagnostic: 'HUMAN-ONLY:',
+})
 
 const publishLines = publishJob.split('\n')
 const publishStart = publishLines.findIndex((line) =>
@@ -426,32 +444,12 @@ const publishScript = dedent(
 )
 
 const allOidc = Object.fromEntries(packageNames.map((name) => [name, 'oidc']))
-const allBootstrap = Object.fromEntries(
-  packageNames.map((name) => [name, 'bootstrap']),
-)
-runScenario('matching bootstrap bytes', {
-  allowBootstrap: true,
-  verificationModes: allBootstrap,
-  expectedBootstrap: true,
-  expectedModes: allBootstrap,
-  expectedPublishes: 0,
-})
 runScenario('missing packages use OIDC', {
-  expectedBootstrap: false,
-  expectedModes: allOidc,
   expectedPublishes: 5,
 })
 runScenario('mixed package sets recover safely', {
-  allowBootstrap: true,
   verificationModes: Object.fromEntries(
-    packageNames.map((name, index) => [
-      name,
-      index < 2 ? 'bootstrap' : 'absent',
-    ]),
-  ),
-  expectedBootstrap: true,
-  expectedModes: Object.fromEntries(
-    packageNames.map((name, index) => [name, index < 2 ? 'bootstrap' : 'oidc']),
+    packageNames.map((name, index) => [name, index < 2 ? 'oidc' : 'absent']),
   ),
   expectedPublishes: 3,
 })
@@ -489,22 +487,14 @@ runScenario('multiple SLSA provenance bundles fail', {
   expectedError: 'must expose exactly one SLSA provenance bundle',
   expectNoPublishes: true,
 })
-runScenario('later provenance-free versions fail', {
-  allowBootstrap: true,
-  verificationModes: allBootstrap,
-  extraVersion: packageNames[0],
-  expectedError:
-    'no longer matches the historical sole-version bootstrap state',
-})
-runScenario('a bootstrap package must remain the sole version', {
-  allowBootstrap: true,
-  verificationModes: allBootstrap,
-  laterVersionDuringVerification: packageNames[0],
-  expectedError: 'did not expose the required bytes',
-})
-runScenario('bootstrap recovery requires explicit authorization', {
-  verificationModes: allBootstrap,
-  expectedError: 'requires explicit bootstrap authorization',
+runScenario('provenance-free registry records fail', {
+  verificationModes: Object.fromEntries(
+    packageNames.map((name, index) => [
+      name,
+      index === 0 ? 'bootstrap' : 'oidc',
+    ]),
+  ),
+  expectedError: 'invalid registry verification mode',
 })
 runScenario('absent package appearing after verification fails closed', {
   appearedAfterVerification: packageNames[0],
@@ -801,7 +791,6 @@ await import('./publish-under-test.mjs')
       encoding: 'utf8',
       env: {
         ...process.env,
-        ALLOW_BOOTSTRAP: options.allowBootstrap ? 'true' : 'false',
         PATH: `${binDir}:${process.env.PATH}`,
         FAKE_NPM_STATE: statePath,
         GITHUB_OUTPUT: outputPath,
@@ -829,25 +818,6 @@ await import('./publish-under-test.mjs')
       return
     }
     assert(result.status === 0, `${name} failed: ${diagnostic}`)
-    assert(
-      readFileSync(outputPath, 'utf8').includes(
-        `bootstrap=${String(options.expectedBootstrap)}`,
-      ),
-      `${name} reported the wrong mode.`,
-    )
-    const output = readFileSync(outputPath, 'utf8')
-    assert(
-      output.includes(`modes=${JSON.stringify(options.expectedModes)}`),
-      `${name} reported the wrong package modes: ${output}`,
-    )
-    const expectedBootstrapPackages = Object.entries(options.expectedModes)
-      .filter(([, mode]) => mode === 'bootstrap')
-      .map(([packageName]) => packageName)
-      .join(',')
-    assert(
-      output.includes(`bootstrap-packages=${expectedBootstrapPackages}`),
-      `${name} reported the wrong bootstrap packages: ${output}`,
-    )
     const state = JSON.parse(readFileSync(statePath, 'utf8'))
     assert(
       state.publishes.length === options.expectedPublishes,
@@ -911,6 +881,7 @@ function runGitHubReleaseScenario(name, options) {
         releaseExists: options.releaseExists ?? false,
         releaseTag,
         sourceSha: 'a'.repeat(40),
+        postForbidden: options.postForbidden ?? false,
         tag: options.tag ?? null,
         tagObjects: options.tagObjects ?? {},
       }),
@@ -933,8 +904,6 @@ function runGitHubReleaseScenario(name, options) {
         encoding: 'utf8',
         env: {
           ...process.env,
-          BOOTSTRAP_PACKAGES: '',
-          BOOTSTRAP_RELEASE: 'false',
           FAKE_GITHUB_STATE: statePath,
           GH_TOKEN: 'fixture-token',
           GITHUB_API_URL: 'https://api.github.test',
@@ -950,6 +919,12 @@ function runGitHubReleaseScenario(name, options) {
       (result.status === 0) === options.expectedSuccess,
       `${name} returned the wrong status: ${diagnostic}`,
     )
+    if (options.expectedDiagnostic) {
+      assert(
+        diagnostic.includes(options.expectedDiagnostic),
+        `${name} missed its diagnostic: ${diagnostic}`,
+      )
+    }
     const state = JSON.parse(readFileSync(statePath, 'utf8'))
     assert(
       JSON.stringify(state.actions) === JSON.stringify(options.expectedActions),
@@ -1024,6 +999,7 @@ if (args[0] === 'api') {
   const methodIndex = args.indexOf('--method')
   const method = methodIndex === -1 ? 'GET' : args[methodIndex + 1]
   if (method === 'POST' && endpoint.endsWith('/git/refs')) {
+    if (state.postForbidden) fail('Resource not accessible by integration (HTTP 403)')
     if (state.tag) fail('tag already exists')
     const ref = args.find(value => value.startsWith('ref='))?.slice(4)
     const sha = args.find(value => value.startsWith('sha='))?.slice(4)

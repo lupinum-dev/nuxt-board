@@ -78,11 +78,11 @@ assert(redirectRequest.request.signal instanceof AbortSignal)
 assert.equal(redirectRequest.request.signal.aborted, false)
 
 const mixedModes = {
-  [PUBLISH_ORDER[0]]: 'bootstrap',
+  [PUBLISH_ORDER[0]]: 'absent',
   [PUBLISH_ORDER[1]]: 'oidc',
   [PUBLISH_ORDER[2]]: 'absent',
   [PUBLISH_ORDER[3]]: 'oidc',
-  [PUBLISH_ORDER[4]]: 'bootstrap',
+  [PUBLISH_ORDER[4]]: 'absent',
 }
 const mixed = await runFixture({ modes: mixedModes })
 assert.deepEqual(
@@ -101,11 +101,8 @@ await assert.rejects(
   /does not own the latest npm tag/u,
 )
 await assert.rejects(
-  runFixture({
-    modes: mixedModes,
-    extraVersion: PUBLISH_ORDER[0],
-  }),
-  /not the sole first package version/u,
+  runFixture({ modes: { ...oidcModes, [PUBLISH_ORDER[0]]: 'bootstrap' } }),
+  /exists without verifiable npm provenance/u,
 )
 
 for (const [name, mutation, expected] of [
