@@ -133,3 +133,23 @@
 ### ❤️ Contributors
 
 - Matthias Amon
+
+## v1.0.0-beta.3
+
+[compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v1.0.0-beta.2...HEAD)
+
+### 🩹 Fixes
+
+- **ci:** Harden on-demand Vercel reporting ([#47](https://github.com/lupinum-dev/nuxt-board/pull/47))
+- **release:** Harden fixed-set recovery ([#51](https://github.com/lupinum-dev/nuxt-board/pull/51))
+- **release:** Harden fixed-set publication ([#52](https://github.com/lupinum-dev/nuxt-board/pull/52))
+- **playground:** Make release-confidence editing clear and fast ([#45](https://github.com/lupinum-dev/nuxt-board/pull/45))
+
+### 🤖 CI
+
+- **vercel:** Cut library preview build usage ([#46](https://github.com/lupinum-dev/nuxt-board/pull/46))
+- **release:** Version only verified current main ([#50](https://github.com/lupinum-dev/nuxt-board/pull/50))
+
+### ❤️ Contributors
+
+- Matthias Amon
