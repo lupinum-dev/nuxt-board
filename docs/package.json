@@ -13,13 +13,13 @@
     "@lupinum/board-connections": "workspace:*",
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
-    "@lupinum/ginko-content": "0.4.0-rc.2",
-    "@lupinum/ginko-docs": "0.3.0",
+    "@lupinum/ginko-content": "1.0.0-beta.5",
+    "@lupinum/ginko-docs": "0.4.0-rc.4",
     "@lupinum/vue-board": "workspace:*",
     "nuxt": "4.5.2",
     "@lupinum/nuxt-board": "workspace:*",
-    "vue": "^3.5.39",
-    "vue-router": "^5.2.0"
+    "vue": "3.5.42",
+    "vue-router": "5.3.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",

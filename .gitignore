@@ -2,6 +2,7 @@ node_modules
 .pnpm-store
 .turbo
 .cache
+.ginko
 .DS_Store
 
 dist
