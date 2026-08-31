@@ -5,7 +5,7 @@ export default defineGinkoDocsConfig({
     name: 'Nuxt Board',
     description:
       'A command-driven board engine and Vue renderer for products that need a real document model.',
-    url: 'https://nuxt-board.lupinum.com',
+    whenToUse: 'Use this site to build node-based editors with Nuxt Board.',
   },
   locales: ['en'],
   blog: false,

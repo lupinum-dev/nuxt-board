@@ -46,8 +46,13 @@ requireMatch(
   'nuxt.config.ts must use Material Theme Palenight for dark syntax.',
 )
 
-if (docsPackage.dependencies?.['@lupinum/ginko-docs'] !== '0.3.0') {
-  failures.push('docs/package.json must use @lupinum/ginko-docs 0.3.0.')
+if (docsPackage.dependencies?.['@lupinum/ginko-docs'] !== '0.4.0-rc.4') {
+  failures.push('docs/package.json must use @lupinum/ginko-docs 0.4.0-rc.4.')
+}
+if (docsPackage.dependencies?.['@lupinum/ginko-content'] !== '1.0.0-beta.5') {
+  failures.push(
+    'docs/package.json must use @lupinum/ginko-content 1.0.0-beta.5.',
+  )
 }
 if (packageSource.includes('pkg.pr.new')) {
   failures.push(
