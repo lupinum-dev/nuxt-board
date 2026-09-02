@@ -1,0 +1,10 @@
+<svg width="885" height="885" viewBox="0 0 885 885" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="885" height="885" rx="195" fill="#00DC82"/>
+<rect x="214" y="304" width="460" height="305" rx="27" fill="white" stroke="white" stroke-width="46"/>
+<rect x="132" y="222" width="118" height="118" rx="35" fill="white" stroke="#00DC82" stroke-width="20"/>
+<rect x="638" y="222" width="118" height="118" rx="35" fill="white" stroke="#00DC82" stroke-width="20"/>
+<rect x="638" y="573" width="118" height="118" rx="35" fill="white" stroke="#00DC82" stroke-width="20"/>
+<rect x="132" y="573" width="118" height="118" rx="35" fill="white" stroke="#00DC82" stroke-width="20"/>
+<path d="M548.193 381H337.212C324.265 381 313.77 391.495 313.77 404.442C313.77 417.389 324.265 427.885 337.212 427.885H548.193C561.139 427.885 571.635 417.389 571.635 404.442C571.635 391.495 561.139 381 548.193 381Z" fill="#00DC82"/>
+<path d="M548.193 486.492H337.212C324.265 486.492 313.77 496.988 313.77 509.934C313.77 522.881 324.265 533.377 337.212 533.377H548.193C561.139 533.377 571.635 522.881 571.635 509.934C571.635 496.988 561.139 486.492 548.193 486.492Z" fill="#00DC82"/>
+</svg>

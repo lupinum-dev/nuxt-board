@@ -14,7 +14,7 @@
     "@lupinum/board-core": "workspace:*",
     "@lupinum/board-history": "workspace:*",
     "@lupinum/ginko-content": "1.0.0-beta.5",
-    "@lupinum/ginko-docs": "0.4.0-rc.5",
+    "@lupinum/ginko-docs": "0.4.0-rc.8",
     "@lupinum/vue-board": "workspace:*",
     "nuxt": "4.5.2",
     "@lupinum/nuxt-board": "workspace:*",
