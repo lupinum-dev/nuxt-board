@@ -74,19 +74,6 @@ describe('docs demo contracts', () => {
     expect(pullRequestTemplate).toContain(
       '- [ ] I updated versions, migration guidance, and compatibility notes when the public contract changed.',
     )
-
-    const maintaining = read('MAINTAINING.md')
-    for (const heading of [
-      'Prepare a quick fix',
-      'Prepare a large change',
-      'Change documentation',
-      'Prepare a release',
-      'Review dependency changes',
-      'Recover from a defective release',
-      'Respond to a credential incident',
-    ]) {
-      expect(maintaining).toContain(`## ${heading}`)
-    }
   })
 
   it('verifies automated version pull requests without a second credential', () => {

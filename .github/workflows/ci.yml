@@ -37,11 +37,11 @@ jobs:
                   pull_number: context.issue.number,
                   per_page: 100,
                 })
-            const paths = files.map((file) => file.filename)
+            const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean))
             const publicDocsOnly =
               paths.length > 0 &&
               paths.every((path) =>
-                /^(?:docs\/content\/|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
+                /^(?:docs\/content\/.*\.md$|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
               )
             core.setOutput('full', String(runAll || !publicDocsOnly))
 
@@ -133,6 +133,31 @@ jobs:
       - name: Playwright interactions and screenshots
         run: pnpm test:e2e
 
+  docs:
+    name: Documentation checks
+    needs: classify
+    if: needs.classify.outputs.full == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          standalone: true
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify documentation
+        run: pnpm verify:docs
+
   gate:
     name: CI gate
     if: always()
@@ -140,6 +165,7 @@ jobs:
       - classify
       - checks
       - visual-regression
+      - docs
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -149,12 +175,18 @@ jobs:
           FULL: ${{ needs.classify.outputs.full }}
           CHECKS_RESULT: ${{ needs.checks.result }}
           VISUAL_RESULT: ${{ needs.visual-regression.result }}
+          DOCS_RESULT: ${{ needs.docs.result }}
         run: |
           test "$CLASSIFY_RESULT" = success
           if [ "$FULL" = true ]; then
             test "$CHECKS_RESULT" = success
             test "$VISUAL_RESULT" = success
-          else
+            test "$DOCS_RESULT" = skipped
+          elif [ "$FULL" = false ]; then
             test "$CHECKS_RESULT" = skipped
             test "$VISUAL_RESULT" = skipped
+            test "$DOCS_RESULT" = success
+          else
+            echo "Unknown CI lane selection: $FULL" >&2
+            exit 1
           fi
