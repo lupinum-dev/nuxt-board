@@ -79,7 +79,7 @@ aligned. Do not add compatibility paths for the unreleased scoped packages.
 ## Change documentation
 
 Follow [docs/WRITING.md](./docs/WRITING.md). Keep examples executable. Run
-`pnpm docs:build` and `pnpm verify` before merge.
+`pnpm verify` before merge; it includes the package and documentation builds.
 
 ## Prepare a release
 
@@ -243,3 +243,21 @@ Vue import. The existing dev command now builds first and returned HTTP 200 in
 for built entry points. Owned browsers and servers were stopped and temporary
 output restored. Hosted docs-only CI, protected merge, and external settings
 remain separate evidence; this local trial did not change those settings.
+
+### Fresh-agent maintenance trial
+
+The September 6, 2026 follow-up started from merged `a7b792b` in a fresh
+worktree. The agent derived setup and checks from this file and `AGENTS.md`,
+and read the agent-development standard and playbook at local handbook revision
+`bb70443`. The existing checkout and its unrelated untracked audit were preserved.
+Node 24.18.0 and the declared pnpm 11.21.0 completed
+`pnpm install --frozen-lockfile` in 11.2 seconds without human setup.
+
+This trial removed the separate `pnpm docs:build` handoff requirement.
+`pnpm verify` already runs its three operations: `pack:check` invokes
+`build:packages`, followed by `docs:theme` and `build:docs`. The executable
+classifier and gate in `.github/workflows/ci.yml` remain unchanged.
+`pnpm test:maintenance` passed, failed when the actual docs-lane success check
+was temporarily replaced with `true`, and passed after exact restoration.
+The failure was the existing failed-lane assertion in `test-maintenance.mjs`.
+This confirms detection of an incorrectly accepted failed docs job.
