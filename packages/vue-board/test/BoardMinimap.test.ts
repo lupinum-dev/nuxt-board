@@ -5,7 +5,7 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createBoardEngine } from '@lupinum/board-core'
 import BoardRoot from '../src/components/BoardRoot.vue'
-import { BoardMinimap, useBoardMinimap } from '../src/minimap'
+import { BoardMinimap, useBoardMinimap } from '@lupinum/vue-board/minimap'
 
 function dispatchPointerEvent(
   target: EventTarget,
