@@ -12,6 +12,10 @@ This file is for Lupinum OG maintainers. Contributors use
 - `pnpm-lock.yaml` owns the resolved dependency graph.
 - The retained tarballs are the release candidates.
 
+Changesets excludes package `test/` directories from release detection because
+they are not published. Test-only maintenance needs no empty Changeset; source,
+manifests, and other package files still require release intent.
+
 Do not create a release branch, a second version file, or a local publication
 path.
 
