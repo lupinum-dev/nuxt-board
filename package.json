@@ -14,8 +14,8 @@
     "changelog": "node scripts/changelog.mjs",
     "check:vercel": "node scripts/check-vercel-config.mjs",
     "dev": "pnpm dev:playground",
-    "dev:docs": "pnpm --filter docs dev",
-    "dev:playground": "pnpm --filter @lupinum/board-playground dev",
+    "dev:docs": "pnpm build:packages && pnpm --filter docs dev",
+    "dev:playground": "pnpm build:packages && pnpm --filter @lupinum/board-playground dev",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "lint": "pnpm --filter docs lint && pnpm --filter @lupinum/nuxt-board lint",
@@ -31,10 +31,13 @@
     "test:unit": "vitest run --exclude packages/nuxt-board/test/basic.test.ts --exclude packages/nuxt-board/test/prefixed.test.ts && pnpm --filter @lupinum/nuxt-board test",
     "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter @lupinum/nuxt-board test:types",
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
-    "verify:library": "pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
-    "verify": "pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm test:docs",
+    "verify:library": "pnpm check:dependencies && pnpm test:maintenance && pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
+    "verify": "pnpm check:dependencies && pnpm audit:all && pnpm test:maintenance && pnpm test:release-policy && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm docs:theme && pnpm build:docs",
     "release:notes:check": "node scripts/check-release-notes.mjs",
-    "release:verify": "pnpm audit:all && pnpm verify && pnpm test:e2e:functional && pnpm test:release-policy && pnpm release:notes:check && pnpm release:pack"
+    "release:verify": "pnpm verify && pnpm test:e2e:functional && pnpm release:notes:check && pnpm release:pack",
+    "check:dependencies": "node scripts/check-dependency-policy.mjs",
+    "test:maintenance": "node scripts/test-maintenance.mjs",
+    "verify:docs": "pnpm check:dependencies && pnpm test:maintenance && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm build:packages && pnpm test:docs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

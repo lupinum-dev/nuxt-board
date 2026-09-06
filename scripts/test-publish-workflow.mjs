@@ -156,23 +156,9 @@ assert(
   !ciWorkflow.includes('GITHUB_TOKEN'),
   'Action verification must not receive GITHUB_TOKEN.',
 )
-const workspacePolicy = readFileSync(
-  new URL('../pnpm-workspace.yaml', import.meta.url),
-  'utf8',
-)
 const renovate = JSON.parse(
   readFileSync(new URL('../renovate.json', import.meta.url), 'utf8'),
 )
-for (const policy of [
-  'minimumReleaseAge: 1440',
-  'minimumReleaseAgeStrict: true',
-  'minimumReleaseAgeIgnoreMissingTime: false',
-]) {
-  assert(
-    workspacePolicy.includes(policy),
-    `pnpm-workspace.yaml is missing: ${policy}`,
-  )
-}
 assert(
   renovate.minimumReleaseAge === '1 day',
   'Renovate must match the 24-hour pnpm quarantine.',

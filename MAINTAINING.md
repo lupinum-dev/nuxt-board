@@ -19,16 +19,56 @@ manifests, and other package files still require release intent.
 Do not create a release branch, a second version file, or a local publication
 path.
 
-## Prepare a quick fix
+## Daily work
 
-1. Create a small branch from current `main`.
-2. Make one focused change.
-3. Add or update tests.
-4. Update public documentation when behavior changes.
-5. Run `pnpm verify`.
-6. Run `pnpm test:e2e` for interaction or visual changes.
-7. Add a Changeset for each publishable change.
-8. Open a pull request and wait for all required checks.
+An assigned routine task includes setup, diagnosis, implementation, verification,
+independent review, authorized protected merge, post-merge checks, and cleanup.
+Routine work has bounded scope, preserves public contracts and permissions, and
+has a known rollback. Meaningful code, CI, and dependency changes need independent
+review of the final diff. User instructions and access controls take precedence;
+a pull request cannot expand its own authority.
+
+Use a descriptive branch and preserve existing work. Ask for unresolved product
+or compatibility decisions, breaking changes, security or delegation changes,
+and destructive actions. Keep npm publication behind its protected human
+approval. Never publish, tag, or promote from a workstation.
+
+Use the Node and package-manager versions declared by the repository. Install
+and start the representative playground:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+The dev commands first build package output used by the history Vue entry and
+docs CSS, then start the existing development server. Vite prints the usable
+URL, normally `http://localhost:5173`. Use the seeded,
+disposable board: select a node, duplicate it with Ctrl/Cmd+D, undo and redo,
+move it with arrow keys, and clear selection with Escape. Check minimap panning
+and zoom-to-fit. Repeat at a narrow viewport. The sample board resets on reload;
+do not treat it as persistent customer data. Stop the server with Ctrl-C.
+`pnpm dev:docs` starts the Nuxt docs site; `pnpm build` builds packages and docs.
+
+Run a focused `pnpm exec vitest run <file>` while editing. For browser input,
+run the relevant `pnpm test:e2e --grep <journey>` test and independently explore
+the affected journey in a real browser. The browser runner owns three local
+servers on ports declared in `playwright.config.ts`; stop a manual server on
+those ports before running it.
+
+Run `pnpm verify` once before handoff. It covers policy, workspace audit,
+release safeguards, formatting, lint, types, unit tests, packed consumers, and
+docs. For rendering or input changes also run `pnpm test:e2e`. Release preparation
+uses `pnpm release:verify`, which includes the normal gate and release-specific
+certification. Do not rerun aggregate children without an intervening change.
+
+Review the final diff, finish authorized protected merge and hosted checks, then
+remove owned processes and disposable state. Report failures as failures,
+including platform limits. Local success does not prove hosted CI, publication
+approval, or production documentation deployment.
+
+Add a Changeset when public package bytes or behavior change. Maintenance-only
+changes need no empty Changeset.
 
 ## Prepare a large change
 
@@ -84,19 +124,24 @@ source SHA and never substitutes artifacts from the newer commit.
 
 ## Review dependency changes
 
-Renovate opens grouped dependency pull requests on Monday. It must not merge
-them. Disable Dependabot version updates in the repository settings. Keep
-Dependabot security alerts enabled.
+Renovate owns routine version updates; keep Dependabot security alerts enabled.
+Review upstream release notes, provenance, changed install scripts, dependency
+ranges, and every maintained consumer. Keep build-script permissions narrow.
 
-For each update:
+`pnpm check:dependencies` validates the parsed root install policy. An emergency
+exception must name one exact version and have an inline JSON comment containing
+`reason`, `owner`, and UTC `expires` within 24 hours. Remove the entry and its
+comment at expiry. An owner or issue does not extend the deadline. The checker
+is copied from the Lupinum OSS handbook and owned by this repository.
 
-1. Review the upstream release and provenance.
-2. Review new and changed lifecycle scripts.
-3. Keep build-script permission limited to packages that require it.
-4. Run `pnpm verify`.
-5. Run packed-consumer and browser tests when Nuxt, Vue, rendering, or input
-   dependencies change.
-6. Give each temporary exception a reason and a removal date.
+Packed-consumer configurations use the same checker before installation. They
+do not inherit root security overrides or quarantine exceptions. Their local
+package overrides select the certified sibling tarballs only. Review any future
+consumer exception independently.
+
+Run frozen installation and `pnpm release:verify` for dependency changes. The
+normal gate already contains the full workspace audit. The daily
+`dependency-policy.yml` workflow checks expiry without running the full build.
 
 ## Recover from a defective release
 
@@ -161,10 +206,40 @@ GitHub must have:
 npm must bind all five `@lupinum/*board*` packages to `publish.yml` and the
 `npm` environment through trusted publishing.
 
-Vercel must deploy `docs/` from `main` to `nuxt-board.lupinum.com` and
-create pull-request previews. Set the Root Directory to `docs`. Enable
+Vercel must deploy `docs/` from protected `main` to
+`nuxt-board.lupinum.com`. Keep library previews on demand through the existing
+`/vercel` workflow; disable automatic deployments for other branches. Use a fixed
+Basic build machine and disable on-demand concurrency so builds queue. Use a
+larger machine only with recorded measurements showing lower total cost or that
+Basic cannot complete the build. Review that exception. Set the Root Directory to `docs`. Enable
 **Include source files outside of the Root Directory in the Build Step** so the
 documentation build can use all five locked workspace packages. Do not set an
 Output Directory or Install Command override. Vercel detects pnpm from the
 repository lockfile and installs the workspace before it runs the committed
 build command.
+
+## Adoption evidence
+
+The September 6, 2026 trial used Lupinum OSS revision `0cc7c83`, dependency
+foundation `fc313ae`, and the public minimap test repair `66f927e`. On macOS with
+Node 24.18.0 and pnpm 11.21.0, the normal handoff stages passed: policy, audit,
+release safeguards, formatting, lint, types, 337 workspace tests, nine Nuxt
+tests, five-package consumers, and the documentation build. The initial gate
+stopped on an obsolete maintenance-heading assertion; its executable safeguards
+were retained and the corrected remaining stages passed.
+
+A public minimap import failed before the alias repair and passed five mounted
+tests afterward. Expired root and generated install policy failed controlled
+checks. Executed CI fixtures cover docs-only, mixed, unknown, renamed source,
+non-Markdown content, failed lanes, and incorrect result bindings. Desktop
+browser checks covered node selection, deletion, duplication, Escape, fit, and
+minimap rendering; the existing undo/redo/group browser test passed. Independent
+390 × 844 exploration confirmed wrapped controls, minimap visibility, and no
+horizontal overflow.
+
+Cold startup without generated history output returned HTTP 500 for the history
+Vue import. The existing dev command now builds first and returned HTTP 200 in
+24 seconds under the same condition. This proves startup, not source watching
+for built entry points. Owned browsers and servers were stopped and temporary
+output restored. Hosted docs-only CI, protected merge, and external settings
+remain separate evidence; this local trial did not change those settings.

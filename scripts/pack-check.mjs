@@ -46,6 +46,9 @@ function writeConsumerWorkspace(directory, overrides) {
   writeFileSync(
     join(directory, 'pnpm-workspace.yaml'),
     [
+      'minimumReleaseAge: 1440',
+      'minimumReleaseAgeStrict: true',
+      'minimumReleaseAgeIgnoreMissingTime: false',
       'allowBuilds:',
       '  esbuild: true',
       'overrides:',
@@ -53,6 +56,10 @@ function writeConsumerWorkspace(directory, overrides) {
       '',
     ].join('\n'),
   )
+  run('node', [
+    'scripts/check-dependency-policy.mjs',
+    join(directory, 'pnpm-workspace.yaml'),
+  ])
 }
 
 async function getAvailablePort() {
@@ -326,6 +333,7 @@ writeFileSync(
     2,
   ),
 )
+writeConsumerWorkspace(headlessConsumerDir, {})
 run(
   'pnpm',
   [
