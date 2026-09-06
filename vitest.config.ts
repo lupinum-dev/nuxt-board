@@ -12,6 +12,9 @@ export default defineConfig({
       '@lupinum/board-core': fileURLToPath(
         new URL('./packages/board-core/src/index.ts', import.meta.url),
       ),
+      '@lupinum/vue-board/minimap': fileURLToPath(
+        new URL('./packages/vue-board/src/minimap.ts', import.meta.url),
+      ),
       '@lupinum/vue-board': fileURLToPath(
         new URL('./packages/vue-board/src/index.ts', import.meta.url),
       ),
@@ -20,9 +23,6 @@ export default defineConfig({
       ),
       '@lupinum/board-connections': fileURLToPath(
         new URL('./packages/board-connections/src/index.ts', import.meta.url),
-      ),
-      '@lupinum/vue-board/minimap': fileURLToPath(
-        new URL('./packages/vue-board/minimap/src/index.ts', import.meta.url),
       ),
     },
   },
