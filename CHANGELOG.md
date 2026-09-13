@@ -153,3 +153,34 @@
 ### ❤️ Contributors
 
 - Matthias Amon
+
+## v1.0.0-beta.4
+
+[compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v1.0.0-beta.3...HEAD)
+
+### 🚀 Enhancements
+
+- Ship versioned documentation in every Board package ([#68](https://github.com/lupinum-dev/nuxt-board/pull/68))
+
+### 🩹 Fixes
+
+- **docs:** Propagate theme check file errors ([#56](https://github.com/lupinum-dev/nuxt-board/pull/56))
+- **test:** Resolve the public minimap entry point ([#60](https://github.com/lupinum-dev/nuxt-board/pull/60))
+- **deps:** Clear workspace advisories and update Vitest ([#64](https://github.com/lupinum-dev/nuxt-board/pull/64))
+- Keep history replay and compound actions atomic ([#67](https://github.com/lupinum-dev/nuxt-board/pull/67))
+
+### 📖 Documentation
+
+- **theme:** Use the shared Nuxt preset ([#55](https://github.com/lupinum-dev/nuxt-board/pull/55))
+- Show community links in the header ([#58](https://github.com/lupinum-dev/nuxt-board/pull/58))
+- **maintenance:** Record the fresh-agent trial ([#63](https://github.com/lupinum-dev/nuxt-board/pull/63))
+
+### 🏡 Chore
+
+- **docs:** Align the shared Lupinum docs runtime ([#54](https://github.com/lupinum-dev/nuxt-board/pull/54))
+- **docs:** Adopt Ginko Docs 0.4.0-rc.8 ([#57](https://github.com/lupinum-dev/nuxt-board/pull/57))
+- **maintenance:** Enforce reliable daily verification ([#61](https://github.com/lupinum-dev/nuxt-board/pull/61))
+
+### ❤️ Contributors
+
+- Matthias Amon
