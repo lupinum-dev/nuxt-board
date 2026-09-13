@@ -47,8 +47,8 @@
     "build": "tsup src/index.ts src/vue.ts --format esm --clean && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
-    "@lupinum/board-core": "workspace:*",
-    "@lupinum/vue-board": "workspace:*",
+    "@lupinum/board-core": "1.0.0-beta.3",
+    "@lupinum/vue-board": "1.0.0-beta.3",
     "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
@@ -60,8 +60,8 @@
     }
   },
   "devDependencies": {
-    "@lupinum/board-core": "workspace:*",
-    "@lupinum/vue-board": "workspace:*",
+    "@lupinum/board-core": "1.0.0-beta.3",
+    "@lupinum/vue-board": "1.0.0-beta.3",
     "vue": "^3.5.0"
   }
 }
