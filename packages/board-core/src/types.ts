@@ -731,8 +731,11 @@ export interface InternalPluginContext<
       commit: import('./state/types.js').InternalBoardCommit,
     ) => () => void,
   ): Unsubscribe
-  /** Atomically restore a persistent root without recording another history frame. */
-  restoreHistoryRoot(root: import('./state/types.js').InternalHistoryRoot): void
+  /** Restore an outer history operation; finalize bookkeeping before public notifications, including equal roots. Reject replay inside a batch. */
+  restoreHistoryRoot(
+    root: import('./state/types.js').InternalHistoryRoot,
+    onCommit?: () => void,
+  ): void
 }
 
 /** Persistent state owned by an internal plugin. */

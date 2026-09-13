@@ -498,9 +498,11 @@ export function createBoardEngine<
     label: string,
     metadata: CommandMetadata,
     before: InternalHistoryRoot,
+    onCommit?: () => void,
   ): { label: string; finalize: () => readonly unknown[] } | null {
     const after = captureHistoryRoot()
-    if (sameHistoryRoot(before, after)) return null
+    const unchanged = sameHistoryRoot(before, after)
+    if (unchanged && !onCommit) return null
     const commit: InternalBoardCommit = Object.freeze({
       label,
       timestamp: Date.now(),
@@ -508,7 +510,12 @@ export function createBoardEngine<
       before,
       after,
     })
-    const effects = Array.from(commitProjectors, (project) => project(commit))
+    const effects = unchanged
+      ? []
+      : Array.from(commitProjectors, (project) => project(commit))
+    // Replay bookkeeping must finish before any projected subscriber runs.
+    // Prepare all projectors first so a rejection leaves history untouched.
+    if (onCommit) effects.unshift(onCommit)
     return {
       label,
       finalize() {
@@ -1192,7 +1199,13 @@ export function createBoardEngine<
       projectedSubscribables.add(projection)
       return projection
     },
-    restoreHistoryRoot(root) {
+    restoreHistoryRoot(root, onCommit) {
+      assertCommandReady()
+      if (batches.isBatching()) {
+        throw new BoardConflictError(
+          'Undo and redo are unavailable inside a batch.',
+        )
+      }
       runCommand(
         'history:restore',
         [],
@@ -1221,6 +1234,8 @@ export function createBoardEngine<
           notifySelectionChanged()
         },
         IGNORE_COMMAND,
+        undefined,
+        onCommit,
       )
     },
     screenToWorld(point) {

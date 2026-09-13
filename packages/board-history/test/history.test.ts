@@ -1,13 +1,151 @@
 import { describe, expect, it } from 'vitest'
-import { CommandBlockedError, createBoardEngine } from '@lupinum/board-core'
+import {
+  BoardConflictError,
+  CommandBlockedError,
+  createBoardEngine,
+} from '@lupinum/board-core'
 import {
   defineInternalBoardPlugin,
   getBoardInteractionAdapter,
+  type InternalBoardCommit,
+  type InternalHistoryRoot,
 } from '@lupinum/board-core/internal'
 import { connectionsPlugin } from '@lupinum/board-connections'
 import { historyPlugin } from '../src'
 
 describe('history plugin', () => {
+  it.each(['undo', 'redo'] as const)(
+    'preserves a guard-blocked %s frame',
+    (operation) => {
+      const engine = createBoardEngine({ plugins: [historyPlugin()] })
+      engine.createNode({ text: 'original' })
+      if (operation === 'redo') engine.plugins.history.undo()
+      const document = engine.exportDocument()
+      const history = engine.plugins.history.getState()
+      const offGuard = engine.addCommandGuard(({ name }) =>
+        name === 'history:restore' ? 'blocked' : true,
+      )
+      expect(() => engine.plugins.history[operation]()).toThrow(
+        CommandBlockedError,
+      )
+      expect(engine.exportDocument()).toEqual(document)
+      expect(engine.plugins.history.getState()).toEqual(history)
+      offGuard()
+      engine.plugins.history[operation]()
+      expect(engine.plugins.history.getState()).toMatchObject(
+        operation === 'undo'
+          ? { undoDepth: 0, redoDepth: 1 }
+          : { undoDepth: 1, redoDepth: 0 },
+      )
+      engine.destroy()
+    },
+  )
+
+  it('preserves replay after projector preparation rejects the restored root', () => {
+    const reject = defineInternalBoardPlugin({
+      name: 'reject-replay',
+      install(context) {
+        return context.projectCommit((commit) => {
+          if (commit.label === 'history:restore')
+            throw new Error('rejected root')
+          return () => undefined
+        })
+      },
+    })
+    const engine = createBoardEngine({ plugins: [historyPlugin(), reject] })
+    engine.createNode({ text: 'original' })
+    const document = engine.exportDocument()
+    const history = engine.plugins.history.getState()
+    expect(() => engine.plugins.history.undo()).toThrow('rejected root')
+    expect(engine.exportDocument()).toEqual(document)
+    expect(engine.plugins.history.getState()).toEqual(history)
+    engine.destroy()
+  })
+
+  it('moves equal-root undo and redo frames exactly once', () => {
+    let recorded: InternalBoardCommit | undefined
+    let restore: ((root: InternalHistoryRoot) => void) | undefined
+    const probe = defineInternalBoardPlugin({
+      name: 'root-probe',
+      install(context) {
+        restore = (root) => context.restoreHistoryRoot(root)
+        return context.projectCommit((commit) => () => {
+          if (commit.metadata.history === 'record') recorded = commit
+        })
+      },
+    })
+    const engine = createBoardEngine({ plugins: [historyPlugin(), probe] })
+    engine.createNode({ text: 'original' })
+    if (!recorded || !restore) throw new Error('Missing committed root')
+    restore(recorded.before)
+    engine.plugins.history.undo()
+    expect(engine.plugins.history.getState()).toMatchObject({
+      undoDepth: 0,
+      redoDepth: 1,
+    })
+    restore(recorded.after)
+    engine.plugins.history.redo()
+    expect(engine.plugins.history.getState()).toMatchObject({
+      undoDepth: 1,
+      redoDepth: 0,
+    })
+    engine.destroy()
+  })
+
+  it.each(['subscriber', 'event'] as const)(
+    'invalidates redo when a reentrant %s creates a new branch',
+    (listener) => {
+      const engine = createBoardEngine({ plugins: [historyPlugin()] })
+      engine.createNode({ text: 'original' })
+      let edited = false
+      const edit = () => {
+        if (edited || engine.getState().nodes.size !== 0) return
+        edited = true
+        expect(engine.plugins.history.getState()).toMatchObject({
+          undoDepth: 0,
+          redoDepth: 1,
+        })
+        engine.createNode({ text: 'new branch' })
+      }
+      if (listener === 'subscriber') engine.$nodes.subscribe(edit)
+      else engine.on('history:undo', edit)
+      engine.plugins.history.undo()
+      expect(edited).toBe(true)
+      expect(engine.plugins.history.getState()).toMatchObject({
+        undoDepth: 1,
+        redoDepth: 0,
+      })
+      engine.plugins.history.redo()
+      expect(
+        [...engine.getState().nodes.values()].map((node) => node.text),
+      ).toEqual(['new branch'])
+      engine.destroy()
+    },
+  )
+
+  it('rejects replay within a batch without losing frames or partial edits', () => {
+    const engine = createBoardEngine({ plugins: [historyPlugin()] })
+    engine.createNode({ text: 'original' })
+    const document = engine.exportDocument()
+    const history = engine.plugins.history.getState()
+    expect(() =>
+      engine.batch(() => {
+        engine.createNode({ text: 'partial' })
+        engine.plugins.history.undo()
+      }),
+    ).toThrow(BoardConflictError)
+    expect(engine.exportDocument()).toEqual(document)
+    expect(engine.plugins.history.getState()).toEqual(history)
+    engine.batch(() => {
+      expect(() => engine.plugins.history.undo()).toThrow(BoardConflictError)
+      engine.createNode({ text: 'accepted' })
+    })
+    expect(engine.plugins.history.getState().undoDepth).toBe(2)
+    engine.plugins.history.undo()
+    expect(engine.exportDocument()).toEqual(document)
+    engine.destroy()
+  })
+
   it('keeps the committed history frame when a later commit effect fails', () => {
     const failures: string[] = []
     const failing = defineInternalBoardPlugin({
@@ -35,6 +173,21 @@ describe('history plugin', () => {
     expect(failures).toEqual(['createNode'])
     engine.plugins.history.undo()
     expect(engine.getState().nodes.size).toBe(0)
+    expect(engine.plugins.history.getState()).toMatchObject({
+      undoDepth: 0,
+      redoDepth: 1,
+    })
+    engine.plugins.history.redo()
+    expect(engine.plugins.history.getState()).toMatchObject({
+      undoDepth: 1,
+      redoDepth: 0,
+    })
+    expect(failures).toEqual([
+      'createNode',
+      'history:restore',
+      'history:restore',
+    ])
+    engine.destroy()
   })
 
   it('does not let camera animation absorb concurrent document history', async () => {

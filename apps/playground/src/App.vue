@@ -186,16 +186,18 @@ function wrapSelectionInGroup(): void {
 
   if (sel.length === 0) {
     const { x, y } = worldCenterForViewportBox(DEFAULT_GROUP_W, DEFAULT_GROUP_H)
-    const group = engine.createNode({
-      type: 'group',
-      x,
-      y,
-      width: DEFAULT_GROUP_W,
-      height: DEFAULT_GROUP_H,
-      select: false,
+    engine.batch(() => {
+      const group = engine.createNode({
+        type: 'group',
+        x,
+        y,
+        width: DEFAULT_GROUP_W,
+        height: DEFAULT_GROUP_H,
+        select: false,
+      })
+      engine.sendToBack(group.id)
+      engine.select([group.id])
     })
-    engine.sendToBack(group.id)
-    engine.select([group.id])
     return
   }
 
@@ -215,22 +217,24 @@ function wrapSelectionInGroup(): void {
     maxX = Math.max(maxX, n.x + n.width)
     maxY = Math.max(maxY, n.y + n.height)
   }
-  const group = engine.createNode({
-    type: 'group',
-    x: minX - GROUP_PAD,
-    y: minY - GROUP_PAD,
-    width: maxX - minX + GROUP_PAD * 2,
-    height: maxY - minY + GROUP_PAD * 2,
-    select: false,
-  })
-  engine.sendToBack(group.id)
-  for (const n of nodes) {
-    if (n.id === group.id) {
-      continue
+  engine.batch(() => {
+    const group = engine.createNode({
+      type: 'group',
+      x: minX - GROUP_PAD,
+      y: minY - GROUP_PAD,
+      width: maxX - minX + GROUP_PAD * 2,
+      height: maxY - minY + GROUP_PAD * 2,
+      select: false,
+    })
+    engine.sendToBack(group.id)
+    for (const n of nodes) {
+      if (n.id === group.id) {
+        continue
+      }
+      engine.updateNode(n.id, { parentId: group.id })
     }
-    engine.updateNode(n.id, { parentId: group.id })
-  }
-  engine.select([group.id, ...sel.filter((id) => id !== group.id)])
+    engine.select([group.id, ...sel.filter((id) => id !== group.id)])
+  })
 }
 
 // ━━ Image upload ━━
