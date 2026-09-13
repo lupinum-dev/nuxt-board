@@ -13,6 +13,8 @@ import { createServer } from 'node:net'
 import { basename, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { verifyPackageAgentDocs } from './package-agent-docs.mjs'
 
 const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const outputDir = join(rootDir, '.pack-check')
@@ -211,11 +213,54 @@ mkdirSync(tarballDir, { recursive: true })
 mkdirSync(unpackDir, { recursive: true })
 
 run('pnpm', ['build:packages'])
+run('pnpm', ['docs:theme'])
+run('pnpm', ['build:docs'])
+run('pnpm', ['docs:package'])
 
 for (const packageDir of packageDirs) {
-  run('pnpm', ['pack', '--pack-destination', tarballDir], {
-    cwd: join(rootDir, packageDir),
-  })
+  run(
+    'pnpm',
+    [
+      '--config.ignore-scripts=true',
+      'pack',
+      '--ignore-workspace',
+      '--pack-destination',
+      tarballDir,
+    ],
+    {
+      cwd: join(rootDir, packageDir),
+    },
+  )
+}
+const secondPackDir = join(outputDir, 'reproducibility')
+mkdirSync(secondPackDir)
+for (const packageDir of packageDirs) {
+  run(
+    'pnpm',
+    [
+      '--config.ignore-scripts=true',
+      'pack',
+      '--ignore-workspace',
+      '--pack-destination',
+      secondPackDir,
+    ],
+    {
+      cwd: join(rootDir, packageDir),
+    },
+  )
+}
+const firstNames = readdirSync(tarballDir).sort()
+const secondNames = readdirSync(secondPackDir).sort()
+if (JSON.stringify(firstNames) !== JSON.stringify(secondNames))
+  throw new Error('Repeated package inventory differs.')
+for (const filename of firstNames) {
+  const digest = (path) =>
+    createHash('sha256').update(readFileSync(path)).digest('hex')
+  if (
+    digest(join(tarballDir, filename)) !== digest(join(secondPackDir, filename))
+  ) {
+    throw new Error(`Repeated package bytes differ: ${filename}`)
+  }
 }
 
 const tarballs = readdirSync(tarballDir).filter((entry) =>
@@ -271,6 +316,9 @@ for (const tarball of tarballs) {
     `${manifest.name} package is missing LICENSE.`,
   )
   assertNoLocalPaths(packageRoot)
+  await verifyPackageAgentDocs(packageRoot, {
+    sourceRoot: join(rootDir, 'docs/.vercel/output/static/raw'),
+  })
 }
 
 const packageVersions = new Set(
@@ -381,6 +429,11 @@ writeConsumerWorkspace(consumerDir, packedDependencies)
 run('pnpm', ['install', '--no-frozen-lockfile'], {
   cwd: consumerDir,
 })
+const consumerRequire = createRequire(join(consumerDir, 'package.json'))
+for (const name of packedPackages.keys()) {
+  const entry = consumerRequire.resolve(`${name}/agent-docs`)
+  await verifyPackageAgentDocs(resolve(entry, '../../..'))
+}
 
 const importLines = Array.from(packedPackages.keys())
   .map((name) => `await import(${JSON.stringify(name)})`)

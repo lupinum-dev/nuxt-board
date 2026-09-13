@@ -70,6 +70,20 @@ approval, or production documentation deployment.
 Add a Changeset when public package bytes or behavior change. Maintenance-only
 changes need no empty Changeset.
 
+## Package documentation
+
+The installation page owns the consumer onboarding prompt. Run
+`pnpm docs:onboarding` after editing it to update the root and package READMEs.
+`pnpm lint` detects drift.
+
+`pack:check` builds the packages, builds the canonical documentation site, and
+copies its rendered raw Markdown into each package's `dist/agent` directory.
+The Nuxt package rebuilds during prepack and then regenerates its snapshot.
+The pack checker requires two identical archives per package, verifies the
+extracted snapshots against the rendered source, and resolves every installed
+`./agent-docs` entry from the isolated consumer. A runtime-only build clears its
+snapshot; use the pack command to restore and certify it before release.
+
 ## Prepare a large change
 
 Open an issue first. Split the work by public behavior and package ownership.

@@ -18,7 +18,7 @@
     "dev:playground": "pnpm build:packages && pnpm --filter @lupinum/board-playground dev",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "lint": "pnpm --filter docs lint && pnpm --filter @lupinum/nuxt-board lint",
+    "lint": "node scripts/sync-consumer-onboarding.mjs && pnpm --filter docs lint && pnpm --filter @lupinum/nuxt-board lint",
     "pack:check": "node scripts/pack-check.mjs",
     "package-preview:build": "node scripts/build-package-preview.mjs",
     "release:pack": "node scripts/pack-check.mjs --retain",
@@ -32,12 +32,14 @@
     "typecheck": "pnpm typecheck:workspace && pnpm --filter docs typecheck && pnpm --filter @lupinum/nuxt-board test:types",
     "typecheck:workspace": "tsc --noEmit -p tsconfig.json",
     "verify:library": "pnpm check:dependencies && pnpm test:maintenance && pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
-    "verify": "pnpm check:dependencies && pnpm audit:all && pnpm test:maintenance && pnpm test:release-policy && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check && pnpm docs:theme && pnpm build:docs",
+    "verify": "pnpm check:dependencies && pnpm audit:all && pnpm test:maintenance && pnpm test:release-policy && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check",
     "release:notes:check": "node scripts/check-release-notes.mjs",
-    "release:verify": "pnpm verify && pnpm test:e2e:functional && pnpm release:notes:check && pnpm release:pack",
+    "release:verify": "pnpm release:notes:check && pnpm verify && pnpm test:e2e:functional && pnpm release:pack",
     "check:dependencies": "node scripts/check-dependency-policy.mjs",
     "test:maintenance": "node scripts/test-maintenance.mjs",
-    "verify:docs": "pnpm check:dependencies && pnpm test:maintenance && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm build:packages && pnpm test:docs"
+    "verify:docs": "pnpm check:dependencies && pnpm test:maintenance && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm build:packages && pnpm test:docs",
+    "docs:package": "node scripts/build-agent-docs.mjs",
+    "docs:onboarding": "node scripts/sync-consumer-onboarding.mjs --write"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

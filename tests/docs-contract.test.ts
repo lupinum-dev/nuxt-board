@@ -1,7 +1,15 @@
-import { execFileSync } from 'node:child_process'
-import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { execFileSync, spawnSync } from 'node:child_process'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
@@ -24,6 +32,46 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
+  it('rejects malformed canonical documentation URLs', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'nuxt-board-agent-docs-'))
+    const packageRoot = join(directory, 'package')
+    const sourceRoot = join(directory, 'source')
+    mkdirSync(packageRoot)
+    mkdirSync(sourceRoot)
+    writeFileSync(
+      join(packageRoot, 'package.json'),
+      JSON.stringify({
+        name: '@lupinum/example',
+        version: '1.0.0',
+        exports: { './agent-docs': './dist/agent/AGENTS.md' },
+      }),
+    )
+    writeFileSync(
+      join(sourceRoot, 'start.md'),
+      '---\ntitle: Start\nroute: /start\nurl: https://\n---\n',
+    )
+
+    try {
+      const helper = pathToFileURL(
+        resolve(root, 'scripts/package-agent-docs.mjs'),
+      ).href
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '--eval',
+          `import { buildPackageAgentDocs } from ${JSON.stringify(helper)}; await buildPackageAgentDocs(${JSON.stringify({ packageRoot, sourceRoot, startRoutes: ['/start'] })})`,
+        ],
+        { encoding: 'utf8' },
+      )
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain('canonical URL')
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
   it('uses Nuxt Board as the public product name', () => {
     expect(read('docs/app/app.config.ts')).toContain(
       "name: { en: 'Nuxt Board' }",

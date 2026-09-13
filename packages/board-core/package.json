@@ -22,7 +22,8 @@
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js"
-    }
+    },
+    "./agent-docs": "./dist/agent/AGENTS.md"
   },
   "repository": {
     "type": "git",
