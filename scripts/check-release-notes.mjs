@@ -59,6 +59,27 @@ function git(args) {
   })
 }
 
+function ensureComparisonBase() {
+  const comparisonBase = 'origin/main'
+  const mergeBase = git(['merge-base', comparisonBase, 'HEAD'])
+
+  if (mergeBase.status === 0) return comparisonBase
+
+  const fetched = git([
+    'fetch',
+    '--no-tags',
+    'origin',
+    '+refs/heads/main:refs/remotes/origin/main',
+  ])
+
+  if (fetched.status !== 0) {
+    process.stderr.write(fetched.stdout)
+    process.stderr.write(fetched.stderr)
+  }
+
+  return comparisonBase
+}
+
 function acceptsGeneratedPrerelease() {
   const config = readJson('.changeset/config.json')
   const pre = readJson('.changeset/pre.json')
@@ -99,9 +120,10 @@ function acceptsGeneratedPrerelease() {
 }
 
 function main() {
+  const comparisonBase = ensureComparisonBase()
   const changeset = spawnSync(
     'pnpm',
-    ['changeset', 'status', '--since=origin/main'],
+    ['changeset', 'status', `--since=${comparisonBase}`],
     {
       cwd: root,
       encoding: 'utf8',
