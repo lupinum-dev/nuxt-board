@@ -34,7 +34,7 @@
     "verify:library": "pnpm check:dependencies && pnpm test:maintenance && pnpm --filter docs exec nuxt prepare && pnpm typecheck:workspace && pnpm --filter @lupinum/nuxt-board test:types && pnpm test:unit && pnpm pack:check",
     "verify": "pnpm check:dependencies && pnpm audit:all && pnpm test:maintenance && pnpm test:release-policy && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm typecheck && pnpm test:unit && pnpm pack:check",
     "release:notes:check": "node scripts/check-release-notes.mjs",
-    "release:verify": "pnpm verify && pnpm test:e2e:functional && pnpm release:notes:check && pnpm release:pack",
+    "release:verify": "pnpm release:notes:check && pnpm verify && pnpm test:e2e:functional && pnpm release:pack",
     "check:dependencies": "node scripts/check-dependency-policy.mjs",
     "test:maintenance": "node scripts/test-maintenance.mjs",
     "verify:docs": "pnpm check:dependencies && pnpm test:maintenance && pnpm format:check && pnpm check:vercel && pnpm lint && pnpm build:packages && pnpm test:docs",
