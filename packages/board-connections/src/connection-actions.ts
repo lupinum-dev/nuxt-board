@@ -218,32 +218,37 @@ export function createConnectionActions(deps: ConnectionActionsDeps) {
     const engine = deps.getEngine()
     const sourceNode = engine.findNode(active.sourceNodeId)
     if (!sourceNode) return
-    const targetNode = active.candidateNodeId
-      ? engine.findNode(active.candidateNodeId)
-      : deps.createNodeForConnection()?.({
-          sourceNodeId: active.sourceNodeId,
-          sourceSide: active.sourceSide,
-          pointerWorld: { ...active.pointerWorld },
-          candidateAnchor: active.candidateAnchor
-            ? { ...active.candidateAnchor }
-            : null,
+    let created: BoardEdge | undefined
+    const committed = runConnectionCommand(() => {
+      engine.batch(() => {
+        const targetNode = active.candidateNodeId
+          ? engine.findNode(active.candidateNodeId)
+          : deps.createNodeForConnection()?.({
+              sourceNodeId: active.sourceNodeId,
+              sourceSide: active.sourceSide,
+              pointerWorld: { ...active.pointerWorld },
+              candidateAnchor: active.candidateAnchor
+                ? { ...active.candidateAnchor }
+                : null,
+            })
+        if (!targetNode) return
+        created = engine.plugins.connections.createEdge({
+          from: sourceNode.id,
+          to: targetNode.id,
+          fromAnchor:
+            deps.getEndpointMode() === 'manual'
+              ? { side: active.sourceSide, offset: 0.5 }
+              : undefined,
+          toAnchor:
+            deps.getEndpointMode() === 'manual' && active.candidateAnchor
+              ? active.candidateAnchor
+              : undefined,
+          data: {},
         })
-    if (!targetNode) return
-    const created = runConnectionCommand(() =>
-      engine.plugins.connections.createEdge({
-        from: sourceNode.id,
-        to: targetNode.id,
-        fromAnchor:
-          deps.getEndpointMode() === 'manual'
-            ? { side: active.sourceSide, offset: 0.5 }
-            : undefined,
-        toAnchor:
-          deps.getEndpointMode() === 'manual' && active.candidateAnchor
-            ? active.candidateAnchor
-            : undefined,
-        data: {},
-      }),
-    )
+      })
+      return true
+    })
+    if (!committed) return
     if (!created) return
     state.selectedEdgeId.value = String(created.id)
     state.hoveredEdgeId.value = String(created.id)

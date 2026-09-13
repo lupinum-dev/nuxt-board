@@ -682,19 +682,21 @@ export function wrapSelectionInGroup(
       x: viewport.x / 2,
       y: viewport.y / 2,
     })
-    const group = engine.createNode({
-      id: asNodeId(groupId),
-      type: 'group',
-      x: Math.round(center.x - 180),
-      y: Math.round(center.y - 130),
-      width: 360,
-      height: 260,
-      color: '2',
-      label: 'New group',
-      select: false,
+    engine.batch(() => {
+      const group = engine.createNode({
+        id: asNodeId(groupId),
+        type: 'group',
+        x: Math.round(center.x - 180),
+        y: Math.round(center.y - 130),
+        width: 360,
+        height: 260,
+        color: '2',
+        label: 'New group',
+        select: false,
+      })
+      engine.sendToBack(group.id)
+      engine.select(group.id)
     })
-    engine.sendToBack(group.id)
-    engine.select(group.id)
     return 'created'
   }
 
@@ -717,25 +719,27 @@ export function wrapSelectionInGroup(
     maxY = Math.max(maxY, node.y + node.height)
   }
 
-  const group = engine.createNode({
-    id: asNodeId(groupId),
-    type: 'group',
-    x: minX - groupPadding,
-    y: minY - groupPadding,
-    width: maxX - minX + groupPadding * 2,
-    height: maxY - minY + groupPadding * 2,
-    color: '2',
-    label: 'Selection group',
-    select: false,
-  })
+  engine.batch(() => {
+    const group = engine.createNode({
+      id: asNodeId(groupId),
+      type: 'group',
+      x: minX - groupPadding,
+      y: minY - groupPadding,
+      width: maxX - minX + groupPadding * 2,
+      height: maxY - minY + groupPadding * 2,
+      color: '2',
+      label: 'Selection group',
+      select: false,
+    })
 
-  engine.sendToBack(group.id)
-  for (const node of selectedNodes) {
-    if (node.id !== group.id) {
-      engine.updateNode(node.id, { parentId: group.id })
+    engine.sendToBack(group.id)
+    for (const node of selectedNodes) {
+      if (node.id !== group.id) {
+        engine.updateNode(node.id, { parentId: group.id })
+      }
     }
-  }
-  engine.select([group.id, ...selection.filter((id) => id !== group.id)])
+    engine.select([group.id, ...selection.filter((id) => id !== group.id)])
+  })
   return 'grouped'
 }
 

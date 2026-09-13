@@ -51,6 +51,7 @@ interface TransactionExecutorDeps<TRoot> {
     label: string,
     metadata: CommandMetadata,
     before: InternalHistoryRoot,
+    onCommit?: () => void,
   ) => PreparedCommit | null
   reportCommitError: (label: string, error: unknown) => void
   validate: (context: string) => void
@@ -78,6 +79,7 @@ export function createTransactionExecutor<TRoot>(
     fn: () => T,
     metadata?: RuntimeCommandMetadata,
     commitOverride?: CommitOverride,
+    onCommit?: () => void,
   ) => T
   runAsyncCommand: <T>(
     name: string,
@@ -109,6 +111,7 @@ export function createTransactionExecutor<TRoot>(
     fn: () => T,
     metadata: RuntimeCommandMetadata = defaultMetadata,
     commitOverride?: CommitOverride,
+    onCommit?: () => void,
   ): T {
     const inBatch = deps.isBatching()
     prepare(name, args, metadata, false)
@@ -136,6 +139,7 @@ export function createTransactionExecutor<TRoot>(
             commitOverride?.label ?? name,
             commitOverride?.metadata ?? metadata,
             commitBefore,
+            onCommit,
           )
         : null
       const commitErrors = preparedCommit?.finalize() ?? []

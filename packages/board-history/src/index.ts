@@ -86,25 +86,29 @@ export function historyPlugin(
       const api: HistoryApi = {
         undo() {
           engine.assertActive()
-          const frame = undoStack.pop() ?? null
+          const frame = undoStack.at(-1) ?? null
           if (!frame) {
             engine.emit('history:undo', null)
             return
           }
-          engine.restoreHistoryRoot(frame.before)
-          redoStack.push(frame)
-          engine.emit('history:undo', toHistoryEntry(frame))
+          engine.restoreHistoryRoot(frame.before, () => {
+            undoStack.pop()
+            redoStack.push(frame)
+            engine.emit('history:undo', toHistoryEntry(frame))
+          })
         },
         redo() {
           engine.assertActive()
-          const frame = redoStack.pop() ?? null
+          const frame = redoStack.at(-1) ?? null
           if (!frame) {
             engine.emit('history:redo', null)
             return
           }
-          engine.restoreHistoryRoot(frame.after)
-          undoStack.push(frame)
-          engine.emit('history:redo', toHistoryEntry(frame))
+          engine.restoreHistoryRoot(frame.after, () => {
+            redoStack.pop()
+            undoStack.push(frame)
+            engine.emit('history:redo', toHistoryEntry(frame))
+          })
         },
         canUndo: () => {
           engine.assertActive()
