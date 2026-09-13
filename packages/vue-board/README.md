@@ -17,6 +17,28 @@
 
 Use this package to render `@lupinum/board-core` state and handle pointer, keyboard, selection, camera, and node interactions in Vue.
 
+<!-- BEGIN:consumer-onboarding -->
+
+## Use a coding agent
+
+Copy this task prompt into your application agent:
+
+```text
+Use the installed Nuxt Board packages to implement my requested feature.
+Read the application's instructions first. Resolve @lupinum/board-core/agent-docs
+and each installed Board package’s agent-docs entry from this application
+directory. Read the relevant local pages.
+Preserve the existing AGENTS.md. If it has no equivalent guidance, append
+one short note to resolve installed package docs before integration work
+and after dependency changes. Do not install a consumer skill.
+Check the completed feature using this project's normal commands.
+```
+
+The installed documentation matches the package version. If an older version
+has no documentation export, use its README, types and matching release docs.
+
+<!-- END:consumer-onboarding -->
+
 ## Requirements
 
 This package requires Vue 3.5 or newer. Install the matching `@lupinum/board-core` version.

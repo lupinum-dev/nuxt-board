@@ -25,7 +25,8 @@
       "import": "./dist/minimap.js",
       "default": "./dist/minimap.js"
     },
-    "./style.css": "./dist/index.css"
+    "./style.css": "./dist/index.css",
+    "./agent-docs": "./dist/agent/AGENTS.md"
   },
   "repository": {
     "type": "git",

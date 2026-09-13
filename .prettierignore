@@ -8,3 +8,4 @@ coverage
 .DS_Store
 # Preserve the exact shared Lupinum OSS checker.
 scripts/check-dependency-policy.mjs
+scripts/package-agent-docs.mjs

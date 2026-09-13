@@ -22,7 +22,8 @@
     "./vue": {
       "types": "./dist/vue.d.ts",
       "import": "./dist/vue.js"
-    }
+    },
+    "./agent-docs": "./dist/agent/AGENTS.md"
   },
   "repository": {
     "type": "git",
