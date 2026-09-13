@@ -61,9 +61,9 @@ function git(args) {
 
 function ensureComparisonBase() {
   const comparisonBase = 'origin/main'
-  const mergeBase = git(['merge-base', comparisonBase, 'HEAD'])
+  let mergeBase = git(['merge-base', comparisonBase, 'HEAD'])
 
-  if (mergeBase.status === 0) return comparisonBase
+  if (mergeBase.status === 0) return mergeBase.stdout.trim()
 
   const fetched = git([
     'fetch',
@@ -77,7 +77,8 @@ function ensureComparisonBase() {
     process.stderr.write(fetched.stderr)
   }
 
-  return comparisonBase
+  mergeBase = git(['merge-base', comparisonBase, 'HEAD'])
+  return mergeBase.status === 0 ? mergeBase.stdout.trim() : comparisonBase
 }
 
 function acceptsGeneratedPrerelease() {
