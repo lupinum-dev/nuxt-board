@@ -37,6 +37,8 @@ This design gives you predictable state outside the component tree. You can add 
 
 ## Use a coding agent
 
+A coding agent is a development tool that can inspect and change your project.
+
 Copy this task prompt into your application agent:
 
 ```text

@@ -21,6 +21,8 @@ Use this module when a Nuxt application needs board auto-imports and determinist
 
 ## Use a coding agent
 
+A coding agent is a development tool that can inspect and change your project.
+
 Copy this task prompt into your application agent:
 
 ```text

@@ -21,6 +21,8 @@ Use this package for board state, commands, selection, grouping, camera control,
 
 ## Use a coding agent
 
+A coding agent is a development tool that can inspect and change your project.
+
 Copy this task prompt into your application agent:
 
 ```text
