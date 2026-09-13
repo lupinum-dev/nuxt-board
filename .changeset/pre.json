@@ -10,11 +10,14 @@
     "@lupinum/vue-board": "0.1.0"
   },
   "changesets": [
+    "atomic-history-actions",
     "bright-boards-agree",
     "calm-edges-listen",
     "clean-cores-hold",
     "fast-overviews-glide",
     "kind-apis-settle",
+    "local-package-docs",
+    "patched-board-dependencies",
     "quiet-edges-own",
     "safe-imports-settle",
     "soft-fingers-move",
