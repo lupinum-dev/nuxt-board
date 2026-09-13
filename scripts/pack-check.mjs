@@ -218,16 +218,36 @@ run('pnpm', ['build:docs'])
 run('pnpm', ['docs:package'])
 
 for (const packageDir of packageDirs) {
-  run('pnpm', ['pack', '--pack-destination', tarballDir], {
-    cwd: join(rootDir, packageDir),
-  })
+  run(
+    'pnpm',
+    [
+      '--config.ignore-scripts=true',
+      'pack',
+      '--ignore-workspace',
+      '--pack-destination',
+      tarballDir,
+    ],
+    {
+      cwd: join(rootDir, packageDir),
+    },
+  )
 }
 const secondPackDir = join(outputDir, 'reproducibility')
 mkdirSync(secondPackDir)
 for (const packageDir of packageDirs) {
-  run('pnpm', ['pack', '--pack-destination', secondPackDir], {
-    cwd: join(rootDir, packageDir),
-  })
+  run(
+    'pnpm',
+    [
+      '--config.ignore-scripts=true',
+      'pack',
+      '--ignore-workspace',
+      '--pack-destination',
+      secondPackDir,
+    ],
+    {
+      cwd: join(rootDir, packageDir),
+    },
+  )
 }
 const firstNames = readdirSync(tarballDir).sort()
 const secondNames = readdirSync(secondPackDir).sort()
@@ -297,7 +317,7 @@ for (const tarball of tarballs) {
   )
   assertNoLocalPaths(packageRoot)
   await verifyPackageAgentDocs(packageRoot, {
-    sourceRoot: join(rootDir, 'docs/.output/public/raw'),
+    sourceRoot: join(rootDir, 'docs/.vercel/output/static/raw'),
   })
 }
 
