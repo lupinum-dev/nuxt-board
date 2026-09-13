@@ -6,7 +6,7 @@ import {
 } from './package-agent-docs.mjs'
 
 const root = resolve(import.meta.dirname, '..')
-const sourceRoot = resolve(root, 'docs/.output/public/raw')
+const sourceRoot = resolve(root, 'docs/.vercel/output/static/raw')
 const references = {
   'board-core': 'board-core',
   'vue-board': 'vue-board',
