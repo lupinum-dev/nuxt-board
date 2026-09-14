@@ -1,3 +1,4 @@
+import { demoSourceModule } from './demo-sources'
 import { fileURLToPath } from 'node:url'
 import { useNuxt } from 'nuxt/kit'
 import type { NuxtConfig } from 'nuxt/schema'
@@ -47,6 +48,7 @@ const customPolicy = Object.fromEntries(
 )
 
 export default defineNuxtConfig({
+  nitro: { virtual: { '#demo-sources': demoSourceModule } },
   extends: ['@lupinum/ginko-docs'],
   modules: ['@nuxt/eslint', nuxtBoardModule],
   hooks: {
