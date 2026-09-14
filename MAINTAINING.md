@@ -112,7 +112,8 @@ Follow [docs/WRITING.md](./docs/WRITING.md). Keep examples executable. Run
    from the certified changelog and package artifacts.
 
 The version pull request runs `pnpm release:version`. Changesets updates the
-five package versions. Changelogen then updates the matching release section in
+five package versions, then pnpm refreshes the lockfile without running install
+scripts. Changelogen then updates the matching release section in
 `CHANGELOG.md`. Do not run `changelogen --release`, `changelogen --publish`, or
 any local publish command.
 
