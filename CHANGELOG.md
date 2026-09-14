@@ -184,3 +184,15 @@
 ### ❤️ Contributors
 
 - Matthias Amon
+
+## v1.0.0-beta.5
+
+[compare changes](https://github.com/lupinum-dev/nuxt-board/compare/v1.0.0-beta.4...HEAD)
+
+### 🩹 Fixes
+
+- **docs:** Include complete board demo source in package guidance ([#70](https://github.com/lupinum-dev/nuxt-board/pull/70))
+
+### ❤️ Contributors
+
+- Matthias Amon
