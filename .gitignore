@@ -17,9 +17,12 @@ playwright-report
 .nitro
 .data
 .pack-check
-.package-preview
-release-artifacts
+release
 
 .env
 .env.*
 !.env.example
+
+# Claude Code keeps local settings and worktrees here; only CLAUDE.md is shared.
+.claude/*
+!.claude/CLAUDE.md
