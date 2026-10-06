@@ -31,8 +31,11 @@ overrides:
   nanoid: 3.3.18
   postcss: 8.5.23
   sharp: 0.35.4
-  shell-quote: 1.9.0
+  shell-quote: 1.11.0
   tar: 7.5.22
   'undici@6': 6.28.0
   'undici@7': 7.29.0
   ws: 8.21.0
+minimumReleaseAgeExclude:
+  # Renovate security update: shell-quote@1.11.0
+  - shell-quote@1.11.0
