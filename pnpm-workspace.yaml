@@ -31,6 +31,9 @@ overrides:
   sharp: 0.35.4
   shell-quote: 1.9.0
   tar: 7.5.22
-  'undici@6': 6.28.0
+  'undici@6': 8.10.2
   'undici@7': 7.29.0
   ws: 8.21.0
+minimumReleaseAgeExclude:
+  # Renovate security update: undici@8.10.2
+  - undici@8.10.2
