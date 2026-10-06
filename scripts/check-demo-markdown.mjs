@@ -79,7 +79,7 @@ const examples = {
   ],
 }
 const root = new URL('../docs/', import.meta.url)
-const raw = new URL('.vercel/output/static/raw/', root)
+const raw = new URL('.output/public/raw/', root)
 const seen = new Set()
 
 function checkDirectory(directory) {

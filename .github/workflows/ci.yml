@@ -1,197 +1,102 @@
 name: ci
 
 on:
-  workflow_dispatch:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+  # In libraries, release.yml starts this workflow on the Version packages PR,
+  # because pull requests opened with GITHUB_TOKEN trigger no workflows on their own.
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
-  classify:
-    name: Classify changes
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      pull-requests: read
-    outputs:
-      full: ${{ steps.paths.outputs.full }}
-    steps:
-      - name: Select required lanes
-        id: paths
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        with:
-          script: |
-            const runAll = context.eventName !== 'pull_request'
-            const files = runAll
-              ? []
-              : await github.paginate(github.rest.pulls.listFiles, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  per_page: 100,
-                })
-            const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean))
-            const publicDocsOnly =
-              paths.length > 0 &&
-              paths.every((path) =>
-                /^(?:docs\/content\/.*\.md$|README\.md$|CONTRIBUTING\.md$|SECURITY\.md$|MAINTAINING\.md$|AGENTS\.md$|CLAUDE\.md$|LICENSE$)/u.test(path),
-              )
-            core.setOutput('full', String(runAll || !publicDocsOnly))
-
-  checks:
-    name: checks (Node ${{ matrix.node }})
-    needs: classify
-    if: needs.classify.outputs.full == 'true'
-    runs-on: ubuntu-latest
+  check:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - node: 20.19.0
-            command: verify:library
-          - node: 22
-            command: release:verify
-
+        # Keep in sync with the `verify` script in package.json.
+        task: [lint, typecheck, test, build, audit]
     steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
           persist-credentials: false
+          # lint compares the pull request with origin/main.
+          fetch-depth: ${{ matrix.task == 'lint' && '0' || '1' }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable pnpm
+      - if: matrix.task != 'audit'
+        run: pnpm install --frozen-lockfile
+      # build also installs the packed tarballs into Vue and Nuxt 3.19/4.0 consumers (D2).
+      - if: matrix.task == 'build'
+        run: pnpm build && pnpm test:packed
+      - if: matrix.task != 'audit' && matrix.task != 'build'
+        run: pnpm ${{ matrix.task }}
+      # Only production advisories that reach a published package block releases.
+      - if: matrix.task == 'audit'
+        run: node scripts/audit-deps.mjs
 
-      - name: Fetch release comparison base
-        if: github.event_name == 'pull_request'
-        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+  # The packages support Node 20.19 (D2).
+  node-20:
+    name: test (Node 20.19)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      # Standalone pnpm brings its own Node, so pnpm 11 runs while the tests use Node 20.19.
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           standalone: true
-
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: ${{ matrix.node }}
-          cache: pnpm
+          node-version: 20.19.0
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        if: matrix.command == 'release:verify'
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Verify
-        run: pnpm ${{ matrix.command }}
-
-      - name: Retain the certified release set
-        if: github.event_name == 'push' && matrix.command == 'release:verify'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: nuxt-board-release
-          path: release-artifacts
-          if-no-files-found: error
-          retention-days: 14
-
-  visual-regression:
-    name: visual regression (macOS)
-    needs: classify
-    if: needs.classify.outputs.full == 'true'
+  # Screenshot baselines are rendered on macOS (D2).
+  e2e:
+    name: e2e (macOS)
     runs-on: macos-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          standalone: true
-
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify pinned Action commits
-        run: node scripts/verify-action-shas.mjs
-
-      - name: Install Chromium
-        run: pnpm exec playwright install chromium
-
-      - name: Build workspace packages
-        run: pnpm build:packages
-
-      - name: Playwright interactions and screenshots
-        run: pnpm test:e2e
-
-  docs:
-    name: Documentation checks
-    needs: classify
-    if: needs.classify.outputs.full == 'false'
-    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          standalone: true
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 22
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Verify documentation
-        run: pnpm verify:docs
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - run: pnpm test:e2e
 
-  gate:
-    name: CI gate
+  # The one required status check for the main branch ruleset.
+  ci:
+    name: ci
     if: always()
-    needs:
-      - classify
-      - checks
-      - visual-regression
-      - docs
-    runs-on: ubuntu-latest
+    needs: [check, node-20, e2e]
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Require every selected lane
-        env:
-          CLASSIFY_RESULT: ${{ needs.classify.result }}
-          FULL: ${{ needs.classify.outputs.full }}
-          CHECKS_RESULT: ${{ needs.checks.result }}
-          VISUAL_RESULT: ${{ needs.visual-regression.result }}
-          DOCS_RESULT: ${{ needs.docs.result }}
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          test "$CLASSIFY_RESULT" = success
-          if [ "$FULL" = true ]; then
-            test "$CHECKS_RESULT" = success
-            test "$VISUAL_RESULT" = success
-            test "$DOCS_RESULT" = skipped
-          elif [ "$FULL" = false ]; then
-            test "$CHECKS_RESULT" = skipped
-            test "$VISUAL_RESULT" = skipped
-            test "$DOCS_RESULT" = success
-          else
-            echo "Unknown CI lane selection: $FULL" >&2
-            exit 1
-          fi
+          for result in $RESULTS; do test "$result" = success; done

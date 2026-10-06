@@ -1,29 +1,28 @@
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import { createServer } from 'node:net'
-import { basename, join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
-import { verifyPackageAgentDocs } from './package-agent-docs.mjs'
 
 const rootDir = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const outputDir = join(rootDir, '.pack-check')
+// Consumers live outside the repository: inside it, Node and Vite resolve packages from the
+// workspace's node_modules too, and a second Vue copy breaks SSR.
+const outputDir = mkdtempSync(join(tmpdir(), 'nuxt-board-pack-check-'))
 const tarballDir = join(outputDir, 'tarballs')
 const unpackDir = join(outputDir, 'unpacked')
 const consumerDir = join(outputDir, 'consumer')
 const headlessConsumerDir = join(outputDir, 'headless-consumer')
-const releaseArtifactsDir = join(rootDir, 'release-artifacts')
-const retainArtifacts = process.argv.includes('--retain')
 const packageDirs = [
   'packages/board-core',
   'packages/vue-board',
@@ -58,10 +57,6 @@ function writeConsumerWorkspace(directory, overrides) {
       '',
     ].join('\n'),
   )
-  run('node', [
-    'scripts/check-dependency-policy.mjs',
-    join(directory, 'pnpm-workspace.yaml'),
-  ])
 }
 
 async function getAvailablePort() {
@@ -183,6 +178,28 @@ function assertNoLocalPaths(packageRoot) {
   }
 }
 
+// scripts/agent-docs.mjs writes dist/agent/ during `pnpm build`.
+function assertAgentDocs(packageRoot, manifest) {
+  const index = join(packageRoot, 'dist/agent/AGENTS.md')
+  assertNonEmptyFile(index, `${manifest.name} is missing dist/agent/AGENTS.md.`)
+  if (
+    !readFileSync(index, 'utf8').includes(
+      `${manifest.name} ${manifest.version}`,
+    )
+  )
+    throw new Error(
+      `${manifest.name} agent docs do not name the packed version.`,
+    )
+  const pages = join(packageRoot, 'dist/agent/pages')
+  if (
+    !existsSync(pages) ||
+    !readdirSync(pages, { recursive: true }).some((file) =>
+      String(file).endsWith('.md'),
+    )
+  )
+    throw new Error(`${manifest.name} agent docs contain no pages.`)
+}
+
 function assertNoWorkspaceProtocols(manifest) {
   for (const field of [
     'dependencies',
@@ -208,59 +225,20 @@ function unpackTarball(tarball) {
   return join(targetDir, 'package')
 }
 
-rmSync(outputDir, { recursive: true, force: true })
 mkdirSync(tarballDir, { recursive: true })
 mkdirSync(unpackDir, { recursive: true })
 
-run('pnpm', ['build:packages'])
-run('pnpm', ['docs:theme'])
-run('pnpm', ['build:docs'])
-run('pnpm', ['docs:package'])
-
+// Pack what `pnpm build` produced, as release.yml does; never rebuild here.
 for (const packageDir of packageDirs) {
+  assertFile(
+    join(rootDir, packageDir, 'dist/agent/AGENTS.md'),
+    `${packageDir} has no build output with agent docs. Run pnpm build first.`,
+  )
   run(
     'pnpm',
-    [
-      '--config.ignore-scripts=true',
-      'pack',
-      '--ignore-workspace',
-      '--pack-destination',
-      tarballDir,
-    ],
-    {
-      cwd: join(rootDir, packageDir),
-    },
+    ['--config.ignore-scripts=true', 'pack', '--pack-destination', tarballDir],
+    { cwd: join(rootDir, packageDir) },
   )
-}
-const secondPackDir = join(outputDir, 'reproducibility')
-mkdirSync(secondPackDir)
-for (const packageDir of packageDirs) {
-  run(
-    'pnpm',
-    [
-      '--config.ignore-scripts=true',
-      'pack',
-      '--ignore-workspace',
-      '--pack-destination',
-      secondPackDir,
-    ],
-    {
-      cwd: join(rootDir, packageDir),
-    },
-  )
-}
-const firstNames = readdirSync(tarballDir).sort()
-const secondNames = readdirSync(secondPackDir).sort()
-if (JSON.stringify(firstNames) !== JSON.stringify(secondNames))
-  throw new Error('Repeated package inventory differs.')
-for (const filename of firstNames) {
-  const digest = (path) =>
-    createHash('sha256').update(readFileSync(path)).digest('hex')
-  if (
-    digest(join(tarballDir, filename)) !== digest(join(secondPackDir, filename))
-  ) {
-    throw new Error(`Repeated package bytes differ: ${filename}`)
-  }
 }
 
 const tarballs = readdirSync(tarballDir).filter((entry) =>
@@ -316,9 +294,7 @@ for (const tarball of tarballs) {
     `${manifest.name} package is missing LICENSE.`,
   )
   assertNoLocalPaths(packageRoot)
-  await verifyPackageAgentDocs(packageRoot, {
-    sourceRoot: join(rootDir, 'docs/.vercel/output/static/raw'),
-  })
+  assertAgentDocs(packageRoot, manifest)
 }
 
 const packageVersions = new Set(
@@ -432,7 +408,7 @@ run('pnpm', ['install', '--no-frozen-lockfile'], {
 const consumerRequire = createRequire(join(consumerDir, 'package.json'))
 for (const name of packedPackages.keys()) {
   const entry = consumerRequire.resolve(`${name}/agent-docs`)
-  await verifyPackageAgentDocs(resolve(entry, '../../..'))
+  assertNonEmptyFile(entry, `${name}/agent-docs does not resolve to a file.`)
 }
 
 const importLines = Array.from(packedPackages.keys())
@@ -609,64 +585,5 @@ const engine = createBoardEngine({
 
 await verifyNuxtVersion('3-19', '3.19.0')
 await verifyNuxtVersion('4-0', '4.0.0')
-
-if (retainArtifacts) {
-  rmSync(releaseArtifactsDir, { recursive: true, force: true })
-  mkdirSync(releaseArtifactsDir, { recursive: true })
-
-  const artifacts = Array.from(
-    packedPackages,
-    ([name, { manifest, tarball }]) => {
-      const filename = basename(tarball)
-      const destination = join(releaseArtifactsDir, filename)
-      copyFileSync(tarball, destination)
-      const sha256 = createHash('sha256')
-        .update(readFileSync(destination))
-        .digest('hex')
-      const sha1 = createHash('sha1')
-        .update(readFileSync(destination))
-        .digest('hex')
-      return { name, version: manifest.version, filename, sha1, sha256 }
-    },
-  ).sort((left, right) => left.name.localeCompare(right.name))
-
-  const changelogSource = join(rootDir, 'CHANGELOG.md')
-  let changelog
-  if (existsSync(changelogSource)) {
-    const filename = 'CHANGELOG.md'
-    const destination = join(releaseArtifactsDir, filename)
-    copyFileSync(changelogSource, destination)
-    changelog = {
-      filename,
-      sha256: createHash('sha256')
-        .update(readFileSync(destination))
-        .digest('hex'),
-    }
-  }
-
-  const checksummedFiles = changelog ? [...artifacts, changelog] : artifacts
-
-  writeFileSync(
-    join(releaseArtifactsDir, 'SHA256SUMS'),
-    `${checksummedFiles.map(({ filename, sha256 }) => `${sha256}  ${filename}`).join('\n')}\n`,
-  )
-  writeFileSync(
-    join(releaseArtifactsDir, 'release-artifact.json'),
-    `${JSON.stringify(
-      {
-        commit: execFileSync('git', ['rev-parse', 'HEAD'], {
-          cwd: rootDir,
-          encoding: 'utf8',
-        }).trim(),
-        version: fixedReleaseVersion,
-        channel: fixedReleaseVersion.includes('-') ? 'next' : 'latest',
-        ...(changelog ? { changelog } : {}),
-        packages: artifacts,
-      },
-      null,
-      2,
-    )}\n`,
-  )
-}
 
 rmSync(outputDir, { recursive: true, force: true })

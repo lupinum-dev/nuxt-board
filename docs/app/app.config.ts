@@ -18,7 +18,7 @@ export default {
     nav: { links: 'auto', socialIcons: true },
     social: {
       github: 'https://github.com/lupinum-dev/nuxt-board',
-      discord: 'https://discord.gg/RPH6SeA36N',
+      discord: 'https://discord.lupinum.com',
     },
     analytics: { plausible: { scriptId: 'QbYVActbnoESYSo2_4S8V' } },
     feedback: { enabled: true },

@@ -20,7 +20,7 @@
   <a href="https://www.npmjs.com/package/@lupinum/nuxt-board"><img src="https://img.shields.io/npm/v/@lupinum/nuxt-board?color=00DC82" alt="npm version"></a>
   <a href="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml"><img src="https://github.com/lupinum-dev/nuxt-board/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-00DC82" alt="MIT license"></a>
-  <a href="https://discord.gg/RPH6SeA36N"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord" alt="Discord"></a>
+  <a href="https://discord.lupinum.com"><img src="https://img.shields.io/badge/Discord-18181B?logo=discord" alt="Discord"></a>
   <a href="https://deepwiki.com/lupinum-dev/nuxt-board"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
@@ -33,29 +33,18 @@ Nuxt Board separates board behavior from Vue rendering. The engine owns state, c
 
 This design gives you predictable state outside the component tree. You can add your own node content without replacing selection, drag, resize, pan, zoom, or keyboard behavior.
 
-<!-- BEGIN:consumer-onboarding -->
+## Agent setup
 
-## Use a coding agent
-
-A coding agent is a development tool that can inspect and change your project.
-
-Copy this task prompt into your application agent:
+Every Nuxt Board package ships its documentation for coding agents such as
+Claude Code, Codex and Cursor. The pages match the installed version. Give your
+coding agent this task:
 
 ```text
-Use the installed Nuxt Board packages to implement my requested feature.
-Read the application's instructions first. Resolve @lupinum/board-core/agent-docs
-and each installed Board package’s agent-docs entry from this application
-directory. Read the relevant local pages.
-Preserve the existing AGENTS.md. If it has no equivalent guidance, append
-one short note to resolve installed package docs before integration work
-and after dependency changes. Do not install a consumer skill.
-Check the completed feature using this project's normal commands.
+Set up @lupinum/nuxt-board for coding agents as described under "Agent setup" in its README.
 ```
 
-The installed documentation matches the package version. If an older version
-has no documentation export, use its README, types and matching release docs.
-
-<!-- END:consumer-onboarding -->
+Use the package you installed in place of `@lupinum/nuxt-board`, for example
+`@lupinum/vue-board` in a Vue project. The steps are in each package README.
 
 ## When to use it
 
@@ -124,7 +113,7 @@ Join the Lupinum OSS community to discuss Nuxt Board, ask questions, and share
 what you build.
 
 <p align="center">
-  <a href="https://discord.gg/RPH6SeA36N">
+  <a href="https://discord.lupinum.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/public/discord-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="docs/public/discord-light.svg">
@@ -166,7 +155,7 @@ Read the [Nuxt Board documentation](https://nuxt-board.lupinum.com). Start with 
 
 ## Contributing and development
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open a pull request. Run the normal handoff gate before you submit a change:
+Read [CONTRIBUTING.md](.github/CONTRIBUTING.md) before you open a pull request. Run the normal handoff gate before you submit a change:
 
 ```bash
 corepack enable
@@ -174,13 +163,13 @@ pnpm install
 pnpm verify
 ```
 
-Maintainers use the protected workflow in [MAINTAINING.md](MAINTAINING.md) for releases.
+Releases go through Changesets and the protected `release.yml` workflow. [AGENTS.md](AGENTS.md) lists the commands and rules.
 
 ## Support and security
 
-Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for bugs and focused proposals. Join the [Lupinum OSS Discord](https://discord.gg/RPH6SeA36N) for project discussion.
+Open a [GitHub issue](https://github.com/lupinum-dev/nuxt-board/issues) for bugs and focused proposals. Join the [Lupinum OSS Discord](https://discord.lupinum.com) for project discussion.
 
-Use the private process in [SECURITY.md](SECURITY.md) to report a vulnerability. Do not report a vulnerability in a public issue.
+Use the private process in [SECURITY.md](.github/SECURITY.md) to report a vulnerability. Do not report a vulnerability in a public issue.
 
 ## License
 

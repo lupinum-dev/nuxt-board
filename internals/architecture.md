@@ -139,8 +139,8 @@ the Vue render shell. `BoardConnectionLayer` always uses its enclosing
 ## Verification
 
 Use the narrowest relevant check while developing, then run `pnpm verify`.
-Run `pnpm test:e2e` for rendering or interaction changes. Maintainers use
-`pnpm release:verify` as the final-SHA release gate.
+Run `pnpm test:e2e` for rendering or interaction changes. `pnpm test:packed`
+installs the packed tarballs into fresh Vue and Nuxt consumers.
 
 Packed-consumer checks must resolve generated declarations rather than source
 aliases. Nuxt fixtures cover both default and prefixed auto-import names.
