@@ -1,5 +1,9 @@
 # Changelog
 
+This file covers releases up to v1.0.0-beta.5. Later releases are in each package's
+`CHANGELOG.md` (for example [`packages/nuxt-board/CHANGELOG.md`](packages/nuxt-board/CHANGELOG.md))
+and in the GitHub releases.
+
 ## v0.1.0
 
 ### First release

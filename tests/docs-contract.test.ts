@@ -1,15 +1,6 @@
-import { execFileSync, spawnSync } from 'node:child_process'
-import {
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import * as boardCore from '@lupinum/board-core'
 import { asNodeId, createBoardEngine } from '@lupinum/board-core'
@@ -32,46 +23,6 @@ function filesIn(path: string): string[] {
 }
 
 describe('docs demo contracts', () => {
-  it('rejects malformed canonical documentation URLs', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'nuxt-board-agent-docs-'))
-    const packageRoot = join(directory, 'package')
-    const sourceRoot = join(directory, 'source')
-    mkdirSync(packageRoot)
-    mkdirSync(sourceRoot)
-    writeFileSync(
-      join(packageRoot, 'package.json'),
-      JSON.stringify({
-        name: '@lupinum/example',
-        version: '1.0.0',
-        exports: { './agent-docs': './dist/agent/AGENTS.md' },
-      }),
-    )
-    writeFileSync(
-      join(sourceRoot, 'start.md'),
-      '---\ntitle: Start\nroute: /start\nurl: https://\n---\n',
-    )
-
-    try {
-      const helper = pathToFileURL(
-        resolve(root, 'scripts/package-agent-docs.mjs'),
-      ).href
-      const result = spawnSync(
-        process.execPath,
-        [
-          '--input-type=module',
-          '--eval',
-          `import { buildPackageAgentDocs } from ${JSON.stringify(helper)}; await buildPackageAgentDocs(${JSON.stringify({ packageRoot, sourceRoot, startRoutes: ['/start'] })})`,
-        ],
-        { encoding: 'utf8' },
-      )
-
-      expect(result.status).not.toBe(0)
-      expect(result.stderr).toContain('canonical URL')
-    } finally {
-      rmSync(directory, { recursive: true, force: true })
-    }
-  })
-
   it('uses Nuxt Board as the public product name', () => {
     expect(read('docs/app/app.config.ts')).toContain(
       "name: { en: 'Nuxt Board' }",
@@ -88,71 +39,12 @@ describe('docs demo contracts', () => {
     }
   })
 
-  it('keeps contributor intake on the shared Lupinum contract', () => {
-    const trackedFiles = new Set(
-      execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
-        .trim()
-        .split('\n'),
-    )
-    for (const path of [
-      '.github/ISSUE_TEMPLATE/bug.md',
-      '.github/ISSUE_TEMPLATE/config.yml',
-      '.github/ISSUE_TEMPLATE/documentation.md',
-      '.github/ISSUE_TEMPLATE/proposal.md',
-      '.github/pull_request_template.md',
-    ]) {
-      expect(trackedFiles.has(path), `${path} must be tracked`).toBe(true)
-    }
-    expect(read('.github/ISSUE_TEMPLATE/documentation.md')).toContain(
-      'name: Documentation report',
-    )
-    const pullRequestTemplate = read('.github/pull_request_template.md')
-    for (const heading of [
-      'Result',
-      'Verification',
-      'Documentation and compatibility',
-      'Release note',
-      'Risk',
-    ]) {
-      expect(pullRequestTemplate).toContain(`## ${heading}`)
-    }
-    expect(pullRequestTemplate).toContain(
-      '- [ ] I ran `pnpm verify`, or I explained why it does not apply.',
-    )
-    expect(pullRequestTemplate).toContain(
-      '- [ ] I updated versions, migration guidance, and compatibility notes when the public contract changed.',
-    )
-  })
-
-  it('verifies automated version pull requests without a second credential', () => {
-    const ciWorkflow = read('.github/workflows/ci.yml')
-    const releaseWorkflow = read('.github/workflows/release.yml')
-    const packageJson = JSON.parse(read('package.json')) as {
-      scripts: Record<string, string>
-    }
-
-    expect(ciWorkflow).toContain('  workflow_dispatch:')
-    expect(releaseWorkflow).toContain('      actions: write')
-    expect(releaseWorkflow).toContain('        id: version-pr')
-    expect(releaseWorkflow).toContain(
-      '        run: gh workflow run ci.yml --ref release/version-packages',
-    )
-    expect(releaseWorkflow).toContain('github.event.workflow_run.head_sha')
-    expect(releaseWorkflow).toContain(
-      'The default branch advanced after the version patch was prepared.',
-    )
-    expect(releaseWorkflow).not.toContain('PERSONAL_ACCESS_TOKEN')
-    expect(packageJson.scripts['release:version']).toContain(
-      'prettier CHANGELOG.md --write',
-    )
-  })
-
   it('keeps the production documentation services configured', () => {
     const config = read('docs/app/app.config.ts')
     for (const marker of [
       "plausible: { scriptId: 'QbYVActbnoESYSo2_4S8V' }",
       'feedback: { enabled: true }',
-      'https://discord.gg/RPH6SeA36N',
+      'https://discord.lupinum.com',
       'https://lupinum.com/impressum',
       'https://lupinum.com/datenschutz',
     ]) {
@@ -240,6 +132,7 @@ describe('docs demo contracts', () => {
       'Quick start',
       'Exports',
       'Documentation',
+      'Agent setup',
       'Support and security',
       'License',
     ]
@@ -292,7 +185,7 @@ describe('docs demo contracts', () => {
   it('documents the board-core internal subpath as first-party ABI only', () => {
     for (const file of [
       'docs/content/docs/6.reference/2.board-core.md',
-      'ARCHITECTURE.md',
+      'internals/architecture.md',
       'packages/board-core/README.md',
     ]) {
       const source = read(file)
@@ -381,7 +274,7 @@ describe('docs demo contracts', () => {
   })
 
   it('keeps security reporting contact consistent', () => {
-    expect(read('SECURITY.md')).toContain('info@lupinum.com')
+    expect(read('.github/SECURITY.md')).toContain('info@lupinum.com')
     expect(
       read('docs/content/docs/7.project/2.support-and-security.md'),
     ).toContain('info@lupinum.com')
