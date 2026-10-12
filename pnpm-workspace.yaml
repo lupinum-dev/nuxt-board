@@ -18,7 +18,7 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: true
 overrides:
-  '@hono/node-server': 1.19.15
+  '@hono/node-server': 1.19.17
   '@babel/core': 7.29.6
   brace-expansion: 5.0.12
   browserslist: 4.28.7
