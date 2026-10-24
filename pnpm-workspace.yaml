@@ -24,7 +24,7 @@ overrides:
   browserslist: 4.28.7
   esbuild: 0.28.1
   fast-uri: 3.1.7
-  hono: 4.13.7
+  hono: 4.13.11
   ip-address: 10.7.3
   js-yaml: 4.3.2
   launch-editor: 2.14.1
@@ -37,3 +37,6 @@ overrides:
   'undici@6': 6.28.1
   'undici@7': 7.29.1
   ws: 8.21.0
+minimumReleaseAgeExclude:
+  # Renovate security update: hono@4.13.11
+  - hono@4.13.11
