@@ -27,7 +27,7 @@ overrides:
   hono: 4.13.7
   ip-address: 10.7.3
   js-yaml: 4.3.2
-  launch-editor: 2.14.1
+  launch-editor: 2.14.2
   nanoid: 3.3.18
   postcss: 8.5.23
   sharp: 0.35.5
@@ -37,3 +37,6 @@ overrides:
   'undici@6': 6.28.1
   'undici@7': 7.29.1
   ws: 8.21.0
+minimumReleaseAgeExclude:
+  # Renovate security update: launch-editor@2.14.2
+  - launch-editor@2.14.2
