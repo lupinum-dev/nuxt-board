@@ -23,7 +23,7 @@ overrides:
   brace-expansion: 5.0.12
   browserslist: 4.28.7
   esbuild: 0.28.1
-  fast-uri: 3.1.7
+  fast-uri: 3.1.9
   hono: 4.13.7
   ip-address: 10.7.3
   js-yaml: 4.3.2
@@ -40,3 +40,6 @@ overrides:
   'vite@>=7.0.0 <7.3.7': 7.3.8
   'vite@>=8.2.0 <8.2.4': 8.2.4
   ws: 8.21.0
+minimumReleaseAgeExclude:
+  # Renovate security update: fast-uri@3.1.9
+  - fast-uri@3.1.9
